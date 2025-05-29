@@ -90,27 +90,45 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     try {
       console.log('🎤 Calculating final conversation XP for', totalSeconds, 'seconds');
       
-      const xpResult = calculateLiveVoiceXP(totalSeconds, userLevel);
+      // 🔧 CORRIGIDO: Sistema de XP mais controlado para conversas finais
+      const durationMinutes = totalSeconds / 60;
+      let finalXP = 0;
+      
+      // XP base por duração (mais conservador)
+      if (durationMinutes >= 10) finalXP = 100; // 10+ minutos
+      else if (durationMinutes >= 5) finalXP = 60;  // 5+ minutos  
+      else if (durationMinutes >= 2) finalXP = 40;  // 2+ minutos
+      else if (durationMinutes >= 1) finalXP = 25;  // 1+ minuto
+      else finalXP = 15; // Menos de 1 minuto
+      
+      // Ajuste por nível
+      const levelMultiplier = {
+        'Novice': 1.2,
+        'Intermediate': 1.0,
+        'Advanced': 0.8
+      };
+      
+      finalXP = Math.floor(finalXP * levelMultiplier[userLevel]);
       
       // Salvar no banco de dados
       if (supabaseService.isAvailable()) {
         await supabaseService.saveAudioPractice({
           user_id: user.entra_id,
-          transcription: `Live voice conversation (${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s)`,
+          transcription: `Live voice conversation completed (${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s)`,
           accuracy_score: null,
           fluency_score: null,
           completeness_score: null,
           pronunciation_score: null,
-          feedback: xpResult.feedback,
-          xp_awarded: xpResult.xpAwarded,
+          feedback: `Great conversation! You practiced English for ${durationMinutes.toFixed(1)} minutes. (+${finalXP} XP)`,
+          xp_awarded: finalXP,
           practice_type: 'live_voice',
           audio_duration: totalSeconds
         });
 
-        console.log('✅ Live voice practice saved with XP:', xpResult.xpAwarded);
+        console.log('✅ Live voice practice saved with CONTROLLED XP:', finalXP);
         
         // Callback para atualizar XP na UI
-        onXPGained?.(xpResult.xpAwarded);
+        onXPGained?.(finalXP);
       }
 
     } catch (error) {
@@ -357,34 +375,36 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     const now = new Date();
     const timeSinceLastUpdate = Math.floor((now.getTime() - lastXPUpdate.getTime()) / 1000);
     
-    // Dar XP incremental a cada 60 segundos
-    if (timeSinceLastUpdate >= 60) {
+    // 🔧 CORRIGIDO: Dar XP incremental apenas a cada 2 minutos (120 segundos)
+    // E apenas se a conversa estiver realmente ativa
+    if (timeSinceLastUpdate >= 120 && (isListening || isSpeaking)) {
       try {
-        const xpResult = calculateLiveVoiceXP(60, userLevel); // XP por 1 minuto
+        // 🔧 CORRIGIDO: XP menor e mais controlado para incrementos
+        const incrementalXP = userLevel === 'Novice' ? 25 : userLevel === 'Intermediate' ? 15 : 10;
         
         if (supabaseService.isAvailable()) {
           await supabaseService.saveAudioPractice({
             user_id: user.entra_id,
-            transcription: `Live voice conversation segment (1 minute)`,
+            transcription: `Live voice conversation segment (2 minutes)`,
             accuracy_score: null,
             fluency_score: null,
             completeness_score: null,
             pronunciation_score: null,
-            feedback: `Conversation in progress... (+${xpResult.xpAwarded} XP)`,
-            xp_awarded: xpResult.xpAwarded,
+            feedback: `Conversation in progress... (+${incrementalXP} XP)`,
+            xp_awarded: incrementalXP,
             practice_type: 'live_voice',
-            audio_duration: 60
+            audio_duration: 120
           });
 
-          console.log('✅ Incremental XP awarded:', xpResult.xpAwarded);
-          onXPGained?.(xpResult.xpAwarded);
+          console.log('✅ Incremental XP awarded (CONTROLLED):', incrementalXP);
+          onXPGained?.(incrementalXP);
           setLastXPUpdate(now);
         }
       } catch (error) {
         console.error('❌ Error updating incremental XP:', error);
       }
     }
-  }, [conversationStartTime, lastXPUpdate, user?.entra_id, userLevel, onXPGained]);
+  }, [conversationStartTime, lastXPUpdate, user?.entra_id, userLevel, onXPGained, isListening, isSpeaking]);
 
   // 🧹 Limpeza de recursos
   const cleanup = useCallback(() => {
@@ -451,9 +471,10 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   // 🎤 Efeito para XP incremental
   useEffect(() => {
     if (connectionStatus === 'connected' && conversationStartTime) {
+      // 🔧 CORRIGIDO: Verificar a cada 2 minutos (120 segundos) em vez de 30 segundos
       const interval = setInterval(() => {
         updateIncrementalXP();
-      }, 30000); // Verificar a cada 30 segundos
+      }, 120000); // 2 minutos
 
       return () => clearInterval(interval);
     }

@@ -204,6 +204,11 @@ export class OpenAIRealtimeService {
         console.log('📱 [FIXED] WebSocket closed - going away (normal for page refresh)');
         return;
         
+      case 1005:
+        // 🔧 CORRIGIDO: Código 1005 é normal - sem motivo específico
+        console.log('🔌 [FIXED] WebSocket closed normally (no status code)');
+        return;
+        
       case 1008:
         errorMessage = 'AUTHENTICATION_FAILED: Invalid API key or your account does not have access to Realtime API';
         break;
