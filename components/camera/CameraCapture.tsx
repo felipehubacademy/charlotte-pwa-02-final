@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, X, Check, RotateCcw, Zap } from 'lucide-react';
+import { Camera, X, Check, RotateCcw } from 'lucide-react';
 
 interface CameraCaptureProps {
   isOpen: boolean;
@@ -19,139 +19,84 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 }) => {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
   const [isLoading, setIsLoading] = useState(false);
+  const [zoom, setZoom] = useState(1);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize camera
-  const initializeCamera = useCallback(async () => {
-    try {
-      // Stop any existing stream first
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
+  // Get instruction text based on user level
+  const getInstructionText = () => {
+    if (userLevel === 'Novice') {
+      return 'Centralize o objeto na foto para Charlotte te dizer o nome em inglês';
+    }
+    return 'Center the object in the photo for Charlotte to tell you its name in English';
+  };
 
-      console.log('📸 Initializing camera for photo capture only...');
+  // Handle camera capture
+  const handleCameraCapture = useCallback(() => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }, []);
 
-      // iOS specific camera constraints for photo capture - SIMPLIFIED
-      const constraints: MediaStreamConstraints = {
-        video: {
-          facingMode: facingMode
-          // Removed: width, height, aspectRatio - using browser defaults for photo
-        },
-        // Explicitly exclude audio to ensure it's photo-only
-        audio: false
+  // Handle file selection
+  const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      setIsCapturing(true);
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageData = e.target?.result as string;
+        setCapturedImage(imageData);
+        setIsCapturing(false);
       };
+      reader.readAsDataURL(file);
+    }
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
 
-      console.log('📸 Requesting camera access for PHOTO CAPTURE ONLY with minimal constraints:', constraints);
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('✅ Photo camera stream obtained:', mediaStream.getVideoTracks()[0]?.getSettings());
+  // Handle zoom with pinch gesture
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) +
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
+      (e.currentTarget as any).initialDistance = distance;
+      (e.currentTarget as any).initialZoom = zoom;
+    }
+  }, [zoom]);
 
-      setStream(mediaStream);
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && (e.currentTarget as any).initialDistance) {
+      e.preventDefault();
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const distance = Math.sqrt(
+        Math.pow(touch2.clientX - touch1.clientX, 2) +
+        Math.pow(touch2.clientY - touch1.clientY, 2)
+      );
       
-      if (videoRef.current && mediaStream) {
-        console.log('🎥 Setting video source...');
-        videoRef.current.srcObject = mediaStream;
-        
-        // iOS specific attributes for photo preview - MINIMAL
-        videoRef.current.muted = true;
-        // Disable recording-related attributes
-        videoRef.current.setAttribute('disablepictureinpicture', 'true');
-        
-        // Manual play for photo preview only
-        videoRef.current.onloadedmetadata = () => {
-          console.log('📸 Video metadata loaded for photo preview...');
-          if (videoRef.current) {
-            const playPromise = videoRef.current.play();
-            if (playPromise !== undefined) {
-              playPromise
-                .then(() => {
-                  console.log('✅ Photo preview started successfully');
-                })
-                .catch(error => {
-                  console.error('❌ Photo preview failed:', error);
-                });
-            }
-          }
-        };
-        
-        // Handle video errors
-        videoRef.current.onerror = (error) => {
-          console.error('❌ Video error:', error);
-        };
-      }
-    } catch (error) {
-      console.error('❌ Camera access failed:', error);
-      // Show user-friendly error message
+      const scale = distance / (e.currentTarget as any).initialDistance;
+      const newZoom = Math.min(Math.max((e.currentTarget as any).initialZoom * scale, 1), 3);
+      setZoom(newZoom);
     }
-  }, [facingMode, stream]);
-
-  // Start camera when modal opens
-  React.useEffect(() => {
-    if (isOpen && !capturedImage) {
-      // Detect if it's mobile
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                       window.innerWidth <= 768;
-      
-      if (isMobile) {
-        // Add a small delay to ensure modal is fully rendered
-        setTimeout(() => {
-          initializeCamera();
-        }, 100);
-      } else {
-        // Show desktop message
-        console.log('Camera only available on mobile devices');
-      }
-    }
-    
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
-      }
-    };
-  }, [isOpen, capturedImage, initializeCamera, stream]);
-
-  // Capture photo
-  const capturePhoto = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    setIsCapturing(true);
-    
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    
-    // Set canvas size to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // Draw video frame to canvas
-    ctx?.drawImage(video, 0, 0);
-    
-    // Get image data
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
-    setCapturedImage(imageData);
-    
-    // Stop video stream
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    
-    // Capture animation
-    setTimeout(() => setIsCapturing(false), 200);
-  }, [stream]);
+  }, []);
 
   // Retake photo
   const retakePhoto = useCallback(() => {
     setCapturedImage(null);
-    initializeCamera();
-  }, [initializeCamera]);
+    setZoom(1);
+  }, []);
 
   // Send photo
   const sendPhoto = async () => {
@@ -171,11 +116,6 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
       setIsLoading(false);
     }
   };
-
-  // Toggle camera (front/back)
-  const toggleCamera = useCallback(() => {
-    setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-  }, []);
 
   return (
     <AnimatePresence>
@@ -200,70 +140,52 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
                 {userLevel === 'Novice' ? 'Tire uma foto' : 'Take a photo'}
               </h2>
               
-              <button
-                onClick={toggleCamera}
-                disabled={!!capturedImage}
-                className="p-2 text-white/70 hover:text-white active:bg-white/10 rounded-full transition-colors disabled:opacity-50"
-              >
-                <RotateCcw size={24} />
-              </button>
+              <div className="w-10" /> {/* Spacer */}
             </div>
           </div>
 
           {/* Camera/Preview Area */}
           <div className="flex-1 relative overflow-hidden">
             {capturedImage ? (
-              /* Photo Preview */
-              <div className="w-full h-full flex items-center justify-center bg-black">
+              /* Photo Preview with Zoom */
+              <div 
+                ref={containerRef}
+                className="w-full h-full flex items-center justify-center bg-black"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+              >
                 <img
+                  ref={imageRef}
                   src={capturedImage}
                   alt="Captured"
-                  className="max-w-full max-h-full object-contain"
+                  className="max-w-full max-h-full object-contain transition-transform duration-200"
+                  style={{
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'center'
+                  }}
                 />
               </div>
             ) : (
-              /* Live Camera Feed */
-              <div className={`relative w-full h-full flex items-center justify-center bg-black ${
-                typeof window !== 'undefined' && 
-                ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-                  ? 'camera-container' 
-                  : ''
-              }`}>
-                <video
-                  ref={videoRef}
-                  muted
-                  className="w-full h-full object-cover"
-                  style={{
-                    transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
-                  }}
-                />
-                
-                {/* Camera overlay grid */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="w-full h-full grid grid-cols-3 grid-rows-3 opacity-30">
-                    {Array.from({ length: 9 }).map((_, i) => (
-                      <div key={i} className="border border-white/20" />
-                    ))}
+              /* Camera Instructions */
+              <div className="relative w-full h-full flex flex-col items-center justify-center bg-gray-900">
+                {/* Instruction Text */}
+                <div className="absolute top-1/3 left-4 right-4 text-center z-10">
+                  <p className="text-white text-lg font-medium mb-2">
+                    {getInstructionText()}
+                  </p>
+                  <div className="w-32 h-32 border-2 border-white/50 rounded-lg mx-auto flex items-center justify-center">
+                    <Camera size={48} className="text-white/50" />
                   </div>
                 </div>
 
-                {/* Focus indicator */}
-                <motion.div
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                  animate={isCapturing ? { opacity: [1, 0] } : {}}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="w-20 h-20 border-2 border-white rounded-lg" />
-                </motion.div>
-
-                {/* Capture flash effect */}
+                {/* Capture Animation */}
                 <AnimatePresence>
                   {isCapturing && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: [0, 1, 0] }}
                       exit={{ opacity: 0 }}
-                      transition={{ duration: 0.2 }}
+                      transition={{ duration: 0.3 }}
                       className="absolute inset-0 bg-white"
                     />
                   )}
@@ -301,7 +223,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
                 /* Camera Controls */
                 <div className="flex items-center justify-center">
                   <button
-                    onClick={capturePhoto}
+                    onClick={handleCameraCapture}
                     className="w-20 h-20 bg-white rounded-full hover:bg-white/90 transition-all active:scale-95 flex items-center justify-center shadow-lg"
                   >
                     <div className="w-16 h-16 bg-white rounded-full border-4 border-gray-300 flex items-center justify-center">
@@ -311,25 +233,26 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
                 </div>
               )}
               
-              {/* Instructions */}
-              <div className="mt-4 text-center">
-                <p className="text-white/70 text-sm">
-                  {capturedImage ? (
-                    userLevel === 'Novice' 
-                      ? 'Charlotte vai identificar o objeto na foto'
-                      : 'Charlotte will identify the object in the photo'
-                  ) : (
-                    userLevel === 'Novice' 
-                      ? 'Posicione o objeto no centro da tela'
-                      : 'Position the object in the center of the screen'
-                  )}
-                </p>
-              </div>
+              {/* Zoom indicator */}
+              {capturedImage && zoom > 1 && (
+                <div className="mt-4 text-center">
+                  <p className="text-white/70 text-sm">
+                    Zoom: {zoom.toFixed(1)}x
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Hidden canvas for photo capture */}
-          <canvas ref={canvasRef} className="hidden" />
+          {/* Hidden file input for camera */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
         </motion.div>
       )}
     </AnimatePresence>

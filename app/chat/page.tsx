@@ -814,6 +814,207 @@ export default function ChatPage() {
     }
   };
 
+  // Handle image capture from camera
+  const handleImageCapture = useCallback(async (imageData: string) => {
+    if (!user?.entra_id) return;
+
+    try {
+      // Create a thumbnail for chat display
+      const img = new Image();
+      img.onload = async () => {
+        // Create canvas for thumbnail
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Calculate thumbnail size (max 200px width)
+        const maxWidth = 200;
+        const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
+        canvas.width = img.width * ratio;
+        canvas.height = img.height * ratio;
+        
+        // Draw thumbnail
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const thumbnailData = canvas.toDataURL('image/jpeg', 0.7);
+
+        // Add image message to chat
+        const imageMessage: Message = {
+          id: generateMessageId('user-image'),
+          role: 'user',
+          content: user.user_level === 'Novice' 
+            ? '📸 Foto enviada - O que é este objeto?' 
+            : '📸 Photo sent - What is this object?',
+          messageType: 'image',
+          timestamp: new Date(),
+          audioUrl: thumbnailData // Using audioUrl field to store image data
+        };
+
+        setMessages(prev => [...prev, imageMessage]);
+        setIsProcessingMessage(true);
+
+        try {
+          // Create optimized prompt for vocabulary learning with XP system
+          const vocabularyPrompt = user.user_level === 'Novice' 
+            ? `Analise esta imagem e identifique o objeto principal. Responda no formato EXATO:
+
+🔤 **[Nome em inglês]** - [tradução em português]
+📖 [definição simples em português]
+💬 "[frase de exemplo em inglês]"
+
+Seja MUITO SUCINTA. Depois me peça para praticar enviando uma frase usando esta nova palavra.
+
+IMPORTANTE: Inclua no final da sua resposta a palavra descoberta no formato: VOCABULARY_WORD:[palavra_em_inglês]`
+            : `Analyze this image and identify the main object. Respond in this EXACT format:
+
+🔤 **[English name]** - [Portuguese translation]
+📖 [simple definition in English]
+💬 "[example sentence in English]"
+
+Be VERY CONCISE. Then ask me to practice by sending a sentence using this new word.
+
+IMPORTANT: Include at the end of your response the discovered word in the format: VOCABULARY_WORD:[english_word]`;
+
+          // Call assistant API for vocabulary analysis
+          const response = await fetch('/api/assistant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              transcription: vocabularyPrompt,
+              pronunciationData: null,
+              userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+              userName: user?.name?.split(' ')[0] || 'Student',
+              messageType: 'image',
+              imageData: imageData, // Send full image data to assistant
+              conversationContext: conversationContext.generateContextForAssistant()
+            })
+          });
+
+          if (!response.ok) throw new Error(`Assistant API error: ${response.status}`);
+          const data = await response.json();
+          if (!data.success) throw new Error(data.error || 'Assistant API failed');
+
+          const assistantResult = data.result;
+          let assistantFeedback = assistantResult.feedback;
+          
+          // Extract vocabulary word from response
+          const vocabularyMatch = assistantFeedback.match(/VOCABULARY_WORD:(\w+)/);
+          let discoveredWord = null;
+          let vocabularyXP = 0;
+          
+          if (vocabularyMatch) {
+            discoveredWord = vocabularyMatch[1].toLowerCase();
+            // Remove the VOCABULARY_WORD tag from the response
+            assistantFeedback = assistantFeedback.replace(/\s*VOCABULARY_WORD:\w+\s*/, '');
+            
+            // Check if word already exists for this user
+            if (supabaseService.isAvailable()) {
+              try {
+                const { vocabularyService } = await import('@/lib/supabase-service');
+                const existingWord = await vocabularyService.checkWordExists(user.entra_id, discoveredWord);
+                
+                if (!existingWord) {
+                  // New vocabulary word discovered! +5 XP
+                  vocabularyXP = 5;
+                  
+                  // Extract vocabulary data from assistant response
+                  const englishMatch = assistantFeedback.match(/\*\*([^*]+)\*\*\s*-\s*([^📖]+)/);
+                  const definitionMatch = assistantFeedback.match(/📖\s*([^💬]+)/);
+                  const exampleMatch = assistantFeedback.match(/💬\s*"([^"]+)"/);
+                  
+                  const vocabularyData = {
+                    word: discoveredWord,
+                    translation: englishMatch ? englishMatch[2].trim() : undefined,
+                    definition: definitionMatch ? definitionMatch[1].trim() : undefined,
+                    example_sentence: exampleMatch ? exampleMatch[1].trim() : undefined,
+                    image_data: thumbnailData
+                  };
+                  
+                  // Save vocabulary to database
+                  await vocabularyService.saveVocabulary(user.entra_id, vocabularyData);
+                  
+                  console.log('✅ New vocabulary saved:', discoveredWord, '+5 XP');
+                } else {
+                  console.log('📚 Word already known:', discoveredWord);
+                  // Update practice count for existing word
+                  await vocabularyService.updatePracticeCount(existingWord.id);
+                }
+              } catch (vocabError) {
+                console.error('Error handling vocabulary:', vocabError);
+              }
+            }
+          }
+
+          // Split response into multiple messages
+          const aiMessages = splitIntoMultipleMessages(assistantFeedback);
+
+          // Add vocabulary XP notification if new word was discovered
+          if (vocabularyXP > 0) {
+            aiMessages.push(`🎉 New vocabulary discovered! +${vocabularyXP} XP`);
+          }
+
+          await sendSequentialMessages(
+            aiMessages,
+            (msg) => setMessages(prev => [...prev, msg]),
+            generateMessageId,
+            1200,
+            assistantResult.technicalFeedback
+          );
+
+          // Add to conversation context
+          aiMessages.forEach(msg => 
+            conversationContext.addMessage('assistant', msg, 'text')
+          );
+
+          // Save practice with vocabulary XP
+          if (supabaseService.isAvailable() && user?.entra_id) {
+            const totalXPAwarded = (assistantResult.xpAwarded || 3) + vocabularyXP; // Base XP + vocabulary XP
+            
+            await supabaseService.saveAudioPractice({
+              user_id: user.entra_id,
+              transcription: `Image analysis: ${discoveredWord || 'object identification'}`,
+              accuracy_score: null,
+              fluency_score: null,
+              completeness_score: null,
+              pronunciation_score: null,
+              xp_awarded: totalXPAwarded,
+              practice_type: 'camera_object',
+              audio_duration: 0,
+              feedback: assistantFeedback,
+              technicalFeedback: assistantResult.technicalFeedback
+            });
+            
+            setSessionXP(prev => prev + totalXPAwarded);
+            setTotalXP(prev => prev + totalXPAwarded);
+            
+            setTimeout(() => loadUserStats(), 1000);
+          }
+
+        } catch (error) {
+          console.error('Error processing image with assistant:', error);
+          
+          // Fallback response
+          const fallbackResponse: Message = {
+            id: generateMessageId('assistant-image-error'),
+            role: 'assistant',
+            content: user.user_level === 'Novice'
+              ? "Desculpe, tive problemas para analisar sua foto. Sorry, I had trouble analyzing your photo. Please try again!"
+              : "I'm sorry, I had trouble analyzing your photo. Please try taking another picture with better lighting.",
+            timestamp: new Date(),
+            messageType: 'text'
+          };
+          
+          setMessages(prev => [...prev, fallbackResponse]);
+        } finally {
+          setIsProcessingMessage(false);
+        }
+      };
+      
+      img.src = imageData;
+    } catch (error) {
+      console.error('Error processing image:', error);
+      setIsProcessingMessage(false);
+    }
+  }, [user, generateMessageId, conversationContext, loadUserStats]);
+
   return (
     <div className="h-screen bg-secondary flex flex-col overflow-hidden">
       <header className={`flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
@@ -1080,10 +1281,7 @@ export default function ChatPage() {
       <CameraCapture
         isOpen={isCameraOpen}
         onClose={() => setIsCameraOpen(false)}
-        onCapture={(imageData) => {
-          console.log('Photo captured:', imageData);
-          setIsCameraOpen(false);
-        }}
+        onCapture={handleImageCapture}
         userLevel={user?.user_level || 'Novice'}
       />
     </div>

@@ -8,7 +8,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✅ Interface atualizada para aceitar contexto conversacional
+// ✅ Interface atualizada para aceitar contexto conversacional e imagens
 interface AssistantRequest {
   transcription: string;
   pronunciationData?: {
@@ -19,8 +19,9 @@ interface AssistantRequest {
   } | null;
   userLevel: 'Novice' | 'Intermediate' | 'Advanced';
   userName?: string;
-  messageType?: 'text' | 'audio';
+  messageType?: 'text' | 'audio' | 'image'; // 🆕 Adicionado suporte para imagens
   conversationContext?: string; // 🆕 Contexto da conversa
+  imageData?: string; // 🆕 Dados da imagem em base64
 }
 
 // ✅ Interface atualizada para incluir dados de gramática
@@ -50,17 +51,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body: AssistantRequest = await request.json();
-    const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext } = body;
+    const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext, imageData } = body;
 
     console.log('Processing for user:', { userName, userLevel, transcription });
     console.log('Pronunciation scores:', pronunciationData);
     console.log('Message type:', messageType);
     console.log('Has conversation context:', !!conversationContext);
+    console.log('Has image data:', !!imageData);
 
-    // ✅ VERIFICAR SE É TEXTO OU ÁUDIO
-    const isTextMessage = messageType === 'text' || !pronunciationData;
-
-    if (isTextMessage) {
+    // ✅ VERIFICAR TIPO DE MENSAGEM
+    if (messageType === 'image' && imageData) {
+      console.log('📸 Processing IMAGE message with vocabulary analysis...');
+      return await handleImageMessage(transcription, imageData, userLevel, userName, conversationContext);
+    } else if (messageType === 'text' || !pronunciationData) {
       console.log('🔤 Processing TEXT message with GRAMMAR ANALYSIS...');
       return await handleTextMessageWithGrammar(transcription, userLevel, userName, conversationContext);
     } else {
@@ -615,4 +618,93 @@ function generateEncouragement(score: number): string {
   if (score >= 70) return "Great job! Keep up the good work! 👍";
   if (score >= 60) return "Good effort! You're getting better with each practice! 💪";
   return "Keep going! Every practice session makes you stronger! 🌱";
+}
+
+// 🆕 NOVA FUNÇÃO: Processar mensagens de IMAGEM com ANÁLISE DE VOCABULÁRIO
+async function handleImageMessage(
+  prompt: string,
+  imageData: string,
+  userLevel: 'Novice' | 'Intermediate' | 'Advanced',
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('📸 Starting image analysis for vocabulary learning...');
+
+    const levelInstructions = {
+      'Novice': 'Respond in simple English with Portuguese translations. Be very encouraging and use basic vocabulary.',
+      'Intermediate': 'Provide clear explanations in English. Include Portuguese translations when helpful.',
+      'Advanced': 'Use sophisticated English. Focus on advanced vocabulary and nuanced definitions.'
+    };
+
+    const systemPrompt = `You are Charlotte, an English vocabulary tutor. Analyze the image and identify the main object to help the student learn new English vocabulary.
+
+User Level: ${userLevel}
+Guidelines: ${levelInstructions[userLevel]}
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+IMPORTANT INSTRUCTIONS:
+1. Identify the MAIN object in the image
+2. Follow the EXACT format requested in the user's prompt
+3. Be VERY CONCISE and focused
+4. Include the vocabulary word at the end in the format: VOCABULARY_WORD:[english_word]
+5. Use the conversation context to maintain natural flow
+6. Make it educational but engaging
+
+Your response should help the student learn new vocabulary through visual association.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageData,
+                detail: "low" // Use low detail for faster processing
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 200,
+      temperature: 0.7
+    });
+
+    const feedback = completion.choices[0]?.message?.content || 'I had trouble analyzing the image. Please try again!';
+
+    const response: AssistantResponse = {
+      feedback: feedback,
+      xpAwarded: 3, // Base XP for image analysis (vocabulary XP added separately)
+      nextChallenge: '',
+      tips: [],
+      encouragement: 'Great job using the camera feature!',
+      technicalFeedback: `Image analysis completed. Object identification for vocabulary learning.`
+    };
+
+    console.log('✅ Image analysis response ready');
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleImageMessage:', error);
+    
+    // Fallback response
+    const fallbackResponse: AssistantResponse = {
+      feedback: userLevel === 'Novice' 
+        ? 'Desculpe, tive problemas para analisar sua imagem. Sorry, I had trouble analyzing your image. Please try again!'
+        : 'I apologize, but I had trouble analyzing your image. Please try taking another photo with better lighting.',
+      xpAwarded: 1,
+      nextChallenge: '',
+      tips: [],
+      encouragement: 'Keep practicing!',
+      technicalFeedback: 'Image analysis failed - technical error'
+    };
+
+    return NextResponse.json({ success: true, result: fallbackResponse });
+  }
 }

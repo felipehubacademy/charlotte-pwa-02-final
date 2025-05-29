@@ -695,3 +695,120 @@ class SupabaseService {
 }
 
 export const supabaseService = new SupabaseService();
+
+// Vocabulary management
+export const vocabularyService = {
+  // Save discovered vocabulary
+  async saveVocabulary(userId: string, data: {
+    word: string;
+    translation?: string;
+    definition?: string;
+    example_sentence?: string;
+    image_data?: string;
+  }) {
+    const service = new SupabaseService();
+    if (!service.isAvailable()) {
+      console.warn('Supabase not available');
+      return null;
+    }
+
+    try {
+      // Convert string userId to UUID format if needed
+      const { data: result, error } = await (service as any).supabase
+        .from('user_vocabulary')
+        .insert({
+          user_id: userId, // Supabase will handle the UUID conversion
+          word: data.word,
+          translation: data.translation,
+          definition: data.definition,
+          example_sentence: data.example_sentence,
+          image_data: data.image_data,
+          discovered_at: new Date().toISOString(),
+          practiced_count: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return result;
+    } catch (error) {
+      console.error('Error saving vocabulary:', error);
+      throw error;
+    }
+  },
+
+  // Get user's vocabulary
+  async getUserVocabulary(userId: string, limit = 50) {
+    const service = new SupabaseService();
+    if (!service.isAvailable()) {
+      console.warn('Supabase not available');
+      return [];
+    }
+
+    try {
+      const { data, error } = await (service as any).supabase
+        .from('user_vocabulary')
+        .select('*')
+        .eq('user_id', userId) // Supabase will handle the UUID conversion
+        .order('discovered_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching vocabulary:', error);
+      throw error;
+    }
+  },
+
+  // Update practice count
+  async updatePracticeCount(vocabularyId: string) {
+    const service = new SupabaseService();
+    if (!service.isAvailable()) {
+      console.warn('Supabase not available');
+      return null;
+    }
+
+    try {
+      const { data, error } = await (service as any).supabase
+        .from('user_vocabulary')
+        .update({
+          practiced_count: (service as any).supabase.raw('practiced_count + 1'),
+          last_practiced: new Date().toISOString()
+        })
+        .eq('id', vocabularyId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating practice count:', error);
+      throw error;
+    }
+  },
+
+  // Check if word already exists for user
+  async checkWordExists(userId: string, word: string) {
+    const service = new SupabaseService();
+    if (!service.isAvailable()) {
+      console.warn('Supabase not available');
+      return null;
+    }
+
+    try {
+      const { data, error } = await (service as any).supabase
+        .from('user_vocabulary')
+        .select('id, word, practiced_count')
+        .eq('user_id', userId) // Supabase will handle the UUID conversion
+        .ilike('word', word)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    } catch (error) {
+      console.error('Error checking word existence:', error);
+      return null;
+    }
+  }
+};
