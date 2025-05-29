@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+// ✅ Interface atualizada para incluir dados de gramática
 interface AudioPracticeData {
   user_id: string;
   transcription: string;
@@ -16,6 +17,13 @@ interface AudioPracticeData {
   xp_awarded: number;
   practice_type: 'audio_message' | 'text_message' | 'live_voice' | 'challenge' | 'camera_object';
   audio_duration: number;
+  // 🆕 Novos campos para análise de gramática
+  grammar_score?: number | null;
+  grammar_errors?: number | null;
+  text_complexity?: string | null;
+  word_count?: number | null;
+  // 🆕 Feedback técnico para mensagens de áudio
+  technicalFeedback?: string;
 }
 
 interface UserStats {
@@ -25,6 +33,9 @@ interface UserStats {
   total_practices: number;
   longest_streak?: number;
   average_pronunciation_score?: number;
+  // 🆕 Estatísticas de gramática
+  average_grammar_score?: number;
+  total_text_practices?: number;
 }
 
 interface TodaySession {
@@ -49,6 +60,7 @@ class SupabaseService {
     return this.supabase !== null;
   }
 
+  // ✅ Função atualizada para salvar dados de gramática
   async saveAudioPractice(data: AudioPracticeData) {
     if (!this.supabase) {
       console.warn('Supabase not available');
@@ -56,36 +68,124 @@ class SupabaseService {
     }
 
     try {
-      console.log('💾 Saving practice to user_practices:', data);
+      console.log('💾 Saving practice to user_practices:', {
+        user_id: data.user_id,
+        practice_type: data.practice_type,
+        xp_awarded: data.xp_awarded,
+        hasGrammarData: !!(data.grammar_score || data.grammar_errors || data.text_complexity)
+      });
 
       // Primeiro, verificar se há sessão para hoje
       let sessionId = await this.getOrCreateTodaySession(data.user_id);
 
+      // 🔍 Verificar se conseguiu criar/obter sessão
+      if (!sessionId) {
+        console.error('Failed to create or get session');
+        return null;
+      }
+
+      // 🎯 Preparar dados básicos para inserção (apenas campos que sabemos que existem)
+      const practiceData: any = {
+        session_id: sessionId,
+        user_id: data.user_id,
+        transcription: data.transcription,
+        xp_awarded: data.xp_awarded,
+        practice_type: data.practice_type,
+        audio_duration: data.audio_duration
+      };
+
+      // ✅ Adicionar campos de áudio apenas se não forem null
+      if (data.accuracy_score !== null && data.accuracy_score !== undefined) {
+        practiceData.accuracy_score = data.accuracy_score;
+      }
+      if (data.fluency_score !== null && data.fluency_score !== undefined) {
+        practiceData.fluency_score = data.fluency_score;
+      }
+      if (data.completeness_score !== null && data.completeness_score !== undefined) {
+        practiceData.completeness_score = data.completeness_score;
+      }
+      if (data.pronunciation_score !== null && data.pronunciation_score !== undefined) {
+        practiceData.pronunciation_score = data.pronunciation_score;
+      }
+      if (data.feedback) {
+        practiceData.feedback = data.feedback;
+      }
+
+      console.log('📝 Basic practice data prepared:', Object.keys(practiceData));
+
+      // 🆕 Tentar adicionar campos de gramática de forma segura
+      try {
+        if (data.grammar_score !== undefined && data.grammar_score !== null) {
+          practiceData.grammar_score = data.grammar_score;
+          console.log('✅ Added grammar_score:', data.grammar_score);
+        }
+        if (data.grammar_errors !== undefined && data.grammar_errors !== null) {
+          practiceData.grammar_errors = data.grammar_errors;
+          console.log('✅ Added grammar_errors:', data.grammar_errors);
+        }
+        if (data.text_complexity !== undefined && data.text_complexity !== null) {
+          practiceData.text_complexity = data.text_complexity;
+          console.log('✅ Added text_complexity:', data.text_complexity);
+        }
+        if (data.word_count !== undefined && data.word_count !== null) {
+          practiceData.word_count = data.word_count;
+          console.log('✅ Added word_count:', data.word_count);
+        }
+      } catch (grammarFieldError) {
+        console.warn('⚠️ Error adding grammar fields, continuing without them:', grammarFieldError);
+      }
+
+      console.log('🎯 Final practice data to insert:', practiceData);
+
       // Salvar a prática individual
-      const { data: practice, error: practiceError } = await this.supabase
+      let { data: practice, error: practiceError } = await this.supabase
         .from('user_practices')
-        .insert({
-          session_id: sessionId,
-          user_id: data.user_id,
-          transcription: data.transcription,
-          accuracy_score: data.accuracy_score,
-          fluency_score: data.fluency_score,
-          completeness_score: data.completeness_score,
-          pronunciation_score: data.pronunciation_score,
-          feedback: data.feedback,
-          xp_awarded: data.xp_awarded,
-          practice_type: data.practice_type,
-          audio_duration: data.audio_duration
-        })
+        .insert(practiceData)
         .select()
         .single();
 
       if (practiceError) {
-        console.error('Error saving practice:', practiceError);
-        return null;
+        console.error('❌ Error saving practice - Full error details:', {
+          error: practiceError,
+          message: practiceError.message,
+          details: practiceError.details,
+          hint: practiceError.hint,
+          code: practiceError.code
+        });
+        
+        // 🔄 Tentar novamente apenas com campos básicos se houver erro
+        console.log('🔄 Retrying with basic fields only...');
+        const basicData = {
+          session_id: sessionId,
+          user_id: data.user_id,
+          transcription: data.transcription,
+          xp_awarded: data.xp_awarded,
+          practice_type: data.practice_type,
+          audio_duration: data.audio_duration
+        };
+
+        const { data: retryPractice, error: retryError } = await this.supabase
+          .from('user_practices')
+          .insert(basicData)
+          .select()
+          .single();
+
+        if (retryError) {
+          console.error('❌ Retry also failed:', retryError);
+          return null;
+        } else {
+          console.log('✅ Retry successful with basic data');
+          practice = retryPractice;
+        }
       }
 
-      console.log('✅ Practice saved successfully:', practice);
+      console.log('✅ Practice saved successfully:', {
+        id: practice?.id,
+        type: practice?.practice_type,
+        xp: practice?.xp_awarded,
+        grammarScore: practice?.grammar_score,
+        grammarErrors: practice?.grammar_errors
+      });
 
       // Atualizar estatísticas da sessão
       await this.updateSessionStats(sessionId, data.xp_awarded);
@@ -95,7 +195,11 @@ class SupabaseService {
 
       return practice;
     } catch (error) {
-      console.error('Error in saveAudioPractice:', error);
+      console.error('❌ Exception in saveAudioPractice:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return null;
     }
   }
@@ -104,7 +208,12 @@ class SupabaseService {
     if (!this.supabase) return null;
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // 🇧🇷 Usar timezone do Brasil (UTC-3)
+      const now = new Date();
+      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+      const today = brazilTime.toISOString().split('T')[0];
+
+      console.log(`🗓️ Creating/getting session for Brazil date: ${today}`);
 
       // Tentar buscar sessão existente
       const { data: existingSession } = await this.supabase
@@ -115,6 +224,7 @@ class SupabaseService {
         .single();
 
       if (existingSession) {
+        console.log(`✅ Found existing session: ${existingSession.id}`);
         return existingSession.id;
       }
 
@@ -135,6 +245,7 @@ class SupabaseService {
         return null;
       }
 
+      console.log(`✅ Created new session: ${newSession.id} for date: ${today}`);
       return newSession.id;
     } catch (error) {
       console.error('Error in getOrCreateTodaySession:', error);
@@ -377,7 +488,9 @@ class SupabaseService {
         streak_days: data.streak_days || 0,
         total_practices: data.total_practices || 0,
         longest_streak: data.longest_streak || 0,
-        average_pronunciation_score: data.average_pronunciation_score || null
+        average_pronunciation_score: data.average_pronunciation_score || null,
+        average_grammar_score: data.average_grammar_score || null,
+        total_text_practices: data.total_text_practices || 0
       };
 
       console.log('✅ User stats found:', stats);
@@ -416,22 +529,31 @@ class SupabaseService {
     }
   }
 
-  // ✅ Buscar XP real de hoje
+  // ✅ Buscar XP real de hoje - CORRIGIDO PARA TIMEZONE BRASIL
   async getTodaySessionXP(userId: string): Promise<number> {
     if (!this.supabase) return 0;
 
     try {
       console.log(`🗓️ Getting today's XP for user: ${userId}`);
       
-      const today = new Date().toISOString().split('T')[0];
+      // 🇧🇷 Usar timezone do Brasil (UTC-3)
+      const now = new Date();
+      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+      const today = brazilTime.toISOString().split('T')[0];
+      
+      // Calcular início e fim do dia no timezone do Brasil
+      const startOfDay = `${today}T00:00:00-03:00`;
+      const endOfDay = `${today}T23:59:59-03:00`;
+
+      console.log(`🕐 Brazil timezone - Today: ${today}, Range: ${startOfDay} to ${endOfDay}`);
 
       // Buscar soma total de XP das práticas de hoje
       const { data, error } = await this.supabase
         .from('user_practices')
-        .select('xp_awarded')
+        .select('xp_awarded, created_at')
         .eq('user_id', userId)
-        .gte('created_at', today + 'T00:00:00')
-        .lt('created_at', today + 'T23:59:59');
+        .gte('created_at', startOfDay)
+        .lte('created_at', endOfDay);
 
       if (error) {
         console.error('❌ Error getting today XP:', error);
@@ -441,7 +563,9 @@ class SupabaseService {
       // Somar todo o XP de hoje
       const totalXPToday = data.reduce((sum, practice) => sum + (practice.xp_awarded || 0), 0);
       
-      console.log(`✅ Today's total XP: ${totalXPToday} (from ${data.length} practices)`);
+      console.log(`✅ Today's total XP (Brazil timezone): ${totalXPToday} (from ${data.length} practices)`);
+      console.log(`📊 Practice times:`, data.map(p => p.created_at));
+      
       return totalXPToday;
 
     } catch (error) {
@@ -461,7 +585,7 @@ class SupabaseService {
 
       const { data, error } = await this.supabase
         .from('user_practices')
-        .select('practice_type, xp_awarded, created_at, transcription')
+        .select('practice_type, xp_awarded, created_at, transcription, grammar_score, grammar_errors')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(limit);
@@ -486,7 +610,7 @@ class SupabaseService {
     try {
       const { data, error } = await this.supabase
         .from('user_practices')
-        .select('practice_type, xp_awarded')
+        .select('practice_type, xp_awarded, grammar_score')
         .eq('user_id', userId);
 
       if (error) {
@@ -498,17 +622,74 @@ class SupabaseService {
       const stats = data.reduce((acc: any, practice: any) => {
         const type = practice.practice_type;
         if (!acc[type]) {
-          acc[type] = { count: 0, total_xp: 0 };
+          acc[type] = { 
+            count: 0, 
+            total_xp: 0,
+            avg_grammar_score: null,
+            grammar_scores: []
+          };
         }
         acc[type].count++;
         acc[type].total_xp += practice.xp_awarded;
+        
+        // Adicionar scores de gramática se disponíveis
+        if (practice.grammar_score !== null && practice.grammar_score !== undefined) {
+          acc[type].grammar_scores.push(practice.grammar_score);
+        }
+        
         return acc;
       }, {});
+
+      // Calcular médias de gramática
+      Object.keys(stats).forEach(type => {
+        if (stats[type].grammar_scores.length > 0) {
+          const sum = stats[type].grammar_scores.reduce((a: number, b: number) => a + b, 0);
+          stats[type].avg_grammar_score = Math.round(sum / stats[type].grammar_scores.length);
+        }
+        delete stats[type].grammar_scores; // Remover array temporário
+      });
 
       return stats;
     } catch (error) {
       console.error('Error in getPracticeStatsByType:', error);
       return null;
+    }
+  }
+
+  // 🔍 Método para testar conectividade e estrutura da tabela
+  async testDatabaseConnection() {
+    if (!this.supabase) {
+      console.error('❌ Supabase not available');
+      return false;
+    }
+
+    try {
+      console.log('🔍 Testing database connection...');
+      
+      // Testar uma query simples
+      const { data, error } = await this.supabase
+        .from('user_practices')
+        .select('*')
+        .limit(1);
+
+      if (error) {
+        console.error('❌ Database connection test failed:', error);
+        return false;
+      }
+
+      console.log('✅ Database connection successful');
+      
+      // Se há dados, mostrar estrutura
+      if (data && data.length > 0) {
+        console.log('📋 Available columns in user_practices:', Object.keys(data[0]));
+      } else {
+        console.log('📋 Table exists but no data found');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Database test exception:', error);
+      return false;
     }
   }
 }

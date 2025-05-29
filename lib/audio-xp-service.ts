@@ -374,8 +374,149 @@ export function recalculateXPFromScores(
   return xpResult.totalXP;
 }
 
+// 🎤 NOVO: Calcular XP para conversas de voz ao vivo baseado no tempo
+export function calculateLiveVoiceXP(
+  conversationDurationSeconds: number,
+  userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate'
+): AudioXPResult {
+  
+  const durationMinutes = conversationDurationSeconds / 60;
+  
+  // 🚀 TAXAS ATUALIZADAS - Mais generosas para incentivar conversas longas
+  const baseXPPerMinute = {
+    'Novice': 120,      // 120 XP por minuto (2 XP/segundo)
+    'Intermediate': 60, // 60 XP por minuto (1 XP/segundo)  
+    'Advanced': 30      // 30 XP por minuto (0.5 XP/segundo)
+  };
+  
+  // Calcular XP base
+  const baseXP = Math.floor(durationMinutes * baseXPPerMinute[userLevel]);
+  
+  // Bônus por duração da conversa (mais generosos)
+  let durationBonus = 0;
+  if (durationMinutes >= 15) durationBonus = 200;     // 15+ minutos - bônus épico
+  else if (durationMinutes >= 10) durationBonus = 150; // 10+ minutos - bônus grande
+  else if (durationMinutes >= 5) durationBonus = 100;  // 5+ minutos - bônus médio
+  else if (durationMinutes >= 2) durationBonus = 50;   // 2+ minutos - bônus pequeno
+  
+  // Bônus por nível (incentivo para níveis mais altos manterem prática)
+  const levelBonus = {
+    'Novice': Math.floor(baseXP * 0.1),        // +10% para iniciantes
+    'Intermediate': Math.floor(baseXP * 0.15), // +15% para intermediários
+    'Advanced': Math.floor(baseXP * 0.25)      // +25% para avançados (maior incentivo)
+  };
+  
+  const bonusXP = durationBonus + levelBonus[userLevel];
+  const finalXP = Math.max(10, Math.min(500, baseXP + bonusXP)); // Entre 10-500 XP (limite aumentado)
+  
+  // Feedback motivador
+  const feedback = generateLiveVoiceFeedback(durationMinutes, finalXP, userLevel);
+  
+  const result: AudioXPResult = {
+    xpAwarded: finalXP,
+    bonusXP,
+    totalXP: finalXP,
+    scoreBreakdown: {
+      baseXP,
+      lengthBonus: durationBonus,
+      effortBonus: 0,
+      completenessBonus: 0,
+      accuracyBonus: 0,
+      levelBonus: levelBonus[userLevel]
+    },
+    feedback,
+    shouldRetry: false,
+    retryReason: ''
+  };
+  
+  console.log('🎤 Live voice XP calculated (UPDATED RATES):', {
+    duration: `${durationMinutes.toFixed(1)} minutes`,
+    rate: `${baseXPPerMinute[userLevel]} XP/min`,
+    baseXP,
+    durationBonus,
+    levelBonus: levelBonus[userLevel],
+    finalXP,
+    userLevel
+  });
+  
+  return result;
+}
+
+// 🎤 Feedback para conversas de voz ao vivo
+function generateLiveVoiceFeedback(
+  durationMinutes: number,
+  xpAwarded: number,
+  userLevel: 'Novice' | 'Intermediate' | 'Advanced'
+): string {
+  
+  const feedbackTemplates = {
+    'Novice': {
+      short: [
+        "Great start! Every conversation helps you improve. Keep practicing!",
+        "Wonderful! You're building confidence in English. Continue the great work!",
+        "Excellent effort! Each conversation makes you stronger in English."
+      ],
+      medium: [
+        "Amazing conversation! You're really improving your English fluency. Keep it up!",
+        "Fantastic! You spoke for several minutes - that's real progress in English!",
+        "Incredible work! Your English conversation skills are getting better every day."
+      ],
+      long: [
+        "Outstanding! You had a long conversation in English - that's incredible progress!",
+        "Wow! You're becoming so confident in English. This long conversation shows real improvement!",
+        "Exceptional! You're truly developing fluent English conversation skills. Amazing work!"
+      ]
+    },
+    'Intermediate': {
+      short: [
+        "Good conversation practice! You're developing natural English flow.",
+        "Nice work! Your conversational English is becoming more natural.",
+        "Well done! You're building stronger English communication skills."
+      ],
+      medium: [
+        "Excellent conversation! You're showing great fluency and confidence in English.",
+        "Impressive! Your English conversation skills are really developing well.",
+        "Great job! You maintained a good conversation flow in English."
+      ],
+      long: [
+        "Outstanding conversation! You're demonstrating advanced English communication skills.",
+        "Exceptional work! Your extended English conversation shows real mastery.",
+        "Brilliant! You're achieving natural, fluent English conversation abilities."
+      ]
+    },
+    'Advanced': {
+      short: [
+        "Solid conversation practice. You're maintaining high-level English communication.",
+        "Good work! Your advanced English skills are staying sharp.",
+        "Well done! You're demonstrating sophisticated English conversation abilities."
+      ],
+      medium: [
+        "Excellent conversation! Your advanced English fluency is impressive.",
+        "Great work! You're showing mastery of complex English communication.",
+        "Outstanding! Your sophisticated English conversation skills are excellent."
+      ],
+      long: [
+        "Exceptional conversation! You're demonstrating true English fluency mastery.",
+        "Brilliant work! Your extended, sophisticated English conversation is impressive.",
+        "Outstanding! You're achieving native-level English conversation fluency."
+      ]
+    }
+  };
+  
+  let category: 'short' | 'medium' | 'long';
+  if (durationMinutes >= 5) category = 'long';
+  else if (durationMinutes >= 2) category = 'medium';
+  else category = 'short';
+  
+  const templates = feedbackTemplates[userLevel][category];
+  const randomFeedback = templates[Math.floor(Math.random() * templates.length)];
+  
+  return `${randomFeedback} (+${xpAwarded} XP for ${durationMinutes.toFixed(1)} minutes of conversation)`;
+}
+
 export default {
   calculateAudioXP,
   compareWithOldSystem,
-  recalculateXPFromScores
+  recalculateXPFromScores,
+  calculateLiveVoiceXP
 };

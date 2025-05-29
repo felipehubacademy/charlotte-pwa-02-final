@@ -2,17 +2,19 @@
 
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { LogOut, Send, Mic, Camera, Phone } from 'lucide-react';
 import ChatBox from '@/components/chat/ChatBox';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import CameraCapture from '@/components/camera/CameraCapture';
 import AudioPlayer from '@/components/voice/AudioPlayer';
 import { transcribeAudio } from '@/lib/transcribe';
-import { assessPronunciation, formatScoreMessage } from '@/lib/pronunciation';
+import { assessPronunciation } from '@/lib/pronunciation';
 import { getAssistantFeedback, formatAssistantMessage, createFallbackResponse } from '@/lib/assistant';
 import { supabaseService } from '@/lib/supabase-service';
 import XPCounter from '@/components/ui/XPCounter';
+// ✅ NOVO IMPORT: Sistema de contexto conversacional
+import { ConversationContextManager } from '@/lib/conversation-context';
 // ✅ NOVO IMPORT: Serviço de XP inteligente
 import { calculateAudioXP, AudioAssessmentResult } from '@/lib/audio-xp-service';
 
@@ -25,65 +27,21 @@ interface Message {
   audioDuration?: number;
   timestamp: Date;
   messageType?: 'text' | 'audio' | 'image';
+  // 🆕 Feedback técnico para mensagens de áudio
+  technicalFeedback?: string;
 }
 
-// ✅ SISTEMA DE CONTEXTO DE CONVERSA
-interface ConversationContext {
-  messages: Array<{
-    role: 'user' | 'assistant';
-    content: string;
-    type: 'text' | 'audio';
-    timestamp: Date;
-  }>;
-  topics: string[];
-  lastGreeting?: Date;
-  userPreferences: {
-    level: string;
-    name: string;
-    responseStyle: 'single' | 'multiple';
-  };
-}
-
-class ConversationContextManager {
-  private context: ConversationContext;
-
-  constructor(userLevel: string, userName: string) {
-    this.context = {
-      messages: [],
-      topics: [],
-      userPreferences: {
-        level: userLevel,
-        name: userName,
-        responseStyle: 'multiple'
-      }
-    };
-  }
-
-  addMessage(role: 'user' | 'assistant', content: string, type: 'text' | 'audio') {
-    this.context.messages.push({
-      role,
-      content,
-      type,
-      timestamp: new Date()
-    });
-
-    // Manter apenas últimas 10 mensagens para contexto
-    if (this.context.messages.length > 10) {
-      this.context.messages = this.context.messages.slice(-10);
-    }
-  }
-}
-
-// ✅ FUNÇÃO PARA OBTER RESPOSTA DO ASSISTANT API (EXISTENTE)
+// ✅ FUNÇÃO PARA OBTER RESPOSTA DO ASSISTANT API COM CONTEXTO
 async function getAssistantResponse(
   userMessage: string,
   userLevel: string,
   userName: string,
   messageType: 'text' | 'audio' = 'text',
-  pronunciationData?: any
-): Promise<string> {
+  pronunciationData?: any,
+  conversationContext?: string
+): Promise<{ feedback: string; technicalFeedback?: string }> {
   try {
-    console.log('🤖 Calling existing Assistant API...');
+    console.log('🤖 Calling Assistant API with context...');
 
     const response = await fetch('/api/assistant', {
       method: 'POST',
@@ -95,7 +53,8 @@ async function getAssistantResponse(
         pronunciationData: pronunciationData || null,
         userLevel: userLevel as 'Novice' | 'Intermediate' | 'Advanced',
         userName: userName,
-        messageType: messageType
+        messageType: messageType,
+        conversationContext: conversationContext // 🆕 Enviar contexto
       })
     });
 
@@ -109,8 +68,13 @@ async function getAssistantResponse(
       throw new Error(data.error || 'Assistant API failed');
     }
 
-    console.log('✅ Assistant API response received');
-    return data.result.feedback;
+    console.log('✅ Assistant API response with context received');
+    
+    // 🆕 Retornar feedback e technicalFeedback
+    return {
+      feedback: data.result.feedback,
+      technicalFeedback: data.result.technicalFeedback
+    };
 
   } catch (error) {
     console.error('❌ Error calling Assistant API:', error);
@@ -122,7 +86,9 @@ async function getAssistantResponse(
       'Advanced': `Excellent language use, ${userName}! 🌟 Can you elaborate on that point further?`
     };
 
-    return fallbackResponses[userLevel as keyof typeof fallbackResponses] || fallbackResponses['Intermediate'];
+    return {
+      feedback: fallbackResponses[userLevel as keyof typeof fallbackResponses] || fallbackResponses['Intermediate']
+    };
   }
 }
 
@@ -159,7 +125,8 @@ async function sendSequentialMessages(
   messages: string[],
   addMessageToChat: (message: any) => void,
   generateMessageId: (prefix: string) => string,
-  delay: number = 1500
+  delay: number = 1500,
+  technicalFeedback?: string // 🆕 Feedback técnico opcional
 ) {
   for (let i = 0; i < messages.length; i++) {
     if (i > 0) {
@@ -171,7 +138,9 @@ async function sendSequentialMessages(
       role: 'assistant' as const,
       content: messages[i],
       timestamp: new Date(),
-      messageType: 'text' as const
+      messageType: 'text' as const,
+      // 🆕 Incluir technicalFeedback apenas na primeira mensagem
+      ...(i === 0 && technicalFeedback ? { technicalFeedback } : {})
     };
     
     addMessageToChat(messageData);
@@ -192,7 +161,7 @@ export default function ChatPage() {
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
 
-  // ✅ CONTEXT MANAGER
+  // ✅ NOVO: Context Manager
   const [conversationContext] = useState(() => 
     new ConversationContextManager(
       user?.user_level || 'Intermediate',
@@ -200,12 +169,29 @@ export default function ChatPage() {
     )
   );
 
+  // ✅ NOVO: Ref para o textarea auto-expandir
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   // ✅ CORRIGIDO: Generate unique message IDs
   const generateMessageId = useCallback((prefix: string) => {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substr(2, 9);
     return `${prefix}-${timestamp}-${random}`;
   }, []);
+
+  // ✅ NOVO: Auto-resize textarea
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`; // Max 120px
+    }
+  }, []);
+
+  // ✅ NOVO: Effect para auto-resize
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [message, adjustTextareaHeight]);
 
   // Fix hydration issue
   useEffect(() => {
@@ -222,8 +208,9 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isMounted) return;
     
-    const isIOSPWA = window.navigator.standalone === true || 
-                     window.matchMedia('(display-mode: standalone)').matches;
+    // Detectar se é PWA no iOS
+    const isIOSPWA = (window.navigator as any).standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
     if (isIOSPWA) {
       document.body.classList.add('ios-pwa');
     }
@@ -233,20 +220,31 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isMounted || !user || messages.length > 0) return;
     
+    // ✅ NOVO: Verificar se precisa cumprimentar
+    const shouldGreet = conversationContext.shouldGreet();
+    
     const welcomeMessage: Message = {
       id: 'welcome-1',
       role: 'assistant',
-      content: user.user_level === 'Novice' 
-        ? `Olá ${user.name?.split(' ')[0]}! I'm Charlotte, your English assistant. You can write in Portuguese or English!`
-        : `Hi ${user.name?.split(' ')[0]}! I'm Charlotte, ready to help you practice English. How can I assist you today?`,
+      content: shouldGreet 
+        ? (user.user_level === 'Novice' 
+          ? `Olá ${user.name?.split(' ')[0]}! I'm Charlotte, your English assistant. You can write in Portuguese or English!`
+          : `Hi ${user.name?.split(' ')[0]}! I'm Charlotte, ready to help you practice English. How can I assist you today?`)
+        : `Welcome back! Let's continue our English practice. What would you like to work on?`,
       timestamp: new Date(),
       messageType: 'text'
     };
+    
     setMessages([welcomeMessage]);
+    
+    // ✅ Marcar cumprimento feito se foi um cumprimento inicial
+    if (shouldGreet) {
+      conversationContext.markGreetingDone();
+    }
 
     // Load user XP stats
     loadUserStats();
-  }, [user, messages.length, isMounted]);
+  }, [user, messages.length, isMounted, conversationContext]);
 
   // ✅ Load user stats from Supabase
   const loadUserStats = async () => {
@@ -287,7 +285,7 @@ export default function ChatPage() {
     return null;
   }
 
-  // ✅ FUNÇÃO PARA TEXTO COM ASSISTANT API EXISTENTE
+  // ✅ FUNÇÃO PARA TEXTO COM ASSISTANT API E CONTEXTO
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
@@ -304,24 +302,52 @@ export default function ChatPage() {
     setMessage('');
     setIsProcessingMessage(true);
 
-    // Adicionar ao contexto
+    // ✅ NOVO: Adicionar ao contexto
     conversationContext.addMessage('user', userText, 'text');
 
     try {
-      console.log('📝 Processing text message with Assistant API:', userText);
+      console.log('📝 Processing text message with Assistant API and context:', userText);
       
-      // ✅ CHAMAR ASSISTANT API EXISTENTE
-      const assistantResponse = await getAssistantResponse(
-        userText,
-        user?.user_level || 'Intermediate',
-        user?.name?.split(' ')[0] || 'Student',
-        'text'
-      );
+      // ✅ NOVO: Gerar contexto para o assistant
+      const contextPrompt = conversationContext.generateContextForAssistant();
+      console.log('🧵 Generated conversation context');
+      
+      // ✅ CHAMAR ASSISTANT API COM CONTEXTO
+      const response = await fetch('/api/assistant', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          transcription: userText,
+          pronunciationData: null,
+          userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+          userName: user?.name?.split(' ')[0] || 'Student',
+          messageType: 'text',
+          conversationContext: contextPrompt // 🆕 Enviar contexto
+        })
+      });
 
-      console.log('🤖 Assistant API response received');
+      if (!response.ok) {
+        throw new Error(`Assistant API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Assistant API failed');
+      }
+
+      const assistantResult = data.result;
+      console.log('🤖 Assistant API response with context received:', {
+        hasGrammarScore: !!assistantResult.grammarScore,
+        grammarScore: assistantResult.grammarScore,
+        grammarErrors: assistantResult.grammarErrors,
+        xpAwarded: assistantResult.xpAwarded
+      });
 
       // ✅ DIVIDIR EM MÚLTIPLAS MENSAGENS
-      const aiMessages = splitIntoMultipleMessages(assistantResponse);
+      const aiMessages = splitIntoMultipleMessages(assistantResult.feedback);
       console.log('📝 Split into', aiMessages.length, 'messages');
 
       // ✅ ENVIAR MENSAGENS SEQUENCIAIS
@@ -329,17 +355,22 @@ export default function ChatPage() {
         aiMessages,
         (msg) => setMessages(prev => [...prev, msg]),
         generateMessageId,
-        1200 // 1.2s entre mensagens
+        1200, // 1.2s entre mensagens
+        assistantResult.technicalFeedback
       );
 
-      // Adicionar respostas ao contexto
+      // ✅ NOVO: Adicionar respostas ao contexto
       aiMessages.forEach(msg => 
         conversationContext.addMessage('assistant', msg, 'text')
       );
 
-      // ✅ Salvar no Supabase e recarregar dados
+      // ✅ Salvar no Supabase com dados de gramática
       if (supabaseService.isAvailable() && user?.entra_id) {
-        console.log('💾 Saving text practice...');
+        console.log('💾 Saving text practice with grammar data...');
+        
+        // 🎯 Calcular word count
+        const wordCount = userText.split(' ').filter(word => word.trim()).length;
+        
         await supabaseService.saveAudioPractice({
           user_id: user.entra_id,
           transcription: userText,
@@ -347,10 +378,15 @@ export default function ChatPage() {
           fluency_score: null,
           completeness_score: null,
           pronunciation_score: null,
-          xp_awarded: 15,
+          xp_awarded: assistantResult.xpAwarded,
           practice_type: 'text_message',
           audio_duration: 0,
-          feedback: assistantResponse
+          feedback: assistantResult.feedback,
+          // 🆕 Dados de gramática
+          grammar_score: assistantResult.grammarScore || null,
+          grammar_errors: assistantResult.grammarErrors || null,
+          text_complexity: assistantResult.textComplexity || null,
+          word_count: wordCount
         });
         
         // ✅ RECARREGAR dados do DB após salvar
@@ -386,7 +422,7 @@ export default function ChatPage() {
     }
   };
 
-  // 🎯 FUNÇÃO CORRIGIDA: handleAudioWithAssistantAPI com RETRY LOGIC
+  // 🎯 FUNÇÃO CORRIGIDA: handleAudioWithAssistantAPI com RETRY LOGIC e CONTEXTO
   const handleAudioWithAssistantAPI = async (audioBlob: Blob, duration: number) => {
     const audioMessage: Message = {
       id: generateMessageId('user-audio'),
@@ -402,7 +438,7 @@ export default function ChatPage() {
     setIsProcessingMessage(true);
 
     try {
-      console.log('🎤 Starting audio processing with RETRY LOGIC...');
+      console.log('🎤 Starting audio processing with RETRY LOGIC and context...');
       
       const transcriptionPromise = transcribeAudio(audioBlob);
       const pronunciationPromise = assessPronunciation(audioBlob);
@@ -483,10 +519,13 @@ export default function ChatPage() {
           pronunciationScore: scores.pronunciationScore
         });
         
-        // Adicionar ao contexto
-        conversationContext.addMessage('user', transcription, 'audio');
+        // ✅ NOVO: Adicionar ao contexto
+        conversationContext.addMessage('user', transcription, 'audio', scores.pronunciationScore);
         
-        // ✅ CHAMAR ASSISTANT API COM DADOS DE PRONÚNCIA
+        // ✅ NOVO: Gerar contexto para o assistant
+        const contextPrompt = conversationContext.generateContextForAssistant();
+        
+        // ✅ CHAMAR ASSISTANT API COM DADOS DE PRONÚNCIA E CONTEXTO
         const assistantResponse = await getAssistantResponse(
           transcription,
           user?.user_level || 'Intermediate',
@@ -499,13 +538,14 @@ export default function ChatPage() {
             pronunciationScore: scores.pronunciationScore,
             xpAwarded: xpResult.totalXP,
             feedback: xpResult.feedback
-          }
+          },
+          contextPrompt // 🆕 Contexto
         );
 
-        console.log('🤖 Assistant API audio response received');
+        console.log('🤖 Assistant API audio response with context received');
 
         // ✅ DIVIDIR EM MÚLTIPLAS MENSAGENS
-        const aiMessages = splitIntoMultipleMessages(assistantResponse);
+        const aiMessages = splitIntoMultipleMessages(assistantResponse.feedback);
         console.log('📝 Split audio response into', aiMessages.length, 'messages');
 
         // ✅ ENVIAR MENSAGENS SEQUENCIAIS
@@ -513,10 +553,11 @@ export default function ChatPage() {
           aiMessages,
           (msg) => setMessages(prev => [...prev, msg]),
           generateMessageId,
-          1500
+          1500,
+          assistantResponse.technicalFeedback
         );
 
-        // Adicionar ao contexto
+        // ✅ NOVO: Adicionar ao contexto
         aiMessages.forEach(msg => 
           conversationContext.addMessage('assistant', msg, 'text')
         );
@@ -539,7 +580,9 @@ export default function ChatPage() {
             xp_awarded: xpResult.totalXP, // 🎯 XP INTELIGENTE!
             practice_type: 'audio_message',
             audio_duration: duration,
-            feedback: `${assistantResponse}\n\n${xpResult.feedback}`
+            feedback: `${assistantResponse.feedback}\n\n${xpResult.feedback}`,
+            // 🆕 Feedback técnico para mensagens de áudio
+            technicalFeedback: assistantResponse.technicalFeedback
           });
           
           // ✅ RECARREGAR dados do DB após salvar
@@ -609,7 +652,7 @@ export default function ChatPage() {
           </div>
           
           {/* User Info + XP Counter + Logout */}
-          <div className="flex items-center space-x-3 flex-shrink-0">
+          <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">
             {/* ✅ XP Counter com userId corrigido */}
             <XPCounter 
               sessionXP={sessionXP}
@@ -618,21 +661,21 @@ export default function ChatPage() {
               onXPGained={(amount) => console.log('XP animation completed:', amount)}
             />
             
-            {/* User Info */}
-            <div className="text-right">
-              <p className="text-white text-sm font-medium truncate max-w-20">
+            {/* 🆕 User Info - Centralizado e Responsivo */}
+            <div className="flex flex-col items-center text-center min-w-[70px] sm:min-w-[80px]">
+              <p className="text-white text-xs sm:text-sm font-medium truncate max-w-16 sm:max-w-20 leading-tight">
                 {user?.name?.split(' ')[0]}
               </p>
-              <span className="inline-block text-black text-xs px-2 py-0.5 bg-primary rounded-full font-semibold">
+              <span className="inline-block text-black text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 bg-primary rounded-full font-semibold mt-0.5 sm:mt-1">
                 {user?.user_level}
               </span>
             </div>
             
             <button 
               onClick={logout}
-              className="p-2 text-white/70 hover:text-white active:bg-white/10 rounded-full transition-colors"
+              className="p-1.5 sm:p-2 text-white/70 hover:text-white active:bg-white/10 rounded-full transition-colors flex-shrink-0"
             >
-              <LogOut size={18} />
+              <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
             </button>
           </div>
         </div>
@@ -655,13 +698,17 @@ export default function ChatPage() {
             <div className="flex-1 relative">
               <div className="flex items-end bg-charcoal/60 backdrop-blur-sm border border-white/10 rounded-3xl focus-within:border-primary/30 transition-colors">
                 <textarea
+                  ref={textareaRef}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
                   placeholder="Ask anything..."
                   rows={1}
-                  className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none max-h-32 text-sm"
-                  style={{ minHeight: '44px' }}
+                  className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden"
+                  style={{ 
+                    minHeight: '44px',
+                    maxHeight: '120px'
+                  }}
                 />
                 
                {/* Right side buttons */}
@@ -720,6 +767,12 @@ export default function ChatPage() {
         isOpen={isLiveVoiceOpen}
         onClose={() => setIsLiveVoiceOpen(false)}
         userLevel={user?.user_level || 'Novice'}
+        userName={user?.name}
+        user={user || undefined}
+        sessionXP={sessionXP}
+        totalXP={totalXP}
+        onLogout={logout}
+        onXPGained={(amount) => console.log('Live Voice XP gained:', amount)}
       />
       
       {/* Camera Capture Modal */}

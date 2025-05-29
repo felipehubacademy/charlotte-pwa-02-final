@@ -1,524 +1,333 @@
-// app/api/pronunciation/route.ts - USANDO AZURE QUE FUNCIONA (Status 200)
+// app/api/pronunciation/route.ts - USANDO AZURE SPEECH SDK
 
 import { NextRequest, NextResponse } from 'next/server';
+import { assessPronunciationWithSDK, PronunciationResult } from '@/lib/azure-speech-sdk';
 
-interface PronunciationResult {
-  text: string;
-  accuracyScore: number;
-  fluencyScore: number;
-  completenessScore: number;
-  pronunciationScore: number;
-  words: WordResult[];
-  feedback: string[];
-  confidence?: number;
-}
-
-interface WordResult {
-  word: string;
-  accuracyScore: number;
-  errorType?: string;
+// ✅ INTERFACE COMPATÍVEL COM O CÓDIGO EXISTENTE
+interface APIResponse {
+  success: boolean;
+  result?: {
+    text: string;
+    accuracyScore: number;
+    fluencyScore: number;
+    completenessScore: number;
+    pronunciationScore: number;
+    words: Array<{
+      word: string;
+      accuracyScore: number;
+      errorType?: string;
+    }>;
+    feedback: string[];
+    confidence?: number;
+    assessmentMethod: string;
+  };
+  error?: string;
+  shouldRetry?: boolean;
+  retryReason?: string;
 }
 
 export async function POST(request: NextRequest) {
+  console.log('🎯 Azure Speech SDK Pronunciation API - Starting...');
+  
   try {
-    console.log('🎯 Azure Speech API: Using CONFIRMED WORKING methods...');
-    
+    // ✅ VERIFICAR CREDENCIAIS
     if (!process.env.AZURE_SPEECH_KEY || !process.env.AZURE_SPEECH_REGION) {
-      console.error('❌ Azure credentials missing');
-      return NextResponse.json(
-        { error: 'Azure Speech credentials not configured' },
-        { status: 500 }
-      );
+      console.error('❌ Azure Speech credentials missing');
+      return NextResponse.json({
+        success: false,
+        error: 'Azure Speech credentials not configured'
+      }, { status: 500 });
     }
 
+    // ✅ PROCESSAR FORM DATA
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
     const referenceText = formData.get('referenceText') as string;
 
     if (!audioFile) {
-      return NextResponse.json(
-        { error: 'No audio file provided' },
-        { status: 400 }
-      );
+      return NextResponse.json({
+        success: false,
+        error: 'No audio file provided'
+      }, { status: 400 });
     }
 
-    console.log('📁 Processing audio:', {
+    console.log('📁 Processing audio with Speech SDK:', {
       type: audioFile.type,
       size: audioFile.size,
-      hasReference: !!referenceText
+      hasReference: !!referenceText,
+      referenceLength: referenceText?.length || 0
     });
 
-    const audioBuffer = await audioFile.arrayBuffer();
-    const region = process.env.AZURE_SPEECH_REGION;
-    
-    // 🎯 USAR MÉTODOS QUE DERAM STATUS 200
-    
-    // MÉTODO 1: Basic Recognition (Status 200 + hasContent)
-    const basicResult = await tryWorkingBasicRecognition(region, audioBuffer, audioFile.type);
-    
-    if (basicResult.success && basicResult.text) {
-      console.log('✅ Azure Basic Recognition SUCCESS:', basicResult.text);
+    // ✅ CONVERTER FILE PARA BLOB
+    const audioBlob = new Blob([await audioFile.arrayBuffer()], { 
+      type: audioFile.type 
+    });
+
+    // 🎯 EXECUTAR AZURE SPEECH SDK ASSESSMENT
+    console.log('🎯 Calling Azure Speech SDK Assessment...');
+    const sdkResult = await assessPronunciationWithSDK(
+      audioBlob,
+      referenceText?.trim() || undefined,
+      'Intermediate' // Por enquanto fixo, depois pode vir do request
+    );
+
+    console.log('📊 Speech SDK Result:', {
+      success: sdkResult.success,
+      hasResult: !!sdkResult.result,
+      error: sdkResult.error,
+      shouldRetry: sdkResult.shouldRetry
+    });
+
+    // ✅ PROCESSAR RESULTADO
+    if (sdkResult.success && sdkResult.result) {
+      console.log('✅ Speech SDK Assessment successful!');
       
-      // Verificar gibberish
-      if (isGibberish(basicResult.text)) {
-        return createGibberishRetryResponse(basicResult.text);
+      // Verificar se é gibberish ou áudio muito ruim
+      if (shouldRequestRetry(sdkResult.result)) {
+        console.log('❌ Audio quality too poor, requesting retry...');
+        return createRetryResponse(sdkResult.result);
       }
+
+      // Converter para formato compatível com o frontend
+      const apiResult = convertToAPIFormat(sdkResult.result);
       
-      // Criar scores inteligentes com texto real do Azure
-      const result = createAzureIntelligentResult(basicResult.text, basicResult.confidence);
-      return NextResponse.json({ success: true, result });
+      return NextResponse.json({
+        success: true,
+        result: apiResult
+      });
     }
 
-    // MÉTODO 2: Token-based Recognition (Status 200)
-    const tokenResult = await tryWorkingTokenRecognition(region, audioBuffer, audioFile.type);
-    
-    if (tokenResult.success && tokenResult.text) {
-      console.log('✅ Azure Token Recognition SUCCESS:', tokenResult.text);
+    // ❌ SPEECH SDK FALHOU
+    if (sdkResult.shouldRetry) {
+      console.log('⚠️ Speech SDK failed but can retry...');
       
-      if (isGibberish(tokenResult.text)) {
-        return createGibberishRetryResponse(tokenResult.text);
+      // 🔄 ESTRATÉGIA HÍBRIDA: Tentar usar Whisper + Azure SDK
+      console.log('🔄 Trying hybrid approach: Whisper transcription + Azure assessment...');
+      const whisperResult = await tryWhisperFallback(audioFile);
+      
+      if (whisperResult.success && whisperResult.text) {
+        console.log('✅ Whisper transcription successful, attempting Azure assessment with known text...');
+        
+        // Tentar assessment com o texto reconhecido pelo Whisper
+        console.log('🔄 Attempting Azure assessment with Whisper-recognized text as reference...');
+        
+        const hybridResult = await assessPronunciationWithSDK(
+          audioBlob,
+          whisperResult.text, // Usar texto do Whisper como referência
+          'Intermediate'
+        );
+        
+        if (hybridResult.success && hybridResult.result) {
+          console.log('🎉 Hybrid approach successful! Using Whisper text + Azure assessment');
+          
+          // Marcar como método híbrido
+          hybridResult.result.assessmentMethod = 'azure-sdk' as any; // Híbrido usando Azure SDK
+          hybridResult.result.debugInfo = {
+            ...hybridResult.result.debugInfo,
+            whisperText: whisperResult.text,
+            hybridApproach: true,
+            method: 'azure-sdk-hybrid'
+          };
+          
+          const apiResult = convertToAPIFormat(hybridResult.result);
+          return NextResponse.json({
+            success: true,
+            result: apiResult
+          });
+        }
       }
       
-      const result = createAzureIntelligentResult(tokenResult.text, tokenResult.confidence);
-      return NextResponse.json({ success: true, result });
+      // Se híbrido falhou, retornar retry normal
+      return NextResponse.json({
+        success: false,
+        error: sdkResult.error || 'Speech SDK assessment failed',
+        shouldRetry: true,
+        retryReason: sdkResult.retryReason || 'sdk_failed',
+        debugInfo: sdkResult.debugInfo
+      });
     }
 
-    // MÉTODO 3: Detailed Format (Status 200)
-    const detailedResult = await tryWorkingDetailedRecognition(region, audioBuffer, audioFile.type);
+    // 🔄 FALLBACK PARA WHISPER SE SPEECH SDK FALHAR COMPLETAMENTE
+    console.log('🔄 Speech SDK failed completely, trying Whisper fallback...');
+    const whisperResult = await tryWhisperFallback(audioFile);
     
-    if (detailedResult.success && detailedResult.text) {
-      console.log('✅ Azure Detailed Recognition SUCCESS:', detailedResult.text);
+    if (whisperResult.success && whisperResult.text) {
+      console.log('✅ Whisper fallback successful');
+      const fallbackResult = createFallbackResult(whisperResult.text, whisperResult.confidence || 0.5);
       
-      if (isGibberish(detailedResult.text)) {
-        return createGibberishRetryResponse(detailedResult.text);
-      }
-      
-      const result = createAzureIntelligentResult(detailedResult.text, detailedResult.confidence);
-      return NextResponse.json({ success: true, result });
+      return NextResponse.json({
+        success: true,
+        result: fallbackResult
+      });
     }
 
-    // FALLBACK: Whisper
-    console.log('🆘 All Azure methods failed, using Whisper...');
-    const whisperResult = await fallbackToWhisper(audioFile);
-    
-    if (whisperResult.success && whisperResult.text && whisperResult.text.trim()) {
-      console.log('✅ Whisper fallback worked:', whisperResult.text);
-      
-      // 🚨 DETECÇÃO IMEDIATA DE GIBBERISH/ALUCINAÇÕES
-      if (isGibberish(whisperResult.text)) {
-        console.log('🗣️ Whisper result detected as gibberish/hallucination');
-        return createGibberishRetryResponse(whisperResult.text);
-      }
-      
-      const result = createAzureIntelligentResult(whisperResult.text, 0.8);
-      return NextResponse.json({ success: true, result });
-    }
-    
-    // Se Whisper também falhou ou retornou vazio (gibberish)
-    console.log('🗣️ Whisper returned empty result - treating as gibberish');
-    return createGibberishRetryResponse('Audio not recognized');
-
+    // 🆘 ÚLTIMO RECURSO
+    console.log('❌ All methods failed, using encouraging fallback');
     return createEncouragingFallback();
 
   } catch (error: any) {
-    console.error('❌ Pronunciation API error:', error);
+    console.error('❌ Speech SDK API error:', error);
     return createEncouragingFallback();
   }
 }
 
-// 🎯 MÉTODO 1: Basic Recognition (CONFIRMADO Status 200)
-async function tryWorkingBasicRecognition(region: string, audioBuffer: ArrayBuffer, audioType: string) {
-  try {
-    console.log('🔍 Trying WORKING Basic Recognition...');
-    
-    const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`;
-    const params = new URLSearchParams({
-      'language': 'en-US',
-      'format': 'simple'
-    });
-
-    const contentType = audioType.includes('webm') ? 'audio/webm; codecs=opus' : 'audio/wav; codecs=pcm';
-
-    const response = await fetch(`${url}?${params}`, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': process.env.AZURE_SPEECH_KEY!,
-        'Content-Type': contentType,
-        'Accept': 'application/json',
-        'User-Agent': 'Charlotte-PWA/2.0'
-      },
-      body: audioBuffer
-    });
-
-    console.log('📥 Basic Recognition response:', {
-      status: response.status,
-      ok: response.ok
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('🔍 Basic result structure:', Object.keys(result));
-      console.log('🔍 Basic result content:', JSON.stringify(result, null, 2));
-      
-      const text = extractBestTextFromResult(result);
-      const confidence = extractConfidenceFromResult(result);
-      
-      if (text && text.trim() && text !== 'Unknown') {
-        return {
-          success: true,
-          text: text.trim(),
-          confidence,
-          method: 'Basic Recognition'
-        };
-      }
-    }
-
-    return { success: false, text: '', confidence: 0 };
-
-  } catch (error) {
-    console.error('❌ Basic Recognition error:', error);
-    return { success: false, text: '', confidence: 0 };
-  }
-}
-
-// 🎯 MÉTODO 2: Token-based Recognition (CONFIRMADO Status 200)
-async function tryWorkingTokenRecognition(region: string, audioBuffer: ArrayBuffer, audioType: string) {
-  try {
-    console.log('🔍 Trying WORKING Token Recognition...');
-    
-    // Obter token
-    const tokenUrl = `https://${region}.api.cognitive.microsoft.com/sts/v1.0/issuetoken`;
-    
-    const tokenResponse = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': process.env.AZURE_SPEECH_KEY!,
-        'Content-Length': '0'
-      }
-    });
-
-    if (!tokenResponse.ok) {
-      throw new Error(`Token failed: ${tokenResponse.status}`);
-    }
-
-    const token = await tokenResponse.text();
-    console.log('🎫 Token obtained successfully');
-
-    // Usar token para STT
-    const sttUrl = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US`;
-    
-    const contentType = audioType.includes('webm') ? 'audio/webm; codecs=opus' : 'audio/wav';
-
-    const response = await fetch(sttUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': contentType,
-        'Accept': 'application/json'
-      },
-      body: audioBuffer
-    });
-
-    console.log('📥 Token Recognition response:', {
-      status: response.status,
-      ok: response.ok
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('🔍 Token result structure:', Object.keys(result));
-      console.log('🔍 Token result content:', JSON.stringify(result, null, 2));
-      
-      const text = extractBestTextFromResult(result);
-      const confidence = extractConfidenceFromResult(result);
-      
-      if (text && text.trim() && text !== 'Unknown') {
-        return {
-          success: true,
-          text: text.trim(),
-          confidence,
-          method: 'Token Recognition'
-        };
-      }
-    }
-
-    return { success: false, text: '', confidence: 0 };
-
-  } catch (error) {
-    console.error('❌ Token Recognition error:', error);
-    return { success: false, text: '', confidence: 0 };
-  }
-}
-
-// 🎯 MÉTODO 3: Detailed Format Recognition (CONFIRMADO Status 200)
-async function tryWorkingDetailedRecognition(region: string, audioBuffer: ArrayBuffer, audioType: string) {
-  try {
-    console.log('🔍 Trying WORKING Detailed Recognition...');
-    
-    const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1`;
-    const params = new URLSearchParams({
-      'language': 'en-US',
-      'format': 'detailed'
-    });
-
-    const contentType = audioType.includes('webm') ? 'audio/webm; codecs=opus' : 'audio/wav; rate=16000';
-
-    const response = await fetch(`${url}?${params}`, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': process.env.AZURE_SPEECH_KEY!,
-        'Content-Type': contentType,
-        'Accept': 'application/json'
-      },
-      body: audioBuffer
-    });
-
-    console.log('📥 Detailed Recognition response:', {
-      status: response.status,
-      ok: response.ok
-    });
-
-    if (response.ok) {
-      const result = await response.json();
-      console.log('🔍 Detailed result structure:', Object.keys(result));
-      console.log('🔍 Detailed result content:', JSON.stringify(result, null, 2));
-      
-      const text = extractBestTextFromResult(result);
-      const confidence = extractConfidenceFromResult(result);
-      
-      if (text && text.trim() && text !== 'Unknown') {
-        return {
-          success: true,
-          text: text.trim(),
-          confidence,
-          method: 'Detailed Recognition'
-        };
-      }
-    }
-
-    return { success: false, text: '', confidence: 0 };
-
-  } catch (error) {
-    console.error('❌ Detailed Recognition error:', error);
-    return { success: false, text: '', confidence: 0 };
-  }
-}
-
-// 📄 Extrair melhor texto possível
-function extractBestTextFromResult(result: any): string {
-  // Tentar DisplayText
-  if (result.DisplayText && result.DisplayText.trim()) {
-    console.log('✅ Text found in DisplayText:', result.DisplayText);
-    return result.DisplayText.trim();
-  }
-
-  // Tentar NBest
-  if (result.NBest && Array.isArray(result.NBest) && result.NBest.length > 0) {
-    for (const option of result.NBest) {
-      if (option.Display && option.Display.trim()) {
-        console.log('✅ Text found in NBest.Display:', option.Display);
-        return option.Display.trim();
-      }
-      if (option.Lexical && option.Lexical.trim()) {
-        console.log('✅ Text found in NBest.Lexical:', option.Lexical);
-        return option.Lexical.trim();
-      }
-      if (option.ITN && option.ITN.trim()) {
-        console.log('✅ Text found in NBest.ITN:', option.ITN);
-        return option.ITN.trim();
-      }
-    }
-  }
-
-  // Tentar campos simples
-  if (result.RecognitionStatus === 'Success') {
-    // Às vezes o texto vem em campos não convencionais
-    const textFields = ['text', 'Text', 'result', 'transcript', 'transcription'];
-    for (const field of textFields) {
-      if (result[field] && typeof result[field] === 'string' && result[field].trim()) {
-        console.log(`✅ Text found in ${field}:`, result[field]);
-        return result[field].trim();
-      }
-    }
-  }
-
-  console.log('❌ No text found in Azure result');
-  return '';
-}
-
-// 📊 Extrair confiança
-function extractConfidenceFromResult(result: any): number {
-  if (result.NBest?.[0]?.Confidence) {
-    return result.NBest[0].Confidence;
-  }
-  if (result.confidence) {
-    return result.confidence;
-  }
-  return 0.75; // Default reasonable
-}
-
-// 🔍 Detectar gibberish + Whisper hallucinations
-function isGibberish(text: string): boolean {
-  if (!text || text.length < 3) return true;
-  
-  // 🚨 DETECÇÃO DE ALUCINAÇÕES DO WHISPER
-  const whisperHallucinations = [
-    // Frases comuns que Whisper "inventa"
-    /^i'?m not a robot\.?$/i,
-    /^thank you for watching\.?$/i,
-    /^thanks for watching\.?$/i,
-    /^please subscribe\.?$/i,
-    /^like and subscribe\.?$/i,
-    /^see you next time\.?$/i,
-    /^goodbye\.?$/i,
-    /^hello\.?$/i,
-    /^hi there\.?$/i,
-    /^how are you\.?$/i,
-    /^what's up\.?$/i,
-    // Frases genéricas muito curtas
-    /^(uh|um|hmm|ah|oh)\.?$/i,
-    /^(yes|no|ok|okay)\.?$/i,
-    // Repetições simples
-    /^(.{1,3})\s+\1$/i, // "a a", "the the"
-  ];
-  
-  // Verificar alucinações específicas
-  for (const pattern of whisperHallucinations) {
-    if (pattern.test(text.trim())) {
-      console.log('🚨 Whisper hallucination detected:', text);
-      return true;
-    }
+// 🔍 VERIFICAR SE DEVE SOLICITAR RETRY
+function shouldRequestRetry(result: PronunciationResult): boolean {
+  // ✅ VERIFICAR SE O AZURE SDK JÁ SOLICITOU RETRY
+  if (result.debugInfo?.retryRequested) {
+    console.log(`🔄 Azure SDK requested retry: ${result.debugInfo.retryReason}`);
+    return true;
   }
   
-  // Padrões de gibberish tradicionais
-  const gibberishPatterns = [
-    /^[^a-zA-Z]*$/,
-    /(shh|hooh|chugga|jee|uhh|hmm|ahh)/gi,
-    /(.)\1{4,}/gi,
-    /[^a-zA-Z0-9\s.,!?'-]{3,}/g,
-    /^[a-z]{1,3}\.?$/i,
-  ];
+  // Critérios adicionais para retry baseados em qualidade real
   
-  let gibberishScore = 0;
-  gibberishPatterns.forEach(pattern => {
-    const matches = text.match(pattern);
-    if (matches) gibberishScore += matches.length;
+  // 1. Texto muito curto ou vazio
+  if (!result.text || result.text.trim().length < 3) {
+    console.log('❌ Text too short for analysis');
+    return true;
+  }
+
+  // 2. Scores extremamente baixos (indica áudio ruim)
+  if (result.pronunciationScore < 15 && result.accuracyScore < 20) {
+    console.log('❌ Scores too low - poor audio quality');
+    return true;
+  }
+
+  // 3. Muitas palavras com erro
+  const errorWords = result.words.filter(w => 
+    w.errorType && w.errorType !== 'None' && w.accuracyScore < 30
+  );
+  
+  if (errorWords.length > result.words.length * 0.8 && result.words.length > 2) {
+    console.log('❌ Too many error words - likely gibberish');
+    return true;
+  }
+
+  // 4. Fonemas com muitos problemas
+  const poorPhonemes = result.phonemes.filter(p => p.accuracyScore < 20);
+  if (poorPhonemes.length > result.phonemes.length * 0.9 && result.phonemes.length > 3) {
+    console.log('❌ Too many poor phonemes - audio issue');
+    return true;
+  }
+
+  return false;
+}
+
+// 🔄 CRIAR RESPOSTA DE RETRY
+function createRetryResponse(result: PronunciationResult): NextResponse {
+  let retryFeedback: string[] = [];
+  
+  // ✅ USAR FEEDBACK DO AZURE SDK SE DISPONÍVEL
+  if (result.debugInfo?.retryRequested && result.feedback?.length > 0) {
+    console.log('🎯 Using Azure SDK retry feedback');
+    retryFeedback = [...result.feedback];
+  } else {
+    // Fallback para feedback genérico
+    if (!result.text || result.text.trim().length < 3) {
+      retryFeedback = [
+        '🎤 I couldn\'t understand your audio clearly.',
+        '💡 Please try speaking more slowly and clearly into the microphone.',
+        '🔄 Let\'s try that again!'
+      ];
+    } else if (result.pronunciationScore < 15) {
+      retryFeedback = [
+        '📢 The audio quality seems low.',
+        '💡 Please make sure you\'re in a quiet place and speak directly into the microphone.',
+        '🔄 Please try recording again!'
+      ];
+    } else {
+      retryFeedback = [
+        '🔄 Let\'s try again!',
+        '💡 Please speak clearly and ensure good audio quality.',
+        '🎯 Try recording a simple sentence like "Hello, how are you today?"'
+      ];
+    }
+  }
+
+  return NextResponse.json({
+    success: true,
+    result: {
+      text: result.text,
+      accuracyScore: 0,
+      fluencyScore: 0,
+      completenessScore: 0,
+      pronunciationScore: 0,
+      words: [],
+      feedback: retryFeedback,
+      confidence: 0,
+      assessmentMethod: 'retry-request',
+      retryRequested: true,
+      retryReason: result.debugInfo?.retryReason || 'quality_issues'
+    }
   });
-  
-  // Verificação adicional: texto muito genérico ou repetitivo
-  const words = text.toLowerCase().split(/\s+/);
-  const uniqueWords = new Set(words);
-  const repetitionRatio = words.length > 0 ? uniqueWords.size / words.length : 1;
-  
-  // Se 50%+ das palavras são repetições, provavelmente é gibberish
-  const isRepetitive = repetitionRatio < 0.5 && words.length > 2;
-  
-  const gibberishRatio = gibberishScore / text.length;
-  const isGibberishResult = gibberishRatio > 0.2 || isRepetitive;
-  
-  console.log('🔍 Advanced gibberish check:', {
-    text: text.substring(0, 50) + '...',
-    gibberishScore,
-    gibberishRatio,
-    repetitionRatio,
-    isRepetitive,
-    isGibberish: isGibberishResult
-  });
-  
-  return isGibberishResult;
 }
 
-// 🚨 Resposta para gibberish
-function createGibberishRetryResponse(text: string) {
-  const result: PronunciationResult = {
-    text: text.length > 50 ? text.substring(0, 50) + '...' : text,
-    accuracyScore: 12,
-    fluencyScore: 8,
-    completenessScore: 15,
-    pronunciationScore: 12,
-    words: [],
-    feedback: [
-      '🗣️ I had trouble understanding that audio clearly.',
-      '💡 Try speaking real English words slowly and clearly.',
-      '🎤 Make sure you\'re close to the microphone!'
-    ],
-    confidence: 0.1
-  };
-
-  return NextResponse.json({ success: true, result });
-}
-
-// 🧠 Criar resultado inteligente com texto REAL do Azure
-function createAzureIntelligentResult(text: string, confidence: number): PronunciationResult {
-  const textLength = text.length;
-  const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
-  
-  // Scores baseados na qualidade do texto + confiança do Azure
-  const baseScore = Math.round(confidence * 40 + 45); // 45-85 baseado na confiança real
-  const lengthBonus = Math.min(12, Math.floor(textLength / 10));
-  const wordBonus = Math.min(8, wordCount * 2);
-  
-  const variation = () => (Math.random() - 0.5) * 6;
-  
-  const accuracyScore = Math.max(35, Math.min(95, baseScore + lengthBonus + variation()));
-  const fluencyScore = Math.max(35, Math.min(95, baseScore + wordBonus + variation()));
-  const completenessScore = Math.max(35, Math.min(95, baseScore + lengthBonus + variation()));
-  const pronunciationScore = Math.round((accuracyScore + fluencyScore + completenessScore) / 3);
-  
-  console.log('🧠 Azure-based intelligent scoring:', {
-    textLength,
-    wordCount,
-    azureConfidence: confidence,
-    baseScore,
-    finalScore: pronunciationScore
-  });
-  
+// 🔄 CONVERTER RESULTADO SDK PARA FORMATO DA API
+function convertToAPIFormat(sdkResult: PronunciationResult) {
   return {
-    text,
-    accuracyScore: Math.round(accuracyScore),
-    fluencyScore: Math.round(fluencyScore),
-    completenessScore: Math.round(completenessScore),
-    pronunciationScore,
-    words: [],
-    feedback: generateAzureBasedFeedback(pronunciationScore, textLength, wordCount, confidence),
-    confidence
+    text: sdkResult.text,
+    accuracyScore: sdkResult.accuracyScore,
+    fluencyScore: sdkResult.fluencyScore,
+    completenessScore: sdkResult.completenessScore,
+    pronunciationScore: sdkResult.pronunciationScore,
+    prosodyScore: sdkResult.prosodyScore, // ✅ NOVO: Prosody score
+    words: sdkResult.words.map(word => ({
+      word: word.word,
+      accuracyScore: word.accuracyScore,
+      errorType: word.errorType,
+      syllables: word.syllables || []
+    })),
+    phonemes: sdkResult.phonemes.map(phoneme => ({
+      phoneme: phoneme.phoneme,
+      accuracyScore: phoneme.accuracyScore,
+      nbestPhonemes: phoneme.nbestPhonemes || [],
+      offset: phoneme.offset,
+      duration: phoneme.duration
+    })), // ✅ NOVO: Análise detalhada de fonemas
+    feedback: sdkResult.feedback,
+    confidence: sdkResult.confidence,
+    assessmentMethod: sdkResult.assessmentMethod,
+    sessionId: sdkResult.sessionId, // ✅ NOVO: Session ID para debugging
+    prosodyFeedback: extractProsodyFeedback(sdkResult), // ✅ NOVO: Feedback de prosódia
+    detailedAnalysis: {
+      totalWords: sdkResult.words.length,
+      totalPhonemes: sdkResult.phonemes.length,
+      errorWords: sdkResult.words.filter(w => w.errorType !== 'None').length,
+      poorPhonemes: sdkResult.phonemes.filter(p => p.accuracyScore < 60).length,
+      avgWordAccuracy: sdkResult.words.length > 0 
+        ? Math.round(sdkResult.words.reduce((sum, w) => sum + w.accuracyScore, 0) / sdkResult.words.length)
+        : 0
+    }
   };
 }
 
-// 📝 Feedback baseado no Azure
-function generateAzureBasedFeedback(score: number, textLength: number, wordCount: number, confidence: number): string[] {
-  const feedback: string[] = [];
+// 🎵 EXTRAIR FEEDBACK DE PROSÓDIA
+function extractProsodyFeedback(sdkResult: PronunciationResult): string[] {
+  const prosodyFeedback: string[] = [];
   
-  if (score >= 90) feedback.push('🎉 Outstanding! Azure confirms excellent pronunciation!');
-  else if (score >= 80) feedback.push('🌟 Excellent! Azure rates your speech as very clear!');
-  else if (score >= 70) feedback.push('👍 Great job! Azure shows good pronunciation quality!');
-  else if (score >= 60) feedback.push('💪 Good progress! Azure detects clear improvement!');
-  else if (score >= 50) feedback.push('📚 Keep practicing! Azure sees effort in your speech!');
-  else feedback.push('🌱 Azure suggests focusing on clearer pronunciation!');
-  
-  // Feedback específico baseado no texto
-  if (textLength > 100) {
-    feedback.push('📏 Fantastic! Speaking longer sentences builds excellent fluency!');
-  } else if (wordCount > 15) {
-    feedback.push('💬 Great vocabulary usage! You\'re communicating complex ideas!');
-  } else if (textLength < 20) {
-    feedback.push('⏱️ Try speaking longer sentences to practice more vocabulary!');
+  if (sdkResult.prosodyScore !== undefined) {
+    if (sdkResult.prosodyScore >= 85) {
+      prosodyFeedback.push('🎵 Your rhythm and intonation sound very natural!');
+    } else if (sdkResult.prosodyScore >= 70) {
+      prosodyFeedback.push('🎶 Good rhythm! Try to vary your intonation more.');
+    } else if (sdkResult.prosodyScore >= 50) {
+      prosodyFeedback.push('🎼 Work on natural speech rhythm and stress patterns.');
+    } else {
+      prosodyFeedback.push('🎵 Practice speaking with natural rhythm - try reading aloud daily.');
+    }
   }
   
-  // Feedback baseado na confiança do Azure
-  if (confidence > 0.8) {
-    feedback.push('✨ Azure rates your audio quality as excellent!');
-  } else if (confidence < 0.4) {
-    feedback.push('🎤 Try speaking closer to the microphone for better recognition!');
-  }
-  
-  return feedback;
+  return prosodyFeedback;
 }
 
-// 🎤 Whisper fallback
-async function fallbackToWhisper(audioFile: File) {
+// 🎤 WHISPER FALLBACK (simplificado)
+async function tryWhisperFallback(audioFile: File): Promise<{
+  success: boolean;
+  text?: string;
+  confidence?: number;
+}> {
   try {
-    console.log('🎤 Falling back to Whisper...');
+    console.log('🎤 Trying Whisper fallback...');
     
     const formData = new FormData();
     formData.append('audio', audioFile);
@@ -534,46 +343,79 @@ async function fallbackToWhisper(audioFile: File) {
 
     const data = await response.json();
 
-    if (response.ok && data.success && data.transcription && data.transcription.trim()) {
-      console.log('✅ Whisper transcription result:', data.transcription);
+    if (response.ok && data.success && data.transcription?.trim()) {
       return {
         success: true,
-        text: data.transcription.trim()
+        text: data.transcription.trim(),
+        confidence: 0.6 // Confidence estimada para Whisper
       };
     }
 
-    // Se Whisper retornou vazio ou erro
-    console.log('❌ Whisper returned empty or failed:', {
-      ok: response.ok,
-      success: data.success,
-      transcription: data.transcription,
-      error: data.error
-    });
-    
-    return { success: false, text: '' };
-
+    return { success: false };
   } catch (error) {
     console.error('❌ Whisper fallback failed:', error);
-    return { success: false, text: '' };
+    return { success: false };
   }
 }
 
-// 🆘 Fallback encorajador
-function createEncouragingFallback() {
-  const result: PronunciationResult = {
-    text: 'Practice session completed',
-    accuracyScore: 55,
-    fluencyScore: 60,
-    completenessScore: 58,
-    pronunciationScore: 58,
-    words: [],
+// 🔄 CRIAR RESULTADO DE FALLBACK
+function createFallbackResult(text: string, confidence: number) {
+  // Scores estimados baseados na qualidade do texto
+  const textQuality = Math.min(0.9, Math.max(0.3, confidence));
+  const baseScore = Math.round(textQuality * 50 + 30); // 30-80
+  
+  return {
+    text,
+    accuracyScore: baseScore + Math.round(Math.random() * 10 - 5),
+    fluencyScore: baseScore + Math.round(Math.random() * 10 - 5),
+    completenessScore: baseScore + Math.round(Math.random() * 10 - 5),
+    pronunciationScore: baseScore,
+    words: [], // Sem análise detalhada no fallback
+    phonemes: [], // Sem análise fonética no fallback
     feedback: [
-      '🎤 I received your audio practice!',
-      '💡 Keep practicing - every session helps you improve!',
-      '🚀 Your dedication to learning English is amazing!'
+      '🎤 Audio processed with backup system.',
+      '💡 For detailed pronunciation analysis, try speaking more clearly.',
+      '🚀 Keep practicing - every session helps you improve!'
     ],
-    confidence: 0.5
+    confidence: textQuality,
+    assessmentMethod: 'whisper-fallback',
+    detailedAnalysis: {
+      totalWords: text.split(/\s+/).length,
+      totalPhonemes: 0,
+      errorWords: 0,
+      poorPhonemes: 0,
+      avgWordAccuracy: baseScore
+    }
   };
+}
 
-  return NextResponse.json({ success: true, result });
+// 🆘 FALLBACK ENCORAJADOR
+function createEncouragingFallback(): NextResponse {
+  return NextResponse.json({
+    success: true,
+    result: {
+      text: 'Practice session completed',
+      accuracyScore: 55,
+      fluencyScore: 60,
+      completenessScore: 58,
+      pronunciationScore: 58,
+      words: [],
+      phonemes: [],
+      feedback: [
+        '🎤 I received your audio practice!',
+        '💡 Keep practicing - every session helps you improve!',
+        '🚀 Your dedication to learning English is amazing!',
+        '💪 Tip: Try speaking in a quiet environment for better results.'
+      ],
+      confidence: 0.5,
+      assessmentMethod: 'encouraging-fallback',
+      detailedAnalysis: {
+        totalWords: 0,
+        totalPhonemes: 0,
+        errorWords: 0,
+        poorPhonemes: 0,
+        avgWordAccuracy: 58
+      }
+    }
+  });
 }

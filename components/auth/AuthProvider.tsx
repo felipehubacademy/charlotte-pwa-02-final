@@ -189,10 +189,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const getUserLevel = async (account: AccountInfo): Promise<'Novice' | 'Intermediate' | 'Advanced'> => {
     try {
+      console.log('🔍 Getting user level from Entra ID groups...');
+      
       const tokenResponse = await msalInstance.acquireTokenSilent({
         scopes: ['GroupMember.Read.All'],
         account: account,
       });
+
+      console.log('✅ Token acquired successfully');
 
       const response = await fetch('https://graph.microsoft.com/v1.0/me/memberOf', {
         headers: {
@@ -200,17 +204,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
-      const groupsData = await response.json();
-      const groups = groupsData.value || [];
+      if (!response.ok) {
+        console.error('❌ Graph API error:', response.status, response.statusText);
+        console.log('🎯 Defaulting to Advanced level');
+        return 'Advanced';
+      }
 
-      const groupNames = groups.map((group: any) => group.displayName?.toLowerCase());
+      const groupsData = await response.json();
+      console.log('📊 Groups found:', groupsData.value?.length || 0);
       
-      if (groupNames.includes('charlotte-advanced')) return 'Advanced';
-      if (groupNames.includes('charlotte-intermediate')) return 'Intermediate';
-      return 'Novice';
+      const groups = groupsData.value || [];
+      const groupNames = groups.map((group: any) => group.displayName).filter(Boolean);
+      console.log('👥 Group names:', groupNames);
+
+      if (groupNames.some((name: string) => name.toLowerCase().includes('novice'))) {
+        console.log('🎯 User level: Novice');
+        return 'Novice';
+      } else if (groupNames.some((name: string) => name.toLowerCase().includes('intermediate'))) {
+        console.log('🎯 User level: Intermediate');
+        return 'Intermediate';
+      } else {
+        console.log('🎯 User level: Advanced (Teacher or default)');
+        return 'Advanced';
+      }
     } catch (error) {
-      console.error('Error getting user level:', error);
-      return 'Novice';
+      console.error('❌ Error getting user level:', error);
+      console.log('🎯 Defaulting to Advanced level');
+      return 'Advanced';
     }
   };
 

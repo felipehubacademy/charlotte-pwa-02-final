@@ -14,6 +14,8 @@ interface Message {
   isTyping?: boolean;
   isRecording?: boolean;
   timestamp?: Date;
+  messageType?: 'text' | 'audio' | 'image';
+  technicalFeedback?: string;
 }
 
 interface ChatBoxProps {
@@ -21,6 +23,7 @@ interface ChatBoxProps {
   transcript: string;
   finalTranscript: string;
   isProcessingMessage: boolean;
+  userLevel: string;
 }
 
 // WhatsApp-style typing indicator
@@ -86,12 +89,14 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
   const [duration, setDuration] = React.useState(message.audioDuration || 0);
   const [showTranslation, setShowTranslation] = React.useState(false);
   const [showTranscription, setShowTranscription] = React.useState(false);
+  const [showTechnicalFeedback, setShowTechnicalFeedback] = React.useState(false);
   const [transcription, setTranscription] = React.useState('');
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [audioUrl, setAudioUrl] = React.useState<string>('');
 
   const isUser = message.role === 'user';
   const isNovice = userLevel === 'Novice';
+  const isAudioResponse = !isUser && message.technicalFeedback;
 
   // Função para transcrever áudio
   const handleTranscription = React.useCallback(async () => {
@@ -251,6 +256,17 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
               </button>
             )}
             
+            {/* 🆕 Feedback button for audio responses */}
+            {isAudioResponse && (
+              <button
+                onClick={() => setShowTechnicalFeedback(!showTechnicalFeedback)}
+                className="text-xs text-primary hover:text-primary-dark flex items-center space-x-1"
+              >
+                <Volume2 size={12} />
+                <span>Feedback</span>
+              </button>
+            )}
+            
             {/* Transcription button for audio messages (Intermediate/Advanced) */}
             {(message.audioUrl || message.audioBlob) && (userLevel === 'Intermediate' || userLevel === 'Advanced') && (
               <button
@@ -310,6 +326,31 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
           )}
         </AnimatePresence>
 
+        {/* 🆕 Technical Feedback popup */}
+        <AnimatePresence>
+          {showTechnicalFeedback && message.technicalFeedback && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="mt-2 p-4 bg-gradient-to-br from-primary/10 to-primary/5 backdrop-blur-sm rounded-xl border border-primary/30"
+            >
+              <div className="flex items-center space-x-2 mb-3">
+                <Volume2 size={14} className="text-primary" />
+                <span className="text-sm text-primary font-semibold">Pronunciation Analysis</span>
+              </div>
+              <div className="prose prose-sm prose-invert max-w-none">
+                <div 
+                  className="text-sm text-white/90 leading-relaxed"
+                  dangerouslySetInnerHTML={{ 
+                    __html: message.technicalFeedback.replace(/\n/g, '<br/>').replace(/\*\*(.*?)\*\*/g, '<strong class="text-primary">$1</strong>') 
+                  }}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Timestamp */}
         <p className="text-xs text-white/40 mt-1 px-1">
           {message.timestamp?.toLocaleTimeString([], { 
@@ -327,7 +368,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   messages, 
   transcript, 
   finalTranscript, 
-  isProcessingMessage 
+  isProcessingMessage, 
+  userLevel 
 }) => {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -346,7 +388,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             <MessageBubble
               key={message.id}
               message={message}
-              userLevel="Novice" // This should come from user context
+              userLevel={userLevel}
             />
           ))}
         </AnimatePresence>

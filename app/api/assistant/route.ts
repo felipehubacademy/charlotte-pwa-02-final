@@ -1,33 +1,40 @@
-// app/api/assistant/route.ts - CORRIGIDO para aceitar texto
+// app/api/assistant/route.ts - ATUALIZADO com Sistema de Contexto Conversacional
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { grammarAnalysisService } from '@/lib/grammar-analysis';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✅ Interface atualizada para aceitar pronunciationData opcional
+// ✅ Interface atualizada para aceitar contexto conversacional
 interface AssistantRequest {
   transcription: string;
-  pronunciationData?: { // ✅ Agora opcional
+  pronunciationData?: {
     accuracyScore: number;
     fluencyScore: number;
     completenessScore: number;
     pronunciationScore: number;
-  } | null; // ✅ Pode ser null
+  } | null;
   userLevel: 'Novice' | 'Intermediate' | 'Advanced';
   userName?: string;
-  messageType?: 'text' | 'audio'; // ✅ Novo campo opcional
+  messageType?: 'text' | 'audio';
+  conversationContext?: string; // 🆕 Contexto da conversa
 }
 
-// Interface para resposta
+// ✅ Interface atualizada para incluir dados de gramática
 interface AssistantResponse {
   feedback: string;
   nextChallenge?: string;
   tips: string[];
   encouragement: string;
   xpAwarded: number;
+  // 🆕 Novos campos para gramática
+  grammarScore?: number;
+  grammarErrors?: number;
+  textComplexity?: string;
+  technicalFeedback: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -43,21 +50,22 @@ export async function POST(request: NextRequest) {
     }
 
     const body: AssistantRequest = await request.json();
-    const { transcription, pronunciationData, userLevel, userName, messageType } = body;
+    const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext } = body;
 
     console.log('Processing for user:', { userName, userLevel, transcription });
     console.log('Pronunciation scores:', pronunciationData);
     console.log('Message type:', messageType);
+    console.log('Has conversation context:', !!conversationContext);
 
     // ✅ VERIFICAR SE É TEXTO OU ÁUDIO
     const isTextMessage = messageType === 'text' || !pronunciationData;
 
     if (isTextMessage) {
-      console.log('🔤 Processing TEXT message...');
-      return await handleTextMessage(transcription, userLevel, userName);
+      console.log('🔤 Processing TEXT message with GRAMMAR ANALYSIS...');
+      return await handleTextMessageWithGrammar(transcription, userLevel, userName, conversationContext);
     } else {
       console.log('🎤 Processing AUDIO message...');
-      return await handleAudioMessage(transcription, pronunciationData, userLevel, userName);
+      return await handleAudioMessage(transcription, pronunciationData, userLevel, userName, conversationContext);
     }
 
   } catch (error: any) {
@@ -72,12 +80,153 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ✅ NOVA FUNÇÃO: Processar mensagens de TEXTO
-async function handleTextMessage(
+// 🆕 NOVA FUNÇÃO: Processar mensagens de TEXTO com ANÁLISE DE GRAMÁTICA e CONTEXTO
+async function handleTextMessageWithGrammar(
+  transcription: string, 
+  userLevel: 'Novice' | 'Intermediate' | 'Advanced', 
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('🔍 Starting comprehensive grammar analysis with context...');
+
+    // 1. 🎯 ANÁLISE COMPLETA DE GRAMÁTICA
+    const grammarResult = await grammarAnalysisService.analyzeText(
+      transcription, 
+      userLevel, 
+      userName
+    );
+
+    console.log('📊 Grammar analysis completed:', {
+      score: grammarResult.analysis.overallScore,
+      errors: grammarResult.analysis.errors.length,
+      xp: grammarResult.xpAwarded,
+      complexity: grammarResult.analysis.complexity
+    });
+
+    // 2. 🎨 COMBINAR FEEDBACK DE GRAMÁTICA COM RESPOSTA CONVERSACIONAL CONTEXTUALIZADA
+    const combinedFeedback = await generateContextualFeedback(
+      transcription,
+      grammarResult,
+      userLevel,
+      userName,
+      conversationContext
+    );
+
+    // 3. 📈 PREPARAR RESPOSTA COMPLETA
+    const response: AssistantResponse = {
+      feedback: combinedFeedback,
+      xpAwarded: grammarResult.xpAwarded,
+      nextChallenge: grammarResult.nextChallenge,
+      tips: grammarResult.analysis.suggestions.slice(0, 2),
+      encouragement: grammarResult.encouragement,
+      // 🆕 Dados de gramática para o frontend
+      grammarScore: grammarResult.analysis.overallScore,
+      grammarErrors: grammarResult.analysis.errors.length,
+      textComplexity: grammarResult.analysis.complexity,
+      technicalFeedback: ''
+    };
+
+    console.log('✅ Text with grammar analysis and context response ready');
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleTextMessageWithGrammar:', error);
+    
+    // 🆘 Fallback para análise simples
+    return await handleTextMessageSimple(transcription, userLevel, userName, conversationContext);
+  }
+}
+
+// 🎨 Combinar feedback de gramática com resposta conversacional CONTEXTUALIZADA
+async function generateContextualFeedback(
+  originalText: string,
+  grammarResult: any,
+  userLevel: string,
+  userName?: string,
+  conversationContext?: string
+): Promise<string> {
+  
+  const levelInstructions = {
+    'Novice': 'Use simple English. Include Portuguese explanations when helpful. Be very encouraging about grammar mistakes.',
+    'Intermediate': 'Provide clear feedback. Balance grammar correction with conversational response. Focus on practical improvements.',
+    'Advanced': 'Give sophisticated feedback. Integrate grammar analysis naturally into professional conversation.'
+  };
+
+  const systemPrompt = `You are Charlotte, an English tutor. Create a natural, conversational response that seamlessly integrates grammar feedback while maintaining conversation flow.
+
+User Level: ${userLevel}
+Guidelines: ${levelInstructions[userLevel as keyof typeof levelInstructions]}
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+IMPORTANT CONVERSATION RULES:
+- Use the conversation context to avoid repetitive greetings
+- Build naturally on previous topics and messages
+- Don't say "Hi Felipe" or "Hey Felipe" if you've already greeted recently
+- Reference previous conversation when relevant
+- Keep the conversation flowing naturally
+- Integrate grammar feedback smoothly, not as a separate lesson
+
+Create a response that:
+1. Responds naturally to their message content (considering conversation history)
+2. Smoothly incorporates grammar feedback when relevant
+3. Maintains an encouraging, conversational tone
+4. Provides actionable suggestions
+5. Continues the conversation naturally based on context
+
+Keep it natural - don't make it feel like a formal grammar lesson. Make it feel like a helpful friend giving tips while having a real conversation.`;
+
+  const userPrompt = `Student wrote: "${originalText}"
+
+Grammar Analysis Results:
+- Overall Grammar Score: ${grammarResult.analysis.overallScore}/100
+- Errors Found: ${grammarResult.analysis.errors.length}
+- Main Strengths: ${grammarResult.analysis.strengths.join(', ')}
+- Key Issues: ${grammarResult.analysis.errors.slice(0, 2).map((e: any) => `${e.type}: "${e.original}" → "${e.correction}"`).join(', ')}
+- Text Complexity: ${grammarResult.analysis.complexity}
+
+Student name: ${userName || 'there'}
+
+Create a natural, conversational response that acknowledges their message and smoothly incorporates helpful grammar feedback. Use the conversation context to maintain natural flow and avoid repetitive patterns.`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 300,
+      temperature: 0.7,
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    
+    if (!response) {
+      // Fallback: usar apenas o feedback de gramática
+      return grammarResult.feedback;
+    }
+
+    return response;
+
+  } catch (error) {
+    console.error('Error generating contextual feedback:', error);
+    
+    // Fallback: usar apenas o feedback de gramática
+    return grammarResult.feedback;
+  }
+}
+
+// 🔄 Função de fallback para texto simples (caso a análise de gramática falhe)
+async function handleTextMessageSimple(
   transcription: string, 
   userLevel: string, 
-  userName?: string
+  userName?: string,
+  conversationContext?: string
 ) {
+  console.log('⚠️ Using simple text fallback with context...');
+
   const levelInstructions = {
     'Novice': 'Use simple, encouraging English. Be very supportive and include basic vocabulary tips. Can include occasional Portuguese words if truly helpful.',
     'Intermediate': 'Provide clear, business-focused English responses. Give grammar and vocabulary suggestions when relevant.',
@@ -89,24 +238,34 @@ async function handleTextMessage(
 User Level: ${userLevel}
 Guidelines: ${levelInstructions[userLevel as keyof typeof levelInstructions]}
 
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+IMPORTANT CONVERSATION RULES:
+- Use the conversation context to maintain natural flow
+- Don't repeat greetings if you've already greeted recently
+- Build on previous topics and messages
+- Keep responses conversational and engaging
+- Reference conversation history when relevant
+
 Your role:
-- Respond naturally to their message
+- Respond naturally to their message (considering conversation history)
 - Provide encouraging, helpful feedback
 - Suggest follow-up practice opportunities
 - Be conversational and supportive
 - Focus on grammar, vocabulary, and communication skills
 
-Response style: Keep responses friendly, conversational, and around 100-150 words. Always end with an engaging question or suggestion to continue practicing.`;
+Response style: Keep responses friendly, conversational, and around 100-150 words. Continue the conversation naturally based on context.`;
 
   const userPrompt = `Student wrote: "${transcription}"
 
 Provide a helpful, encouraging response that:
-1. Acknowledges what they said naturally
+1. Acknowledges what they said naturally (considering conversation history)
 2. Gives relevant feedback or builds on their message
 3. Suggests a follow-up practice activity or asks an engaging question
 4. Matches their ${userLevel} proficiency level
+5. Uses conversation context to maintain natural flow
 
-Keep the response conversational and engaging.`;
+Keep the response conversational and engaging, avoiding repetitive patterns.`;
 
   try {
     const completion = await openai.chat.completions.create({
@@ -125,25 +284,23 @@ Keep the response conversational and engaging.`;
       throw new Error('No response from assistant');
     }
 
-    console.log('✅ Text response generated:', assistantResponse.length, 'characters');
-
-    // XP para texto (menor que áudio)
-    const xpAwarded = 15;
+    console.log('✅ Simple text response with context generated:', assistantResponse.length, 'characters');
 
     const response: AssistantResponse = {
       feedback: assistantResponse,
-      xpAwarded,
+      xpAwarded: 15, // XP mínimo para fallback
       nextChallenge: generateTextChallenge(userLevel),
       tips: ['Keep practicing your written English!', 'Try expressing complex ideas in simple words'],
-      encouragement: generateTextEncouragement(userLevel)
+      encouragement: generateTextEncouragement(userLevel),
+      technicalFeedback: ''
     };
 
     return NextResponse.json({ success: true, result: response });
 
   } catch (error) {
-    console.error('Error in handleTextMessage:', error);
+    console.error('Error in handleTextMessageSimple:', error);
     
-    // Fallback para texto
+    // Fallback final
     const fallbackResponse = userLevel === 'Novice' 
       ? `Great job practicing your English writing, ${userName || 'there'}! 😊 Keep it up - every message helps you improve! What would you like to talk about next?`
       : `Thank you for sharing that, ${userName || 'there'}! Your English communication is developing well. I'd love to continue our conversation - what interests you most about English learning?`;
@@ -155,116 +312,235 @@ Keep the response conversational and engaging.`;
         xpAwarded: 15,
         nextChallenge: generateTextChallenge(userLevel),
         tips: ['Keep writing in English!'],
-        encouragement: 'Every message makes you better! 💪'
+        encouragement: 'Every message makes you better! 💪',
+        technicalFeedback: ''
       }
     });
   }
 }
 
-// ✅ FUNÇÃO EXISTENTE: Processar mensagens de ÁUDIO (mantida igual)
+// ✅ FUNÇÃO EXISTENTE: Processar mensagens de ÁUDIO (atualizada com contexto conversacional)
 async function handleAudioMessage(
   transcription: string,
   pronunciationData: any,
   userLevel: string,
-  userName?: string
+  userName?: string,
+  conversationContext?: string
 ) {
   const levelInstructions = {
-    'Novice': 'Be very encouraging and use simple English. Only provide Portuguese explanations if it genuinely helps understanding a pronunciation concept.',
-    'Intermediate': 'Provide balanced feedback with specific pronunciation tips. Focus on business English relevance.',
-    'Advanced': 'Give detailed, professional feedback. Focus on nuanced pronunciation and advanced vocabulary usage.'
+    'Novice': 'Use simple, encouraging English. Be very supportive like a friendly coach. Can include occasional Portuguese words if truly helpful.',
+    'Intermediate': 'Provide clear, practical feedback like a professional coach. Focus on business English and communication effectiveness.',
+    'Advanced': 'Give sophisticated feedback like an expert coach. Focus on nuanced pronunciation and professional communication.'
   };
 
-  const systemPrompt = `You are Charlotte, a pronunciation specialist and English tutor from Hub Academy. You provide structured, encouraging feedback on pronunciation practice.
+  const systemPrompt = `You are Charlotte, a friendly English pronunciation coach. You're having a natural conversation while providing helpful pronunciation guidance.
 
 User Level: ${userLevel}
 Guidelines: ${levelInstructions[userLevel as keyof typeof levelInstructions]}
 
-IMPORTANT: You are analyzing PRONUNCIATION only. Follow this EXACT format:
+${conversationContext ? `\n${conversationContext}\n` : ''}
 
-🎤 I heard: "${transcription}" (use the EXACT transcription text, NO phonetic symbols)
-🎉 Score: [score]/100 - [brief encouraging comment]
-🔍 What worked well: [1-2 specific pronunciation strengths]
-🎯 Areas to improve: [1-2 specific pronunciation issues with clear guidance]
-💡 Quick tip: [ONE actionable pronunciation tip]
-🎵 Practice phrase: "[suggested phrase for improvement]"
+IMPORTANT CONVERSATION RULES:
+- Respond naturally to what they said, like a real conversation
+- DON'T use the format "🎤 I heard: ..." - that's too formal
+- DON'T repeat their exact words unless necessary for correction
+- Integrate pronunciation feedback smoothly into natural conversation
+- Be encouraging and supportive like a coach
+- Reference conversation context when relevant
+- Keep the conversation flowing naturally
 
-CRITICAL RULES:
-- Use the EXACT transcription text in quotes - NO IPA symbols like [ʃʊr, wʌt]
-- Maximum 120 words total
-- Focus ONLY on pronunciation, rhythm, and clarity
-- Be specific about sound issues (like /θ/, /r/, linking, stress)
-- NO Portuguese unless absolutely necessary for sound explanation
-- NO grammar or vocabulary feedback
-- Keep each section to 1-2 bullet points max`;
+PRONUNCIATION COACHING APPROACH:
+- Acknowledge what they said conversationally
+- Give encouraging feedback about their pronunciation naturally
+- Mention 1-2 specific pronunciation strengths
+- Gently suggest 1 area for improvement if needed
+- Ask a follow-up question or continue the conversation topic
+- Keep it conversational, not like a formal lesson
+
+Response style: Natural conversation (100-150 words) that includes pronunciation coaching seamlessly integrated. Be encouraging and keep the conversation flowing.`;
 
   const userPrompt = `Student said: "${transcription}"
-Pronunciation scores: Overall ${pronunciationData.pronunciationScore}/100, Accuracy ${pronunciationData.accuracyScore}/100, Fluency ${pronunciationData.fluencyScore}/100, Completeness ${pronunciationData.completenessScore}/100
 
-Provide structured pronunciation feedback only.`;
+Pronunciation Assessment:
+- Overall Score: ${pronunciationData.pronunciationScore}/100
+- Accuracy: ${pronunciationData.accuracyScore}/100  
+- Fluency: ${pronunciationData.fluencyScore}/100
+- Completeness: ${pronunciationData.completenessScore}/100
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ],
-    max_tokens: 300,
-    temperature: 0.7,
-  });
+Create a natural, conversational response that:
+1. Responds to what they said (considering conversation context)
+2. Smoothly integrates encouraging pronunciation feedback
+3. Mentions what they did well with their speech
+4. Gently suggests improvement if needed (but keep it positive)
+5. Continues the conversation naturally with a question or comment
+6. Feels like talking to a supportive coach, not a formal teacher
 
-  const assistantResponse = completion.choices[0]?.message?.content;
-  
-  if (!assistantResponse) {
-    throw new Error('No response from assistant');
+Keep it natural and conversational - avoid formal assessment language.`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 300,
+      temperature: 0.7,
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Audio response with conversational context generated:', assistantResponse.length, 'characters');
+
+    // Calcular XP baseado nos scores (lógica original)
+    let xpAwarded = 25;
+    if (pronunciationData.pronunciationScore >= 80) {
+      xpAwarded += 50;
+    }
+    if (pronunciationData.pronunciationScore >= 90) {
+      xpAwarded += 25;
+    }
+
+    // 🆕 Gerar feedback técnico separado para o botão "Feedback"
+    const technicalFeedback = generateTechnicalFeedback(pronunciationData, userLevel);
+
+    const response: AssistantResponse = {
+      feedback: assistantResponse,
+      xpAwarded,
+      nextChallenge: generateNextChallenge(userLevel, pronunciationData),
+      tips: extractTipsFromResponse(assistantResponse),
+      encouragement: generateEncouragement(pronunciationData.pronunciationScore),
+      // 🆕 Feedback técnico separado
+      technicalFeedback: technicalFeedback
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('Error generating conversational audio feedback:', error);
+    
+    // Fallback conversacional
+    const fallbackResponse = userLevel === 'Novice'
+      ? `That's great practice, ${userName || 'there'}! I can hear you're working hard on your pronunciation. Your English sounds good - keep speaking with confidence! What would you like to talk about next?`
+      : `Nice work on your pronunciation, ${userName || 'there'}! Your speaking skills are developing well. I appreciate the effort you're putting into practicing. What else would you like to discuss?`;
+
+    const technicalFeedback = generateTechnicalFeedback(pronunciationData, userLevel);
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 25,
+        nextChallenge: generateNextChallenge(userLevel, pronunciationData),
+        tips: ['Keep practicing your pronunciation!'],
+        encouragement: 'Every practice session makes you stronger! 🌱',
+        technicalFeedback: technicalFeedback
+      }
+    });
   }
-
-  // ✅ ADICIONAR ESTA LIMPEZA:
-  let cleanResponse = assistantResponse;
-
-  // Remover símbolos fonéticos comuns se aparecerem
-  const phoneticPatterns = [
-    /\[.*?\]/g, // Remove [símbolos dentro de colchetes]
-    /\/.*?\//g, // Remove /símbolos entre barras/
-    /ʃ|ʊ|ʌ|ˈ|ɛ|ʧ|æ|aɪ/g // Remove símbolos IPA específicos
-  ];
-
-  phoneticPatterns.forEach(pattern => {
-    cleanResponse = cleanResponse.replace(pattern, '');
-  });
-
-  // Se ainda contém símbolos estranhos, usar o texto original
-  if (cleanResponse.includes('🎤 I heard: ""') || cleanResponse.includes('[') || cleanResponse.includes('ʃ')) {
-    console.log('⚠️ Detected phonetic symbols, using fallback response');
-    cleanResponse = `🎤 I heard: "${transcription}"
-🎉 Score: ${pronunciationData.pronunciationScore}/100 - ${pronunciationData.pronunciationScore >= 80 ? 'Great job!' : 'Good effort!'}
-🔍 What worked well: Your English pronunciation is developing well!
-🎯 Areas to improve: Keep practicing to build confidence and clarity.
-💡 Quick tip: Speak slowly and clearly - you're doing great!`;
-  }
-
-  console.log('✅ Audio response generated:', cleanResponse.length, 'characters');
-
-  // Calcular XP baseado nos scores (lógica original)
-  let xpAwarded = 25;
-  if (pronunciationData.pronunciationScore >= 80) {
-    xpAwarded += 50;
-  }
-  if (pronunciationData.pronunciationScore >= 90) {
-    xpAwarded += 25;
-  }
-
-  const response: AssistantResponse = {
-    feedback: cleanResponse,
-    xpAwarded,
-    nextChallenge: generateNextChallenge(userLevel, pronunciationData),
-    tips: extractTipsFromResponse(cleanResponse),
-    encouragement: generateEncouragement(pronunciationData.pronunciationScore)
-  };
-
-  return NextResponse.json({ success: true, result: response });
 }
 
-// ✅ NOVAS FUNÇÕES para texto
+// 🆕 Gerar feedback técnico para o botão "Feedback"
+function generateTechnicalFeedback(pronunciationData: any, userLevel: string): string {
+  const score = pronunciationData.pronunciationScore;
+  const accuracy = pronunciationData.accuracyScore;
+  const fluency = pronunciationData.fluencyScore;
+  const completeness = pronunciationData.completenessScore;
+
+  let scoreEmoji = '🌱';
+  let scoreComment = 'Keep practicing!';
+  
+  if (score >= 90) {
+    scoreEmoji = '🌟';
+    scoreComment = 'Excellent pronunciation!';
+  } else if (score >= 80) {
+    scoreEmoji = '🎉';
+    scoreComment = 'Great job!';
+  } else if (score >= 70) {
+    scoreEmoji = '👍';
+    scoreComment = 'Good work!';
+  } else if (score >= 60) {
+    scoreEmoji = '💪';
+    scoreComment = 'Nice effort!';
+  }
+
+  const strengthsAndTips = generateStrengthsAndTips(pronunciationData, userLevel);
+
+  return `${scoreEmoji} **Score: ${score}/100** - ${scoreComment}
+
+📊 **Detailed Scores:**
+• Pronunciation: ${score}/100
+• Accuracy: ${accuracy}/100  
+• Fluency: ${fluency}/100
+• Completeness: ${completeness}/100
+
+${strengthsAndTips}`;
+}
+
+// 🆕 Gerar pontos fortes e dicas técnicas
+function generateStrengthsAndTips(pronunciationData: any, userLevel: string): string {
+  const score = pronunciationData.pronunciationScore;
+  const accuracy = pronunciationData.accuracyScore;
+  const fluency = pronunciationData.fluencyScore;
+  
+  let strengths = [];
+  let tips = [];
+
+  // Analisar pontos fortes
+  if (fluency >= 90) strengths.push('Excellent fluency and rhythm');
+  else if (fluency >= 80) strengths.push('Good speaking flow');
+  
+  if (accuracy >= 85) strengths.push('Clear pronunciation of words');
+  else if (accuracy >= 75) strengths.push('Generally clear speech');
+  
+  if (score >= 80) strengths.push('Strong overall pronunciation');
+
+  // Gerar dicas baseadas nas áreas que precisam melhorar
+  if (accuracy < 70) {
+    tips.push('Focus on pronouncing each word clearly');
+  }
+  if (fluency < 80) {
+    tips.push('Try speaking at a steady, natural pace');
+  }
+  if (score < 70) {
+    tips.push('Practice speaking longer sentences');
+  }
+
+  // Fallbacks se não há pontos específicos
+  if (strengths.length === 0) {
+    strengths.push('You\'re practicing and improving');
+  }
+  if (tips.length === 0) {
+    tips.push('Keep practicing regularly to build confidence');
+  }
+
+  let result = '';
+  
+  if (strengths.length > 0) {
+    result += `🔍 **What worked well:**\n${strengths.map(s => `• ${s}`).join('\n')}\n\n`;
+  }
+  
+  if (tips.length > 0) {
+    result += `🎯 **Areas to improve:**\n${tips.map(t => `• ${t}`).join('\n')}\n\n`;
+  }
+
+  // Dica específica por nível
+  const levelTips = {
+    'Novice': '💡 **Tip:** Speak slowly and clearly - accuracy is more important than speed!',
+    'Intermediate': '💡 **Tip:** Focus on natural rhythm and stress patterns in sentences.',
+    'Advanced': '💡 **Tip:** Work on subtle pronunciation nuances and professional delivery.'
+  };
+
+  result += levelTips[userLevel as keyof typeof levelTips] || levelTips['Intermediate'];
+
+  return result;
+}
+
+// ✅ FUNÇÕES AUXILIARES (mantidas iguais)
 function generateTextChallenge(level: string): string {
   const challenges = {
     'Novice': [
@@ -298,7 +574,6 @@ function generateTextEncouragement(level: string): string {
   return encouragements[level as keyof typeof encouragements] || "Keep up the great work! 💪";
 }
 
-// ✅ FUNÇÕES EXISTENTES mantidas iguais
 function generateNextChallenge(level: string, scores: any): string {
   const challenges = {
     'Novice': [

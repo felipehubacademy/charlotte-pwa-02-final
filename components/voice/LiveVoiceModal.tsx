@@ -2,391 +2,284 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { X, Mic, MicOff, Volume2, VolumeX, Settings, LogOut } from 'lucide-react';
+import { OpenAIRealtimeService, RealtimeConfig } from '../../lib/openai-realtime';
+import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
+import RealtimeOrb from './RealtimeOrb';
+import XPCounter from '../ui/XPCounter';
+import { calculateLiveVoiceXP } from '../../lib/audio-xp-service';
+import { supabaseService } from '../../lib/supabase-service';
 
 interface LiveVoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   userLevel: 'Novice' | 'Intermediate' | 'Advanced';
+  userName?: string;
+  user?: {
+    name?: string;
+    entra_id?: string;
+    user_level?: string;
+  };
+  sessionXP?: number;
+  totalXP?: number;
+  onLogout?: () => void;
+  onXPGained?: (amount: number) => void;
 }
-
-// Siri-like magical orb with fluid animations
-const MagicalOrb: React.FC<{ 
-  isListening: boolean; 
-  isSpeaking: boolean; 
-  isActive: boolean;
-  audioLevels: number[];
-}> = ({ isListening, isSpeaking, isActive, audioLevels }) => {
-  
-  return (
-    <div className="relative w-80 h-80 flex items-center justify-center">
-      {/* Multiple outer glow rings */}
-      {Array.from({ length: 4 }).map((_, ringIndex) => (
-        <motion.div
-          key={`ring-${ringIndex}`}
-          className={`absolute rounded-full border transition-all duration-700 ${
-            isListening 
-              ? 'border-blue-400/20 shadow-lg shadow-blue-400/10' 
-              : isSpeaking 
-                ? 'border-primary/20 shadow-lg shadow-primary/10' 
-                : 'border-white/10'
-          }`}
-          style={{
-            width: `${240 + (ringIndex * 20)}px`,
-            height: `${240 + (ringIndex * 20)}px`,
-          }}
-          animate={isActive ? { 
-            scale: [1, 1.05 + (ringIndex * 0.02), 1], 
-            opacity: [0.1, 0.3, 0.1],
-            rotate: [0, ringIndex % 2 === 0 ? 360 : -360]
-          } : { opacity: 0.05 }}
-          transition={{ 
-            duration: 8 + (ringIndex * 2), 
-            repeat: Infinity, 
-            ease: "easeInOut",
-            delay: ringIndex * 0.5
-          }}
-        />
-      ))}
-
-      {/* Main orb */}
-      <div className="relative w-48 h-48 rounded-full overflow-hidden">
-        {/* Dynamic gradient background */}
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          style={{
-            background: isListening 
-              ? 'radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.7), rgba(29, 78, 216, 0.5), rgba(30, 58, 138, 0.3))'
-              : isSpeaking 
-                ? 'radial-gradient(circle at 30% 30%, rgba(163, 255, 60, 0.9), rgba(143, 230, 26, 0.7), rgba(101, 163, 13, 0.5), rgba(77, 124, 15, 0.3))'
-                : 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05))'
-          }}
-          animate={isActive ? {
-            background: isListening 
-              ? [
-                  'radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.7), rgba(29, 78, 216, 0.5), rgba(30, 58, 138, 0.3))',
-                  'radial-gradient(circle at 70% 40%, rgba(96, 165, 250, 0.9), rgba(59, 130, 246, 0.7), rgba(37, 99, 235, 0.5), rgba(29, 78, 216, 0.3))',
-                  'radial-gradient(circle at 50% 70%, rgba(147, 197, 253, 0.9), rgba(96, 165, 250, 0.7), rgba(59, 130, 246, 0.5), rgba(37, 99, 235, 0.3))',
-                  'radial-gradient(circle at 30% 30%, rgba(59, 130, 246, 0.9), rgba(37, 99, 235, 0.7), rgba(29, 78, 216, 0.5), rgba(30, 58, 138, 0.3))'
-                ]
-              : [
-                  'radial-gradient(circle at 30% 30%, rgba(163, 255, 60, 0.9), rgba(143, 230, 26, 0.7), rgba(101, 163, 13, 0.5), rgba(77, 124, 15, 0.3))',
-                  'radial-gradient(circle at 70% 40%, rgba(217, 249, 157, 0.9), rgba(163, 255, 60, 0.7), rgba(143, 230, 26, 0.5), rgba(101, 163, 13, 0.3))',
-                  'radial-gradient(circle at 50% 70%, rgba(254, 240, 138, 0.9), rgba(217, 249, 157, 0.7), rgba(163, 255, 60, 0.5), rgba(143, 230, 26, 0.3))',
-                  'radial-gradient(circle at 30% 30%, rgba(163, 255, 60, 0.9), rgba(143, 230, 26, 0.7), rgba(101, 163, 13, 0.5), rgba(77, 124, 15, 0.3))'
-                ]
-          } : {}}
-          transition={{
-            duration: 4,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-
-        {/* Flowing particle system */}
-        <div className="absolute inset-0 rounded-full overflow-hidden">
-          {audioLevels.map((level, index) => {
-            const size = 2 + (level * 6);
-            const intensity = 0.3 + (level * 0.7);
-            
-            return (
-              <motion.div
-                key={`particle-${index}`}
-                className={`absolute rounded-full blur-sm ${
-                  isListening 
-                    ? 'bg-white/90' 
-                    : isSpeaking 
-                      ? 'bg-yellow-200/90' 
-                      : 'bg-white/40'
-                }`}
-                style={{
-                  width: `${size}px`,
-                  height: `${size}px`,
-                  left: `${20 + (index * 3)}%`,
-                  top: `${30 + Math.sin(index * 0.5) * 40}%`,
-                }}
-                animate={isActive ? {
-                  x: [0, Math.sin(index * 0.5) * 30, Math.cos(index * 0.3) * 40, 0],
-                  y: [0, Math.cos(index * 0.7) * 35, Math.sin(index * 0.2) * 25, 0],
-                  scale: [0.5, intensity * 1.5, 0.8, intensity * 1.2, 0.7],
-                  opacity: [0.3, intensity, 0.5, intensity * 0.8, 0.4],
-                } : { opacity: 0.1 }}
-                transition={{
-                  duration: 3 + (index * 0.2),
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: index * 0.1,
-                }}
-              />
-            );
-          })}
-        </div>
-
-        {/* Animated mesh/grid overlay */}
-        <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 192 192">
-          <defs>
-            <radialGradient id="meshGradient" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stopColor={isListening ? "#DBEAFE" : isSpeaking ? "#FEF3C7" : "#F9FAFB"} stopOpacity="0.8" />
-              <stop offset="50%" stopColor={isListening ? "#93C5FD" : isSpeaking ? "#FDE68A" : "#E5E7EB"} stopOpacity="0.4" />
-              <stop offset="100%" stopColor={isListening ? "#3B82F6" : isSpeaking ? "#F59E0B" : "#9CA3AF"} stopOpacity="0.1" />
-            </radialGradient>
-          </defs>
-          
-          {/* Animated concentric circles */}
-          {Array.from({ length: 6 }).map((_, ringIndex) => {
-            const radius = 20 + (ringIndex * 15);
-            
-            return (
-              <motion.circle
-                key={`mesh-${ringIndex}`}
-                cx="96"
-                cy="96"
-                r={radius}
-                fill="none"
-                stroke="url(#meshGradient)"
-                strokeWidth="0.5"
-                animate={isActive ? {
-                  r: [radius, radius + (level => audioLevels[ringIndex] * 20 || 5), radius],
-                  opacity: [0.2, 0.8, 0.3],
-                  strokeWidth: [0.5, 1.5, 0.5],
-                } : { opacity: 0.1 }}
-                transition={{
-                  duration: 2 + (ringIndex * 0.3),
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: ringIndex * 0.2,
-                }}
-              />
-            );
-          })}
-
-          {/* Flowing curves */}
-          {Array.from({ length: 8 }).map((_, curveIndex) => {
-            const angle = (curveIndex / 8) * 360;
-            
-            return (
-              <motion.path
-                key={`curve-${curveIndex}`}
-                d={`M 96 96 Q ${96 + Math.cos(angle * Math.PI / 180) * 40} ${96 + Math.sin(angle * Math.PI / 180) * 40} ${96 + Math.cos(angle * Math.PI / 180) * 70} ${96 + Math.sin(angle * Math.PI / 180) * 70}`}
-                fill="none"
-                stroke="url(#meshGradient)"
-                strokeWidth="1"
-                opacity="0.6"
-                animate={isActive ? {
-                  d: [
-                    `M 96 96 Q ${96 + Math.cos(angle * Math.PI / 180) * 40} ${96 + Math.sin(angle * Math.PI / 180) * 40} ${96 + Math.cos(angle * Math.PI / 180) * 70} ${96 + Math.sin(angle * Math.PI / 180) * 70}`,
-                    `M 96 96 Q ${96 + Math.cos(angle * Math.PI / 180) * 60} ${96 + Math.sin(angle * Math.PI / 180) * 30} ${96 + Math.cos(angle * Math.PI / 180) * 80} ${96 + Math.sin(angle * Math.PI / 180) * 60}`,
-                    `M 96 96 Q ${96 + Math.cos(angle * Math.PI / 180) * 30} ${96 + Math.sin(angle * Math.PI / 180) * 50} ${96 + Math.cos(angle * Math.PI / 180) * 75} ${96 + Math.sin(angle * Math.PI / 180) * 75}`,
-                    `M 96 96 Q ${96 + Math.cos(angle * Math.PI / 180) * 40} ${96 + Math.sin(angle * Math.PI / 180) * 40} ${96 + Math.cos(angle * Math.PI / 180) * 70} ${96 + Math.sin(angle * Math.PI / 180) * 70}`
-                  ],
-                  opacity: [0.3, 0.8, 0.5, 0.3],
-                } : { opacity: 0.1 }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: curveIndex * 0.2,
-                }}
-              />
-            );
-          })}
-        </svg>
-
-        {/* Central core with pulse */}
-        <motion.div
-          className="absolute inset-0 m-auto w-12 h-12 rounded-full"
-          style={{
-            background: isListening 
-              ? 'radial-gradient(circle, rgba(255, 255, 255, 1), rgba(255, 255, 255, 0.8), rgba(59, 130, 246, 0.3))'
-              : isSpeaking 
-                ? 'radial-gradient(circle, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.7), rgba(163, 255, 60, 0.3))'
-                : 'radial-gradient(circle, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.2))',
-            boxShadow: isListening 
-              ? '0 0 30px rgba(59, 130, 246, 0.5)'
-              : isSpeaking 
-                ? '0 0 30px rgba(163, 255, 60, 0.5)'
-                : '0 0 20px rgba(255, 255, 255, 0.3)'
-          }}
-          animate={isActive ? {
-            scale: [1, 1.4, 0.9, 1.3, 1],
-            opacity: [0.8, 1, 0.7, 0.95, 0.8],
-          } : { scale: 1, opacity: 0.5 }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-        />
-      </div>
-
-      {/* Orbiting elements */}
-      {isActive && Array.from({ length: 12 }).map((_, index) => {
-        const angle = (index / 12) * 360;
-        const radius = 140 + (index % 3 * 15);
-        const size = 2 + (audioLevels[index] || 0) * 4;
-        
-        return (
-          <motion.div
-            key={`orbit-${index}`}
-            className={`absolute w-1 h-1 rounded-full ${
-              isListening ? 'bg-blue-400/80' : isSpeaking ? 'bg-primary/80' : 'bg-white/40'
-            }`}
-            style={{
-              left: '50%',
-              top: '50%',
-              width: `${size}px`,
-              height: `${size}px`,
-            }}
-            animate={{
-              x: Math.cos(angle * Math.PI / 180) * radius,
-              y: Math.sin(angle * Math.PI / 180) * radius,
-              scale: [0.5, 1.5, 0.8, 1.2, 0.7],
-              opacity: [0.3, 0.9, 0.5, 0.8, 0.4],
-              rotate: [0, 360],
-            }}
-            transition={{
-              duration: 8 + (index * 0.3),
-              repeat: Infinity,
-              ease: "linear",
-              delay: index * 0.2,
-            }}
-          />
-        );
-      })}
-    </div>
-  );
-};
 
 const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({ 
   isOpen, 
   onClose, 
-  userLevel 
+  userLevel,
+  userName,
+  user,
+  sessionXP,
+  totalXP,
+  onLogout,
+  onXPGained
 }) => {
+  // Estados principais
+  const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [isConnected, setIsConnected] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [audioLevels, setAudioLevels] = useState<number[]>(Array(32).fill(0));
+  const [audioLevels, setAudioLevels] = useState<number[]>([]);
+  const [useRealtimeAPI, setUseRealtimeAPI] = useState(true); // Ativado por padrão
+  const [currentTranscript, setCurrentTranscript] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Audio analysis refs
+  // 🆕 Estados para tracking de XP por tempo de conversa
+  const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
+  const [totalConversationTime, setTotalConversationTime] = useState(0);
+  const [lastXPUpdate, setLastXPUpdate] = useState<Date | null>(null);
+
+  // Hook VAD para análise de áudio real
+  const { volume, audioLevels: vadAudioLevels, start: startVAD, stop: stopVAD } = useVoiceActivityDetection();
+
+  // Refs
+  const realtimeServiceRef = useRef<OpenAIRealtimeService | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number>();
-  const connectionTimeoutRef = useRef<NodeJS.Timeout>();
-  const speakingIntervalRef = useRef<NodeJS.Timeout>();
 
-  // Mock TTS function
-  const speakText = useCallback((text: string) => {
-    if ('speechSynthesis' in window) {
-      // Cancel any ongoing speech
-      window.speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.rate = 0.9;
-      utterance.pitch = 0.8;
-      utterance.volume = isMuted ? 0 : 0.7;
-      
-      // Find a female voice
-      const voices = window.speechSynthesis.getVoices();
-      const femaleVoice = voices.find(voice => 
-        voice.name.includes('Female') || 
-        voice.name.includes('Samantha') ||
-        voice.name.includes('Karen') ||
-        voice.lang.includes('en')
-      );
-      if (femaleVoice) utterance.voice = femaleVoice;
+  // Usar dados VAD quando disponíveis, senão fallback para mock
+  const effectiveAudioLevels = vadAudioLevels.length > 0 ? vadAudioLevels : audioLevels;
 
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-        // Create mock waveform for TTS
-        speakingIntervalRef.current = setInterval(() => {
-          setAudioLevels(Array(32).fill(0).map((_, i) => {
-            const wave1 = Math.sin((Date.now() / 200) + (i * 0.2)) * 0.3;
-            const wave2 = Math.sin((Date.now() / 150) + (i * 0.1)) * 0.4;
-            const wave3 = Math.sin((Date.now() / 300) + (i * 0.15)) * 0.2;
-            return Math.abs(wave1 + wave2 + wave3) * (0.8 + Math.random() * 0.4);
-          }));
-        }, 80);
-      };
-
-      utterance.onend = () => {
-        setIsSpeaking(false);
-        if (speakingIntervalRef.current) {
-          clearInterval(speakingIntervalRef.current);
-        }
-        // Return to listening mode
-        setTimeout(() => {
-          setIsListening(true);
-          startAudioAnalysis();
-        }, 500);
-      };
-
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [isMuted]);
-
-  // Initialize audio context and microphone
-  const initializeAudio = useCallback(async () => {
+  // 🔗 Inicializar OpenAI Realtime API
+  const initializeRealtimeAPI = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-        } 
+      setConnectionStatus('connecting');
+      
+      const config: RealtimeConfig = {
+        apiKey: '', // Será obtida via API route segura
+        model: 'gpt-4o-realtime-preview-2024-12-17',
+        voice: 'alloy',
+        userLevel,
+        userName
+      };
+
+      const service = new OpenAIRealtimeService(config);
+      realtimeServiceRef.current = service;
+
+      // Event listeners
+      service.on('session_created', () => {
+        console.log('✅ Realtime session created');
+        setConnectionStatus('connected');
+        setIsListening(true);
+        // 🎤 Iniciar tracking de conversa quando conectar
+        startConversationTracking();
       });
-      
-      mediaStreamRef.current = stream;
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      source.connect(analyserRef.current);
 
-      analyserRef.current.fftSize = 128;
-      analyserRef.current.smoothingTimeConstant = 0.85;
+      service.on('user_speech_started', () => {
+        console.log('🎤 User started speaking');
+        setIsListening(true);
+        setIsSpeaking(false);
+      });
 
-      startAudioAnalysis();
-      
+      service.on('user_speech_stopped', () => {
+        console.log('🔇 User stopped speaking');
+        setIsListening(false);
+      });
+
+      service.on('response_created', () => {
+        console.log('🤖 Assistant response created');
+        setIsSpeaking(true);
+        setIsListening(false);
+      });
+
+      service.on('transcript_delta', (event: any) => {
+        if (event.delta) {
+          setCurrentTranscript(prev => prev + event.delta);
+        }
+      });
+
+      service.on('response_done', () => {
+        console.log('✅ Response completed');
+        setIsSpeaking(false);
+        setIsListening(true);
+        if (currentTranscript) {
+          setTranscript(currentTranscript);
+          setCurrentTranscript('');
+        }
+      });
+
+      service.on('text_delta', (event: any) => {
+        if (event.delta) {
+          setCurrentTranscript(prev => prev + event.delta);
+        }
+      });
+
+      service.on('text_done', (event: any) => {
+        console.log('✅ Text response completed');
+        if (currentTranscript) {
+          setTranscript(currentTranscript);
+          setCurrentTranscript('');
+        }
+      });
+
+      service.on('audio_done', (event: any) => {
+        console.log('✅ Audio response completed');
+        setIsSpeaking(false);
+        setIsListening(true);
+      });
+
+      service.on('input_transcription_completed', (event: any) => {
+        console.log('📝 User speech transcribed:', event.transcript);
+        setTranscript(`You: "${event.transcript}"`);
+      });
+
+      service.on('input_transcription_failed', (event: any) => {
+        console.log('❌ Transcription failed');
+      });
+
+      service.on('function_call_arguments_delta', (event: any) => {
+        console.log('🔧 Function call in progress:', event.delta);
+      });
+
+      service.on('function_call_arguments_done', (event: any) => {
+        console.log('✅ Function call completed');
+      });
+
+      service.on('conversation_item_created', (event: any) => {
+        console.log('💬 Conversation item created:', event.item?.type);
+        
+        // Tratar function calls
+        if (event.item?.type === 'function_call') {
+          const functionName = event.item.name;
+          const args = JSON.parse(event.item.arguments || '{}');
+          
+          console.log('🔧 Function call:', functionName, args);
+          
+          // Simular execução das funções de ensino
+          let result = '';
+          
+          switch (functionName) {
+            case 'get_word_definition':
+              result = JSON.stringify({
+                word: args.word,
+                definition: `A ${args.level.toLowerCase()} level definition of "${args.word}"`,
+                examples: [`Example sentence with ${args.word}.`],
+                pronunciation: `/pronunciation-guide/`
+              });
+              break;
+              
+            case 'check_pronunciation':
+              result = JSON.stringify({
+                accuracy: 85,
+                feedback: 'Good pronunciation! Try to emphasize the first syllable more.',
+                suggestions: ['Practice the "th" sound', 'Slow down slightly']
+              });
+              break;
+              
+            default:
+              result = JSON.stringify({ error: 'Function not implemented' });
+          }
+          
+          // Enviar resultado da função
+          service.sendFunctionResult(event.item.call_id, result);
+          
+          // Criar nova resposta
+          service.createResponse();
+        }
+      });
+
+      service.on('error', (event: any) => {
+        console.error('❌ Realtime API error:', event.error);
+        console.error('❌ Full error event:', event);
+        console.error('❌ Error details:', JSON.stringify(event, null, 2));
+        setConnectionStatus('error');
+        
+        // Mensagens de erro específicas para problemas de WebSocket
+        let errorMessage = '';
+        
+        if (event.error?.message?.includes('Missing bearer or basic authentication')) {
+          errorMessage = 'Authentication failed. Your OpenAI account may not have access to the Realtime API yet.';
+        } else if (event.error?.message?.includes('insufficient_quota') || event.error?.message?.includes('quota')) {
+          errorMessage = 'Your OpenAI account has insufficient quota. Please check your billing settings.';
+        } else if (event.error?.message?.includes('model_not_found') || event.error?.message?.includes('realtime')) {
+          errorMessage = 'Realtime API access denied. Your account may not have access to this feature yet.';
+        } else {
+          // Mensagem de erro baseada no nível do usuário
+          const errorMessages = {
+            'Novice': 'Oops! Charlotte está indisponível no momento. Tente novamente mais tarde. (Charlotte is unavailable right now. Please try again later.)',
+            'Intermediate': 'Sorry! The voice chat service is temporarily unavailable. Please try again in a few minutes.',
+            'Advanced': 'The real-time conversation service is currently experiencing technical difficulties. Please attempt to reconnect shortly.'
+          };
+          
+          errorMessage = errorMessages[userLevel] || errorMessages['Intermediate'];
+        }
+        
+        setErrorMessage(errorMessage);
+      });
+
+      service.on('disconnected', () => {
+        console.log('🔌 Disconnected from Realtime API');
+        setConnectionStatus('disconnected');
+        // 🎤 Parar tracking e calcular XP final
+        stopConversationTracking();
+      });
+
+      // Conectar e inicializar áudio
+      await service.connect();
+      await service.initializeAudio();
+
     } catch (error) {
-      console.error('Failed to initialize audio:', error);
-      // Create mock waveform if no microphone
-      createMockWaveform();
-    }
-  }, []);
-
-  // Create beautiful mock waveform
-  const createMockWaveform = useCallback(() => {
-    const interval = setInterval(() => {
-      if (!isListening) return;
+      console.error('❌ Failed to initialize Realtime API:', error);
+      setConnectionStatus('error');
       
-      setAudioLevels(Array(32).fill(0).map((_, i) => {
-        const time = Date.now() / 1000;
-        const wave1 = Math.sin(time * 2 + i * 0.3) * 0.3;
-        const wave2 = Math.sin(time * 1.5 + i * 0.2) * 0.4;
-        const wave3 = Math.sin(time * 3 + i * 0.1) * 0.2;
-        const combined = Math.abs(wave1 + wave2 + wave3);
-        return combined * (0.3 + Math.random() * 0.7);
-      }));
-    }, 100);
+      // Mensagens de erro específicas para problemas de inicialização
+      let errorMessage = '';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('REALTIME_ACCESS_DENIED')) {
+          errorMessage = 'Your OpenAI account does not have access to the Realtime API. Please upgrade your account or contact OpenAI support.';
+        } else if (error.message.includes('Failed to get API token')) {
+          errorMessage = 'Failed to authenticate with OpenAI. Please check your API key configuration.';
+        } else if (error.message.includes('Connection timeout')) {
+          errorMessage = 'Connection timeout. Please check your internet connection and try again.';
+        } else {
+          errorMessage = `Connection failed: ${error.message}`;
+        }
+      } else {
+        errorMessage = 'Unknown error occurred while connecting to voice chat.';
+      }
+      
+      setErrorMessage(errorMessage);
+    }
+  }, [userLevel, userName, currentTranscript]);
 
-    return () => clearInterval(interval);
-  }, [isListening]);
-
-  // Analyze real audio levels
+  // 📊 Análise de áudio para visualização
   const startAudioAnalysis = useCallback(() => {
-    if (!analyserRef.current || !isListening) return;
+    if (!analyserRef.current) return;
 
     const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
     
     const analyze = () => {
-      if (!analyserRef.current || !isListening) return;
+      if (!analyserRef.current) return;
       
       analyserRef.current.getByteFrequencyData(dataArray);
       
-      // Create smooth waveform from frequency data
       const levels = Array(32).fill(0).map((_, index) => {
         const start = Math.floor((index / 32) * dataArray.length);
         const end = Math.floor(((index + 1) / 32) * dataArray.length);
@@ -397,22 +290,114 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       
       setAudioLevels(levels);
       
-      if (isListening) {
+      if (connectionStatus === 'connected') {
         animationFrameRef.current = requestAnimationFrame(analyze);
       }
     };
 
     analyze();
-  }, [isListening]);
+  }, [connectionStatus]);
 
-  // Clean up audio resources
-  const cleanupAudio = useCallback(() => {
+  // 🎤 Iniciar tracking de conversa
+  const startConversationTracking = useCallback(() => {
+    const now = new Date();
+    setConversationStartTime(now);
+    setLastXPUpdate(now);
+    console.log('🎤 Started conversation tracking at:', now.toISOString());
+  }, []);
+
+  // 🎤 Parar tracking e calcular XP final
+  const stopConversationTracking = useCallback(async () => {
+    if (!conversationStartTime || !user?.entra_id) return;
+
+    const now = new Date();
+    const totalSeconds = Math.floor((now.getTime() - conversationStartTime.getTime()) / 1000);
+    
+    // Só dar XP se a conversa durou pelo menos 30 segundos
+    if (totalSeconds < 30) {
+      console.log('🎤 Conversation too short for XP:', totalSeconds, 'seconds');
+      return;
+    }
+
+    try {
+      console.log('🎤 Calculating final conversation XP for', totalSeconds, 'seconds');
+      
+      const xpResult = calculateLiveVoiceXP(totalSeconds, userLevel);
+      
+      // Salvar no banco de dados
+      if (supabaseService.isAvailable()) {
+        await supabaseService.saveAudioPractice({
+          user_id: user.entra_id,
+          transcription: `Live voice conversation (${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s)`,
+          accuracy_score: null,
+          fluency_score: null,
+          completeness_score: null,
+          pronunciation_score: null,
+          feedback: xpResult.feedback,
+          xp_awarded: xpResult.xpAwarded,
+          practice_type: 'live_voice',
+          audio_duration: totalSeconds
+        });
+
+        console.log('✅ Live voice practice saved with XP:', xpResult.xpAwarded);
+        
+        // Callback para atualizar XP na UI
+        onXPGained?.(xpResult.xpAwarded);
+      }
+
+    } catch (error) {
+      console.error('❌ Error saving live voice practice:', error);
+    }
+  }, [conversationStartTime, user?.entra_id, userLevel, onXPGained]);
+
+  // 🎤 XP incremental a cada minuto de conversa
+  const updateIncrementalXP = useCallback(async () => {
+    if (!conversationStartTime || !lastXPUpdate || !user?.entra_id) return;
+
+    const now = new Date();
+    const timeSinceLastUpdate = Math.floor((now.getTime() - lastXPUpdate.getTime()) / 1000);
+    
+    // Dar XP incremental a cada 60 segundos
+    if (timeSinceLastUpdate >= 60) {
+      try {
+        const xpResult = calculateLiveVoiceXP(60, userLevel); // XP por 1 minuto
+        
+        if (supabaseService.isAvailable()) {
+          await supabaseService.saveAudioPractice({
+            user_id: user.entra_id,
+            transcription: `Live voice conversation segment (1 minute)`,
+            accuracy_score: null,
+            fluency_score: null,
+            completeness_score: null,
+            pronunciation_score: null,
+            feedback: `Conversation in progress... (+${xpResult.xpAwarded} XP)`,
+            xp_awarded: xpResult.xpAwarded,
+            practice_type: 'live_voice',
+            audio_duration: 60
+          });
+
+          console.log('✅ Incremental XP awarded:', xpResult.xpAwarded);
+          onXPGained?.(xpResult.xpAwarded);
+          setLastXPUpdate(now);
+        }
+      } catch (error) {
+        console.error('❌ Error updating incremental XP:', error);
+      }
+    }
+  }, [conversationStartTime, lastXPUpdate, user?.entra_id, userLevel, onXPGained]);
+
+  // 🧹 Limpeza de recursos
+  const cleanup = useCallback(() => {
+    // 🎤 Parar tracking e calcular XP final antes da limpeza
+    stopConversationTracking();
+    
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
     
-    if (speakingIntervalRef.current) {
-      clearInterval(speakingIntervalRef.current);
+    if (realtimeServiceRef.current) {
+      realtimeServiceRef.current.disconnect();
+      realtimeServiceRef.current = null;
     }
     
     if (mediaStreamRef.current) {
@@ -425,46 +410,68 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       audioContextRef.current = null;
     }
     
-    window.speechSynthesis.cancel();
     analyserRef.current = null;
-    setAudioLevels(Array(32).fill(0));
-  }, []);
+    setAudioLevels([]);
+    setConnectionStatus('disconnected');
+    setIsListening(false);
+    setIsSpeaking(false);
+    setTranscript('');
+    setCurrentTranscript('');
+    
+    // 🎤 Reset tracking states
+    setConversationStartTime(null);
+    setTotalConversationTime(0);
+    setLastXPUpdate(null);
+  }, [stopConversationTracking]); // Dependência necessária
 
-  // Handle modal open/close
+  // 🎤 Efeito para XP incremental
   useEffect(() => {
-    if (isOpen) {
-      setIsConnected(false);
-      setIsListening(false);
-      setIsSpeaking(false);
-      
-      connectionTimeoutRef.current = setTimeout(async () => {
-        setIsConnected(true);
-        await initializeAudio();
-        setIsListening(true);
-        playConnectSound();
-      }, 1500);
-    } else {
-      setIsConnected(false);
-      setIsListening(false);
-      setIsSpeaking(false);
-      setTranscript('');
-      cleanupAudio();
-      
-      if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current);
-      }
+    if (connectionStatus === 'connected' && conversationStartTime) {
+      const interval = setInterval(() => {
+        updateIncrementalXP();
+      }, 30000); // Verificar a cada 30 segundos
+
+      return () => clearInterval(interval);
+    }
+  }, [connectionStatus, conversationStartTime, updateIncrementalXP]);
+
+  // 🔄 Efeito principal do modal
+  useEffect(() => {
+    if (!isOpen) {
+      cleanup();
+      stopVAD();
+      return;
     }
 
-    return cleanupAudio;
-  }, [isOpen, initializeAudio, cleanupAudio]);
+    const initializeModal = async () => {
+      setConnectionStatus('connecting');
+      setErrorMessage('');
+      
+      try {
+        await initializeRealtimeAPI();
+        await startVAD();
+      } catch (error) {
+        console.error('❌ Failed to initialize Realtime API:', error);
+        setConnectionStatus('error');
+      }
+    };
 
-  // Start audio analysis when listening
+    initializeModal();
+
+    // Cleanup quando o modal fechar
+    return () => {
+      if (!isOpen) {
+        cleanup();
+        stopVAD();
+      }
+    };
+  }, [isOpen]); // Apenas dependência essencial
+
+  // 🔄 Efeito para análise de áudio (apenas para visualização)
   useEffect(() => {
-    if (isListening && isConnected) {
+    if (connectionStatus === 'connected') {
       if (analyserRef.current) {
         startAudioAnalysis();
-      } else {
-        createMockWaveform();
       }
     }
     
@@ -473,126 +480,190 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [isListening, isConnected, startAudioAnalysis, createMockWaveform]);
+  }, [connectionStatus, startAudioAnalysis]);
 
-  // Subtle connection sound that doesn't interfere
-const playConnectSound = () => {
-  try {
-    const audioContext = new AudioContext();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-
-    oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
-    oscillator.frequency.linearRampToValueAtTime(800, audioContext.currentTime + 0.1);
-    
-    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-    gainNode.gain.linearRampToValueAtTime(0.05, audioContext.currentTime + 0.01); // Mais baixo
-    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.15);
-
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.15);
-    
-    // Clean up
-    setTimeout(() => {
-      audioContext.close();
-    }, 200);
-  } catch (error) {
-    console.log('Sound effect disabled');
-  }
-};
-
-  const handleClose = () => {
-    onClose();
-  };
-
+  // 🔇 Toggle mute
   const toggleMute = () => {
     setIsMuted(!isMuted);
   };
 
-  // Demo conversation with TTS
-  const simulateConversation = () => {
-    setIsListening(false);
-    setTranscript("I want to practice my presentation skills...");
-    
-    setTimeout(() => {
-      setTranscript("That's great! Let's work on your presentation. What topic would you like to present about?");
-      speakText("That's great! Let's work on your presentation. What topic would you like to present about?");
-    }, 2000);
+  // 🔄 Toggle API mode
+  const toggleAPIMode = () => {
+    console.log('API mode toggle disabled - always using Realtime API');
   };
+
+  // 🚪 Fechar modal
+  const handleClose = () => {
+    cleanup();
+    onClose();
+  };
+
+  // ⏹️ Interromper resposta
+  const interruptResponse = () => {
+    if (realtimeServiceRef.current && isSpeaking) {
+      realtimeServiceRef.current.interruptResponse();
+      setIsSpeaking(false);
+      setIsListening(true);
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
     <AnimatePresence>
-      {isOpen && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center"
+      >
+        {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black z-50 flex flex-col items-center justify-center"
-          onClick={(e) => e.target === e.currentTarget && handleClose()}
+          className="absolute inset-0 bg-gradient-to-br from-charcoal via-charcoal-light to-charcoal"
+          onClick={handleClose}
+        />
+
+        {/* Modal Content */}
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.9, opacity: 0 }}
+          className="relative w-full h-full grid grid-rows-[auto_auto_1fr_auto] bg-gradient-to-br from-charcoal via-charcoal-light to-charcoal overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
         >
-          {/* Background with subtle animation */}
-          <div className="absolute inset-0">
-            <div className="absolute inset-0 bg-gradient-to-br from-secondary via-secondary-light to-secondary opacity-95" />
-            <motion.div
-              className="absolute inset-0 bg-gradient-to-t from-primary/5 via-transparent to-blue-500/5"
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </div>
-          
-          {/* Status indicator */}
+          {/* Header Principal - Igual ao da página de chat */}
+          <motion.header
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe z-30"
+          >
+            <div className="flex items-center justify-between px-4 py-3">
+              {/* Charlotte Info */}
+              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg relative">
+                  <span className="text-black text-lg font-bold">C</span>
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-secondary ${
+                    connectionStatus === 'connected' ? 'bg-green-500' : 'bg-gray-400'
+                  }`}></div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="text-white font-semibold text-base">Charlotte</h1>
+                  <p className={`text-xs font-medium ${
+                    connectionStatus === 'connected' 
+                      ? isListening 
+                        ? 'text-blue-400' 
+                        : isSpeaking 
+                          ? 'text-primary'
+                          : 'text-green-400'
+                      : 'text-gray-400'
+                  }`}>
+                    {connectionStatus === 'connecting' && 'connecting...'}
+                    {connectionStatus === 'connected' && isListening && 'listening...'}
+                    {connectionStatus === 'connected' && isSpeaking && 'speaking...'}
+                    {connectionStatus === 'connected' && !isListening && !isSpeaking && 'online'}
+                    {connectionStatus === 'disconnected' && 'offline'}
+                    {connectionStatus === 'error' && 'error'}
+                  </p>
+                </div>
+              </div>
+              
+              {/* User Info + XP Counter + Close */}
+              <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">
+                {/* XP Counter */}
+                {sessionXP !== undefined && totalXP !== undefined && (
+                  <XPCounter 
+                    sessionXP={sessionXP}
+                    totalXP={totalXP}
+                    userId={user?.entra_id}
+                    onXPGained={onXPGained}
+                  />
+                )}
+                
+                {/* User Info */}
+                {user && (
+                  <div className="flex flex-col items-center text-center min-w-[70px] sm:min-w-[80px]">
+                    <p className="text-white text-xs sm:text-sm font-medium truncate max-w-16 sm:max-w-20 leading-tight">
+                      {user.name?.split(' ')[0]}
+                    </p>
+                    <span className="inline-block text-black text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 bg-primary rounded-full font-semibold mt-0.5 sm:mt-1">
+                      {user.user_level}
+                    </span>
+                  </div>
+                )}
+                
+                {/* Close button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClose();
+                  }}
+                  className="p-1.5 sm:p-2 text-white/70 hover:text-white active:bg-white/10 rounded-full transition-colors flex-shrink-0"
+                >
+                  <X size={16} className="sm:w-[18px] sm:h-[18px]" />
+                </button>
+              </div>
+            </div>
+          </motion.header>
+
+          {/* Status Bar - Simplificado */}
           <motion.div
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.2 }}
-            className="absolute top-8 left-0 right-0 text-center pt-safe"
+            className="z-20 bg-charcoal/30 backdrop-blur-sm border-b border-white/5"
           >
-            <div className="inline-flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-full">
-              <div className={`w-2 h-2 rounded-full ${
-                isConnected 
-                  ? isListening 
-                    ? 'bg-blue-400 animate-pulse' 
-                    : isSpeaking 
-                      ? 'bg-primary animate-pulse'
-                      : 'bg-green-400'
-                  : 'bg-yellow-400 animate-pulse'
-              }`} />
-              <span className="text-white text-sm font-medium">
-                {!isConnected 
-                  ? 'Connecting...' 
-                  : isListening 
-                    ? 'Listening...' 
-                    : isSpeaking 
-                      ? 'Charlotte is speaking...' 
-                      : 'Connected'
-                }
-              </span>
+            <div className="flex items-center justify-center px-4 py-2">
+              <div className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  connectionStatus === 'connected' 
+                    ? isListening 
+                      ? 'bg-blue-400 animate-pulse' 
+                      : isSpeaking 
+                        ? 'bg-primary animate-pulse'
+                        : 'bg-green-400'
+                    : connectionStatus === 'connecting'
+                      ? 'bg-yellow-400 animate-pulse'
+                      : connectionStatus === 'error'
+                        ? 'bg-red-400'
+                        : 'bg-gray-400'
+                }`} />
+                <span className="text-white/80 text-xs font-medium">
+                  {connectionStatus === 'connecting' && 'Connecting to Realtime API...'}
+                  {connectionStatus === 'connected' && isListening && 'Listening for your voice...'}
+                  {connectionStatus === 'connected' && isSpeaking && 'Charlotte is speaking...'}
+                  {connectionStatus === 'connected' && !isListening && !isSpeaking && 'Ready for conversation'}
+                  {connectionStatus === 'disconnected' && 'Disconnected'}
+                  {connectionStatus === 'error' && 'Connection Error'}
+                </span>
+              </div>
             </div>
           </motion.div>
 
           {/* Main content */}
-          <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-8">
-            {/* Beautiful waveform */}
+          <div className="relative z-10 flex flex-col items-center justify-center px-8">
+            {/* Orb melhorado */}
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.4 }}
               className="mb-8"
             >
-              <MagicalOrb
+              <RealtimeOrb
+                isConnected={connectionStatus === 'connected'}
                 isListening={isListening}
                 isSpeaking={isSpeaking}
-                isActive={isConnected}
-                audioLevels={audioLevels}
+                audioLevels={effectiveAudioLevels}
+                connectionStatus={connectionStatus}
               />
             </motion.div>
 
             {/* Transcript display */}
             <AnimatePresence>
-              {transcript && (
+              {(transcript || currentTranscript) && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -601,74 +672,76 @@ const playConnectSound = () => {
                 >
                   <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
                     <p className="text-white text-sm leading-relaxed">
-                      {transcript}
+                      {currentTranscript || transcript}
+                      {currentTranscript && <span className="animate-pulse">|</span>}
                     </p>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Instructions */}
-            {isConnected && !transcript && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1 }}
-                className="text-center max-w-sm"
-              >
-                <p className="text-white/70 text-sm leading-relaxed mb-4">
-                  {userLevel === 'Novice' 
-                    ? 'Fale naturalmente - as ondas respondem à sua voz!'
-                    : 'Speak naturally - the waves respond to your voice!'
-                  }
-                </p>
-                
-                <button
-                  onClick={simulateConversation}
-                  className="px-6 py-2 bg-primary/20 hover:bg-primary/30 rounded-full text-primary text-sm transition-all active:scale-95 border border-primary/30"
+            {/* Error message display */}
+            <AnimatePresence>
+              {connectionStatus === 'error' && errorMessage && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="max-w-md text-center mb-8"
                 >
-                  Try demo conversation
-                </button>
-              </motion.div>
-            )}
+                  <div className="bg-red-500/10 backdrop-blur-sm rounded-2xl p-4 border border-red-400/20">
+                    <p className="text-red-300 text-sm leading-relaxed">
+                      {errorMessage}
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Controls */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="relative z-10 pb-safe px-8 w-full"
+            transition={{ delay: 0.8 }}
+            className="z-20 pb-safe"
           >
-            <div className="flex justify-center space-x-6 mb-6">
+            <div className="flex justify-center items-center space-x-4 px-8 py-6">
+              {/* Mute button */}
               <button
-                onClick={toggleMute}
-                disabled={!isConnected}
-                className={`p-4 rounded-full transition-all active:scale-95 ${
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleMute();
+                }}
+                className={`p-3 rounded-full transition-all cursor-pointer ${
                   isMuted 
-                    ? 'bg-red-500/20 text-red-400 border border-red-400/30' 
-                    : 'bg-white/10 text-white hover:bg-white/20 border border-white/20'
-                } disabled:opacity-50`}
+                    ? 'bg-red-500/10 text-red-400 border border-red-400/20' 
+                    : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 hover:text-white/90'
+                }`}
               >
-                {isMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
               </button>
 
-              <button
-                onClick={handleClose}
-                className="p-4 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-full transition-all active:scale-95 border border-red-400/30"
-              >
-                <X size={24} />
-              </button>
-            </div>
-
-            <div className="text-center">
-              <p className="text-white/40 text-xs">
-                Beautiful waves respond to your voice • Click demo to hear Charlotte speak
-              </p>
+              {/* Interrupt button - only show when Charlotte is speaking */}
+              {isSpeaking && (
+                <motion.button
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    interruptResponse();
+                  }}
+                  className="p-3 rounded-full transition-all cursor-pointer bg-red-500/10 text-red-400 border border-red-400/20 hover:bg-red-500/20"
+                  title="Interrupt Charlotte"
+                >
+                  <X size={20} />
+                </motion.button>
+              )}
             </div>
           </motion.div>
         </motion.div>
-      )}
+      </motion.div>
     </AnimatePresence>
   );
 };

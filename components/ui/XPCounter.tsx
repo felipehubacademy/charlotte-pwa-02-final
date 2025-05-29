@@ -415,7 +415,7 @@ const XPCounter: React.FC<XPCounterProps> = ({ sessionXP, totalXP, onXPGained, u
       <div className="relative flex items-center space-x-2">
         <motion.button
           onClick={() => setShowStatsModal(true)}
-          className={`flex items-center space-x-3 px-4 py-2 rounded-full border transition-all duration-300 hover:scale-105 ${
+          className={`flex items-center space-x-2 px-3 py-2 rounded-full border transition-all duration-300 hover:scale-105 ${
             isAnimating 
               ? 'bg-primary/20 border-primary/50 shadow-lg shadow-primary/25' 
               : 'bg-white/10 border-white/20 hover:bg-white/15'
@@ -430,15 +430,20 @@ const XPCounter: React.FC<XPCounterProps> = ({ sessionXP, totalXP, onXPGained, u
           } : {}}
           transition={{ duration: 0.6 }}
         >
-          {/* Ícone */}
+          {/* 🆕 XP Logo Minimalista - Apenas Texto */}
           <div className="flex items-center">
-            <motion.span 
-              className="text-primary text-lg font-bold"
-              animate={isAnimating ? { rotate: [0, 360] } : {}}
+            <motion.div 
+              className={`text-sm font-black text-white transition-all ${
+                isAnimating ? 'text-primary' : 'text-white/80'
+              }`}
+              animate={isAnimating ? { 
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              } : {}}
               transition={{ duration: 0.6 }}
             >
-              ✨
-            </motion.span>
+              XP
+            </motion.div>
           </div>
 
           {/* Session XP */}
@@ -454,11 +459,11 @@ const XPCounter: React.FC<XPCounterProps> = ({ sessionXP, totalXP, onXPGained, u
             >
               +{displaySessionXP}
             </motion.span>
-            <span className="text-xs text-white/50 leading-none">today</span>
+            <span className="text-[10px] text-white/50 leading-none">today</span>
           </div>
 
           {/* Divisor */}
-          <div className="w-px h-5 bg-white/20"></div>
+          <div className="w-px h-4 bg-white/20"></div>
 
           {/* Total XP */}
           <div className="flex flex-col items-center">
@@ -469,7 +474,7 @@ const XPCounter: React.FC<XPCounterProps> = ({ sessionXP, totalXP, onXPGained, u
             >
               {displayTotalXP.toLocaleString()}
             </motion.span>
-            <span className="text-xs text-white/50 leading-none">total</span>
+            <span className="text-[10px] text-white/50 leading-none">total</span>
           </div>
         </motion.button>
 
