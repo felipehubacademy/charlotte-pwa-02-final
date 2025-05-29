@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 
@@ -21,6 +21,8 @@ const CharlotteAvatar: React.FC<CharlotteAvatarProps> = ({
   animate = false,
   onClick
 }) => {
+  const [imageError, setImageError] = useState(false);
+
   // Definir tamanhos
   const sizeClasses = {
     xs: 'w-6 h-6',
@@ -62,38 +64,28 @@ const CharlotteAvatar: React.FC<CharlotteAvatarProps> = ({
     <div className={`${sizeClasses[size]} relative ${className}`}>
       {/* Container do Avatar */}
       <div className="relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-primary to-primary-dark shadow-lg border-2 border-white/20">
-        {/* Tentar carregar a imagem do avatar, fallback para inicial */}
-        <Image
-          src="/images/charlotte-avatar.png"
-          alt="Charlotte Avatar"
-          width={pixelSizes[size]}
-          height={pixelSizes[size]}
-          className="w-full h-full object-cover"
-          onError={(e) => {
-            // Fallback para inicial se a imagem não carregar
-            const target = e.target as HTMLImageElement;
-            target.style.display = 'none';
-            const parent = target.parentElement;
-            if (parent) {
-              parent.innerHTML = `
-                <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary-dark">
-                  <span class="text-black font-bold" style="font-size: ${pixelSizes[size] * 0.4}px">C</span>
-                </div>
-              `;
-            }
-          }}
-          priority={size === 'lg' || size === 'xl' || size === 'xxl'}
-        />
-        
-        {/* Fallback inicial (será substituído pela imagem se carregar) */}
-        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary to-primary-dark">
-          <span 
-            className="text-black font-bold"
-            style={{ fontSize: `${pixelSizes[size] * 0.4}px` }}
-          >
-            C
-          </span>
-        </div>
+        {!imageError ? (
+          /* Imagem do Avatar */
+          <Image
+            src="/images/charlotte-avatar.png"
+            alt="Charlotte Avatar"
+            width={pixelSizes[size]}
+            height={pixelSizes[size]}
+            className="w-full h-full object-cover"
+            onError={() => setImageError(true)}
+            priority={size === 'lg' || size === 'xl' || size === 'xxl'}
+          />
+        ) : (
+          /* Fallback inicial apenas se a imagem falhar */
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary-dark">
+            <span 
+              className="text-black font-bold"
+              style={{ fontSize: `${pixelSizes[size] * 0.4}px` }}
+            >
+              C
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Status Indicator */}
