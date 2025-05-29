@@ -7,7 +7,6 @@ import { LogOut, Send, Mic, Camera, Phone } from 'lucide-react';
 import ChatBox from '@/components/chat/ChatBox';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import CameraCapture from '@/components/camera/CameraCapture';
-import AudioPlayer from '@/components/voice/AudioPlayer';
 import { transcribeAudio } from '@/lib/transcribe';
 import { assessPronunciation } from '@/lib/pronunciation';
 import { getAssistantFeedback, formatAssistantMessage, createFallbackResponse } from '@/lib/assistant';
@@ -149,6 +148,9 @@ export default function ChatPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(0));
 
   const [conversationContext] = useState(() => 
     new ConversationContextManager(
@@ -158,12 +160,192 @@ export default function ChatPage() {
   );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioStreamRef = useRef<MediaStream | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number>();
+  const recordingTimerRef = useRef<NodeJS.Timeout>();
 
   const generateMessageId = useCallback((prefix: string) => {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substr(2, 9);
     return `${prefix}-${timestamp}-${random}`;
   }, []);
+
+  // Cleanup function for audio recording
+  const cleanup = useCallback(() => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+    }
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  // Initialize audio recording
+  const initializeRecording = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        } 
+      });
+      
+      audioStreamRef.current = stream;
+
+      // Setup audio analysis
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      const source = audioContextRef.current.createMediaStreamSource(stream);
+      source.connect(analyserRef.current);
+      
+      analyserRef.current.fftSize = 64;
+      analyserRef.current.smoothingTimeConstant = 0.8;
+
+      // Setup MediaRecorder
+      mediaRecorderRef.current = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Failed to initialize recording:', error);
+      return false;
+    }
+  }, []);
+
+  // Analyze audio levels
+  const analyzeAudio = useCallback(() => {
+    if (!analyserRef.current || !isRecording) return;
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+
+    // Create waveform levels
+    const levels = Array(20).fill(0).map((_, index) => {
+      const start = Math.floor((index / 20) * dataArray.length);
+      const end = Math.floor(((index + 1) / 20) * dataArray.length);
+      const slice = dataArray.slice(start, end);
+      const average = slice.reduce((sum, value) => sum + value, 0) / slice.length;
+      return average / 255;
+    });
+
+    setAudioLevels(levels);
+
+    if (isRecording) {
+      animationFrameRef.current = requestAnimationFrame(analyzeAudio);
+    }
+  }, [isRecording]);
+
+  // Start recording
+  const startRecording = useCallback(async () => {
+    const initialized = await initializeRecording();
+    if (!initialized) return;
+
+    setIsRecording(true);
+    setRecordingTime(0);
+
+    // Create audio chunks array for this recording session
+    const audioChunks: Blob[] = [];
+    let currentRecordingTime = 0;
+
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { 
+          type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
+        });
+        
+        // Auto-send if recording was longer than 1 second
+        if (currentRecordingTime >= 1) {
+          handleAudioWithAssistantAPI(audioBlob, currentRecordingTime);
+        } else {
+          console.log('Recording too short, discarded');
+        }
+        
+        setRecordingTime(0);
+      };
+
+      mediaRecorderRef.current.start();
+    }
+
+    analyzeAudio();
+
+    // Recording timer
+    recordingTimerRef.current = setInterval(() => {
+      currentRecordingTime += 1;
+      setRecordingTime(currentRecordingTime);
+      
+      if (currentRecordingTime >= 60) { // Max 60 seconds
+        // Stop recording inline to avoid circular dependency
+        setIsRecording(false);
+        setAudioLevels(Array(20).fill(0));
+        
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+        }
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+        
+        if (audioStreamRef.current) {
+          audioStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+      }
+    }, 1000);
+  }, [initializeRecording, analyzeAudio]);
+
+  // Stop recording and auto-send (WhatsApp behavior)
+  const stopRecording = useCallback(() => {
+    if (!isRecording) return;
+    
+    setIsRecording(false);
+    setAudioLevels(Array(20).fill(0));
+    
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+    }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    
+    // Stop audio tracks
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+    }
+  }, [isRecording]);
+
+  // Format time
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const adjustTextareaHeight = useCallback(() => {
     const textarea = textareaRef.current;
@@ -195,7 +377,10 @@ export default function ChatPage() {
     if (isIOSPWA) {
       document.body.classList.add('ios-pwa');
     }
-  }, [isMounted]);
+    
+    // Cleanup on unmount
+    return cleanup;
+  }, [isMounted, cleanup]);
 
   useEffect(() => {
     if (!isMounted || !user || messages.length > 0) return;
@@ -651,55 +836,98 @@ export default function ChatPage() {
       }`}>
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-end space-x-3">
-            <div className="flex-1 relative">
-              <div className="flex items-end bg-charcoal/60 backdrop-blur-sm border border-white/10 rounded-3xl focus-within:border-primary/30 transition-colors">
-                <textarea
-                  ref={textareaRef}
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Ask anything..."
-                  rows={1}
-                  className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden select-none"
-                  style={{ 
-                    minHeight: '44px',
-                    maxHeight: '120px'
-                  }}
-                />
-                
-                <div className="flex items-center space-x-1 pr-2">
-                  {!message.trim() && (
-                    <>
-                      <AudioPlayer
-                        onSendAudio={handleAudioWithAssistantAPI}
-                        userLevel={user?.user_level || 'Novice'}
+            {isRecording ? (
+              /* WhatsApp-style Recording Interface */
+              <div className="flex-1 relative">
+                <div className="flex items-center bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-3xl px-4 py-3">
+                  {/* Waveform */}
+                  <div className="flex items-center space-x-1 mr-3">
+                    {audioLevels.map((level, index) => (
+                      <div
+                        key={index}
+                        className="w-1 bg-red-500 rounded-full transition-all duration-100"
+                        style={{ 
+                          height: `${Math.max(4, level * 24)}px` 
+                        }}
                       />
-                      
-                      {(typeof window !== 'undefined' && 
-                        (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                         window.innerWidth <= 768)) && (
-                        <button 
-                          onClick={() => setIsCameraOpen(true)}
-                          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
-                          title="Take photo"
-                        >
-                          <Camera size={18} />
-                        </button>
-                      )}
-                    </>
-                  )}
+                    ))}
+                  </div>
+
+                  {/* Recording time */}
+                  <span className="text-red-500 font-mono text-sm min-w-12 mr-3">
+                    {formatTime(recordingTime)}
+                  </span>
+
+                  {/* Release to send indicator */}
+                  <span className="text-red-400 text-xs flex-1">
+                    {user?.user_level === 'Novice' ? 'Solte para enviar' : 'Release to send'}
+                  </span>
                 </div>
               </div>
-              
-              {message.trim() && (
-                <button
-                  onClick={handleSendMessage}
-                  className="absolute right-2 bottom-2 p-2 bg-primary hover:bg-primary-dark rounded-full transition-all active:scale-95 select-none"
-                >
-                  <Send size={16} className="text-black" />
-                </button>
-              )}
-            </div>
+            ) : (
+              /* Normal Input Interface */
+              <div className="flex-1 relative">
+                <div className="flex items-end bg-charcoal/60 backdrop-blur-sm border border-white/10 rounded-3xl focus-within:border-primary/30 transition-colors">
+                  <textarea
+                    ref={textareaRef}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Ask anything..."
+                    rows={1}
+                    className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden select-none"
+                    style={{ 
+                      minHeight: '44px',
+                      maxHeight: '120px'
+                    }}
+                  />
+                  
+                  <div className="flex items-center space-x-1 pr-2">
+                    {!message.trim() && (
+                      <>
+                        <button
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            startRecording();
+                          }}
+                          onMouseUp={stopRecording}
+                          onTouchStart={(e) => {
+                            e.preventDefault();
+                            startRecording();
+                          }}
+                          onTouchEnd={stopRecording}
+                          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 active:scale-95 select-none"
+                          title={user?.user_level === 'Novice' ? 'Segurar para gravar' : 'Hold to record'}
+                        >
+                          <Mic size={18} />
+                        </button>
+                        
+                        {(typeof window !== 'undefined' && 
+                          (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                           window.innerWidth <= 768)) && (
+                          <button 
+                            onClick={() => setIsCameraOpen(true)}
+                            className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
+                            title="Take photo"
+                          >
+                            <Camera size={18} />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                {message.trim() && (
+                  <button
+                    onClick={handleSendMessage}
+                    className="absolute right-2 bottom-2 p-2 bg-primary hover:bg-primary-dark rounded-full transition-all active:scale-95 select-none"
+                  >
+                    <Send size={16} className="text-black" />
+                  </button>
+                )}
+              </div>
+            )}
 
             <button 
               onClick={() => setIsLiveVoiceOpen(true)}
