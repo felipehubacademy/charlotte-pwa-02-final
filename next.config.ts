@@ -1,9 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  experimental: {
-    serverComponentsExternalPackages: ['fluent-ffmpeg']
-  },
+  serverExternalPackages: ['fluent-ffmpeg'],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.alias = {
