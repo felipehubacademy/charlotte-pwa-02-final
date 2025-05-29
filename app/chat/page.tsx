@@ -548,7 +548,7 @@ export default function ChatPage() {
         if (audioContext && audioContext.state === 'suspended') {
           audioContext.resume().then(() => {
             startRecording();
-          }).catch((error) => {
+          }).catch((error: any) => {
             console.error('Failed to resume AudioContext:', error);
             startRecording(); // Try anyway
           });
