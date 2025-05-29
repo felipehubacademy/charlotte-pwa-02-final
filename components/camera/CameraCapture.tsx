@@ -37,22 +37,19 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
       console.log('📸 Initializing camera for photo capture only...');
 
-      // iOS specific camera constraints for photo capture
+      // iOS specific camera constraints for photo capture - SIMPLIFIED
       const constraints: MediaStreamConstraints = {
         video: {
-          facingMode: facingMode,
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 },
-          // Remove frameRate and other video-specific settings for photo capture
-          aspectRatio: { ideal: 16/9 }
+          facingMode: facingMode
+          // Removed: width, height, aspectRatio - using browser defaults for photo
         },
         // Explicitly exclude audio to ensure it's photo-only
         audio: false
       };
 
-      console.log('📸 Requesting camera access for photo capture with constraints:', constraints);
+      console.log('📸 Requesting camera access for PHOTO CAPTURE ONLY with minimal constraints:', constraints);
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      console.log('✅ Camera stream obtained:', mediaStream.getVideoTracks()[0]?.getSettings());
+      console.log('✅ Photo camera stream obtained:', mediaStream.getVideoTracks()[0]?.getSettings());
 
       setStream(mediaStream);
       
