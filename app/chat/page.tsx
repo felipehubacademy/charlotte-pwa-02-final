@@ -588,7 +588,12 @@ export default function ChatPage() {
 
   return (
     <div className="h-screen bg-secondary flex flex-col overflow-hidden">
-      <header className="flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe">
+      <header className={`flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
+        typeof window !== 'undefined' && 
+        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+          ? 'ios-fixed-header' 
+          : 'pt-safe'
+      }`}>
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center space-x-3 flex-1 min-w-0">
             <CharlotteAvatar 
@@ -638,7 +643,12 @@ export default function ChatPage() {
         userLevel={user?.user_level || 'Novice'}
       />
 
-      <div className="flex-shrink-0 bg-secondary pb-safe">
+      <div className={`flex-shrink-0 bg-secondary ${
+        typeof window !== 'undefined' && 
+        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+          ? 'ios-fixed-footer' 
+          : 'pb-safe'
+      }`}>
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-end space-x-3">
             <div className="flex-1 relative">
@@ -650,7 +660,7 @@ export default function ChatPage() {
                   onKeyDown={handleKeyPress}
                   placeholder="Ask anything..."
                   rows={1}
-                  className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden"
+                  className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden select-none"
                   style={{ 
                     minHeight: '44px',
                     maxHeight: '120px'
@@ -670,7 +680,7 @@ export default function ChatPage() {
                          window.innerWidth <= 768)) && (
                         <button 
                           onClick={() => setIsCameraOpen(true)}
-                          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5"
+                          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
                           title="Take photo"
                         >
                           <Camera size={18} />
@@ -684,7 +694,7 @@ export default function ChatPage() {
               {message.trim() && (
                 <button
                   onClick={handleSendMessage}
-                  className="absolute right-2 bottom-2 p-2 bg-primary hover:bg-primary-dark rounded-full transition-all active:scale-95"
+                  className="absolute right-2 bottom-2 p-2 bg-primary hover:bg-primary-dark rounded-full transition-all active:scale-95 select-none"
                 >
                   <Send size={16} className="text-black" />
                 </button>
@@ -693,7 +703,7 @@ export default function ChatPage() {
 
             <button 
               onClick={() => setIsLiveVoiceOpen(true)}
-              className="p-3 bg-charcoal/60 hover:bg-charcoal text-primary hover:text-primary-dark rounded-full transition-colors flex-shrink-0 border border-white/10"
+              className="p-3 bg-charcoal/60 hover:bg-charcoal text-primary hover:text-primary-dark rounded-full transition-colors flex-shrink-0 border border-white/10 select-none"
               title="Start Live Conversation"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none">

@@ -244,7 +244,12 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="flex items-center space-x-3 bg-red-500/10 backdrop-blur-sm rounded-3xl px-4 py-2 border border-red-500/30"
+        className={`flex items-center space-x-3 bg-red-500/10 backdrop-blur-sm rounded-3xl px-4 py-2 border border-red-500/30 ${
+          typeof window !== 'undefined' && 
+          ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+            ? 'audio-recording-container' 
+            : ''
+        }`}
       >
         {/* Waveform */}
         <div className="flex items-center space-x-1">
@@ -265,13 +270,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           {formatTime(recordingTime)}
         </span>
 
-        {/* Stop recording button */}
+        {/* Stop recording button - SEMPRE VISÍVEL */}
         <button
           onMouseUp={handleMouseUp}
           onTouchEnd={handleTouchEnd}
-          className="p-2 bg-red-500 rounded-full text-white active:scale-95 transition-transform"
+          className="p-2 bg-red-500 rounded-full text-white active:scale-95 transition-transform flex-shrink-0"
+          style={{ minWidth: '32px', minHeight: '32px' }}
         >
-          <div className="w-4 h-4 bg-white rounded-sm" />
+          <div className="w-4 h-4 bg-white rounded-sm mx-auto" />
         </button>
       </motion.div>
     );

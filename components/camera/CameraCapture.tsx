@@ -33,19 +33,37 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         stream.getTracks().forEach(track => track.stop());
       }
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
+      // iOS specific camera constraints
+      const constraints: MediaStreamConstraints = {
         video: {
           facingMode: facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+          frameRate: { ideal: 30, max: 60 },
+          // iOS specific settings
+          aspectRatio: { ideal: 16/9 }
         }
-      });
+      };
+
+      console.log('🎥 Requesting camera with constraints:', constraints);
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log('✅ Camera stream obtained:', mediaStream.getVideoTracks()[0]?.getSettings());
 
       setStream(mediaStream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.play();
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('webkit-playsinline', 'true');
+        videoRef.current.muted = true;
+        
+        // Force play for iOS
+        const playPromise = videoRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.error('Video play failed:', error);
+          });
+        }
       }
     } catch (error) {
       console.error('Camera access denied:', error);
@@ -182,13 +200,22 @@ React.useEffect(() => {
               </div>
             ) : (
               /* Live Camera Feed */
-              <div className="relative w-full h-full flex items-center justify-center bg-black">
+              <div className={`relative w-full h-full flex items-center justify-center bg-black ${
+                typeof window !== 'undefined' && 
+                ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+                  ? 'camera-container' 
+                  : ''
+              }`}>
                 <video
                   ref={videoRef}
                   autoPlay
                   playsInline
                   muted
+                  webkit-playsinline="true"
                   className="w-full h-full object-cover"
+                  style={{
+                    transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
+                  }}
                 />
                 
                 {/* Camera overlay grid */}
