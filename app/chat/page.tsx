@@ -938,10 +938,10 @@ export default function ChatPage() {
                             {recordingState === 'idle' && (
                               <button
                                 onClick={startRecording}
-                                className="p-3 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
+                                className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
                                 title="Click to start recording"
                               >
-                                <Mic size={18} />
+                                <Mic size={16} />
                               </button>
                             )}
                             
@@ -952,10 +952,10 @@ export default function ChatPage() {
                                 </span>
                                 <button
                                   onClick={stopRecording}
-                                  className="p-3 text-red-500 bg-red-500/20 rounded-full animate-pulse transition-colors select-none"
+                                  className="p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse transition-colors select-none"
                                   title="Click to stop recording"
                                 >
-                                  <Mic size={18} />
+                                  <Mic size={16} />
                                 </button>
                               </>
                             )}
@@ -964,27 +964,27 @@ export default function ChatPage() {
                               <>
                                 <button
                                   onClick={togglePlayback}
-                                  className="p-3 text-primary hover:text-primary-dark bg-primary/10 rounded-full transition-colors select-none"
+                                  className="p-2 text-primary hover:text-primary-dark transition-colors rounded-full hover:bg-primary/10 select-none"
                                   title={isPlaying ? "Pause" : "Play preview"}
                                 >
-                                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+                                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                                 </button>
                                 <span className="text-white/70 font-mono text-sm font-semibold">
                                   {isPlaying ? formatTime(playTime) : formatTime(recordedDuration)}
                                 </span>
                                 <button
                                   onClick={cancelRecording}
-                                  className="p-3 text-red-400 hover:text-red-300 bg-red-400/10 rounded-full transition-colors select-none"
+                                  className="p-2 text-red-400 hover:text-red-300 transition-colors rounded-full hover:bg-red-400/10 select-none"
                                   title="Cancel"
                                 >
-                                  <X size={18} />
+                                  <X size={16} />
                                 </button>
                                 <button
                                   onClick={sendRecordedAudio}
-                                  className="p-3 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
+                                  className="p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
                                   title="Send audio"
                                 >
-                                  <Send size={18} />
+                                  <Send size={16} />
                                 </button>
                               </>
                             )}
