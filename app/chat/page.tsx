@@ -215,7 +215,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  // Initialize recording com configurações otimizadas para iOS
+  // Initialize recording com configurações otimizadas para iOS - CORRIGIDO
   const initializeRecording = useCallback(async (): Promise<boolean> => {
     try {
       console.log('🎤 Initializing recording...');
@@ -237,12 +237,18 @@ export default function ChatPage() {
       // Setup audio analysis for waveform (apenas para mobile)
       if (isMobileDevice()) {
         audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
-        analyserRef.current = audioContextRef.current.createAnalyser();
-        const source = audioContextRef.current.createMediaStreamSource(stream);
-        source.connect(analyserRef.current);
         
-        analyserRef.current.fftSize = 64;
-        analyserRef.current.smoothingTimeConstant = 0.8;
+        // TypeScript null check - CORRIGIDO
+        if (audioContextRef.current) {
+          analyserRef.current = audioContextRef.current.createAnalyser();
+          const source = audioContextRef.current.createMediaStreamSource(stream);
+          
+          if (analyserRef.current) {
+            source.connect(analyserRef.current);
+            analyserRef.current.fftSize = 64;
+            analyserRef.current.smoothingTimeConstant = 0.8;
+          }
+        }
       }
 
       // Setup MediaRecorder com configurações para iOS
@@ -525,7 +531,7 @@ export default function ChatPage() {
     setRecordingTime(0);
   }, []);
 
-  // MOBILE: Handlers for touch events (iOS optimized)
+  // MOBILE: Handlers for touch events (iOS optimized) - CORRIGIDO
   const handleMobileRecordingStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -537,9 +543,14 @@ export default function ChatPage() {
       if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
         console.log('🍎 iOS detected, requesting permissions...');
         const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
-        if (audioContext.state === 'suspended') {
+        
+        // TypeScript null check - CORRIGIDO
+        if (audioContext && audioContext.state === 'suspended') {
           audioContext.resume().then(() => {
             startRecording();
+          }).catch((error) => {
+            console.error('Failed to resume AudioContext:', error);
+            startRecording(); // Try anyway
           });
         } else {
           startRecording();
@@ -576,6 +587,206 @@ export default function ChatPage() {
       textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
     }
   }, []);
+
+  // Forward declare handleAudioWithAssistantAPI
+  const handleAudioWithAssistantAPI = useCallback(async (audioBlob: Blob, duration: number) => {
+    const audioMessage: Message = {
+      id: generateMessageId('user-audio'),
+      role: 'user',
+      content: '',
+      audioBlob: audioBlob,
+      audioDuration: duration,
+      timestamp: new Date(),
+      messageType: 'audio'
+    };
+
+    setMessages(prev => [...prev, audioMessage]);
+    setIsProcessingMessage(true);
+
+    try {
+      console.log('🎤 Starting audio processing with RETRY LOGIC and context...');
+      
+      const transcriptionPromise = transcribeAudio(audioBlob);
+      const pronunciationPromise = assessPronunciation(audioBlob);
+      
+      const [transcriptionResult, pronunciationResult] = await Promise.allSettled([
+        transcriptionPromise,
+        pronunciationPromise
+      ]);
+      
+      const transcriptionSuccess = transcriptionResult.status === 'fulfilled' && transcriptionResult.value.success;
+      const pronunciationSuccess = pronunciationResult.status === 'fulfilled' && pronunciationResult.value.success;
+      
+      if (transcriptionSuccess && pronunciationSuccess) {
+        const transcription = transcriptionResult.value.transcription;
+        const scores = pronunciationResult.value.result!;
+        
+        console.log('🎯 Audio processed - Raw scores:', { 
+          transcription, 
+          pronunciationScore: scores.pronunciationScore,
+          accuracyScore: scores.accuracyScore,
+          fluencyScore: scores.fluencyScore,
+          completenessScore: scores.completenessScore
+        });
+        
+        const assessmentResult: AudioAssessmentResult = {
+          text: transcription,
+          accuracyScore: scores.accuracyScore,
+          fluencyScore: scores.fluencyScore,
+          completenessScore: scores.completenessScore,
+          pronunciationScore: scores.pronunciationScore,
+          feedback: scores.feedback || []
+        };
+        
+        const xpResult = calculateAudioXP(
+          assessmentResult,
+          duration,
+          user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate'
+        );
+        
+        if (xpResult.shouldRetry) {
+          console.log('❌ Audio needs retry:', xpResult.retryReason);
+          
+          const retryMessage: Message = {
+            id: generateMessageId('assistant-retry'),
+            role: 'assistant',
+            content: xpResult.feedback,
+            timestamp: new Date(),
+            messageType: 'text'
+          };
+          
+          setMessages(prev => [...prev, retryMessage]);
+          
+          setTimeout(() => {
+            const encouragementMessage: Message = {
+              id: generateMessageId('assistant-encourage'),
+              role: 'assistant',
+              content: user?.user_level === 'Novice' 
+                ? "🎤 Pronto para tentar novamente? Just hold the microphone button and speak clearly!" 
+                : "🎤 Ready to try again? Just hold the microphone button and speak clearly!",
+              timestamp: new Date(),
+              messageType: 'text'
+            };
+            setMessages(prev => [...prev, encouragementMessage]);
+          }, 1500);
+          
+          return;
+        }
+        
+        console.log('🎯 VALID AUDIO - XP calculated:', {
+          oldMethod: `${scores.pronunciationScore >= 80 ? 75 : 50} XP (fixed)`,
+          newMethod: `${xpResult.totalXP} XP (intelligent)`,
+          scoreBreakdown: xpResult.scoreBreakdown,
+          pronunciationScore: scores.pronunciationScore
+        });
+        
+        conversationContext.addMessage('user', transcription, 'audio', scores.pronunciationScore);
+        
+        const contextPrompt = conversationContext.generateContextForAssistant();
+        
+        const assistantResponse = await getAssistantResponse(
+          transcription,
+          user?.user_level || 'Intermediate',
+          user?.name?.split(' ')[0] || 'Student',
+          'audio',
+          {
+            accuracyScore: scores.accuracyScore,
+            fluencyScore: scores.fluencyScore,
+            completenessScore: scores.completenessScore,
+            pronunciationScore: scores.pronunciationScore,
+            xpAwarded: xpResult.totalXP,
+            feedback: xpResult.feedback
+          },
+          contextPrompt
+        );
+
+        console.log('🤖 Assistant API audio response with context received');
+
+        const aiMessages = splitIntoMultipleMessages(assistantResponse.feedback);
+        console.log('📝 Split audio response into', aiMessages.length, 'messages');
+
+        await sendSequentialMessages(
+          aiMessages,
+          (msg) => setMessages(prev => [...prev, msg]),
+          generateMessageId,
+          1500,
+          assistantResponse.technicalFeedback
+        );
+
+        aiMessages.forEach(msg => 
+          conversationContext.addMessage('assistant', msg, 'text')
+        );
+
+        if (supabaseService.isAvailable() && user?.entra_id) {
+          console.log('💾 Saving VALID audio practice with INTELLIGENT XP:', {
+            xpAwarded: xpResult.totalXP,
+            pronunciationScore: scores.pronunciationScore,
+            breakdown: xpResult.scoreBreakdown
+          });
+          
+          await supabaseService.saveAudioPractice({
+            user_id: user.entra_id,
+            transcription: transcription,
+            accuracy_score: scores.accuracyScore,
+            fluency_score: scores.fluencyScore,
+            completeness_score: scores.completenessScore,
+            pronunciation_score: scores.pronunciationScore,
+            xp_awarded: xpResult.totalXP,
+            practice_type: 'audio_message',
+            audio_duration: duration,
+            feedback: `${assistantResponse.feedback}\n\n${xpResult.feedback}`,
+            technicalFeedback: assistantResponse.technicalFeedback
+          });
+          
+          setSessionXP(prev => prev + xpResult.totalXP);
+          setTotalXP(prev => prev + xpResult.totalXP);
+          
+          setTimeout(() => loadUserStats(), 1000);
+          
+          console.log('✅ Valid audio practice saved with intelligent XP successfully!');
+        }
+        
+        if (xpResult.totalXP >= 100) {
+          console.log('🎉 Excellent performance! High XP awarded:', xpResult.totalXP);
+        } else if (xpResult.totalXP >= 60) {
+          console.log('👍 Good performance! Solid XP awarded:', xpResult.totalXP);
+        } else {
+          console.log('💪 Keep practicing! XP awarded:', xpResult.totalXP);
+        }
+        
+      } else {
+        console.error('Audio processing failed completely');
+        
+        const errorResponse: Message = {
+          id: generateMessageId('assistant-error'),
+          role: 'assistant',
+          content: user?.user_level === 'Novice'
+            ? "Desculpe, tive problemas técnicos com seu áudio. Sorry, I had technical issues with your audio. Please try again!"
+            : "I'm sorry, I had trouble processing your audio. Please try speaking more clearly and ensure you're in a quiet environment.",
+          timestamp: new Date(),
+          messageType: 'text'
+        };
+        
+        setMessages(prev => [...prev, errorResponse]);
+      }
+    } catch (error) {
+      console.error('Error processing audio:', error);
+      
+      const errorResponse: Message = {
+        id: generateMessageId('assistant-error'),
+        role: 'assistant',
+        content: user?.user_level === 'Novice'
+          ? "Desculpe, tive dificuldades técnicas. Sorry, I'm having technical difficulties. Please try again in a moment!"
+          : "Sorry, I'm having technical difficulties. Please try again in a moment.",
+        timestamp: new Date(),
+        messageType: 'text'
+      };
+      
+      setMessages(prev => [...prev, errorResponse]);
+    } finally {
+      setIsProcessingMessage(false);
+    }
+  }, [generateMessageId, transcribeAudio, assessPronunciation, calculateAudioXP, user, conversationContext, getAssistantResponse, splitIntoMultipleMessages, sendSequentialMessages, supabaseService, loadUserStats]);
 
   useEffect(() => {
     adjustTextareaHeight();
@@ -791,205 +1002,6 @@ export default function ChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
-    }
-  };
-
-  const handleAudioWithAssistantAPI = async (audioBlob: Blob, duration: number) => {
-    const audioMessage: Message = {
-      id: generateMessageId('user-audio'),
-      role: 'user',
-      content: '',
-      audioBlob: audioBlob,
-      audioDuration: duration,
-      timestamp: new Date(),
-      messageType: 'audio'
-    };
-
-    setMessages(prev => [...prev, audioMessage]);
-    setIsProcessingMessage(true);
-
-    try {
-      console.log('🎤 Starting audio processing with RETRY LOGIC and context...');
-      
-      const transcriptionPromise = transcribeAudio(audioBlob);
-      const pronunciationPromise = assessPronunciation(audioBlob);
-      
-      const [transcriptionResult, pronunciationResult] = await Promise.allSettled([
-        transcriptionPromise,
-        pronunciationPromise
-      ]);
-      
-      const transcriptionSuccess = transcriptionResult.status === 'fulfilled' && transcriptionResult.value.success;
-      const pronunciationSuccess = pronunciationResult.status === 'fulfilled' && pronunciationResult.value.success;
-      
-      if (transcriptionSuccess && pronunciationSuccess) {
-        const transcription = transcriptionResult.value.transcription;
-        const scores = pronunciationResult.value.result!;
-        
-        console.log('🎯 Audio processed - Raw scores:', { 
-          transcription, 
-          pronunciationScore: scores.pronunciationScore,
-          accuracyScore: scores.accuracyScore,
-          fluencyScore: scores.fluencyScore,
-          completenessScore: scores.completenessScore
-        });
-        
-        const assessmentResult: AudioAssessmentResult = {
-          text: transcription,
-          accuracyScore: scores.accuracyScore,
-          fluencyScore: scores.fluencyScore,
-          completenessScore: scores.completenessScore,
-          pronunciationScore: scores.pronunciationScore,
-          feedback: scores.feedback || []
-        };
-        
-        const xpResult = calculateAudioXP(
-          assessmentResult,
-          duration,
-          user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate'
-        );
-        
-        if (xpResult.shouldRetry) {
-          console.log('❌ Audio needs retry:', xpResult.retryReason);
-          
-          const retryMessage: Message = {
-            id: generateMessageId('assistant-retry'),
-            role: 'assistant',
-            content: xpResult.feedback,
-            timestamp: new Date(),
-            messageType: 'text'
-          };
-          
-          setMessages(prev => [...prev, retryMessage]);
-          
-          setTimeout(() => {
-            const encouragementMessage: Message = {
-              id: generateMessageId('assistant-encourage'),
-              role: 'assistant',
-              content: user?.user_level === 'Novice' 
-                ? "🎤 Pronto para tentar novamente? Just hold the microphone button and speak clearly!" 
-                : "🎤 Ready to try again? Just hold the microphone button and speak clearly!",
-              timestamp: new Date(),
-              messageType: 'text'
-            };
-            setMessages(prev => [...prev, encouragementMessage]);
-          }, 1500);
-          
-          return;
-        }
-        
-        console.log('🎯 VALID AUDIO - XP calculated:', {
-          oldMethod: `${scores.pronunciationScore >= 80 ? 75 : 50} XP (fixed)`,
-          newMethod: `${xpResult.totalXP} XP (intelligent)`,
-          scoreBreakdown: xpResult.scoreBreakdown,
-          pronunciationScore: scores.pronunciationScore
-        });
-        
-        conversationContext.addMessage('user', transcription, 'audio', scores.pronunciationScore);
-        
-        const contextPrompt = conversationContext.generateContextForAssistant();
-        
-        const assistantResponse = await getAssistantResponse(
-          transcription,
-          user?.user_level || 'Intermediate',
-          user?.name?.split(' ')[0] || 'Student',
-          'audio',
-          {
-            accuracyScore: scores.accuracyScore,
-            fluencyScore: scores.fluencyScore,
-            completenessScore: scores.completenessScore,
-            pronunciationScore: scores.pronunciationScore,
-            xpAwarded: xpResult.totalXP,
-            feedback: xpResult.feedback
-          },
-          contextPrompt
-        );
-
-        console.log('🤖 Assistant API audio response with context received');
-
-        const aiMessages = splitIntoMultipleMessages(assistantResponse.feedback);
-        console.log('📝 Split audio response into', aiMessages.length, 'messages');
-
-        await sendSequentialMessages(
-          aiMessages,
-          (msg) => setMessages(prev => [...prev, msg]),
-          generateMessageId,
-          1500,
-          assistantResponse.technicalFeedback
-        );
-
-        aiMessages.forEach(msg => 
-          conversationContext.addMessage('assistant', msg, 'text')
-        );
-
-        if (supabaseService.isAvailable() && user?.entra_id) {
-          console.log('💾 Saving VALID audio practice with INTELLIGENT XP:', {
-            xpAwarded: xpResult.totalXP,
-            pronunciationScore: scores.pronunciationScore,
-            breakdown: xpResult.scoreBreakdown
-          });
-          
-          await supabaseService.saveAudioPractice({
-            user_id: user.entra_id,
-            transcription: transcription,
-            accuracy_score: scores.accuracyScore,
-            fluency_score: scores.fluencyScore,
-            completeness_score: scores.completenessScore,
-            pronunciation_score: scores.pronunciationScore,
-            xp_awarded: xpResult.totalXP,
-            practice_type: 'audio_message',
-            audio_duration: duration,
-            feedback: `${assistantResponse.feedback}\n\n${xpResult.feedback}`,
-            technicalFeedback: assistantResponse.technicalFeedback
-          });
-          
-          setSessionXP(prev => prev + xpResult.totalXP);
-          setTotalXP(prev => prev + xpResult.totalXP);
-          
-          setTimeout(() => loadUserStats(), 1000);
-          
-          console.log('✅ Valid audio practice saved with intelligent XP successfully!');
-        }
-        
-        if (xpResult.totalXP >= 100) {
-          console.log('🎉 Excellent performance! High XP awarded:', xpResult.totalXP);
-        } else if (xpResult.totalXP >= 60) {
-          console.log('👍 Good performance! Solid XP awarded:', xpResult.totalXP);
-        } else {
-          console.log('💪 Keep practicing! XP awarded:', xpResult.totalXP);
-        }
-        
-      } else {
-        console.error('Audio processing failed completely');
-        
-        const errorResponse: Message = {
-          id: generateMessageId('assistant-error'),
-          role: 'assistant',
-          content: user?.user_level === 'Novice'
-            ? "Desculpe, tive problemas técnicos com seu áudio. Sorry, I had technical issues with your audio. Please try again!"
-            : "I'm sorry, I had trouble processing your audio. Please try speaking more clearly and ensure you're in a quiet environment.",
-          timestamp: new Date(),
-          messageType: 'text'
-        };
-        
-        setMessages(prev => [...prev, errorResponse]);
-      }
-    } catch (error) {
-      console.error('Error processing audio:', error);
-      
-      const errorResponse: Message = {
-        id: generateMessageId('assistant-error'),
-        role: 'assistant',
-        content: user?.user_level === 'Novice'
-          ? "Desculpe, tive dificuldades técnicas. Sorry, I'm having technical difficulties. Please try again in a moment!"
-          : "Sorry, I'm having technical difficulties. Please try again in a moment.",
-        timestamp: new Date(),
-        messageType: 'text'
-      };
-      
-      setMessages(prev => [...prev, errorResponse]);
-    } finally {
-      setIsProcessingMessage(false);
     }
   };
 
