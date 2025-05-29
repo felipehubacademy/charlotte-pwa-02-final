@@ -9,13 +9,11 @@ import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import CameraCapture from '@/components/camera/CameraCapture';
 import { transcribeAudio } from '@/lib/transcribe';
 import { assessPronunciation } from '@/lib/pronunciation';
-import { getAssistantFeedback, formatAssistantMessage, createFallbackResponse } from '@/lib/assistant';
 import { supabaseService } from '@/lib/supabase-service';
 import XPCounter from '@/components/ui/XPCounter';
 import { ConversationContextManager } from '@/lib/conversation-context';
 import { calculateAudioXP, AudioAssessmentResult } from '@/lib/audio-xp-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
-import { grammarAnalysisService } from '@/lib/grammar-analysis';
 
 // Detector de dispositivo móvel
 const isMobileDevice = () => {
@@ -186,11 +184,49 @@ export default function ChatPage() {
   const recordingStartTimeRef = useRef<number>(0);
   const audioChunksRef = useRef<Blob[]>([]);
 
+  // FUNÇÕES BÁSICAS (sem dependências complexas)
   const generateMessageId = useCallback((prefix: string) => {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substr(2, 9);
     return `${prefix}-${timestamp}-${random}`;
   }, []);
+
+  const formatTime = useCallback((seconds: number) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }, []);
+
+  const adjustTextareaHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    }
+  }, []);
+
+  // Load user stats
+  const loadUserStats = useCallback(async () => {
+    if (!user?.entra_id || !supabaseService.isAvailable()) return;
+
+    try {
+      console.log('📊 Loading user stats for:', user.entra_id);
+      
+      const stats = await supabaseService.getUserStats(user.entra_id);
+      if (stats) {
+        console.log('📈 Total XP from DB:', stats.total_xp);
+        setTotalXP(stats.total_xp);
+      }
+
+      const todayXP = await supabaseService.getTodaySessionXP(user.entra_id);
+      console.log('🗓️ Today XP from DB:', todayXP);
+      setSessionXP(todayXP);
+
+    } catch (error) {
+      console.error('Error loading user stats:', error);
+    }
+  }, [user?.entra_id]);
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -215,380 +251,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  // Initialize recording com configurações otimizadas para iOS - CORRIGIDO
-  const initializeRecording = useCallback(async (): Promise<boolean> => {
-    try {
-      console.log('🎤 Initializing recording...');
-      
-      // iOS específico - configurações otimizadas
-      const constraints = {
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 48000, // iOS prefere 48kHz
-          channelCount: 1
-        }
-      };
-      
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      audioStreamRef.current = stream;
-
-      // Setup audio analysis for waveform (apenas para mobile)
-      if (isMobileDevice()) {
-        audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
-        
-        // TypeScript null check - CORRIGIDO
-        if (audioContextRef.current) {
-          analyserRef.current = audioContextRef.current.createAnalyser();
-          const source = audioContextRef.current.createMediaStreamSource(stream);
-          
-          if (analyserRef.current) {
-            source.connect(analyserRef.current);
-            analyserRef.current.fftSize = 64;
-            analyserRef.current.smoothingTimeConstant = 0.8;
-          }
-        }
-      }
-
-      // Setup MediaRecorder com configurações para iOS
-      let mimeType = 'audio/mp4'; // iOS padrão
-      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-        mimeType = 'audio/webm;codecs=opus';
-      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-        mimeType = 'audio/webm';
-      }
-          
-      mediaRecorderRef.current = new MediaRecorder(stream, { 
-        mimeType,
-        audioBitsPerSecond: 128000 // Qualidade adequada para iOS
-      });
-
-      // Reset chunks array
-      audioChunksRef.current = [];
-
-      // Setup event handlers
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        console.log('📦 Data available:', event.data.size);
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-
-      console.log('✅ Recording initialized successfully');
-      return true;
-    } catch (error) {
-      console.error('❌ Failed to initialize recording:', error);
-      return false;
-    }
-  }, []);
-
-  // Analyze audio levels for waveform (mobile only)
-  const analyzeAudio = useCallback(() => {
-    if (!analyserRef.current || !isRecording) return;
-
-    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
-    analyserRef.current.getByteFrequencyData(dataArray);
-
-    // Create waveform levels
-    const levels = Array(20).fill(0).map((_, index) => {
-      const start = Math.floor((index / 20) * dataArray.length);
-      const end = Math.floor(((index + 1) / 20) * dataArray.length);
-      const slice = dataArray.slice(start, end);
-      const average = slice.reduce((sum, value) => sum + value, 0) / slice.length;
-      return Math.min(average / 255, 1);
-    });
-
-    setAudioLevels(levels);
-
-    if (isRecording) {
-      animationFrameRef.current = requestAnimationFrame(analyzeAudio);
-    }
-  }, [isRecording]);
-
-  // MOBILE: Start recording (press & hold)
-  const startRecording = useCallback(async () => {
-    console.log('📱 Starting mobile recording...');
-    
-    const initialized = await initializeRecording();
-    if (!initialized) {
-      console.error('❌ Failed to initialize mobile recording');
-      return;
-    }
-
-    setIsRecording(true);
-    setRecordingTime(0);
-    recordingStartTimeRef.current = Date.now();
-
-    if (mediaRecorderRef.current) {
-      // Mobile: auto-send on stop
-      mediaRecorderRef.current.onstop = () => {
-        console.log('⏹️ Mobile recording stopped, auto-sending...');
-        
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { 
-            type: mediaRecorderRef.current?.mimeType || 'audio/mp4' 
-          });
-          
-          const recordingDuration = recordingTime;
-          console.log('📊 Mobile recording duration:', recordingDuration, 'seconds');
-          
-          // Auto-send if recording was longer than 1 second
-          if (recordingDuration >= 1) {
-            console.log('✅ Auto-sending mobile audio...');
-            handleAudioWithAssistantAPI(audioBlob, recordingDuration);
-          } else {
-            console.log('⚠️ Mobile recording too short, discarded');
-          }
-        }
-        
-        // Reset state
-        setRecordingTime(0);
-        audioChunksRef.current = [];
-      };
-
-      try {
-        mediaRecorderRef.current.start(100);
-        console.log('📹 Mobile MediaRecorder started');
-      } catch (error) {
-        console.error('❌ Failed to start mobile MediaRecorder:', error);
-        setIsRecording(false);
-        return;
-      }
-    }
-
-    // Start audio analysis for waveform
-    analyzeAudio();
-
-    // Mobile recording timer
-    recordingTimerRef.current = setInterval(() => {
-      const currentTime = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
-      setRecordingTime(currentTime);
-      
-      // Max 60 seconds
-      if (currentTime >= 60) {
-        console.log('⏰ Max mobile recording time reached');
-        stopRecording();
-      }
-    }, 1000);
-  }, [initializeRecording, analyzeAudio, recordingTime]);
-
-  // MOBILE: Stop recording (release)
-  const stopRecording = useCallback(() => {
-    console.log('📱 Stopping mobile recording...');
-    
-    if (!isRecording) {
-      console.log('⚠️ Not currently recording on mobile');
-      return;
-    }
-    
-    setIsRecording(false);
-    setAudioLevels(Array(20).fill(0));
-    
-    // Clear timers and animations
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = undefined;
-    }
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = undefined;
-    }
-    
-    // Stop MediaRecorder
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      try {
-        mediaRecorderRef.current.stop();
-        console.log('📹 Mobile MediaRecorder stopped');
-      } catch (error) {
-        console.error('❌ Error stopping mobile MediaRecorder:', error);
-      }
-    }
-    
-    // Stop audio tracks
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-        console.log('🔇 Mobile audio track stopped');
-      });
-      audioStreamRef.current = null;
-    }
-  }, [isRecording]);
-
-  // DESKTOP: Start recording (click)
-  const startDesktopRecording = useCallback(async () => {
-    console.log('🖥️ Starting desktop recording...');
-    
-    const initialized = await initializeRecording();
-    if (!initialized) {
-      console.error('❌ Failed to initialize desktop recording');
-      return;
-    }
-
-    setIsDesktopRecording(true);
-    setRecordingTime(0);
-    recordingStartTimeRef.current = Date.now();
-
-    if (mediaRecorderRef.current) {
-      // Desktop: show preview on stop
-      mediaRecorderRef.current.onstop = () => {
-        console.log('⏹️ Desktop recording stopped, showing preview');
-        
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { 
-            type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
-          });
-          
-          setDesktopAudioBlob(audioBlob);
-          setDesktopRecordingDuration(recordingTime);
-          setShowDesktopPreview(true);
-        }
-        
-        audioChunksRef.current = [];
-      };
-
-      try {
-        mediaRecorderRef.current.start(100);
-        console.log('📹 Desktop MediaRecorder started');
-      } catch (error) {
-        console.error('❌ Failed to start desktop MediaRecorder:', error);
-        setIsDesktopRecording(false);
-        return;
-      }
-    }
-
-    // Desktop recording timer
-    recordingTimerRef.current = setInterval(() => {
-      const currentTime = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
-      setRecordingTime(currentTime);
-      
-      // Max 60 seconds
-      if (currentTime >= 60) {
-        console.log('⏰ Max desktop recording time reached');
-        stopDesktopRecording();
-      }
-    }, 1000);
-  }, [initializeRecording, recordingTime]);
-
-  // DESKTOP: Stop recording (click)
-  const stopDesktopRecording = useCallback(() => {
-    console.log('🖥️ Stopping desktop recording...');
-    
-    if (!isDesktopRecording) {
-      console.log('⚠️ Not currently recording on desktop');
-      return;
-    }
-    
-    setIsDesktopRecording(false);
-    
-    // Clear timer
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = undefined;
-    }
-    
-    // Stop MediaRecorder
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      try {
-        mediaRecorderRef.current.stop();
-        console.log('📹 Desktop MediaRecorder stopped');
-      } catch (error) {
-        console.error('❌ Error stopping desktop MediaRecorder:', error);
-      }
-    }
-    
-    // Stop audio tracks
-    if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(track => {
-        track.stop();
-        console.log('🔇 Desktop audio track stopped');
-      });
-      audioStreamRef.current = null;
-    }
-  }, [isDesktopRecording]);
-
-  // DESKTOP: Send audio
-  const sendDesktopAudio = useCallback(() => {
-    if (desktopAudioBlob && desktopRecordingDuration > 0) {
-      console.log('📤 Sending desktop audio...');
-      handleAudioWithAssistantAPI(desktopAudioBlob, desktopRecordingDuration);
-      
-      // Reset desktop states
-      setDesktopAudioBlob(null);
-      setDesktopRecordingDuration(0);
-      setShowDesktopPreview(false);
-      setRecordingTime(0);
-    }
-  }, [desktopAudioBlob, desktopRecordingDuration]);
-
-  // DESKTOP: Cancel audio
-  const cancelDesktopAudio = useCallback(() => {
-    console.log('❌ Cancelling desktop audio...');
-    setDesktopAudioBlob(null);
-    setDesktopRecordingDuration(0);
-    setShowDesktopPreview(false);
-    setRecordingTime(0);
-  }, []);
-
-  // MOBILE: Handlers for touch events (iOS optimized) - CORRIGIDO
-  const handleMobileRecordingStart = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('📱 Mobile recording start triggered');
-    
-    if (!isRecording) {
-      // iOS específico - força inicialização do AudioContext
-      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
-        console.log('🍎 iOS detected, requesting permissions...');
-        const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
-        
-        // TypeScript null check - CORRIGIDO
-        if (audioContext && audioContext.state === 'suspended') {
-          audioContext.resume().then(() => {
-            startRecording();
-          }).catch((error: any) => {
-            console.error('Failed to resume AudioContext:', error);
-            startRecording(); // Try anyway
-          });
-        } else {
-          startRecording();
-        }
-      } else {
-        startRecording();
-      }
-    }
-  }, [isRecording, startRecording]);
-
-  const handleMobileRecordingEnd = useCallback((e: React.TouchEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    console.log('📱 Mobile recording end triggered');
-    
-    if (isRecording) {
-      stopRecording();
-    }
-  }, [isRecording, stopRecording]);
-
-  // Format time helper
-  const formatTime = (seconds: number) => {
-    if (!seconds || isNaN(seconds)) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const adjustTextareaHeight = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
-    }
-  }, []);
-
-  // Forward declare handleAudioWithAssistantAPI
+  // PROCESSAMENTO DE ÁUDIO (declarado cedo)
   const handleAudioWithAssistantAPI = useCallback(async (audioBlob: Blob, duration: number) => {
     const audioMessage: Message = {
       id: generateMessageId('user-audio'),
@@ -786,8 +449,364 @@ export default function ChatPage() {
     } finally {
       setIsProcessingMessage(false);
     }
-  }, [generateMessageId, transcribeAudio, assessPronunciation, calculateAudioXP, user, conversationContext, getAssistantResponse, splitIntoMultipleMessages, sendSequentialMessages, supabaseService, loadUserStats]);
+  }, [generateMessageId, user, conversationContext, loadUserStats]);
 
+  // Initialize recording - SEM dependências problemáticas
+  const initializeRecording = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log('🎤 Initializing recording...');
+      
+      const constraints = {
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 48000,
+          channelCount: 1
+        }
+      };
+      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      audioStreamRef.current = stream;
+
+      // Setup audio analysis for waveform (apenas para mobile)
+      if (isMobileDevice()) {
+        audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+        
+        // TypeScript null check
+        if (audioContextRef.current) {
+          analyserRef.current = audioContextRef.current.createAnalyser();
+          const source = audioContextRef.current.createMediaStreamSource(stream);
+          
+          if (analyserRef.current) {
+            source.connect(analyserRef.current);
+            analyserRef.current.fftSize = 64;
+            analyserRef.current.smoothingTimeConstant = 0.8;
+          }
+        }
+      }
+
+      // Setup MediaRecorder
+      let mimeType = 'audio/mp4'; // iOS padrão
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mimeType = 'audio/webm';
+      }
+          
+      mediaRecorderRef.current = new MediaRecorder(stream, { 
+        mimeType,
+        audioBitsPerSecond: 128000
+      });
+
+      // Reset chunks array
+      audioChunksRef.current = [];
+
+      // Setup event handlers
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        console.log('📦 Data available:', event.data.size);
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      console.log('✅ Recording initialized successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Failed to initialize recording:', error);
+      return false;
+    }
+  }, []);
+
+  // Analyze audio levels
+  const analyzeAudio = useCallback(() => {
+    if (!analyserRef.current || !isRecording) return;
+
+    const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+    analyserRef.current.getByteFrequencyData(dataArray);
+
+    const levels = Array(20).fill(0).map((_, index) => {
+      const start = Math.floor((index / 20) * dataArray.length);
+      const end = Math.floor(((index + 1) / 20) * dataArray.length);
+      const slice = dataArray.slice(start, end);
+      const average = slice.reduce((sum, value) => sum + value, 0) / slice.length;
+      return Math.min(average / 255, 1);
+    });
+
+    setAudioLevels(levels);
+
+    if (isRecording) {
+      animationFrameRef.current = requestAnimationFrame(analyzeAudio);
+    }
+  }, [isRecording]);
+
+  // MOBILE: Start recording - COM TODAS as dependências corretas
+  const startRecording = useCallback(async () => {
+    console.log('📱 Starting mobile recording...');
+    
+    const initialized = await initializeRecording();
+    if (!initialized) {
+      console.error('❌ Failed to initialize mobile recording');
+      return;
+    }
+
+    setIsRecording(true);
+    setRecordingTime(0);
+    recordingStartTimeRef.current = Date.now();
+
+    if (mediaRecorderRef.current) {
+      // CORRIGIDO: Capturar recordingTime no momento certo
+      mediaRecorderRef.current.onstop = () => {
+        console.log('⏹️ Mobile recording stopped, auto-sending...');
+        
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorderRef.current?.mimeType || 'audio/mp4' 
+          });
+          
+          // Calcular duração baseada no timestamp
+          const recordingDuration = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
+          console.log('📊 Mobile recording duration:', recordingDuration, 'seconds');
+          
+          // Auto-send if recording was longer than 1 second
+          if (recordingDuration >= 1) {
+            console.log('✅ Auto-sending mobile audio...');
+            handleAudioWithAssistantAPI(audioBlob, recordingDuration);
+          } else {
+            console.log('⚠️ Mobile recording too short, discarded');
+          }
+        }
+        
+        // Reset state
+        audioChunksRef.current = [];
+      };
+
+      try {
+        mediaRecorderRef.current.start(100);
+        console.log('📹 Mobile MediaRecorder started');
+      } catch (error) {
+        console.error('❌ Failed to start mobile MediaRecorder:', error);
+        setIsRecording(false);
+        return;
+      }
+    }
+
+    // Start audio analysis for waveform
+    analyzeAudio();
+
+    // Mobile recording timer
+    recordingTimerRef.current = setInterval(() => {
+      const currentTime = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
+      setRecordingTime(currentTime);
+      
+      // Max 60 seconds
+      if (currentTime >= 60) {
+        console.log('⏰ Max mobile recording time reached');
+        stopRecording();
+      }
+    }, 1000);
+  }, [initializeRecording, analyzeAudio, handleAudioWithAssistantAPI]);
+
+  // MOBILE: Stop recording
+  const stopRecording = useCallback(() => {
+    console.log('📱 Stopping mobile recording...');
+    
+    if (!isRecording) {
+      console.log('⚠️ Not currently recording on mobile');
+      return;
+    }
+    
+    setIsRecording(false);
+    setAudioLevels(Array(20).fill(0));
+    
+    // Clear timers and animations
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = undefined;
+    }
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+    
+    // Stop MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+        console.log('📹 Mobile MediaRecorder stopped');
+      } catch (error) {
+        console.error('❌ Error stopping mobile MediaRecorder:', error);
+      }
+    }
+    
+    // Stop audio tracks
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('🔇 Mobile audio track stopped');
+      });
+      audioStreamRef.current = null;
+    }
+  }, [isRecording]);
+
+  // DESKTOP: Start recording
+  const startDesktopRecording = useCallback(async () => {
+    console.log('🖥️ Starting desktop recording...');
+    
+    const initialized = await initializeRecording();
+    if (!initialized) {
+      console.error('❌ Failed to initialize desktop recording');
+      return;
+    }
+
+    setIsDesktopRecording(true);
+    setRecordingTime(0);
+    recordingStartTimeRef.current = Date.now();
+
+    if (mediaRecorderRef.current) {
+      // Desktop: show preview on stop
+      mediaRecorderRef.current.onstop = () => {
+        console.log('⏹️ Desktop recording stopped, showing preview');
+        
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
+          });
+          
+          const recordingDuration = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
+          setDesktopAudioBlob(audioBlob);
+          setDesktopRecordingDuration(recordingDuration);
+          setShowDesktopPreview(true);
+        }
+        
+        audioChunksRef.current = [];
+      };
+
+      try {
+        mediaRecorderRef.current.start(100);
+        console.log('📹 Desktop MediaRecorder started');
+      } catch (error) {
+        console.error('❌ Failed to start desktop MediaRecorder:', error);
+        setIsDesktopRecording(false);
+        return;
+      }
+    }
+
+    // Desktop recording timer
+    recordingTimerRef.current = setInterval(() => {
+      const currentTime = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
+      setRecordingTime(currentTime);
+      
+      // Max 60 seconds
+      if (currentTime >= 60) {
+        console.log('⏰ Max desktop recording time reached');
+        stopDesktopRecording();
+      }
+    }, 1000);
+  }, [initializeRecording]);
+
+  // DESKTOP: Stop recording
+  const stopDesktopRecording = useCallback(() => {
+    console.log('🖥️ Stopping desktop recording...');
+    
+    if (!isDesktopRecording) {
+      console.log('⚠️ Not currently recording on desktop');
+      return;
+    }
+    
+    setIsDesktopRecording(false);
+    
+    // Clear timer
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = undefined;
+    }
+    
+    // Stop MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+        console.log('📹 Desktop MediaRecorder stopped');
+      } catch (error) {
+        console.error('❌ Error stopping desktop MediaRecorder:', error);
+      }
+    }
+    
+    // Stop audio tracks
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('🔇 Desktop audio track stopped');
+      });
+      audioStreamRef.current = null;
+    }
+  }, [isDesktopRecording]);
+
+  // DESKTOP: Send audio
+  const sendDesktopAudio = useCallback(() => {
+    if (desktopAudioBlob && desktopRecordingDuration > 0) {
+      console.log('📤 Sending desktop audio...');
+      handleAudioWithAssistantAPI(desktopAudioBlob, desktopRecordingDuration);
+      
+      // Reset desktop states
+      setDesktopAudioBlob(null);
+      setDesktopRecordingDuration(0);
+      setShowDesktopPreview(false);
+      setRecordingTime(0);
+    }
+  }, [desktopAudioBlob, desktopRecordingDuration, handleAudioWithAssistantAPI]);
+
+  // DESKTOP: Cancel audio
+  const cancelDesktopAudio = useCallback(() => {
+    console.log('❌ Cancelling desktop audio...');
+    setDesktopAudioBlob(null);
+    setDesktopRecordingDuration(0);
+    setShowDesktopPreview(false);
+    setRecordingTime(0);
+  }, []);
+
+  // MOBILE: Touch handlers - CORRIGIDOS
+  const handleMobileRecordingStart = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('📱 Mobile recording start triggered');
+    
+    if (!isRecording) {
+      // iOS específico
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        console.log('🍎 iOS detected, requesting permissions...');
+        const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+        
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume().then(() => {
+            startRecording();
+          }).catch((error: any) => {
+            console.error('Failed to resume AudioContext:', error);
+            startRecording();
+          });
+        } else {
+          startRecording();
+        }
+      } else {
+        startRecording();
+      }
+    }
+  }, [isRecording, startRecording]);
+
+  const handleMobileRecordingEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('📱 Mobile recording end triggered');
+    
+    if (isRecording) {
+      stopRecording();
+    }
+  }, [isRecording, stopRecording]);
+
+  // EFFECTS
   useEffect(() => {
     adjustTextareaHeight();
   }, [message, adjustTextareaHeight]);
@@ -811,7 +830,6 @@ export default function ChatPage() {
       document.body.classList.add('ios-pwa');
     }
     
-    // Cleanup on unmount
     return cleanup;
   }, [isMounted, cleanup]);
 
@@ -839,29 +857,9 @@ export default function ChatPage() {
     }
 
     loadUserStats();
-  }, [user, messages.length, isMounted, conversationContext]);
+  }, [user, messages.length, isMounted, conversationContext, loadUserStats]);
 
-  const loadUserStats = async () => {
-    if (!user?.entra_id || !supabaseService.isAvailable()) return;
-
-    try {
-      console.log('📊 Loading user stats for:', user.entra_id);
-      
-      const stats = await supabaseService.getUserStats(user.entra_id);
-      if (stats) {
-        console.log('📈 Total XP from DB:', stats.total_xp);
-        setTotalXP(stats.total_xp);
-      }
-
-      const todayXP = await supabaseService.getTodaySessionXP(user.entra_id);
-      console.log('🗓️ Today XP from DB:', todayXP);
-      setSessionXP(todayXP);
-
-    } catch (error) {
-      console.error('Error loading user stats:', error);
-    }
-  };
-
+  // LOADING STATE
   if (!isMounted || isLoading) {
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
@@ -877,6 +875,7 @@ export default function ChatPage() {
     return null;
   }
 
+  // HANDLERS
   const handleSendMessage = async () => {
     if (!message.trim()) return;
 
@@ -1005,7 +1004,7 @@ export default function ChatPage() {
     }
   };
 
-  // Interface Components
+  // INTERFACE COMPONENTS
   const DesktopRecordingInterface = () => (
     <div className="flex items-center space-x-2">
       {!isDesktopRecording && !showDesktopPreview && (
