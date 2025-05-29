@@ -1,0 +1,20 @@
+📸 AVATAR DA CHARLOTTE
+
+Coloque aqui o arquivo de imagem do avatar da Charlotte com o nome:
+charlotte-avatar.png
+
+Especificações recomendadas:
+- Formato: PNG (com transparência)
+- Tamanho: 256x256 pixels ou maior
+- Formato quadrado (1:1)
+- Fundo transparente ou circular
+- Qualidade alta para diferentes tamanhos
+
+O componente CharlotteAvatar irá:
+✅ Carregar automaticamente a imagem quando disponível
+✅ Mostrar fallback com inicial "C" se a imagem não carregar
+✅ Redimensionar automaticamente para diferentes contextos
+✅ Mostrar status online/offline
+✅ Ter animações suaves
+
+Após adicionar o arquivo charlotte-avatar.png, você pode deletar este arquivo placeholder. 

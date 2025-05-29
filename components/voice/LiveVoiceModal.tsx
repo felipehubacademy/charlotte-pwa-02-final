@@ -7,6 +7,7 @@ import { OpenAIRealtimeService, RealtimeConfig } from '../../lib/openai-realtime
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
 import RealtimeOrb from './RealtimeOrb';
 import XPCounter from '../ui/XPCounter';
+import CharlotteAvatar from '../ui/CharlotteAvatar';
 import { calculateLiveVoiceXP } from '../../lib/audio-xp-service';
 import { supabaseService } from '../../lib/supabase-service';
 
@@ -595,12 +596,12 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             <div className="flex items-center justify-between px-4 py-3">
               {/* Charlotte Info */}
               <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center shadow-lg relative">
-                  <span className="text-black text-lg font-bold">C</span>
-                  <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-secondary ${
-                    connectionStatus === 'connected' ? 'bg-green-500' : 'bg-gray-400'
-                  }`}></div>
-                </div>
+                <CharlotteAvatar 
+                  size="md"
+                  showStatus={true}
+                  isOnline={connectionStatus === 'connected'}
+                  animate={true}
+                />
                 <div className="min-w-0 flex-1">
                   <h1 className="text-white font-semibold text-base">Charlotte</h1>
                   <p className={`text-xs font-medium ${
