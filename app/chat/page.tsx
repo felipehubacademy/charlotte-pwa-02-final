@@ -3,7 +3,7 @@
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { LogOut, Send, Mic, Camera, Phone } from 'lucide-react';
+import { LogOut, Send, Mic, Camera, Phone, Play } from 'lucide-react';
 import ChatBox from '@/components/chat/ChatBox';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import CameraCapture from '@/components/camera/CameraCapture';
@@ -16,6 +16,13 @@ import { ConversationContextManager } from '@/lib/conversation-context';
 import { calculateAudioXP, AudioAssessmentResult } from '@/lib/audio-xp-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { grammarAnalysisService } from '@/lib/grammar-analysis';
+
+// Detector de dispositivo móvel
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+         window.innerWidth <= 768;
+};
 
 interface Message {
   id: string;
@@ -149,10 +156,16 @@ export default function ChatPage() {
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
 
-  // Estados para gravação corrigidos
+  // Estados para gravação mobile (press & hold)
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(0));
+
+  // Estados para gravação desktop (click-based)
+  const [isDesktopRecording, setIsDesktopRecording] = useState(false);
+  const [desktopAudioBlob, setDesktopAudioBlob] = useState<Blob | null>(null);
+  const [desktopRecordingDuration, setDesktopRecordingDuration] = useState(0);
+  const [showDesktopPreview, setShowDesktopPreview] = useState(false);
 
   const [conversationContext] = useState(() => 
     new ConversationContextManager(
@@ -163,7 +176,7 @@ export default function ChatPage() {
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   
-  // Refs para controle de gravação corrigidos
+  // Refs para controle de gravação
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -179,7 +192,7 @@ export default function ChatPage() {
     return `${prefix}-${timestamp}-${random}`;
   }, []);
 
-  // Cleanup function corrigida
+  // Cleanup function
   const cleanup = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -202,39 +215,48 @@ export default function ChatPage() {
     }
   }, []);
 
-  // Initialize recording corrigido
+  // Initialize recording com configurações otimizadas para iOS
   const initializeRecording = useCallback(async (): Promise<boolean> => {
     try {
       console.log('🎤 Initializing recording...');
       
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      // iOS específico - configurações otimizadas
+      const constraints = {
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
+          sampleRate: 48000, // iOS prefere 48kHz
+          channelCount: 1
+        }
+      };
       
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       audioStreamRef.current = stream;
 
-      // Setup audio analysis for waveform
-      audioContextRef.current = new AudioContext();
-      analyserRef.current = audioContextRef.current.createAnalyser();
-      const source = audioContextRef.current.createMediaStreamSource(stream);
-      source.connect(analyserRef.current);
-      
-      analyserRef.current.fftSize = 64;
-      analyserRef.current.smoothingTimeConstant = 0.8;
+      // Setup audio analysis for waveform (apenas para mobile)
+      if (isMobileDevice()) {
+        audioContextRef.current = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+        analyserRef.current = audioContextRef.current.createAnalyser();
+        const source = audioContextRef.current.createMediaStreamSource(stream);
+        source.connect(analyserRef.current);
+        
+        analyserRef.current.fftSize = 64;
+        analyserRef.current.smoothingTimeConstant = 0.8;
+      }
 
-      // Setup MediaRecorder
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-        ? 'audio/webm;codecs=opus' 
-        : MediaRecorder.isTypeSupported('audio/webm') 
-          ? 'audio/webm' 
-          : 'audio/mp4';
+      // Setup MediaRecorder com configurações para iOS
+      let mimeType = 'audio/mp4'; // iOS padrão
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+        mimeType = 'audio/webm;codecs=opus';
+      } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+        mimeType = 'audio/webm';
+      }
           
-      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = new MediaRecorder(stream, { 
+        mimeType,
+        audioBitsPerSecond: 128000 // Qualidade adequada para iOS
+      });
 
       // Reset chunks array
       audioChunksRef.current = [];
@@ -247,40 +269,15 @@ export default function ChatPage() {
         }
       };
 
-      mediaRecorderRef.current.onstop = () => {
-        console.log('⏹️ Recording stopped, chunks:', audioChunksRef.current.length);
-        
-        if (audioChunksRef.current.length > 0) {
-          const audioBlob = new Blob(audioChunksRef.current, { 
-            type: mediaRecorderRef.current?.mimeType || mimeType 
-          });
-          
-          const recordingDuration = recordingTime;
-          console.log('📊 Recording duration:', recordingDuration, 'seconds');
-          
-          // Auto-send if recording was longer than 1 second
-          if (recordingDuration >= 1) {
-            console.log('✅ Auto-sending audio...');
-            handleAudioWithAssistantAPI(audioBlob, recordingDuration);
-          } else {
-            console.log('⚠️ Recording too short, discarded');
-          }
-        }
-        
-        // Reset state
-        setRecordingTime(0);
-        audioChunksRef.current = [];
-      };
-
       console.log('✅ Recording initialized successfully');
       return true;
     } catch (error) {
       console.error('❌ Failed to initialize recording:', error);
       return false;
     }
-  }, [recordingTime]);
+  }, []);
 
-  // Analyze audio levels for waveform
+  // Analyze audio levels for waveform (mobile only)
   const analyzeAudio = useCallback(() => {
     if (!analyserRef.current || !isRecording) return;
 
@@ -303,13 +300,13 @@ export default function ChatPage() {
     }
   }, [isRecording]);
 
-  // Start recording corrigido
+  // MOBILE: Start recording (press & hold)
   const startRecording = useCallback(async () => {
-    console.log('🎬 Starting recording...');
+    console.log('📱 Starting mobile recording...');
     
     const initialized = await initializeRecording();
     if (!initialized) {
-      console.error('❌ Failed to initialize recording');
+      console.error('❌ Failed to initialize mobile recording');
       return;
     }
 
@@ -318,38 +315,64 @@ export default function ChatPage() {
     recordingStartTimeRef.current = Date.now();
 
     if (mediaRecorderRef.current) {
+      // Mobile: auto-send on stop
+      mediaRecorderRef.current.onstop = () => {
+        console.log('⏹️ Mobile recording stopped, auto-sending...');
+        
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorderRef.current?.mimeType || 'audio/mp4' 
+          });
+          
+          const recordingDuration = recordingTime;
+          console.log('📊 Mobile recording duration:', recordingDuration, 'seconds');
+          
+          // Auto-send if recording was longer than 1 second
+          if (recordingDuration >= 1) {
+            console.log('✅ Auto-sending mobile audio...');
+            handleAudioWithAssistantAPI(audioBlob, recordingDuration);
+          } else {
+            console.log('⚠️ Mobile recording too short, discarded');
+          }
+        }
+        
+        // Reset state
+        setRecordingTime(0);
+        audioChunksRef.current = [];
+      };
+
       try {
-        mediaRecorderRef.current.start(100); // Collect data every 100ms
-        console.log('📹 MediaRecorder started');
+        mediaRecorderRef.current.start(100);
+        console.log('📹 Mobile MediaRecorder started');
       } catch (error) {
-        console.error('❌ Failed to start MediaRecorder:', error);
+        console.error('❌ Failed to start mobile MediaRecorder:', error);
         setIsRecording(false);
         return;
       }
     }
 
-    // Start audio analysis
+    // Start audio analysis for waveform
     analyzeAudio();
 
-    // Recording timer
+    // Mobile recording timer
     recordingTimerRef.current = setInterval(() => {
       const currentTime = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
       setRecordingTime(currentTime);
       
       // Max 60 seconds
       if (currentTime >= 60) {
-        console.log('⏰ Max recording time reached');
+        console.log('⏰ Max mobile recording time reached');
         stopRecording();
       }
     }, 1000);
-  }, [initializeRecording, analyzeAudio]);
+  }, [initializeRecording, analyzeAudio, recordingTime]);
 
-  // Stop recording corrigido
+  // MOBILE: Stop recording (release)
   const stopRecording = useCallback(() => {
-    console.log('⏹️ Stopping recording...');
+    console.log('📱 Stopping mobile recording...');
     
     if (!isRecording) {
-      console.log('⚠️ Not currently recording');
+      console.log('⚠️ Not currently recording on mobile');
       return;
     }
     
@@ -371,9 +394,9 @@ export default function ChatPage() {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       try {
         mediaRecorderRef.current.stop();
-        console.log('📹 MediaRecorder stopped');
+        console.log('📹 Mobile MediaRecorder stopped');
       } catch (error) {
-        console.error('❌ Error stopping MediaRecorder:', error);
+        console.error('❌ Error stopping mobile MediaRecorder:', error);
       }
     }
     
@@ -381,29 +404,157 @@ export default function ChatPage() {
     if (audioStreamRef.current) {
       audioStreamRef.current.getTracks().forEach(track => {
         track.stop();
-        console.log('🔇 Audio track stopped');
+        console.log('🔇 Mobile audio track stopped');
       });
       audioStreamRef.current = null;
     }
   }, [isRecording]);
 
-  // Handle all recording events (mouse + touch) corrigido
-  const handleRecordingStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+  // DESKTOP: Start recording (click)
+  const startDesktopRecording = useCallback(async () => {
+    console.log('🖥️ Starting desktop recording...');
+    
+    const initialized = await initializeRecording();
+    if (!initialized) {
+      console.error('❌ Failed to initialize desktop recording');
+      return;
+    }
+
+    setIsDesktopRecording(true);
+    setRecordingTime(0);
+    recordingStartTimeRef.current = Date.now();
+
+    if (mediaRecorderRef.current) {
+      // Desktop: show preview on stop
+      mediaRecorderRef.current.onstop = () => {
+        console.log('⏹️ Desktop recording stopped, showing preview');
+        
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
+          });
+          
+          setDesktopAudioBlob(audioBlob);
+          setDesktopRecordingDuration(recordingTime);
+          setShowDesktopPreview(true);
+        }
+        
+        audioChunksRef.current = [];
+      };
+
+      try {
+        mediaRecorderRef.current.start(100);
+        console.log('📹 Desktop MediaRecorder started');
+      } catch (error) {
+        console.error('❌ Failed to start desktop MediaRecorder:', error);
+        setIsDesktopRecording(false);
+        return;
+      }
+    }
+
+    // Desktop recording timer
+    recordingTimerRef.current = setInterval(() => {
+      const currentTime = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
+      setRecordingTime(currentTime);
+      
+      // Max 60 seconds
+      if (currentTime >= 60) {
+        console.log('⏰ Max desktop recording time reached');
+        stopDesktopRecording();
+      }
+    }, 1000);
+  }, [initializeRecording, recordingTime]);
+
+  // DESKTOP: Stop recording (click)
+  const stopDesktopRecording = useCallback(() => {
+    console.log('🖥️ Stopping desktop recording...');
+    
+    if (!isDesktopRecording) {
+      console.log('⚠️ Not currently recording on desktop');
+      return;
+    }
+    
+    setIsDesktopRecording(false);
+    
+    // Clear timer
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = undefined;
+    }
+    
+    // Stop MediaRecorder
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      try {
+        mediaRecorderRef.current.stop();
+        console.log('📹 Desktop MediaRecorder stopped');
+      } catch (error) {
+        console.error('❌ Error stopping desktop MediaRecorder:', error);
+      }
+    }
+    
+    // Stop audio tracks
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('🔇 Desktop audio track stopped');
+      });
+      audioStreamRef.current = null;
+    }
+  }, [isDesktopRecording]);
+
+  // DESKTOP: Send audio
+  const sendDesktopAudio = useCallback(() => {
+    if (desktopAudioBlob && desktopRecordingDuration > 0) {
+      console.log('📤 Sending desktop audio...');
+      handleAudioWithAssistantAPI(desktopAudioBlob, desktopRecordingDuration);
+      
+      // Reset desktop states
+      setDesktopAudioBlob(null);
+      setDesktopRecordingDuration(0);
+      setShowDesktopPreview(false);
+      setRecordingTime(0);
+    }
+  }, [desktopAudioBlob, desktopRecordingDuration]);
+
+  // DESKTOP: Cancel audio
+  const cancelDesktopAudio = useCallback(() => {
+    console.log('❌ Cancelling desktop audio...');
+    setDesktopAudioBlob(null);
+    setDesktopRecordingDuration(0);
+    setShowDesktopPreview(false);
+    setRecordingTime(0);
+  }, []);
+
+  // MOBILE: Handlers for touch events (iOS optimized)
+  const handleMobileRecordingStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('👆 Recording start triggered');
+    console.log('📱 Mobile recording start triggered');
     
     if (!isRecording) {
-      startRecording();
+      // iOS específico - força inicialização do AudioContext
+      if (/iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        console.log('🍎 iOS detected, requesting permissions...');
+        const audioContext = new ((window as any).AudioContext || (window as any).webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().then(() => {
+            startRecording();
+          });
+        } else {
+          startRecording();
+        }
+      } else {
+        startRecording();
+      }
     }
   }, [isRecording, startRecording]);
 
-  const handleRecordingEnd = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+  const handleMobileRecordingEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('👆 Recording end triggered');
+    console.log('📱 Mobile recording end triggered');
     
     if (isRecording) {
       stopRecording();
@@ -842,6 +993,89 @@ export default function ChatPage() {
     }
   };
 
+  // Interface Components
+  const DesktopRecordingInterface = () => (
+    <div className="flex items-center space-x-2">
+      {!isDesktopRecording && !showDesktopPreview && (
+        <button
+          onClick={startDesktopRecording}
+          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
+          title="Click to start recording"
+        >
+          <Mic size={18} />
+        </button>
+      )}
+      
+      {isDesktopRecording && (
+        <>
+          <button
+            onClick={stopDesktopRecording}
+            className="p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse select-none"
+            title="Click to stop recording"
+          >
+            <Mic size={18} />
+          </button>
+          <span className="text-red-500 font-mono text-sm">
+            {formatTime(recordingTime)}
+          </span>
+        </>
+      )}
+      
+      {showDesktopPreview && desktopAudioBlob && (
+        <div className="flex items-center space-x-2 bg-charcoal/80 rounded-2xl px-3 py-2">
+          <button
+            onClick={() => {
+              const audio = new Audio(URL.createObjectURL(desktopAudioBlob));
+              audio.play();
+            }}
+            className="p-1 text-primary hover:text-primary-dark transition-colors"
+            title="Play preview"
+          >
+            <Play size={14} />
+          </button>
+          <span className="text-white/70 text-xs">
+            {formatTime(desktopRecordingDuration)}
+          </span>
+          <button
+            onClick={sendDesktopAudio}
+            className="p-1 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors"
+            title="Send audio"
+          >
+            <Send size={12} />
+          </button>
+          <button
+            onClick={cancelDesktopAudio}
+            className="p-1 text-red-400 hover:text-red-300 transition-colors"
+            title="Cancel"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const MobileRecordingInterface = () => (
+    <button
+      onTouchStart={handleMobileRecordingStart}
+      onTouchEnd={handleMobileRecordingEnd}
+      onTouchCancel={handleMobileRecordingEnd}
+      className={`p-2 transition-all rounded-full select-none ${
+        isRecording 
+          ? 'text-red-500 bg-red-500/20 scale-110' 
+          : 'text-white/60 hover:text-primary hover:bg-white/5'
+      }`}
+      title={user?.user_level === 'Novice' ? 'Segurar para gravar' : 'Hold to record'}
+      style={{ 
+        touchAction: 'none',
+        WebkitUserSelect: 'none',
+        WebkitTouchCallout: 'none'
+      }}
+    >
+      <Mic size={18} className={isRecording ? 'animate-pulse' : ''} />
+    </button>
+  );
+
   return (
     <div className="h-screen bg-secondary flex flex-col overflow-hidden">
       <header className={`flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
@@ -899,7 +1133,7 @@ export default function ChatPage() {
         userLevel={user?.user_level || 'Novice'}
       />
 
-      {/* Interface de input corrigida */}
+      {/* Interface de input com sistema dual */}
       <div className={`flex-shrink-0 bg-secondary ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
@@ -908,8 +1142,8 @@ export default function ChatPage() {
       }`}>
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-end space-x-3">
-            {isRecording ? (
-              /* WhatsApp-style Recording Interface */
+            {isRecording && isMobileDevice() ? (
+              /* WhatsApp-style Recording Interface - APENAS MOBILE */
               <div className="flex-1 relative">
                 <div className="flex items-center bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-3xl px-4 py-3">
                   {/* Waveform */}
@@ -926,12 +1160,10 @@ export default function ChatPage() {
                     ))}
                   </div>
 
-                  {/* Recording time */}
                   <span className="text-red-500 font-mono text-sm min-w-12 mr-3">
                     {formatTime(recordingTime)}
                   </span>
 
-                  {/* Release to send indicator */}
                   <span className="text-red-400 text-xs flex-1">
                     {user?.user_level === 'Novice' ? 'Solte para enviar' : 'Release to send'}
                   </span>
@@ -958,32 +1190,15 @@ export default function ChatPage() {
                   <div className="flex items-center space-x-1 pr-2">
                     {!message.trim() && (
                       <>
-                        <button
-                          // Mouse events
-                          onMouseDown={handleRecordingStart}
-                          onMouseUp={handleRecordingEnd}
-                          onMouseLeave={handleRecordingEnd}
-                          
-                          // Touch events
-                          onTouchStart={handleRecordingStart}
-                          onTouchEnd={handleRecordingEnd}
-                          onTouchCancel={handleRecordingEnd}
-                          
-                          className={`p-2 transition-all rounded-full select-none ${
-                            isRecording 
-                              ? 'text-red-500 bg-red-500/20 scale-110' 
-                              : 'text-white/60 hover:text-primary hover:bg-white/5'
-                          }`}
-                          title={user?.user_level === 'Novice' ? 'Segurar para gravar' : 'Hold to record'}
-                          style={{ touchAction: 'none' }}
-                        >
-                          <Mic size={18} className={isRecording ? 'animate-pulse' : ''} />
-                        </button>
+                        {/* Interface diferente para Desktop vs Mobile */}
+                        {isMobileDevice() ? (
+                          <MobileRecordingInterface />
+                        ) : (
+                          <DesktopRecordingInterface />
+                        )}
                         
-                        {/* Camera button for mobile */}
-                        {(typeof window !== 'undefined' && 
-                          (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                           window.innerWidth <= 768)) && (
+                        {/* Camera button apenas para mobile */}
+                        {isMobileDevice() && (
                           <button 
                             onClick={() => setIsCameraOpen(true)}
                             className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
