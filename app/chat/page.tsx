@@ -938,7 +938,7 @@ export default function ChatPage() {
                             {recordingState === 'idle' && (
                               <button
                                 onClick={startRecording}
-                                className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
+                                className="p-3 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
                                 title="Click to start recording"
                               >
                                 <Mic size={18} />
@@ -946,45 +946,45 @@ export default function ChatPage() {
                             )}
                             
                             {recordingState === 'recording' && (
-                              <div className="flex items-center space-x-2 bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-2xl px-4 py-2">
-                                <span className="text-red-500 font-mono text-sm">
+                              <div className="flex items-center space-x-3 bg-red-500/20 backdrop-blur-sm border border-red-500/30 rounded-full px-4 py-3 animate-pulse">
+                                <span className="text-red-500 font-mono text-sm font-semibold">
                                   {formatTime(recordingTime)}
                                 </span>
                                 <button
                                   onClick={stopRecording}
-                                  className="p-1 text-red-500 hover:text-red-400 transition-colors animate-pulse select-none"
+                                  className="text-red-500 hover:text-red-400 transition-colors select-none"
                                   title="Click to stop recording"
                                 >
-                                  <Mic size={16} />
+                                  <Mic size={18} />
                                 </button>
                               </div>
                             )}
                             
                             {recordingState === 'preview' && recordedBlob && (
-                              <div className="flex items-center space-x-2 bg-charcoal/80 rounded-2xl px-3 py-2">
+                              <div className="flex items-center space-x-3 bg-charcoal/80 backdrop-blur-sm border border-white/10 rounded-full px-4 py-3 animate-pulse">
                                 <button
                                   onClick={togglePlayback}
-                                  className="p-1 text-primary hover:text-primary-dark transition-colors"
+                                  className="text-primary hover:text-primary-dark transition-colors"
                                   title={isPlaying ? "Pause" : "Play preview"}
                                 >
-                                  {isPlaying ? <Pause size={14} /> : <Play size={14} />}
+                                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                                 </button>
-                                <span className="text-white/70 text-xs font-mono">
+                                <span className="text-white/70 text-sm font-mono font-semibold">
                                   {isPlaying ? formatTime(playTime) : formatTime(recordedDuration)}
                                 </span>
                                 <button
                                   onClick={cancelRecording}
-                                  className="p-1 text-red-400 hover:text-red-300 transition-colors"
+                                  className="text-red-400 hover:text-red-300 transition-colors"
                                   title="Cancel"
                                 >
-                                  <X size={12} />
+                                  <X size={16} />
                                 </button>
                                 <button
                                   onClick={sendRecordedAudio}
-                                  className="p-1 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors"
+                                  className="p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors"
                                   title="Send audio"
                                 >
-                                  <Send size={12} />
+                                  <Send size={16} />
                                 </button>
                               </div>
                             )}
@@ -997,7 +997,7 @@ export default function ChatPage() {
                             onTouchStart={handleTouchStart}
                             onTouchEnd={handleTouchEnd}
                             onTouchCancel={handleTouchEnd}
-                            className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
+                            className="p-3 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
                             title={user?.user_level === 'Novice' ? 'Segurar para gravar' : 'Hold to record'}
                             style={{ 
                               touchAction: 'none',
@@ -1013,7 +1013,7 @@ export default function ChatPage() {
                         {isMobileDevice() && (
                           <button 
                             onClick={() => setIsCameraOpen(true)}
-                            className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
+                            className="p-3 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
                             title="Take photo"
                           >
                             <Camera size={18} />
