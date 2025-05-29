@@ -148,6 +148,8 @@ export default function ChatPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
+
+  // Estados para gravação corrigidos
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioLevels, setAudioLevels] = useState<number[]>(Array(20).fill(0));
@@ -160,12 +162,16 @@ export default function ChatPage() {
   );
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Refs para controle de gravação corrigidos
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>();
   const recordingTimerRef = useRef<NodeJS.Timeout>();
+  const recordingStartTimeRef = useRef<number>(0);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const generateMessageId = useCallback((prefix: string) => {
     const timestamp = Date.now();
@@ -173,39 +179,46 @@ export default function ChatPage() {
     return `${prefix}-${timestamp}-${random}`;
   }, []);
 
-  // Cleanup function for audio recording
+  // Cleanup function corrigida
   const cleanup = useCallback(() => {
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
     }
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = undefined;
     }
     if (audioStreamRef.current) {
       audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
     }
-    if (audioContextRef.current) {
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
       audioContextRef.current.close();
+      audioContextRef.current = null;
     }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
     }
   }, []);
 
-  // Initialize audio recording
-  const initializeRecording = useCallback(async () => {
+  // Initialize recording corrigido
+  const initializeRecording = useCallback(async (): Promise<boolean> => {
     try {
+      console.log('🎤 Initializing recording...');
+      
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          sampleRate: 44100
         } 
       });
       
       audioStreamRef.current = stream;
 
-      // Setup audio analysis
+      // Setup audio analysis for waveform
       audioContextRef.current = new AudioContext();
       analyserRef.current = audioContextRef.current.createAnalyser();
       const source = audioContextRef.current.createMediaStreamSource(stream);
@@ -215,18 +228,59 @@ export default function ChatPage() {
       analyserRef.current.smoothingTimeConstant = 0.8;
 
       // Setup MediaRecorder
-      mediaRecorderRef.current = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
-      });
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : MediaRecorder.isTypeSupported('audio/webm') 
+          ? 'audio/webm' 
+          : 'audio/mp4';
+          
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
 
+      // Reset chunks array
+      audioChunksRef.current = [];
+
+      // Setup event handlers
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        console.log('📦 Data available:', event.data.size);
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        console.log('⏹️ Recording stopped, chunks:', audioChunksRef.current.length);
+        
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, { 
+            type: mediaRecorderRef.current?.mimeType || mimeType 
+          });
+          
+          const recordingDuration = recordingTime;
+          console.log('📊 Recording duration:', recordingDuration, 'seconds');
+          
+          // Auto-send if recording was longer than 1 second
+          if (recordingDuration >= 1) {
+            console.log('✅ Auto-sending audio...');
+            handleAudioWithAssistantAPI(audioBlob, recordingDuration);
+          } else {
+            console.log('⚠️ Recording too short, discarded');
+          }
+        }
+        
+        // Reset state
+        setRecordingTime(0);
+        audioChunksRef.current = [];
+      };
+
+      console.log('✅ Recording initialized successfully');
       return true;
     } catch (error) {
-      console.error('Failed to initialize recording:', error);
+      console.error('❌ Failed to initialize recording:', error);
       return false;
     }
-  }, []);
+  }, [recordingTime]);
 
-  // Analyze audio levels
+  // Analyze audio levels for waveform
   const analyzeAudio = useCallback(() => {
     if (!analyserRef.current || !isRecording) return;
 
@@ -239,7 +293,7 @@ export default function ChatPage() {
       const end = Math.floor(((index + 1) / 20) * dataArray.length);
       const slice = dataArray.slice(start, end);
       const average = slice.reduce((sum, value) => sum + value, 0) / slice.length;
-      return average / 255;
+      return Math.min(average / 255, 1);
     });
 
     setAudioLevels(levels);
@@ -249,99 +303,116 @@ export default function ChatPage() {
     }
   }, [isRecording]);
 
-  // Start recording
+  // Start recording corrigido
   const startRecording = useCallback(async () => {
+    console.log('🎬 Starting recording...');
+    
     const initialized = await initializeRecording();
-    if (!initialized) return;
+    if (!initialized) {
+      console.error('❌ Failed to initialize recording');
+      return;
+    }
 
     setIsRecording(true);
     setRecordingTime(0);
-
-    // Create audio chunks array for this recording session
-    const audioChunks: Blob[] = [];
-    let currentRecordingTime = 0;
+    recordingStartTimeRef.current = Date.now();
 
     if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { 
-          type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
-        });
-        
-        // Auto-send if recording was longer than 1 second
-        if (currentRecordingTime >= 1) {
-          handleAudioWithAssistantAPI(audioBlob, currentRecordingTime);
-        } else {
-          console.log('Recording too short, discarded');
-        }
-        
-        setRecordingTime(0);
-      };
-
-      mediaRecorderRef.current.start();
+      try {
+        mediaRecorderRef.current.start(100); // Collect data every 100ms
+        console.log('📹 MediaRecorder started');
+      } catch (error) {
+        console.error('❌ Failed to start MediaRecorder:', error);
+        setIsRecording(false);
+        return;
+      }
     }
 
+    // Start audio analysis
     analyzeAudio();
 
     // Recording timer
     recordingTimerRef.current = setInterval(() => {
-      currentRecordingTime += 1;
-      setRecordingTime(currentRecordingTime);
+      const currentTime = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
+      setRecordingTime(currentTime);
       
-      if (currentRecordingTime >= 60) { // Max 60 seconds
-        // Stop recording inline to avoid circular dependency
-        setIsRecording(false);
-        setAudioLevels(Array(20).fill(0));
-        
-        if (recordingTimerRef.current) {
-          clearInterval(recordingTimerRef.current);
-        }
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-        
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.stop();
-        }
-        
-        if (audioStreamRef.current) {
-          audioStreamRef.current.getTracks().forEach(track => track.stop());
-        }
+      // Max 60 seconds
+      if (currentTime >= 60) {
+        console.log('⏰ Max recording time reached');
+        stopRecording();
       }
     }, 1000);
   }, [initializeRecording, analyzeAudio]);
 
-  // Stop recording and auto-send (WhatsApp behavior)
+  // Stop recording corrigido
   const stopRecording = useCallback(() => {
-    if (!isRecording) return;
+    console.log('⏹️ Stopping recording...');
+    
+    if (!isRecording) {
+      console.log('⚠️ Not currently recording');
+      return;
+    }
     
     setIsRecording(false);
     setAudioLevels(Array(20).fill(0));
     
+    // Clear timers and animations
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
-    }
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
+      recordingTimerRef.current = undefined;
     }
     
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = undefined;
+    }
+    
+    // Stop MediaRecorder
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
+      try {
+        mediaRecorderRef.current.stop();
+        console.log('📹 MediaRecorder stopped');
+      } catch (error) {
+        console.error('❌ Error stopping MediaRecorder:', error);
+      }
     }
     
     // Stop audio tracks
     if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('🔇 Audio track stopped');
+      });
+      audioStreamRef.current = null;
     }
   }, [isRecording]);
 
-  // Format time
+  // Handle all recording events (mouse + touch) corrigido
+  const handleRecordingStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('👆 Recording start triggered');
+    
+    if (!isRecording) {
+      startRecording();
+    }
+  }, [isRecording, startRecording]);
+
+  const handleRecordingEnd = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('👆 Recording end triggered');
+    
+    if (isRecording) {
+      stopRecording();
+    }
+  }, [isRecording, stopRecording]);
+
+  // Format time helper
   const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -828,6 +899,7 @@ export default function ChatPage() {
         userLevel={user?.user_level || 'Novice'}
       />
 
+      {/* Interface de input corrigida */}
       <div className={`flex-shrink-0 bg-secondary ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
@@ -847,7 +919,8 @@ export default function ChatPage() {
                         key={index}
                         className="w-1 bg-red-500 rounded-full transition-all duration-100"
                         style={{ 
-                          height: `${Math.max(4, level * 24)}px` 
+                          height: `${Math.max(4, level * 24)}px`,
+                          minHeight: '4px'
                         }}
                       />
                     ))}
@@ -886,22 +959,28 @@ export default function ChatPage() {
                     {!message.trim() && (
                       <>
                         <button
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            startRecording();
-                          }}
-                          onMouseUp={stopRecording}
-                          onTouchStart={(e) => {
-                            e.preventDefault();
-                            startRecording();
-                          }}
-                          onTouchEnd={stopRecording}
-                          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 active:scale-95 select-none"
+                          // Mouse events
+                          onMouseDown={handleRecordingStart}
+                          onMouseUp={handleRecordingEnd}
+                          onMouseLeave={handleRecordingEnd}
+                          
+                          // Touch events
+                          onTouchStart={handleRecordingStart}
+                          onTouchEnd={handleRecordingEnd}
+                          onTouchCancel={handleRecordingEnd}
+                          
+                          className={`p-2 transition-all rounded-full select-none ${
+                            isRecording 
+                              ? 'text-red-500 bg-red-500/20 scale-110' 
+                              : 'text-white/60 hover:text-primary hover:bg-white/5'
+                          }`}
                           title={user?.user_level === 'Novice' ? 'Segurar para gravar' : 'Hold to record'}
+                          style={{ touchAction: 'none' }}
                         >
-                          <Mic size={18} />
+                          <Mic size={18} className={isRecording ? 'animate-pulse' : ''} />
                         </button>
                         
+                        {/* Camera button for mobile */}
                         {(typeof window !== 'undefined' && 
                           (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                            window.innerWidth <= 768)) && (
@@ -918,6 +997,7 @@ export default function ChatPage() {
                   </div>
                 </div>
                 
+                {/* Send button when there's text */}
                 {message.trim() && (
                   <button
                     onClick={handleSendMessage}
@@ -929,6 +1009,7 @@ export default function ChatPage() {
               </div>
             )}
 
+            {/* Live conversation button */}
             <button 
               onClick={() => setIsLiveVoiceOpen(true)}
               className="p-3 bg-charcoal/60 hover:bg-charcoal text-primary hover:text-primary-dark rounded-full transition-colors flex-shrink-0 border border-white/10 select-none"
