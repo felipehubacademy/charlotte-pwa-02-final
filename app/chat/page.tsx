@@ -947,6 +947,9 @@ export default function ChatPage() {
                             
                             {recordingState === 'recording' && (
                               <>
+                                <span className="text-red-500 font-mono text-sm px-2">
+                                  {formatTime(recordingTime)}
+                                </span>
                                 <button
                                   onClick={stopRecording}
                                   className="p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse select-none"
@@ -954,9 +957,6 @@ export default function ChatPage() {
                                 >
                                   <Mic size={18} />
                                 </button>
-                                <span className="text-red-500 font-mono text-sm px-2">
-                                  {formatTime(recordingTime)}
-                                </span>
                               </>
                             )}
                             
