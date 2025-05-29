@@ -1,6 +1,6 @@
-const CACHE_NAME = 'charlotte-pwa-v2.0.0';
-const STATIC_CACHE = 'charlotte-static-v2.0.0';
-const DYNAMIC_CACHE = 'charlotte-dynamic-v2.0.0';
+const CACHE_NAME = 'charlotte-pwa-v2.0.1';
+const STATIC_CACHE = 'charlotte-static-v2.0.1';
+const DYNAMIC_CACHE = 'charlotte-dynamic-v2.0.1';
 
 // Arquivos essenciais para cache
 const STATIC_ASSETS = [
@@ -31,7 +31,7 @@ const CACHE_STRATEGIES = {
 
 // Instalação do Service Worker
 self.addEventListener('install', (event) => {
-  console.log('🔧 [SW] Installing Service Worker v2.0.0');
+  console.log('🔧 [SW] Installing Service Worker v2.0.1');
   
   event.waitUntil(
     caches.open(STATIC_CACHE)
@@ -51,7 +51,7 @@ self.addEventListener('install', (event) => {
 
 // Ativação do Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('🚀 [SW] Activating Service Worker v2.0.0');
+  console.log('🚀 [SW] Activating Service Worker v2.0.1');
   
   event.waitUntil(
     caches.keys()
@@ -249,4 +249,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-console.log('🎯 [SW] Charlotte PWA Service Worker v2.0.0 loaded'); 
+console.log('🎯 [SW] Charlotte PWA Service Worker v2.0.1 loaded'); 
