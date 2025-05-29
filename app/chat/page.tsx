@@ -938,7 +938,7 @@ export default function ChatPage() {
                             {recordingState === 'idle' && (
                               <button
                                 onClick={startRecording}
-                                className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 select-none"
+                                className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
                                 title="Click to start recording"
                               >
                                 <Mic size={18} />
@@ -946,18 +946,18 @@ export default function ChatPage() {
                             )}
                             
                             {recordingState === 'recording' && (
-                              <>
-                                <span className="text-red-500 font-mono text-sm px-2">
+                              <div className="flex items-center space-x-2 bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-2xl px-4 py-2">
+                                <span className="text-red-500 font-mono text-sm">
                                   {formatTime(recordingTime)}
                                 </span>
                                 <button
                                   onClick={stopRecording}
-                                  className="p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse select-none"
+                                  className="p-1 text-red-500 hover:text-red-400 transition-colors animate-pulse select-none"
                                   title="Click to stop recording"
                                 >
-                                  <Mic size={18} />
+                                  <Mic size={16} />
                                 </button>
-                              </>
+                              </div>
                             )}
                             
                             {recordingState === 'preview' && recordedBlob && (
@@ -973,18 +973,18 @@ export default function ChatPage() {
                                   {isPlaying ? formatTime(playTime) : formatTime(recordedDuration)}
                                 </span>
                                 <button
-                                  onClick={sendRecordedAudio}
-                                  className="p-1 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors"
-                                  title="Send audio"
-                                >
-                                  <Send size={12} />
-                                </button>
-                                <button
                                   onClick={cancelRecording}
                                   className="p-1 text-red-400 hover:text-red-300 transition-colors"
                                   title="Cancel"
                                 >
                                   <X size={12} />
+                                </button>
+                                <button
+                                  onClick={sendRecordedAudio}
+                                  className="p-1 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors"
+                                  title="Send audio"
+                                >
+                                  <Send size={12} />
                                 </button>
                               </div>
                             )}
