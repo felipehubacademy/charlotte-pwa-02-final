@@ -212,7 +212,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       service.on('audio_done', (event: any) => {
         console.log('✅ Audio response completed');
         setIsSpeaking(false);
-        setIsListening(true);
+          setIsListening(true);
       });
 
       service.on('input_transcription_completed', (event: any) => {
@@ -314,7 +314,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       // Conectar e inicializar áudio
       await service.connect();
       await service.initializeAudio();
-
+      
     } catch (error) {
       console.error('❌ Failed to initialize Realtime API:', error);
       setConnectionStatus('error');
@@ -621,8 +621,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                     {connectionStatus === 'error' && 'error'}
                   </p>
                 </div>
-              </div>
-              
+          </div>
+          
               {/* User Info + XP Counter + Close */}
               <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">
                 {/* XP Counter */}
@@ -672,17 +672,17 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               <div className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
                 <div className={`w-1.5 h-1.5 rounded-full ${
                   connectionStatus === 'connected' 
-                    ? isListening 
-                      ? 'bg-blue-400 animate-pulse' 
-                      : isSpeaking 
-                        ? 'bg-primary animate-pulse'
-                        : 'bg-green-400'
+                  ? isListening 
+                    ? 'bg-blue-400 animate-pulse' 
+                    : isSpeaking 
+                      ? 'bg-primary animate-pulse'
+                      : 'bg-green-400'
                     : connectionStatus === 'connecting'
                       ? 'bg-yellow-400 animate-pulse'
                       : connectionStatus === 'error'
                         ? 'bg-red-400'
                         : 'bg-gray-400'
-                }`} />
+              }`} />
                 <span className="text-white/80 text-xs font-medium">
                   {connectionStatus === 'connecting' && 'Connecting to Realtime API...'}
                   {connectionStatus === 'connected' && isListening && 'Listening for your voice...'}
@@ -690,7 +690,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                   {connectionStatus === 'connected' && !isListening && !isSpeaking && 'Ready for conversation'}
                   {connectionStatus === 'disconnected' && 'Disconnected'}
                   {connectionStatus === 'error' && 'Connection Error'}
-                </span>
+              </span>
               </div>
             </div>
           </motion.div>
@@ -735,7 +735,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             {/* Error message display */}
             <AnimatePresence>
               {connectionStatus === 'error' && errorMessage && (
-                <motion.div
+              <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
@@ -746,8 +746,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                       {errorMessage}
                     </p>
                   </div>
-                </motion.div>
-              )}
+              </motion.div>
+            )}
             </AnimatePresence>
           </div>
 

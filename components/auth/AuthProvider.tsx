@@ -216,10 +216,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const groups = groupsData.value || [];
       const groupNames = groups.map((group: any) => group.displayName).filter(Boolean);
       console.log('👥 Group names:', groupNames);
-
+      
       if (groupNames.some((name: string) => name.toLowerCase().includes('novice'))) {
         console.log('🎯 User level: Novice');
-        return 'Novice';
+      return 'Novice';
       } else if (groupNames.some((name: string) => name.toLowerCase().includes('intermediate'))) {
         console.log('🎯 User level: Intermediate');
         return 'Intermediate';

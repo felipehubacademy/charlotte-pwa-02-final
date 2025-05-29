@@ -167,12 +167,12 @@ class SupabaseService {
         const { data: retryPractice, error: retryError } = await this.supabase
           .from('user_practices')
           .insert(basicData)
-          .select()
-          .single();
+        .select()
+        .single();
 
         if (retryError) {
           console.error('❌ Retry also failed:', retryError);
-          return null;
+        return null;
         } else {
           console.log('✅ Retry successful with basic data');
           practice = retryPractice;
