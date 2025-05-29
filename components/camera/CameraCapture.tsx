@@ -57,26 +57,23 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         console.log('🎥 Setting video source...');
         videoRef.current.srcObject = mediaStream;
         
-        // iOS specific attributes for photo preview
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.setAttribute('webkit-playsinline', 'true');
-        videoRef.current.setAttribute('autoplay', 'true');
+        // iOS specific attributes for photo preview - MINIMAL
         videoRef.current.muted = true;
         // Disable recording-related attributes
         videoRef.current.setAttribute('disablepictureinpicture', 'true');
         
-        // Wait for metadata to load before playing
+        // Manual play for photo preview only
         videoRef.current.onloadedmetadata = () => {
-          console.log('🎥 Video metadata loaded, starting playback...');
+          console.log('📸 Video metadata loaded for photo preview...');
           if (videoRef.current) {
             const playPromise = videoRef.current.play();
             if (playPromise !== undefined) {
               playPromise
                 .then(() => {
-                  console.log('✅ Video playback started successfully');
+                  console.log('✅ Photo preview started successfully');
                 })
                 .catch(error => {
-                  console.error('❌ Video play failed:', error);
+                  console.error('❌ Photo preview failed:', error);
                 });
             }
           }
@@ -234,10 +231,7 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
               }`}>
                 <video
                   ref={videoRef}
-                  autoPlay
-                  playsInline
                   muted
-                  webkit-playsinline="true"
                   className="w-full h-full object-cover"
                   style={{
                     transform: facingMode === 'user' ? 'scaleX(-1)' : 'none'
