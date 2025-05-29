@@ -82,6 +82,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
+  // Ignorar requests de autenticação (NextAuth/Auth.js)
+  if (url.pathname.startsWith('/api/auth/')) {
+    return;
+  }
+  
   // Ignorar requests para outros domínios (exceto APIs necessárias)
   if (url.origin !== location.origin && !isAllowedExternalDomain(url.origin)) {
     return;
@@ -222,7 +227,12 @@ function isAllowedExternalDomain(origin) {
   const allowedDomains = [
     'https://api.openai.com',
     'https://fonts.googleapis.com',
-    'https://fonts.gstatic.com'
+    'https://fonts.gstatic.com',
+    // Microsoft/Azure domains for authentication
+    'https://login.microsoftonline.com',
+    'https://graph.microsoft.com',
+    'https://login.live.com',
+    'https://account.live.com'
   ];
   
   return allowedDomains.includes(origin);
