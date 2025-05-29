@@ -1,9 +1,26 @@
 // lib/supabase-service.ts - VERSÃO FINAL CORRETA - APENAS COLUNAS QUE EXISTEM
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// ✅ Singleton para evitar múltiplas instâncias do Supabase
+let supabaseInstance: SupabaseClient | null = null;
+
+function getSupabaseClient(): SupabaseClient | null {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Supabase credentials not found. Service will be disabled.');
+    return null;
+  }
+
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('✅ Supabase client created (singleton)');
+  }
+
+  return supabaseInstance;
+}
 
 // ✅ Interface atualizada para incluir dados de gramática
 interface AudioPracticeData {
@@ -47,13 +64,7 @@ class SupabaseService {
   private supabase;
 
   constructor() {
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.warn('Supabase credentials not found. Service will be disabled.');
-      this.supabase = null;
-      return;
-    }
-
-    this.supabase = createClient(supabaseUrl, supabaseAnonKey);
+    this.supabase = getSupabaseClient();
   }
 
   isAvailable(): boolean {
@@ -706,15 +717,15 @@ export const vocabularyService = {
     example_sentence?: string;
     image_data?: string;
   }) {
-    const service = new SupabaseService();
-    if (!service.isAvailable()) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
       console.warn('Supabase not available');
       return null;
     }
 
     try {
       // Convert string userId to UUID format if needed
-      const { data: result, error } = await (service as any).supabase
+      const { data: result, error } = await supabase
         .from('user_vocabulary')
         .insert({
           user_id: userId, // Supabase will handle the UUID conversion
@@ -739,14 +750,14 @@ export const vocabularyService = {
 
   // Get user's vocabulary
   async getUserVocabulary(userId: string, limit = 50) {
-    const service = new SupabaseService();
-    if (!service.isAvailable()) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
       console.warn('Supabase not available');
       return [];
     }
 
     try {
-      const { data, error } = await (service as any).supabase
+      const { data, error } = await supabase
         .from('user_vocabulary')
         .select('*')
         .eq('user_id', userId) // Supabase will handle the UUID conversion
@@ -763,17 +774,27 @@ export const vocabularyService = {
 
   // Update practice count
   async updatePracticeCount(vocabularyId: string) {
-    const service = new SupabaseService();
-    if (!service.isAvailable()) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
       console.warn('Supabase not available');
       return null;
     }
 
     try {
-      const { data, error } = await (service as any).supabase
+      // First get current count
+      const { data: current, error: selectError } = await supabase
+        .from('user_vocabulary')
+        .select('practiced_count')
+        .eq('id', vocabularyId)
+        .single();
+
+      if (selectError) throw selectError;
+
+      // Then update with incremented count
+      const { data, error } = await supabase
         .from('user_vocabulary')
         .update({
-          practiced_count: (service as any).supabase.raw('practiced_count + 1'),
+          practiced_count: (current?.practiced_count || 0) + 1,
           last_practiced: new Date().toISOString()
         })
         .eq('id', vocabularyId)
@@ -790,14 +811,14 @@ export const vocabularyService = {
 
   // Check if word already exists for user
   async checkWordExists(userId: string, word: string) {
-    const service = new SupabaseService();
-    if (!service.isAvailable()) {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
       console.warn('Supabase not available');
       return null;
     }
 
     try {
-      const { data, error } = await (service as any).supabase
+      const { data, error } = await supabase
         .from('user_vocabulary')
         .select('id, word, practiced_count')
         .eq('user_id', userId) // Supabase will handle the UUID conversion

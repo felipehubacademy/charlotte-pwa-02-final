@@ -691,129 +691,6 @@ export default function ChatPage() {
     loadUserStats();
   }, [user, messages.length, isMounted, conversationContext, loadUserStats]);
 
-  // Loading
-  if (!isMounted || isLoading) {
-    return (
-      <div className="min-h-screen bg-secondary flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-3 border-primary border-t-transparent mx-auto mb-3"></div>
-          <p className="text-white/70 text-sm">Loading Charlotte...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  // Text message handler
-  const handleSendMessage = async () => {
-    if (!message.trim()) return;
-
-    const userMessage: Message = {
-      id: generateMessageId('user'),
-      role: 'user',
-      content: message.trim(),
-      timestamp: new Date(),
-      messageType: 'text'
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    const userText = message.trim();
-    setMessage('');
-    setIsProcessingMessage(true);
-
-    conversationContext.addMessage('user', userText, 'text');
-
-    try {
-      const contextPrompt = conversationContext.generateContextForAssistant();
-      
-      const response = await fetch('/api/assistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcription: userText,
-          pronunciationData: null,
-          userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
-          userName: user?.name?.split(' ')[0] || 'Student',
-          messageType: 'text',
-          conversationContext: contextPrompt
-        })
-      });
-
-      if (!response.ok) throw new Error(`Assistant API error: ${response.status}`);
-      const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Assistant API failed');
-
-      const assistantResult = data.result;
-      const aiMessages = splitIntoMultipleMessages(assistantResult.feedback);
-
-      await sendSequentialMessages(
-        aiMessages,
-        (msg) => setMessages(prev => [...prev, msg]),
-        generateMessageId,
-        1200,
-        assistantResult.technicalFeedback
-      );
-
-      aiMessages.forEach(msg => 
-        conversationContext.addMessage('assistant', msg, 'text')
-      );
-
-      if (supabaseService.isAvailable() && user?.entra_id) {
-        const wordCount = userText.split(' ').filter(word => word.trim()).length;
-        
-        await supabaseService.saveAudioPractice({
-          user_id: user.entra_id,
-          transcription: userText,
-          accuracy_score: null,
-          fluency_score: null,
-          completeness_score: null,
-          pronunciation_score: null,
-          xp_awarded: assistantResult.xpAwarded,
-          practice_type: 'text_message',
-          audio_duration: 0,
-          feedback: assistantResult.feedback,
-          grammar_score: assistantResult.grammarScore || null,
-          grammar_errors: assistantResult.grammarErrors || null,
-          text_complexity: assistantResult.textComplexity || null,
-          word_count: wordCount
-        });
-        
-        setSessionXP(prev => prev + assistantResult.xpAwarded);
-        setTotalXP(prev => prev + assistantResult.xpAwarded);
-        
-        setTimeout(() => loadUserStats(), 1000);
-      }
-    } catch (error) {
-      console.error('❌ Error processing text message:', error);
-      
-      const fallbackResponse = user?.user_level === 'Novice' 
-        ? `Desculpe, ${user?.name?.split(' ')[0] || 'there'}! I had a small technical issue, but I can see you're practicing English! Keep writing - it really helps improve your skills! 😊`
-        : `I apologize for the technical hiccup, ${user?.name?.split(' ')[0] || 'there'}! Your English practice is valuable regardless. What would you like to talk about next?`;
-      
-      const aiResponse: Message = {
-        id: generateMessageId('assistant-fallback'),
-        role: 'assistant',
-        content: fallbackResponse,
-        timestamp: new Date(),
-        messageType: 'text'
-      };
-      
-      setMessages(prev => [...prev, aiResponse]);
-    } finally {
-      setIsProcessingMessage(false);
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   // Handle image capture from camera
   const handleImageCapture = useCallback(async (imageData: string) => {
     if (!user?.entra_id) return;
@@ -1013,7 +890,130 @@ IMPORTANT: Include at the end of your response the discovered word in the format
       console.error('Error processing image:', error);
       setIsProcessingMessage(false);
     }
-  }, [user, generateMessageId, conversationContext, loadUserStats]);
+  }, [user?.entra_id, user?.user_level, user?.name, generateMessageId, conversationContext, loadUserStats]);
+
+  // Loading
+  if (!isMounted || isLoading) {
+    return (
+      <div className="min-h-screen bg-secondary flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-3 border-primary border-t-transparent mx-auto mb-3"></div>
+          <p className="text-white/70 text-sm">Loading Charlotte...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Text message handler
+  const handleSendMessage = async () => {
+    if (!message.trim()) return;
+
+    const userMessage: Message = {
+      id: generateMessageId('user'),
+      role: 'user',
+      content: message.trim(),
+      timestamp: new Date(),
+      messageType: 'text'
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    const userText = message.trim();
+    setMessage('');
+    setIsProcessingMessage(true);
+
+    conversationContext.addMessage('user', userText, 'text');
+
+    try {
+      const contextPrompt = conversationContext.generateContextForAssistant();
+      
+      const response = await fetch('/api/assistant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcription: userText,
+          pronunciationData: null,
+          userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+          userName: user?.name?.split(' ')[0] || 'Student',
+          messageType: 'text',
+          conversationContext: contextPrompt
+        })
+      });
+
+      if (!response.ok) throw new Error(`Assistant API error: ${response.status}`);
+      const data = await response.json();
+      if (!data.success) throw new Error(data.error || 'Assistant API failed');
+
+      const assistantResult = data.result;
+      const aiMessages = splitIntoMultipleMessages(assistantResult.feedback);
+
+      await sendSequentialMessages(
+        aiMessages,
+        (msg) => setMessages(prev => [...prev, msg]),
+        generateMessageId,
+        1200,
+        assistantResult.technicalFeedback
+      );
+
+      aiMessages.forEach(msg => 
+        conversationContext.addMessage('assistant', msg, 'text')
+      );
+
+      if (supabaseService.isAvailable() && user?.entra_id) {
+        const wordCount = userText.split(' ').filter(word => word.trim()).length;
+        
+        await supabaseService.saveAudioPractice({
+          user_id: user.entra_id,
+          transcription: userText,
+          accuracy_score: null,
+          fluency_score: null,
+          completeness_score: null,
+          pronunciation_score: null,
+          xp_awarded: assistantResult.xpAwarded,
+          practice_type: 'text_message',
+          audio_duration: 0,
+          feedback: assistantResult.feedback,
+          grammar_score: assistantResult.grammarScore || null,
+          grammar_errors: assistantResult.grammarErrors || null,
+          text_complexity: assistantResult.textComplexity || null,
+          word_count: wordCount
+        });
+        
+        setSessionXP(prev => prev + assistantResult.xpAwarded);
+        setTotalXP(prev => prev + assistantResult.xpAwarded);
+        
+        setTimeout(() => loadUserStats(), 1000);
+      }
+    } catch (error) {
+      console.error('❌ Error processing text message:', error);
+      
+      const fallbackResponse = user?.user_level === 'Novice' 
+        ? `Desculpe, ${user?.name?.split(' ')[0] || 'there'}! I had a small technical issue, but I can see you're practicing English! Keep writing - it really helps improve your skills! 😊`
+        : `I apologize for the technical hiccup, ${user?.name?.split(' ')[0] || 'there'}! Your English practice is valuable regardless. What would you like to talk about next?`;
+      
+      const aiResponse: Message = {
+        id: generateMessageId('assistant-fallback'),
+        role: 'assistant',
+        content: fallbackResponse,
+        timestamp: new Date(),
+        messageType: 'text'
+      };
+      
+      setMessages(prev => [...prev, aiResponse]);
+    } finally {
+      setIsProcessingMessage(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   return (
     <div className="h-screen bg-secondary flex flex-col overflow-hidden">
