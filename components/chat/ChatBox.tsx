@@ -379,8 +379,14 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   React.useEffect(scrollToBottom, [messages, isProcessingMessage]);
 
+  // Detectar se é iOS PWA
+  const isIOSPWA = typeof window !== 'undefined' && 
+    ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
+
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 chat-scroll">
+    <div className={`flex-1 overflow-y-auto px-4 py-6 chat-scroll ${
+      isIOSPWA ? 'pt-24 pb-32' : ''
+    }`}>
       <div className="max-w-2xl mx-auto">
         {/* Messages */}
         <AnimatePresence>

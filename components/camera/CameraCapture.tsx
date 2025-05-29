@@ -29,9 +29,13 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
   // Initialize camera
   const initializeCamera = useCallback(async () => {
     try {
+      // Stop any existing stream first
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+        setStream(null);
       }
+
+      console.log('🎥 Initializing camera...');
 
       // iOS specific camera constraints
       const constraints: MediaStreamConstraints = {
@@ -51,35 +55,56 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
 
       setStream(mediaStream);
       
-      if (videoRef.current) {
+      if (videoRef.current && mediaStream) {
+        console.log('🎥 Setting video source...');
         videoRef.current.srcObject = mediaStream;
+        
+        // iOS specific attributes
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.setAttribute('webkit-playsinline', 'true');
+        videoRef.current.setAttribute('autoplay', 'true');
         videoRef.current.muted = true;
         
-        // Force play for iOS
-        const playPromise = videoRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(error => {
-            console.error('Video play failed:', error);
-          });
-        }
+        // Wait for metadata to load before playing
+        videoRef.current.onloadedmetadata = () => {
+          console.log('🎥 Video metadata loaded, starting playback...');
+          if (videoRef.current) {
+            const playPromise = videoRef.current.play();
+            if (playPromise !== undefined) {
+              playPromise
+                .then(() => {
+                  console.log('✅ Video playback started successfully');
+                })
+                .catch(error => {
+                  console.error('❌ Video play failed:', error);
+                });
+            }
+          }
+        };
+        
+        // Handle video errors
+        videoRef.current.onerror = (error) => {
+          console.error('❌ Video error:', error);
+        };
       }
     } catch (error) {
-      console.error('Camera access denied:', error);
-      // Show fallback UI
+      console.error('❌ Camera access failed:', error);
+      // Show user-friendly error message
     }
   }, [facingMode, stream]);
 
-  // Start camera when modal opens - MOBILE ONLY
-React.useEffect(() => {
+  // Start camera when modal opens
+  React.useEffect(() => {
     if (isOpen && !capturedImage) {
       // Detect if it's mobile
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                        window.innerWidth <= 768;
       
       if (isMobile) {
-        initializeCamera();
+        // Add a small delay to ensure modal is fully rendered
+        setTimeout(() => {
+          initializeCamera();
+        }, 100);
       } else {
         // Show desktop message
         console.log('Camera only available on mobile devices');
@@ -89,9 +114,10 @@ React.useEffect(() => {
     return () => {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
+        setStream(null);
       }
     };
-  }, [isOpen, capturedImage, initializeCamera]);
+  }, [isOpen, capturedImage, initializeCamera, stream]);
 
   // Capture photo
   const capturePhoto = useCallback(() => {

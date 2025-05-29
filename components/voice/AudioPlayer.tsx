@@ -76,21 +76,6 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         mimeType: MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4'
       });
 
-      const audioChunks: Blob[] = [];
-
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunks.push(event.data);
-        }
-      };
-
-      mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { 
-          type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
-        });
-        setRecordedBlob(audioBlob);
-      };
-
       return true;
     } catch (error) {
       console.error('Failed to initialize recording:', error);
@@ -130,14 +115,33 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     setRecordingTime(0);
     setRecordedBlob(null);
 
-    mediaRecorderRef.current?.start();
+    // Create audio chunks array for this recording session
+    const audioChunks: Blob[] = [];
+
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { 
+          type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
+        });
+        setRecordedBlob(audioBlob);
+      };
+
+      mediaRecorderRef.current.start();
+    }
+
     analyzeAudio();
 
     // Recording timer
     recordingTimerRef.current = setInterval(() => {
       setRecordingTime(prev => {
         if (prev >= 60) { // Max 60 seconds
-          stopRecording();
+          stopRecordingAndSend();
           return prev;
         }
         return prev + 1;
@@ -145,8 +149,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     }, 1000);
   }, [initializeRecording, analyzeAudio]);
 
-  // Stop recording
-  const stopRecording = useCallback(() => {
+  // Stop recording and auto-send (WhatsApp behavior)
+  const stopRecordingAndSend = useCallback(() => {
+    if (!isRecording) return;
+    
     setIsRecording(false);
     setAudioLevels(Array(20).fill(0));
     
@@ -156,7 +162,27 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
+    
+    // Create audio chunks array for auto-send
+    const audioChunks: Blob[] = [];
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      // Override the onstop to auto-send
+      mediaRecorderRef.current.onstop = () => {
+        const audioBlob = new Blob(audioChunks, { 
+          type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
+        });
+        
+        // Auto-send if recording was longer than 1 second
+        if (recordingTime >= 1) {
+          onSendAudio(audioBlob, recordingTime);
+          setRecordingTime(0);
+        } else {
+          // Too short, just discard
+          console.log('Recording too short, discarded');
+        }
+      };
+      
       mediaRecorderRef.current.stop();
     }
     
@@ -164,7 +190,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     if (audioStreamRef.current) {
       audioStreamRef.current.getTracks().forEach(track => track.stop());
     }
-  }, []);
+  }, [isRecording, recordingTime, onSendAudio]);
 
   // Send audio
   const sendAudio = useCallback(() => {
@@ -206,7 +232,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Mouse/Touch handlers
+  // Mouse/Touch handlers for WhatsApp-style behavior
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     if (!isRecording && !recordedBlob) {
@@ -216,9 +242,9 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const handleMouseUp = useCallback(() => {
     if (isRecording) {
-      stopRecording();
+      stopRecordingAndSend();
     }
-  }, [isRecording, stopRecording]);
+  }, [isRecording, stopRecordingAndSend]);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
@@ -229,27 +255,34 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
 
   const handleTouchEnd = useCallback(() => {
     if (isRecording) {
-      stopRecording();
+      stopRecordingAndSend();
     }
-  }, [isRecording, stopRecording]);
+  }, [isRecording, stopRecordingAndSend]);
 
   // Cleanup on unmount
   useEffect(() => {
     return cleanup;
   }, [cleanup]);
 
-  // Recording UI
+  // Recording UI - Fixed positioning
   if (isRecording) {
+    const isIOSPWA = typeof window !== 'undefined' && 
+      ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
+    
     return (
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className={`flex items-center space-x-3 bg-red-500/10 backdrop-blur-sm rounded-3xl px-4 py-2 border border-red-500/30 ${
-          typeof window !== 'undefined' && 
-          ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-            ? 'audio-recording-container' 
-            : ''
+          isIOSPWA ? 'fixed bottom-24 left-1/2 transform -translate-x-1/2 z-50' : ''
         }`}
+        style={isIOSPWA ? {
+          bottom: 'calc(env(safe-area-inset-bottom) + 100px)',
+          background: 'rgba(239, 68, 68, 0.1)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          border: '1px solid rgba(239, 68, 68, 0.3)'
+        } : {}}
       >
         {/* Waveform */}
         <div className="flex items-center space-x-1">
@@ -270,15 +303,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
           {formatTime(recordingTime)}
         </span>
 
-        {/* Stop recording button - SEMPRE VISÍVEL */}
-        <button
-          onMouseUp={handleMouseUp}
-          onTouchEnd={handleTouchEnd}
-          className="p-2 bg-red-500 rounded-full text-white active:scale-95 transition-transform flex-shrink-0"
-          style={{ minWidth: '32px', minHeight: '32px' }}
-        >
-          <div className="w-4 h-4 bg-white rounded-sm mx-auto" />
-        </button>
+        {/* Release to send indicator */}
+        <span className="text-red-400 text-xs">
+          {userLevel === 'Novice' ? 'Solte para enviar' : 'Release to send'}
+        </span>
       </motion.div>
     );
   }
