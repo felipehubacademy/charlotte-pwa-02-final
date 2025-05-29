@@ -946,47 +946,47 @@ export default function ChatPage() {
                             )}
                             
                             {recordingState === 'recording' && (
-                              <div className="flex items-center space-x-3 bg-red-500/20 backdrop-blur-sm border border-red-500/30 rounded-full px-4 py-3 animate-pulse">
+                              <>
                                 <span className="text-red-500 font-mono text-sm font-semibold">
                                   {formatTime(recordingTime)}
                                 </span>
                                 <button
                                   onClick={stopRecording}
-                                  className="text-red-500 hover:text-red-400 transition-colors select-none"
+                                  className="p-3 text-red-500 bg-red-500/20 rounded-full animate-pulse transition-colors select-none"
                                   title="Click to stop recording"
                                 >
                                   <Mic size={18} />
                                 </button>
-                              </div>
+                              </>
                             )}
                             
                             {recordingState === 'preview' && recordedBlob && (
-                              <div className="flex items-center space-x-3 bg-charcoal/80 backdrop-blur-sm border border-white/10 rounded-full px-4 py-3 animate-pulse">
+                              <>
                                 <button
                                   onClick={togglePlayback}
-                                  className="text-primary hover:text-primary-dark transition-colors"
+                                  className="p-3 text-primary hover:text-primary-dark bg-primary/10 rounded-full transition-colors select-none"
                                   title={isPlaying ? "Pause" : "Play preview"}
                                 >
-                                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                                  {isPlaying ? <Pause size={18} /> : <Play size={18} />}
                                 </button>
-                                <span className="text-white/70 text-sm font-mono font-semibold">
+                                <span className="text-white/70 font-mono text-sm font-semibold">
                                   {isPlaying ? formatTime(playTime) : formatTime(recordedDuration)}
                                 </span>
                                 <button
                                   onClick={cancelRecording}
-                                  className="text-red-400 hover:text-red-300 transition-colors"
+                                  className="p-3 text-red-400 hover:text-red-300 bg-red-400/10 rounded-full transition-colors select-none"
                                   title="Cancel"
                                 >
-                                  <X size={16} />
+                                  <X size={18} />
                                 </button>
                                 <button
                                   onClick={sendRecordedAudio}
-                                  className="p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors"
+                                  className="p-3 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
                                   title="Send audio"
                                 >
-                                  <Send size={16} />
+                                  <Send size={18} />
                                 </button>
-                              </div>
+                              </>
                             )}
                           </>
                         )}
