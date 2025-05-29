@@ -30,6 +30,10 @@ export class OpenAIRealtimeService {
   private isPlayingAudio = false;
   private currentAudioSource: AudioBufferSourceNode | null = null;
   private audioGainNode: GainNode | null = null;
+  // 🔧 NOVO: Propriedades para processamento avançado de áudio
+  private microphoneSource: MediaStreamAudioSourceNode | null = null;
+  private audioProcessor: ScriptProcessorNode | null = null;
+  private isRecording: boolean = false;
 
   constructor(config: RealtimeConfig) {
     this.config = config;
@@ -533,18 +537,6 @@ CONVERSATION STYLE:
     try {
       console.log('🎤 [FIXED] Initializing high-quality audio...');
       
-      // 🔧 NOVO: Configurações otimizadas para alta qualidade
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          sampleRate: 24000, // Mantém 24kHz para compatibilidade
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-          // Configurações avançadas removidas para compatibilidade TypeScript
-        }
-      });
-
       // 🔧 NOVO: AudioContext com configurações otimizadas
       this.audioContext = new AudioContext({ 
         sampleRate: 24000,
@@ -571,48 +563,11 @@ CONVERSATION STYLE:
       this.audioGainNode.connect(compressor);
       compressor.connect(this.audioContext.destination);
       
-      // 🔧 NOVO: Processamento de entrada otimizado
-      const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+      // 🔧 NOVO: Configurar microfone com processamento avançado
+      await this.setupMicrophone();
       
-      // 🔧 NOVO: Usar AudioWorklet se disponível, senão ScriptProcessor
-      if (this.audioContext.audioWorklet) {
-        // Implementação futura com AudioWorklet para melhor performance
-        console.log('🎤 AudioWorklet available but using ScriptProcessor for compatibility');
-      }
-      
-      // 🔧 MELHORADO: ScriptProcessor com buffer otimizado
-      const processor = this.audioContext.createScriptProcessor(2048, 1, 1); // Buffer menor para menor latência
-      
-      processor.onaudioprocess = (event) => {
-        const inputBuffer = event.inputBuffer;
-        const inputData = inputBuffer.getChannelData(0);
-        
-        // 🔧 NOVO: Processamento de áudio melhorado com normalização
-        const normalizedData = new Float32Array(inputData.length);
-        let maxAmplitude = 0;
-        
-        // Encontrar amplitude máxima
-        for (let i = 0; i < inputData.length; i++) {
-          const amplitude = Math.abs(inputData[i]);
-          if (amplitude > maxAmplitude) {
-            maxAmplitude = amplitude;
-          }
-        }
-        
-        // Normalizar e converter para Int16
-        const int16Array = new Int16Array(inputData.length);
-        const normalizationFactor = maxAmplitude > 0 ? 0.95 / maxAmplitude : 1;
-        
-        for (let i = 0; i < inputData.length; i++) {
-          const normalizedSample = inputData[i] * normalizationFactor;
-          int16Array[i] = Math.max(-32768, Math.min(32767, normalizedSample * 32768));
-        }
-        
-        this.sendAudioData(int16Array);
-      };
-      
-      source.connect(processor);
-      processor.connect(this.audioContext.destination);
+      // 🔧 NOVO: Iniciar gravação
+      this.isRecording = true;
 
       console.log('✅ [FIXED] High-quality audio initialized successfully');
       this.emit('audio_initialized');
@@ -705,32 +660,52 @@ CONVERSATION STYLE:
         const audioBuffer = this.base64ToArrayBuffer(base64Audio);
         const audioData = new Int16Array(audioBuffer);
         
-        // 🔧 NOVO: Processamento de áudio melhorado com anti-aliasing
+        // 🔧 NOVO: Processamento avançado para eliminar picotamento e ruído
         const floatArray = new Float32Array(audioData.length);
         
-        // Converter Int16 para Float32 com normalização suave
+        // Converter Int16 para Float32 com normalização melhorada
         for (let i = 0; i < audioData.length; i++) {
           floatArray[i] = audioData[i] / 32768.0;
         }
         
-        // 🔧 NOVO: Aplicar suavização nas bordas para evitar estalidos
-        const fadeLength = Math.min(256, Math.floor(floatArray.length * 0.01)); // 1% ou 256 samples
+        // 🔧 NOVO: Filtro de ruído avançado - remover DC offset
+        let dcOffset = 0;
+        for (let i = 0; i < floatArray.length; i++) {
+          dcOffset += floatArray[i];
+        }
+        dcOffset /= floatArray.length;
         
-        // Fade-in no início
-        for (let i = 0; i < fadeLength; i++) {
-          const fadeMultiplier = i / fadeLength;
-          floatArray[i] *= fadeMultiplier;
+        for (let i = 0; i < floatArray.length; i++) {
+          floatArray[i] -= dcOffset;
         }
         
-        // Fade-out no final
-        for (let i = floatArray.length - fadeLength; i < floatArray.length; i++) {
-          const fadeMultiplier = (floatArray.length - 1 - i) / fadeLength;
-          floatArray[i] *= fadeMultiplier;
+        // 🔧 NOVO: Suavização mais agressiva para eliminar picotamento
+        const smoothedArray = new Float32Array(floatArray.length);
+        const smoothingFactor = 0.3; // Suavização mais forte
+        
+        smoothedArray[0] = floatArray[0];
+        for (let i = 1; i < floatArray.length; i++) {
+          smoothedArray[i] = smoothingFactor * floatArray[i] + (1 - smoothingFactor) * smoothedArray[i - 1];
+        }
+        
+        // 🔧 NOVO: Fade-in/out mais longo para eliminar cliques
+        const fadeLength = Math.min(512, Math.floor(smoothedArray.length * 0.02)); // 2% ou 512 samples
+        
+        // Fade-in suave no início
+        for (let i = 0; i < fadeLength; i++) {
+          const fadeMultiplier = Math.sin((i / fadeLength) * Math.PI * 0.5); // Curva senoidal suave
+          smoothedArray[i] *= fadeMultiplier;
+        }
+        
+        // Fade-out suave no final
+        for (let i = smoothedArray.length - fadeLength; i < smoothedArray.length; i++) {
+          const fadeMultiplier = Math.sin(((smoothedArray.length - 1 - i) / fadeLength) * Math.PI * 0.5);
+          smoothedArray[i] *= fadeMultiplier;
         }
 
-        // 🔧 NOVO: Criar buffer com configurações otimizadas
-        const buffer = this.audioContext.createBuffer(1, floatArray.length, 24000);
-        buffer.copyToChannel(floatArray, 0);
+        // 🔧 NOVO: Criar buffer com configurações de alta qualidade
+        const buffer = this.audioContext.createBuffer(1, smoothedArray.length, 24000);
+        buffer.copyToChannel(smoothedArray, 0);
 
         // 🛑 IMPORTANTE: Parar áudio anterior se existir
         if (this.currentAudioSource) {
@@ -745,18 +720,40 @@ CONVERSATION STYLE:
         const source = this.audioContext.createBufferSource();
         source.buffer = buffer;
         
-        // 🔧 NOVO: Configurações otimizadas para qualidade
-        source.playbackRate.value = 1.0; // Taxa de reprodução normal
+        // 🔧 NOVO: Cadeia de processamento anti-ruído
         
-        // 🔧 NOVO: Conectar através de filtro passa-baixa para suavizar
+        // 1. Filtro passa-alta para remover ruído de baixa frequência
+        const highPassFilter = this.audioContext.createBiquadFilter();
+        highPassFilter.type = 'highpass';
+        highPassFilter.frequency.setValueAtTime(80, this.audioContext.currentTime); // Remove ruído abaixo de 80Hz
+        highPassFilter.Q.setValueAtTime(0.7, this.audioContext.currentTime);
+        
+        // 2. Filtro passa-baixa para remover ruído de alta frequência
         const lowPassFilter = this.audioContext.createBiquadFilter();
         lowPassFilter.type = 'lowpass';
-        lowPassFilter.frequency.setValueAtTime(12000, this.audioContext.currentTime); // Cortar frequências muito altas
-        lowPassFilter.Q.setValueAtTime(0.7, this.audioContext.currentTime);
+        lowPassFilter.frequency.setValueAtTime(8000, this.audioContext.currentTime); // Reduzido para voz humana
+        lowPassFilter.Q.setValueAtTime(0.5, this.audioContext.currentTime);
+        
+        // 3. Filtro notch para remover frequências problemáticas
+        const notchFilter = this.audioContext.createBiquadFilter();
+        notchFilter.type = 'notch';
+        notchFilter.frequency.setValueAtTime(60, this.audioContext.currentTime); // Remove hum de 60Hz
+        notchFilter.Q.setValueAtTime(10, this.audioContext.currentTime);
+        
+        // 4. Compressor mais suave para evitar distorção
+        const compressor = this.audioContext.createDynamicsCompressor();
+        compressor.threshold.setValueAtTime(-18, this.audioContext.currentTime); // Menos agressivo
+        compressor.knee.setValueAtTime(20, this.audioContext.currentTime);
+        compressor.ratio.setValueAtTime(6, this.audioContext.currentTime); // Menos compressão
+        compressor.attack.setValueAtTime(0.01, this.audioContext.currentTime);
+        compressor.release.setValueAtTime(0.1, this.audioContext.currentTime);
         
         // 🔧 NOVO: Cadeia de processamento otimizada
-        source.connect(lowPassFilter);
-        lowPassFilter.connect(this.audioGainNode);
+        source.connect(highPassFilter);
+        highPassFilter.connect(notchFilter);
+        notchFilter.connect(lowPassFilter);
+        lowPassFilter.connect(compressor);
+        compressor.connect(this.audioGainNode);
         
         // Armazenar referência para controle
         this.currentAudioSource = source;
@@ -766,8 +763,8 @@ CONVERSATION STYLE:
           resolve();
         };
 
-        // 🔧 NOVO: Iniciar com timing preciso
-        const startTime = this.audioContext.currentTime + 0.01; // Pequeno delay para estabilidade
+        // 🔧 NOVO: Iniciar com timing mais preciso para evitar glitches
+        const startTime = this.audioContext.currentTime + 0.005; // Delay menor mas preciso
         source.start(startTime);
 
       } catch (error) {
@@ -957,33 +954,44 @@ CONVERSATION STYLE:
   disconnect(): void {
     console.log('🔌 [FIXED] Disconnecting...');
     
-    // 🛑 NOVO: Parar áudio atual e limpar fila
+    // 🔧 NOVO: Parar gravação
+    this.isRecording = false;
+    
+    // 🛑 Parar áudio atual
     this.stopCurrentAudio();
     
+    // 🔌 Fechar WebSocket
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
+    }
+    
+    // 🎤 Limpar recursos de áudio
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(track => track.stop());
       this.mediaStream = null;
     }
-
-    if (this.audioGainNode) {
-      this.audioGainNode.disconnect();
-      this.audioGainNode = null;
+    
+    // 🔧 NOVO: Limpar recursos de processamento avançado
+    if (this.microphoneSource) {
+      this.microphoneSource.disconnect();
+      this.microphoneSource = null;
     }
-
+    
+    if (this.audioProcessor) {
+      this.audioProcessor.disconnect();
+      this.audioProcessor = null;
+    }
+    
     if (this.audioContext) {
       this.audioContext.close();
       this.audioContext = null;
     }
-
-    if (this.ws) {
-      this.ws.close(1000, 'Client disconnecting');
-      this.ws = null;
-    }
-
+    
     this.isConnected = false;
     this.sessionId = null;
-    this.reconnectAttempts = 0;
-    this.eventListeners.clear();
+    this.audioQueue = [];
+    this.isPlayingAudio = false;
     
     console.log('✅ [FIXED] Disconnected successfully');
   }
@@ -1015,6 +1023,115 @@ CONVERSATION STYLE:
 
     console.log('📊 [FIXED] Diagnosis:', diagnosis);
     return diagnosis;
+  }
+
+  // 🎤 Configurar captura de áudio do microfone
+  private async setupMicrophone(): Promise<void> {
+    try {
+      console.log('🎤 [FIXED] Setting up microphone...');
+      
+      // 🔧 NOVO: Configurações avançadas para máxima qualidade e redução de ruído
+      const constraints: MediaStreamConstraints = {
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          // 🔧 NOVO: Configurações avançadas para reduzir ruído
+          googEchoCancellation: true,
+          googAutoGainControl: true,
+          googNoiseSuppression: true,
+          googHighpassFilter: true,
+          googTypingNoiseDetection: true,
+          googAudioMirroring: false,
+          // 🔧 NOVO: Configurações de qualidade premium
+          latency: 0.01, // Latência mínima
+          volume: 0.8,   // Volume controlado
+        } as any
+      };
+
+      this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // 🔧 NOVO: Configurar processamento avançado do microfone
+      this.microphoneSource = this.audioContext!.createMediaStreamSource(this.mediaStream);
+      
+      // 🔧 NOVO: Cadeia de filtros para o microfone (reduzir ruído de entrada)
+      
+      // 1. Filtro passa-alta para remover ruído de baixa frequência do mic
+      const micHighPass = this.audioContext!.createBiquadFilter();
+      micHighPass.type = 'highpass';
+      micHighPass.frequency.setValueAtTime(100, this.audioContext!.currentTime); // Remove ruído abaixo de 100Hz
+      micHighPass.Q.setValueAtTime(0.5, this.audioContext!.currentTime);
+      
+      // 2. Filtro passa-baixa para limitar frequências do mic
+      const micLowPass = this.audioContext!.createBiquadFilter();
+      micLowPass.type = 'lowpass';
+      micLowPass.frequency.setValueAtTime(8000, this.audioContext!.currentTime); // Limita a 8kHz
+      micLowPass.Q.setValueAtTime(0.7, this.audioContext!.currentTime);
+      
+      // 3. Compressor suave para o microfone
+      const micCompressor = this.audioContext!.createDynamicsCompressor();
+      micCompressor.threshold.setValueAtTime(-20, this.audioContext!.currentTime);
+      micCompressor.knee.setValueAtTime(15, this.audioContext!.currentTime);
+      micCompressor.ratio.setValueAtTime(4, this.audioContext!.currentTime);
+      micCompressor.attack.setValueAtTime(0.005, this.audioContext!.currentTime);
+      micCompressor.release.setValueAtTime(0.05, this.audioContext!.currentTime);
+      
+      // 🔧 NOVO: Conectar cadeia de processamento do microfone
+      this.microphoneSource.connect(micHighPass);
+      micHighPass.connect(micLowPass);
+      micLowPass.connect(micCompressor);
+      
+      // Conectar ao processador de áudio
+      this.audioProcessor = this.audioContext!.createScriptProcessor(1024, 1, 1); // Buffer menor para menos latência
+      micCompressor.connect(this.audioProcessor);
+      this.audioProcessor.connect(this.audioContext!.destination);
+
+      // 🔧 NOVO: Processamento de áudio melhorado para envio
+      this.audioProcessor.onaudioprocess = (event: AudioProcessingEvent) => {
+        if (!this.isRecording) return;
+
+        const inputBuffer = event.inputBuffer;
+        const inputData = inputBuffer.getChannelData(0);
+        
+        // 🔧 NOVO: Aplicar gate de ruído mais eficiente
+        const noiseGate = -45; // dB - mais restritivo
+        let rms = 0;
+        for (let i = 0; i < inputData.length; i++) {
+          rms += inputData[i] * inputData[i];
+        }
+        rms = Math.sqrt(rms / inputData.length);
+        const dbLevel = 20 * Math.log10(rms);
+        
+        // Se o nível está abaixo do gate, silenciar completamente
+        if (dbLevel < noiseGate) {
+          inputData.fill(0);
+        }
+        
+        // 🔧 NOVO: Normalização suave para evitar clipping
+        const maxAmplitude = Math.max(...Array.from(inputData, (x: number) => Math.abs(x)));
+        if (maxAmplitude > 0.95) {
+          const normalizationFactor = 0.9 / maxAmplitude;
+          for (let i = 0; i < inputData.length; i++) {
+            inputData[i] *= normalizationFactor;
+          }
+        }
+
+        // Converter para Int16 e enviar
+        const int16Array = new Int16Array(inputData.length);
+        for (let i = 0; i < inputData.length; i++) {
+          int16Array[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+        }
+
+        this.sendAudioData(int16Array);
+      };
+
+      console.log('✅ [FIXED] Microphone setup complete with advanced noise reduction');
+    } catch (error) {
+      console.error('❌ [FIXED] Error setting up microphone:', error);
+      throw error;
+    }
   }
 }
 

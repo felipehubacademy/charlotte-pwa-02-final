@@ -389,8 +389,12 @@ export default function ChatPage() {
           word_count: wordCount
         });
         
-        // ✅ RECARREGAR dados do DB após salvar
-        await loadUserStats();
+        // 🔧 NOVO: Atualizar sessionXP imediatamente
+        setSessionXP(prev => prev + assistantResult.xpAwarded);
+        setTotalXP(prev => prev + assistantResult.xpAwarded);
+        
+        // ✅ RECARREGAR dados do DB após salvar (para sincronizar)
+        setTimeout(() => loadUserStats(), 1000);
       }
 
     } catch (error) {
@@ -585,8 +589,12 @@ export default function ChatPage() {
             technicalFeedback: assistantResponse.technicalFeedback
           });
           
-          // ✅ RECARREGAR dados do DB após salvar
-          await loadUserStats();
+          // 🔧 NOVO: Atualizar sessionXP imediatamente
+          setSessionXP(prev => prev + xpResult.totalXP);
+          setTotalXP(prev => prev + xpResult.totalXP);
+          
+          // ✅ RECARREGAR dados do DB após salvar (para sincronizar)
+          setTimeout(() => loadUserStats(), 1000);
           
           console.log('✅ Valid audio practice saved with intelligent XP successfully!');
         }
@@ -772,7 +780,12 @@ export default function ChatPage() {
         sessionXP={sessionXP}
         totalXP={totalXP}
         onLogout={logout}
-        onXPGained={(amount) => console.log('Live Voice XP gained:', amount)}
+        onXPGained={(amount) => {
+          console.log('Live Voice XP gained:', amount);
+          // 🔧 NOVO: Atualizar sessionXP e totalXP imediatamente
+          setSessionXP(prev => prev + amount);
+          setTotalXP(prev => prev + amount);
+        }}
       />
       
       {/* Camera Capture Modal */}
