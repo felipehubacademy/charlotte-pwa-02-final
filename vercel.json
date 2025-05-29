@@ -1,12 +1,6 @@
 {
   "version": 2,
   "name": "charlotte-pwa-02-final",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
   "headers": [
     {
       "source": "/sw.js",
