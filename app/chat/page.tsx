@@ -907,7 +907,7 @@ export default function ChatPage() {
                           {recordingState === 'idle' && (
                             <button
                               onClick={startRecording}
-                              className="absolute right-2 bottom-2 p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
+                              className="absolute right-2 bottom-[7px] p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
                               title="Click to start recording"
                             >
                               <Mic size={16} />

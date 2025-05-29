@@ -35,21 +35,22 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         setStream(null);
       }
 
-      console.log('🎥 Initializing camera...');
+      console.log('📸 Initializing camera for photo capture only...');
 
-      // iOS specific camera constraints
+      // iOS specific camera constraints for photo capture
       const constraints: MediaStreamConstraints = {
         video: {
           facingMode: facingMode,
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
-          frameRate: { ideal: 30, max: 60 },
-          // iOS specific settings
+          // Remove frameRate and other video-specific settings for photo capture
           aspectRatio: { ideal: 16/9 }
-        }
+        },
+        // Explicitly exclude audio to ensure it's photo-only
+        audio: false
       };
 
-      console.log('🎥 Requesting camera with constraints:', constraints);
+      console.log('📸 Requesting camera access for photo capture with constraints:', constraints);
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('✅ Camera stream obtained:', mediaStream.getVideoTracks()[0]?.getSettings());
 
@@ -59,11 +60,13 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({
         console.log('🎥 Setting video source...');
         videoRef.current.srcObject = mediaStream;
         
-        // iOS specific attributes
+        // iOS specific attributes for photo preview
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.setAttribute('webkit-playsinline', 'true');
         videoRef.current.setAttribute('autoplay', 'true');
         videoRef.current.muted = true;
+        // Disable recording-related attributes
+        videoRef.current.setAttribute('disablepictureinpicture', 'true');
         
         // Wait for metadata to load before playing
         videoRef.current.onloadedmetadata = () => {
