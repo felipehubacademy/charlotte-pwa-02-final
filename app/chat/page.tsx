@@ -446,17 +446,14 @@ export default function ChatPage() {
           
           const duration = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
           
-          if (isMobileDevice()) {
-            // Mobile: auto-send
-            if (duration >= 1) {
-              handleAudioWithAssistantAPI(audioBlob, duration);
-              setRecordingState('idle');
-            }
-          } else {
-            // Desktop: preview
+          // Sempre usar preview (mobile e desktop)
+          if (duration >= 1) {
             setRecordedBlob(audioBlob);
             setRecordedDuration(duration);
             setRecordingState('preview');
+          } else {
+            // Gravação muito curta, voltar ao idle
+            setRecordingState('idle');
           }
         }
         
@@ -884,157 +881,171 @@ export default function ChatPage() {
         <div className="max-w-3xl mx-auto px-4 py-4">
           <div className="flex items-end space-x-3">
             
-            {/* MOBILE: Interface de gravação tipo WhatsApp */}
-            {recordingState === 'recording' && isMobileDevice() ? (
-              <div className="flex-1 relative">
-                <div className="flex items-center bg-red-500/10 backdrop-blur-sm border border-red-500/30 rounded-3xl px-4 py-3">
-                  {/* Waveform */}
-                  <div className="flex items-center space-x-1 mr-3">
-                    {audioLevels.map((level, index) => (
-                      <div
-                        key={index}
-                        className="w-1 bg-red-500 rounded-full transition-all duration-100"
-                        style={{ 
-                          height: `${Math.max(4, level * 24)}px`,
-                          minHeight: '4px'
-                        }}
-                      />
-                    ))}
-                  </div>
-
-                  <span className="text-red-500 font-mono text-sm min-w-12 mr-3">
-                    {formatTime(recordingTime)}
-                  </span>
-
-                  <span className="text-red-400 text-xs flex-1">
-                    {user?.user_level === 'Novice' ? 'Solte para enviar' : 'Release to send'}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              /* Interface normal */
-              <div className="flex-1 relative">
-                <div className="flex items-end bg-charcoal/60 backdrop-blur-sm border border-white/10 rounded-3xl focus-within:border-primary/30 transition-colors">
-                  <textarea
-                    ref={textareaRef}
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    placeholder="Ask anything..."
-                    rows={1}
-                    className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden select-none"
-                    style={{ 
-                      minHeight: '44px',
-                      maxHeight: '120px'
-                    }}
-                  />
-                  
-                  <div className="flex items-center space-x-1 pr-2">
-                    {!message.trim() && (
-                      <>
-                        {/* DESKTOP: Interface de gravação com preview */}
-                        {!isMobileDevice() && (
-                          <>
-                            {recordingState === 'idle' && (
+            {/* Interface normal */}
+            <div className="flex-1 relative">
+              <div className="flex items-end bg-charcoal/60 backdrop-blur-sm border border-white/10 rounded-3xl focus-within:border-primary/30 transition-colors">
+                <textarea
+                  ref={textareaRef}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Ask anything..."
+                  rows={1}
+                  className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden select-none"
+                  style={{ 
+                    minHeight: '44px',
+                    maxHeight: '120px'
+                  }}
+                />
+                
+                <div className="flex items-center space-x-1 pr-2">
+                  {!message.trim() && (
+                    <>
+                      {/* DESKTOP: Interface de gravação com preview */}
+                      {!isMobileDevice() && (
+                        <>
+                          {recordingState === 'idle' && (
+                            <button
+                              onClick={startRecording}
+                              className="absolute right-2 bottom-2 p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
+                              title="Click to start recording"
+                            >
+                              <Mic size={16} />
+                            </button>
+                          )}
+                          
+                          {recordingState === 'recording' && (
+                            <>
+                              <span className="absolute right-[44px] bottom-1/2 transform translate-y-1/2 text-red-500 font-mono text-sm font-semibold px-2">
+                                {formatTime(recordingTime)}
+                              </span>
                               <button
-                                onClick={startRecording}
-                                className="absolute right-2 bottom-2 p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
-                                title="Click to start recording"
+                                onClick={stopRecording}
+                                className="absolute right-2 bottom-2 p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse transition-colors select-none"
+                                title="Click to stop recording"
                               >
                                 <Mic size={16} />
                               </button>
-                            )}
-                            
-                            {recordingState === 'recording' && (
-                              <>
-                                <span className="absolute right-12 bottom-1/2 transform translate-y-1/2 text-red-500 font-mono text-sm font-semibold px-2">
-                                  {formatTime(recordingTime)}
-                                </span>
-                                <button
-                                  onClick={stopRecording}
-                                  className="absolute right-2 bottom-2 p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse transition-colors select-none"
-                                  title="Click to stop recording"
-                                >
-                                  <Mic size={16} />
-                                </button>
-                              </>
-                            )}
-                            
-                            {recordingState === 'preview' && recordedBlob && (
-                              <>
-                                <button
-                                  onClick={cancelRecording}
-                                  className="absolute right-20 bottom-2 p-2 text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 transition-colors rounded-full select-none"
-                                  title="Cancel"
-                                >
-                                  <X size={16} />
-                                </button>
-                                <button
-                                  onClick={togglePlayback}
-                                  className="absolute right-12 bottom-2 p-2 text-primary hover:text-primary-dark bg-primary/10 hover:bg-primary/20 transition-colors rounded-full select-none"
-                                  title={isPlaying ? "Pause" : "Play preview"}
-                                >
-                                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
-                                </button>
-                                <span className="absolute right-4 bottom-1/2 transform translate-y-1/2 text-white/70 font-mono text-sm font-semibold px-2">
-                                  {isPlaying ? formatTime(playTime) : formatTime(recordedDuration)}
-                                </span>
-                                <button
-                                  onClick={sendRecordedAudio}
-                                  className="absolute right-2 bottom-2 p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
-                                  title="Send audio"
-                                >
-                                  <Send size={16} />
-                                </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                        
-                        {/* MOBILE: Botão press & hold */}
-                        {isMobileDevice() && recordingState === 'idle' && (
+                            </>
+                          )}
+                          
+                          {recordingState === 'preview' && recordedBlob && (
+                            <>
+                              <button
+                                onClick={cancelRecording}
+                                className="absolute right-[136px] bottom-[7px] p-2 text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 transition-colors rounded-full select-none"
+                                title="Cancel recording"
+                              >
+                                <X size={16} />
+                              </button>
+                              <button
+                                onClick={togglePlayback}
+                                className="absolute right-24 bottom-[7px] p-2 text-primary hover:text-primary-dark bg-primary/10 hover:bg-primary/20 transition-colors rounded-full select-none"
+                                title={isPlaying ? "Pause preview" : "Play preview"}
+                              >
+                                {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                              </button>
+                              <span className="absolute right-12 bottom-1/2 transform translate-y-1/2 text-white/70 font-mono text-sm font-semibold px-1 min-w-10 text-center">
+                                {isPlaying ? formatTime(playTime) : formatTime(recordedDuration)}
+                              </span>
+                              <button
+                                onClick={sendRecordedAudio}
+                                className="absolute right-[7px] bottom-[7px] p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
+                                title="Send audio"
+                              >
+                                <Send size={16} />
+                              </button>
+                            </>
+                          )}
+                        </>
+                      )}
+                      
+                      {/* MOBILE: Interface de gravação */}
+                      {isMobileDevice() && recordingState === 'recording' && (
+                        <div className="flex items-center space-x-1 pb-1.5">
+                          <span className="text-red-500 font-mono text-xs font-semibold ml-1 mt-0.5 min-w-8 text-center">
+                            {formatTime(recordingTime)}
+                          </span>
                           <button
-                            onTouchStart={handleTouchStart}
-                            onTouchEnd={handleTouchEnd}
-                            onTouchCancel={handleTouchEnd}
-                            className="p-3 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
-                            title={user?.user_level === 'Novice' ? 'Segurar para gravar' : 'Hold to record'}
-                            style={{ 
-                              touchAction: 'none',
-                              WebkitUserSelect: 'none',
-                              WebkitTouchCallout: 'none'
-                            }}
+                            onClick={stopRecording}
+                            className="p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse transition-colors select-none"
+                            title={user?.user_level === 'Novice' ? 'Parar gravação' : 'Stop recording'}
                           >
-                            <Mic size={18} />
+                            <Mic size={16} />
                           </button>
-                        )}
-                        
-                        {/* Camera button para mobile */}
-                        {isMobileDevice() && (
-                          <button 
-                            onClick={() => setIsCameraOpen(true)}
-                            className="p-3 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
-                            title="Take photo"
-                          >
-                            <Camera size={18} />
-                          </button>
-                        )}
-                      </>
-                    )}
-                  </div>
+                        </div>
+                      )}
+
+                      {!message.trim() && (
+                        <>
+                          {/* Camera button para mobile - PRIMEIRO */}
+                          {isMobileDevice() && recordingState === 'idle' && (
+                            <button 
+                              onClick={() => setIsCameraOpen(true)}
+                              className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none mb-1.5"
+                              title="Take photo"
+                            >
+                              <Camera size={16} />
+                            </button>
+                          )}
+
+                          {/* MOBILE: Botão click to record - SEGUNDO */}
+                          {isMobileDevice() && recordingState === 'idle' && (
+                            <button
+                              onClick={startRecording}
+                              className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none mb-1.5"
+                              title={user?.user_level === 'Novice' ? 'Toque para gravar' : 'Tap to record'}
+                            >
+                              <Mic size={16} />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </>
+                  )}
                 </div>
-                
-                {/* Send button when there's text */}
-                {message.trim() && (
-                  <button
-                    onClick={handleSendMessage}
-                    className="absolute right-2 bottom-2 p-2 bg-primary hover:bg-primary-dark rounded-full transition-all active:scale-95 select-none"
-                  >
-                    <Send size={16} className="text-black" />
-                  </button>
-                )}
               </div>
-            )}
+              
+              {/* MOBILE: Interface de preview - posicionada fora da textarea */}
+              {isMobileDevice() && recordingState === 'preview' && recordedBlob && !message.trim() && (
+                <div className="absolute right-2 bottom-2 flex items-center space-x-0.5">
+                  <button
+                    onClick={cancelRecording}
+                    className="p-2 text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 transition-colors rounded-full select-none"
+                    title={user?.user_level === 'Novice' ? 'Cancelar' : 'Cancel'}
+                  >
+                    <X size={16} />
+                  </button>
+                  <button
+                    onClick={togglePlayback}
+                    className="p-2 text-primary hover:text-primary-dark bg-primary/10 hover:bg-primary/20 transition-colors rounded-full select-none"
+                    title={isPlaying ? (user?.user_level === 'Novice' ? 'Pausar' : 'Pause') : (user?.user_level === 'Novice' ? 'Reproduzir' : 'Play')}
+                  >
+                    {isPlaying ? <Pause size={16} /> : <Play size={16} />}
+                  </button>
+                  <span className="text-white/70 font-mono text-xs font-semibold px-1 min-w-8 text-center mt-1">
+                    {isPlaying ? formatTime(playTime) : formatTime(recordedDuration)}
+                  </span>
+                  <button
+                    onClick={sendRecordedAudio}
+                    className="p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
+                    title={user?.user_level === 'Novice' ? 'Enviar áudio' : 'Send audio'}
+                  >
+                    <Send size={16} />
+                  </button>
+                </div>
+              )}
+              
+              {/* Send button when there's text */}
+              {message.trim() && (
+                <button
+                  onClick={handleSendMessage}
+                  className="absolute right-2 bottom-2 p-2 bg-primary hover:bg-primary-dark rounded-full transition-all active:scale-95 select-none"
+                >
+                  <Send size={16} className="text-black" />
+                </button>
+              )}
+            </div>
 
             {/* Live conversation button */}
             <button 
