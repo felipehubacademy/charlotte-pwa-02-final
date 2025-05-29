@@ -251,9 +251,20 @@ export default function ChatPage() {
 
   // Start recording
   const startRecording = useCallback(async () => {
-    const initialized = await initializeRecording();
-    if (!initialized) return;
+    console.log('🎤 Starting recording...');
+    
+    if (isRecording) {
+      console.log('⚠️ Already recording, ignoring');
+      return;
+    }
 
+    const initialized = await initializeRecording();
+    if (!initialized) {
+      console.log('❌ Failed to initialize recording');
+      return;
+    }
+
+    console.log('✅ Recording initialized, starting...');
     setIsRecording(true);
     setRecordingTime(0);
 
@@ -265,25 +276,31 @@ export default function ChatPage() {
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunks.push(event.data);
+          console.log('📦 Audio chunk received:', event.data.size, 'bytes');
         }
       };
 
       mediaRecorderRef.current.onstop = () => {
+        console.log('🛑 Recording stopped, duration:', currentRecordingTime, 'seconds');
         const audioBlob = new Blob(audioChunks, { 
           type: mediaRecorderRef.current?.mimeType || 'audio/webm' 
         });
         
+        console.log('🎵 Audio blob created:', audioBlob.size, 'bytes');
+        
         // Auto-send if recording was longer than 1 second
         if (currentRecordingTime >= 1) {
+          console.log('✅ Recording valid, sending...');
           handleAudioWithAssistantAPI(audioBlob, currentRecordingTime);
         } else {
-          console.log('Recording too short, discarded');
+          console.log('⚠️ Recording too short, discarded');
         }
         
         setRecordingTime(0);
       };
 
       mediaRecorderRef.current.start();
+      console.log('🔴 MediaRecorder started');
     }
 
     analyzeAudio();
@@ -292,8 +309,10 @@ export default function ChatPage() {
     recordingTimerRef.current = setInterval(() => {
       currentRecordingTime += 1;
       setRecordingTime(currentRecordingTime);
+      console.log('⏱️ Recording time:', currentRecordingTime);
       
       if (currentRecordingTime >= 60) { // Max 60 seconds
+        console.log('⏰ Max recording time reached, stopping...');
         // Stop recording inline to avoid circular dependency
         setIsRecording(false);
         setAudioLevels(Array(20).fill(0));
@@ -314,29 +333,41 @@ export default function ChatPage() {
         }
       }
     }, 1000);
-  }, [initializeRecording, analyzeAudio]);
+  }, [initializeRecording, analyzeAudio, isRecording]);
 
   // Stop recording and auto-send (WhatsApp behavior)
   const stopRecording = useCallback(() => {
-    if (!isRecording) return;
+    console.log('🛑 Stop recording called, current state:', isRecording);
     
+    if (!isRecording) {
+      console.log('⚠️ Not recording, ignoring stop');
+      return;
+    }
+    
+    console.log('✅ Stopping recording...');
     setIsRecording(false);
     setAudioLevels(Array(20).fill(0));
     
     if (recordingTimerRef.current) {
       clearInterval(recordingTimerRef.current);
+      console.log('⏱️ Recording timer cleared');
     }
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
+      console.log('🎬 Animation frame cancelled');
     }
     
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
+      console.log('🔴 MediaRecorder stopped');
     }
     
     // Stop audio tracks
     if (audioStreamRef.current) {
-      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current.getTracks().forEach(track => {
+        track.stop();
+        console.log('🎵 Audio track stopped');
+      });
     }
   }, [isRecording]);
 
@@ -888,15 +919,44 @@ export default function ChatPage() {
                         <button
                           onMouseDown={(e) => {
                             e.preventDefault();
+                            e.stopPropagation();
                             startRecording();
                           }}
-                          onMouseUp={stopRecording}
+                          onMouseUp={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            stopRecording();
+                          }}
+                          onMouseLeave={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            stopRecording();
+                          }}
                           onTouchStart={(e) => {
                             e.preventDefault();
+                            e.stopPropagation();
                             startRecording();
                           }}
-                          onTouchEnd={stopRecording}
-                          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 active:scale-95 select-none"
+                          onTouchEnd={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            stopRecording();
+                          }}
+                          onTouchCancel={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            stopRecording();
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          className="p-2 text-white/60 hover:text-primary transition-colors rounded-full hover:bg-white/5 active:scale-95 select-none touch-none"
+                          style={{ 
+                            WebkitTouchCallout: 'none',
+                            WebkitUserSelect: 'none',
+                            touchAction: 'none'
+                          }}
                           title={user?.user_level === 'Novice' ? 'Segurar para gravar' : 'Hold to record'}
                         >
                           <Mic size={18} />
