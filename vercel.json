@@ -44,9 +44,6 @@
       "destination": "/"
     }
   ],
-  "env": {
-    "NEXT_PUBLIC_VERCEL_URL": "@vercel-url"
-  },
   "functions": {
     "app/api/*/route.ts": {
       "maxDuration": 30
