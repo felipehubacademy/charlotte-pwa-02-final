@@ -1,7 +1,7 @@
 // lib/azure-speech-sdk.ts - IMPLEMENTAÇÃO CORRETA COM SPEECH SDK
 
 import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
-import { AudioConverter, AudioConversionResult } from './audio-converter';
+import { ServerAudioConverter, AudioConversionResult } from './audio-converter-server';
 
 export interface PronunciationResult {
   text: string;
@@ -101,12 +101,12 @@ export class AzureSpeechSDKService {
       console.log('🎵 Step 1: Converting audio to Azure-compatible format...');
       
       const audioBuffer = await audioBlob.arrayBuffer();
-      const inputFormat = AudioConverter.detectAudioFormat(audioBlob.type);
+      const inputFormat = ServerAudioConverter.detectAudioFormat(audioBlob.type);
       
       console.log(`📋 Detected format: ${inputFormat}`);
       
       // Tentar conversão para WAV PCM 16kHz
-      const conversionResult = await AudioConverter.convertToAzureFormat(
+      const conversionResult = await ServerAudioConverter.convertToAzureFormat(
         Buffer.from(audioBuffer),
         inputFormat
       );
