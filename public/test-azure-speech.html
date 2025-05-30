@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Azure Speech Definitivo - Charlotte PWA</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2.2em;
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 25px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .test-section:hover {
+            border-color: #0066cc;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0,102,204,0.1);
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #0066cc;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #0066cc 0%, #004499 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0,102,204,0.2);
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #0052a3 0%, #003366 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0,102,204,0.3);
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .recording {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+        
+        .recording:hover {
+            background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+        }
+        
+        input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+        
+        input[type="text"]:focus, input[type="file"]:focus {
+            border-color: #0066cc;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
+        }
+        
+        .result {
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            white-space: pre-wrap;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+        
+        .status {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-align: center;
+        }
+        
+        .recording-indicator {
+            display: none;
+            color: #dc3545;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        
+        .audio-controls {
+            display: none;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        audio {
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid #dee2e6;
+        }
+        
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #0066cc;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #0066cc, #00cc66);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .tips {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .tips h4 {
+            margin-top: 0;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Azure Speech SDK</h1>
+        <p class="subtitle">Charlotte PWA - Implementação Definitiva</p>
+        
+        <div class="tips">
+            <h4>💡 Dicas para Melhor Resultado:</h4>
+            <ul>
+                <li>🎤 Use um ambiente silencioso</li>
+                <li>🗣️ Fale claramente e em ritmo normal</li>
+                <li>📱 Permita acesso ao microfone quando solicitado</li>
+                <li>⏱️ Gravações de 2-5 segundos são ideais</li>
+            </ul>
+        </div>
+        
+        <!-- Teste 1: Gravação de Áudio -->
+        <div class="test-section">
+            <h3>🎤 Teste 1: Gravar e Analisar Pronúncia</h3>
+            <p>Grave sua voz diretamente no navegador e teste a análise de pronúncia do Azure Speech SDK.</p>
+            
+            <input type="text" id="referenceText1" placeholder="Texto de referência (opcional)" value="Hello world how are you today">
+            
+            <div>
+                <button id="startRecording" onclick="startRecording()">🎤 Iniciar Gravação</button>
+                <button id="stopRecording" onclick="stopRecording()" disabled>⏹️ Parar Gravação</button>
+                <span class="recording-indicator" id="recordingIndicator">🔴 GRAVANDO...</span>
+            </div>
+            
+            <div class="progress-bar" id="recordingProgress" style="display: none;">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            
+            <div class="audio-controls" id="audioControls">
+                <audio id="audioPlayback" controls></audio>
+                <div class="stats" id="audioStats" style="display: none;">
+                    <div class="stat-card">
+                        <div class="stat-value" id="audioDuration">--</div>
+                        <div class="stat-label">Duração (s)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="audioSize">--</div>
+                        <div class="stat-label">Tamanho (KB)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="audioFormat">--</div>
+                        <div class="stat-label">Formato</div>
+                    </div>
+                </div>
+                <button onclick="testRecordedAudio()">🧪 Analisar Pronúncia</button>
+            </div>
+            
+            <div id="result1"></div>
+        </div>
+        
+        <!-- Teste 2: Upload de Arquivo -->
+        <div class="test-section">
+            <h3>📁 Teste 2: Upload de Arquivo de Áudio</h3>
+            <p>Faça upload de um arquivo de áudio existente (.webm, .wav, .mp3, .m4a).</p>
+            
+            <input type="file" id="audioFile" accept="audio/*" onchange="handleFileUpload()">
+            <input type="text" id="referenceText2" placeholder="Texto de referência (opcional)" value="Hello world">
+            
+            <div id="fileInfo" style="display: none;" class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="fileName">--</div>
+                    <div class="stat-label">Arquivo</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="fileSize">--</div>
+                    <div class="stat-label">Tamanho (KB)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="fileType">--</div>
+                    <div class="stat-label">Tipo</div>
+                </div>
+            </div>
+            
+            <div>
+                <button onclick="testUploadedFile()" id="testFileButton" disabled>🧪 Analisar Arquivo</button>
+            </div>
+            
+            <div id="result2"></div>
+        </div>
+        
+        <!-- Teste 3: Informações do Sistema -->
+        <div class="test-section">
+            <h3>ℹ️ Teste 3: Informações do Sistema</h3>
+            <p>Verificar configurações, conectividade e disponibilidade dos serviços.</p>
+            
+            <div>
+                <button onclick="getSystemInfo()">ℹ️ Verificar Sistema</button>
+                <button onclick="testAzureConnectivity()">🌐 Testar Azure</button>
+                <button onclick="testAllEndpoints()">🔗 Testar Endpoints</button>
+            </div>
+            
+            <div id="result3"></div>
+        </div>
+        
+        <!-- Teste 4: Pipeline Completo -->
+        <div class="test-section">
+            <h3>🔄 Teste 4: Pipeline Completo</h3>
+            <p>Testar todo o pipeline de áudio: transcription + pronunciation assessment.</p>
+            
+            <div>
+                <button onclick="testCompletePipeline()">🔄 Testar Pipeline</button>
+                <button onclick="generateSyntheticAudio()">🎵 Testar com Áudio Sintético</button>
+            </div>
+            
+            <div id="result4"></div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let recordedChunks = [];
+        let recordedBlob;
+        let recordingTimer;
+        let recordingStartTime;
+        
+        // ================================================================
+        // GRAVAÇÃO DE ÁUDIO
+        // ================================================================
+        
+        async function startRecording() {
+            try {
+                console.log('🎤 Iniciando gravação...');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 48000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+                
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                recordedChunks = [];
+                recordingStartTime = Date.now();
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        recordedChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    recordedBlob = new Blob(recordedChunks, { type: 'audio/webm;codecs=opus' });
+                    
+                    const audioUrl = URL.createObjectURL(recordedBlob);
+                    document.getElementById('audioPlayback').src = audioUrl;
+                    document.getElementById('audioControls').style.display = 'block';
+                    
+                    // Mostrar estatísticas do áudio
+                    updateAudioStats(recordedBlob);
+                    
+                    // Parar stream
+                    stream.getTracks().forEach(track => track.stop());
+                    
+                    // Resetar progress bar
+                    document.getElementById('recordingProgress').style.display = 'none';
+                    document.getElementById('progressFill').style.width = '0%';
+                };
+                
+                mediaRecorder.start(100); // Coleta dados a cada 100ms
+                
+                // UI updates
+                document.getElementById('startRecording').disabled = true;
+                document.getElementById('stopRecording').disabled = false;
+                document.getElementById('recordingIndicator').style.display = 'inline';
+                document.getElementById('recordingProgress').style.display = 'block';
+                
+                // Progress bar animation
+                startProgressAnimation();
+                
+                showStatus('result1', '🎤 Gravação em andamento... Fale claramente!', 'info');
+                
+            } catch (error) {
+                console.error('❌ Erro ao acessar microfone:', error);
+                showError('result1', `Erro ao acessar microfone: ${error.message}`);
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                
+                document.getElementById('startRecording').disabled = false;
+                document.getElementById('stopRecording').disabled = true;
+                document.getElementById('recordingIndicator').style.display = 'none';
+                
+                if (recordingTimer) {
+                    clearInterval(recordingTimer);
+                }
+                
+                const duration = ((Date.now() - recordingStartTime) / 1000).toFixed(1);
+                showStatus('result1', `✅ Gravação concluída! (${duration}s) Você pode reproduzir e analisar o áudio.`, 'success');
+            }
+        }
+        
+        function startProgressAnimation() {
+            let progress = 0;
+            recordingTimer = setInterval(() => {
+                progress += 2;
+                document.getElementById('progressFill').style.width = `${Math.min(progress, 100)}%`;
+            }, 100);
+        }
+        
+        function updateAudioStats(blob) {
+            const duration = recordedBlob ? ((Date.now() - recordingStartTime) / 1000).toFixed(1) : '--';
+            const size = (blob.size / 1024).toFixed(1);
+            const format = blob.type;
+            
+            document.getElementById('audioDuration').textContent = duration;
+            document.getElementById('audioSize').textContent = size;
+            document.getElementById('audioFormat').textContent = format.split('/')[1];
+            document.getElementById('audioStats').style.display = 'grid';
+        }
+        
+        // ================================================================
+        // UPLOAD DE ARQUIVO
+        // ================================================================
+        
+        function handleFileUpload() {
+            const fileInput = document.getElementById('audioFile');
+            const file = fileInput.files[0];
+            
+            if (file) {
+                const fileName = file.name;
+                const fileSize = (file.size / 1024).toFixed(1);
+                const fileType = file.type.split('/')[1] || 'unknown';
+                
+                document.getElementById('fileName').textContent = fileName;
+                document.getElementById('fileSize').textContent = fileSize;
+                document.getElementById('fileType').textContent = fileType;
+                document.getElementById('fileInfo').style.display = 'grid';
+                document.getElementById('testFileButton').disabled = false;
+                
+                console.log('📁 Arquivo selecionado:', { fileName, fileSize: `${fileSize}KB`, fileType });
+            }
+        }
+        
+        // ================================================================
+        // TESTES DE FUNCIONALIDADE
+        // ================================================================
+        
+        async function testRecordedAudio() {
+            if (!recordedBlob) {
+                showError('result1', 'Nenhum áudio gravado. Por favor, grave um áudio primeiro.');
+                return;
+            }
+            
+            const referenceText = document.getElementById('referenceText1').value.trim();
+            await testAudioBlob(recordedBlob, referenceText, 'result1', 'Áudio Gravado');
+        }
+        
+        async function testUploadedFile() {
+            const fileInput = document.getElementById('audioFile');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('result2', 'Por favor, selecione um arquivo de áudio.');
+                return;
+            }
+            
+            const referenceText = document.getElementById('referenceText2').value.trim();
+            await testAudioBlob(file, referenceText, 'result2', 'Arquivo Enviado');
+        }
+        
+        async function testAudioBlob(audioBlob, referenceText, resultElementId, testName) {
+            showStatus(resultElementId, `🔄 Analisando ${testName}...`, 'info');
+            
+            try {
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'audio.webm');
+                
+                if (referenceText) {
+                    formData.append('referenceText', referenceText);
+                }
+                
+                console.log(`🎯 Enviando ${testName} para análise...`, {
+                    audioSize: audioBlob.size,
+                    audioType: audioBlob.type,
+                    hasReference: !!referenceText
+                });
+                
+                const startTime = Date.now();
+                
+                const response = await fetch('/api/pronunciation', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const endTime = Date.now();
+                const responseTime = endTime - startTime;
+                
+                const result = await response.json();
+                
+                console.log('📊 Resultado recebido:', result);
+                
+                // Formatar resultado detalhado
+                let resultText = formatDetailedResult(result, responseTime, testName);
+                
+                showResult(resultElementId, resultText, result.success ? 'success' : 'error');
+                
+            } catch (error) {
+                console.error('❌ Erro na requisição:', error);
+                showError(resultElementId, `Erro na requisição: ${error.message}`);
+            }
+        }
+        
+        // ================================================================
+        // TESTES DO SISTEMA
+        // ================================================================
+        
+        async function getSystemInfo() {
+            showStatus('result3', '🔄 Obtendo informações do sistema...', 'info');
+            
+            try {
+                const endpoints = [
+                    { name: 'Debug Azure Env', url: '/api/debug-azure-env' },
+                    { name: 'Azure Test', url: '/api/azure-test' },
+                    { name: 'Debug URLs', url: '/api/debug-urls' }
+                ];
+                
+                let infoText = `ℹ️ INFORMAÇÕES DO SISTEMA\n\n`;
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await fetch(endpoint.url);
+                        const data = await response.json();
+                        
+                        infoText += `📋 ${endpoint.name}:\n`;
+                        infoText += `   Status: ${response.status} ${response.ok ? '✅' : '❌'}\n`;
+                        infoText += `   ${JSON.stringify(data, null, 2)}\n\n`;
+                        
+                    } catch (error) {
+                        infoText += `📋 ${endpoint.name}:\n`;
+                        infoText += `   ❌ Erro: ${error.message}\n\n`;
+                    }
+                }
+                
+                showResult('result3', infoText, 'info');
+                
+            } catch (error) {
+                showError('result3', `Erro ao obter informações: ${error.message}`);
+            }
+        }
+        
+        async function testAzureConnectivity() {
+            showStatus('result3', '🌐 Testando conectividade Azure...', 'info');
+            
+            try {
+                const response = await fetch('/api/azure-test');
+                const result = await response.json();
+                
+                let resultText = `🌐 TESTE DE CONECTIVIDADE AZURE\n\n`;
+                resultText += `Status: ${response.status} ${response.ok ? '✅' : '❌'}\n`;
+                resultText += `Sucesso: ${result.success ? '✅' : '❌'}\n`;
+                
+                if (result.success) {
+                    resultText += `Região: ${result.details?.region}\n`;
+                    resultText += `Endpoints: ${result.details?.endpointsCount}\n`;
+                } else {
+                    resultText += `Erro: ${result.error}\n`;
+                    if (result.details) {
+                        resultText += `Detalhes: ${JSON.stringify(result.details, null, 2)}\n`;
+                    }
+                }
+                
+                showResult('result3', resultText, result.success ? 'success' : 'error');
+                
+            } catch (error) {
+                showError('result3', `Erro no teste Azure: ${error.message}`);
+            }
+        }
+        
+        async function testAllEndpoints() {
+            showStatus('result3', '🔗 Testando todos os endpoints...', 'info');
+            
+            const endpoints = [
+                '/api/azure-test',
+                '/api/debug-azure-env',
+                '/api/debug-urls',
+                '/api/transcribe',
+                '/api/pronunciation',
+                '/api/audio-pipeline-test'
+            ];
+            
+            let resultText = `🔗 TESTE DE ENDPOINTS\n\n`;
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const startTime = Date.now();
+                    const response = await fetch(endpoint, { method: 'GET' });
+                    const endTime = Date.now();
+                    
+                    resultText += `${endpoint}:\n`;
+                    resultText += `   Status: ${response.status} (${endTime - startTime}ms)\n`;
+                    resultText += `   ${response.ok ? '✅ OK' : '❌ ERRO'}\n\n`;
+                    
+                } catch (error) {
+                    resultText += `${endpoint}:\n`;
+                    resultText += `   ❌ ERRO: ${error.message}\n\n`;
+                }
+            }
+            
+            showResult('result3', resultText, 'info');
+        }
+        
+        async function testCompletePipeline() {
+            showStatus('result4', '🔄 Testando pipeline completo...', 'info');
+            
+            try {
+                // Usar áudio gravado se disponível, senão criar sintético
+                let testBlob = recordedBlob;
+                
+                if (!testBlob) {
+                    testBlob = await generateSyntheticAudioBlob();
+                }
+                
+                const formData = new FormData();
+                formData.append('audio', testBlob, 'pipeline-test.webm');
+                
+                const response = await fetch('/api/audio-pipeline-test', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                let resultText = `🔄 TESTE DO PIPELINE COMPLETO\n\n`;
+                resultText += `Sucesso Geral: ${result.success ? '✅' : '❌'}\n`;
+                resultText += `Tempo de Processamento: ${result.processingTime}ms\n\n`;
+                
+                if (result.transcription) {
+                    resultText += `📝 TRANSCRIÇÃO:\n`;
+                    resultText += `   Sucesso: ${result.transcription.success ? '✅' : '❌'}\n`;
+                    if (result.transcription.text) {
+                        resultText += `   Texto: "${result.transcription.text}"\n`;
+                    }
+                    if (result.transcription.error) {
+                        resultText += `   Erro: ${result.transcription.error}\n`;
+                    }
+                    resultText += `\n`;
+                }
+                
+                if (result.pronunciation) {
+                    resultText += `🗣️ PRONÚNCIA:\n`;
+                    resultText += `   Sucesso: ${result.pronunciation.success ? '✅' : '❌'}\n`;
+                    if (result.pronunciation.scores) {
+                        resultText += `   Score Pronúncia: ${result.pronunciation.scores.pronunciation}\n`;
+                        resultText += `   Score Precisão: ${result.pronunciation.scores.accuracy}\n`;
+                        resultText += `   Score Fluência: ${result.pronunciation.scores.fluency}\n`;
+                    }
+                    if (result.pronunciation.error) {
+                        resultText += `   Erro: ${result.pronunciation.error}\n`;
+                    }
+                }
+                
+                showResult('result4', resultText, result.success ? 'success' : 'error');
+                
+            } catch (error) {
+                showError('result4', `Erro no teste de pipeline: ${error.message}`);
+            }
+        }
+        
+        async function generateSyntheticAudio() {
+            showStatus('result4', '🎵 Gerando áudio sintético...', 'info');
+            
+            try {
+                const audioBlob = await generateSyntheticAudioBlob();
+                
+                // Testar com o áudio sintético
+                await testAudioBlob(audioBlob, 'Hello world', 'result4', 'Áudio Sintético');
+                
+            } catch (error) {
+                showError('result4', `Erro ao gerar áudio sintético: ${error.message}`);
+            }
+        }
+        
+        async function generateSyntheticAudioBlob() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const sampleRate = 16000;
+            const duration = 2;
+            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
+            
+            const channelData = buffer.getChannelData(0);
+            
+            // Gerar sequência de tons para simular fala
+            const frequencies = [440, 523, 659, 784]; // A, C, E, G
+            const noteLength = sampleRate * duration / frequencies.length;
+            
+            for (let freq = 0; freq < frequencies.length; freq++) {
+                const startSample = freq * noteLength;
+                const endSample = Math.min((freq + 1) * noteLength, buffer.length);
+                
+                for (let i = startSample; i < endSample; i++) {
+                    const t = i / sampleRate;
+                    channelData[i] = Math.sin(2 * Math.PI * frequencies[freq] * t) * 0.1 * 
+                                     (1 - (i - startSample) / noteLength) * 0.5; // Fade out
+                }
+            }
+            
+            // Converter para WAV Blob
+            return audioBufferToWavBlob(buffer);
+        }
+        
+        function audioBufferToWavBlob(audioBuffer) {
+            const length = audioBuffer.length;
+            const sampleRate = audioBuffer.sampleRate;
+            const buffer = new ArrayBuffer(44 + length * 2);
+            const view = new DataView(buffer);
+            const channelData = audioBuffer.getChannelData(0);
+
+            // WAV header
+            const writeString = (offset, string) => {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            };
+
+            writeString(0, 'RIFF');
+            view.setUint32(4, 36 + length * 2, true);
+            writeString(8, 'WAVE');
+            writeString(12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            writeString(36, 'data');
+            view.setUint32(40, length * 2, true);
+
+            // Convert samples to 16-bit PCM
+            let offset = 44;
+            for (let i = 0; i < length; i++) {
+                const sample = Math.max(-1, Math.min(1, channelData[i]));
+                view.setInt16(offset, sample * 0x7FFF, true);
+                offset += 2;
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+        
+        // ================================================================
+        // FUNÇÕES AUXILIARES DE UI
+        // ================================================================
+        
+        function formatDetailedResult(result, responseTime, testName) {
+            let resultText = `📊 RESULTADO: ${testName.toUpperCase()} (${responseTime}ms)\n\n`;
+            
+            // Status geral
+            resultText += `✅ Sucesso: ${result.success ? 'SIM' : 'NÃO'}\n`;
+            
+            if (result.success && result.result) {
+                const res = result.result;
+                
+                // Texto reconhecido
+                resultText += `📝 Texto: "${res.text}"\n\n`;
+                
+                // Scores principais
+                resultText += `🎯 SCORES DE PRONÚNCIA:\n`;
+                resultText += `   • Pronúncia Geral: ${res.pronunciationScore}/100 ${getScoreEmoji(res.pronunciationScore)}\n`;
+                resultText += `   • Precisão: ${res.accuracyScore}/100 ${getScoreEmoji(res.accuracyScore)}\n`;
+                resultText += `   • Fluência: ${res.fluencyScore}/100 ${getScoreEmoji(res.fluencyScore)}\n`;
+                resultText += `   • Completude: ${res.completenessScore}/100 ${getScoreEmoji(res.completenessScore)}\n`;
+                
+                if (res.prosodyScore !== undefined) {
+                    resultText += `   • Prosódia: ${res.prosodyScore}/100 ${getScoreEmoji(res.prosodyScore)}\n`;
+                }
+                
+                resultText += `\n`;
+                
+                // Análise detalhada
+                if (res.detailedAnalysis) {
+                    const analysis = res.detailedAnalysis;
+                    resultText += `🔍 ANÁLISE DETALHADA:\n`;
+                    resultText += `   • Total de palavras: ${analysis.totalWords}\n`;
+                    if (analysis.totalPhonemes > 0) {
+                        resultText += `   • Total de fonemas: ${analysis.totalPhonemes}\n`;
+                    }
+                    if (analysis.errorWords > 0) {
+                        resultText += `   • Palavras com problemas: ${analysis.errorWords}\n`;
+                    }
+                    if (analysis.poorPhonemes > 0) {
+                        resultText += `   • Fonemas problemáticos: ${analysis.poorPhonemes}\n`;
+                    }
+                    resultText += `   • Precisão média das palavras: ${analysis.avgWordAccuracy}/100\n\n`;
+                }
+                
+                // Feedback
+                if (res.feedback && res.feedback.length > 0) {
+                    resultText += `💬 FEEDBACK:\n`;
+                    res.feedback.forEach(feedback => {
+                        resultText += `   • ${feedback}\n`;
+                    });
+                    resultText += `\n`;
+                }
+                
+                // Feedback de prosódia
+                if (res.prosodyFeedback && res.prosodyFeedback.length > 0) {
+                    resultText += `🎵 FEEDBACK DE PROSÓDIA:\n`;
+                    res.prosodyFeedback.forEach(feedback => {
+                        resultText += `   • ${feedback}\n`;
+                    });
+                    resultText += `\n`;
+                }
+                
+                // Informações técnicas
+                resultText += `🔬 INFORMAÇÕES TÉCNICAS:\n`;
+                resultText += `   • Método: ${res.assessmentMethod}\n`;
+                resultText += `   • Confiança: ${(res.confidence * 100).toFixed(1)}%\n`;
+                
+                if (res.sessionId) {
+                    resultText += `   • Session ID: ${res.sessionId.substring(0, 8)}...\n`;
+                }
+                
+                // Palavras analisadas
+                if (res.words && res.words.length > 0) {
+                    resultText += `\n📝 ANÁLISE POR PALAVRA:\n`;
+                    res.words.forEach((word, index) => {
+                        const emoji = getScoreEmoji(word.accuracyScore);
+                        const errorInfo = word.errorType && word.errorType !== 'None' ? ` (${word.errorType})` : '';
+                        resultText += `   ${index + 1}. "${word.word}": ${word.accuracyScore}/100 ${emoji}${errorInfo}\n`;
+                    });
+                }
+                
+            } else {
+                // Erro ou falha
+                if (result.error) {
+                    resultText += `❌ Erro: ${result.error}\n`;
+                }
+                
+                if (result.shouldRetry) {
+                    resultText += `🔄 Retry sugerido: ${result.retryReason}\n`;
+                }
+                
+                if (result.debugInfo) {
+                    resultText += `\n🔍 DEBUG INFO:\n${JSON.stringify(result.debugInfo, null, 2)}`;
+                }
+            }
+            
+            return resultText;
+        }
+        
+        function getScoreEmoji(score) {
+            if (score >= 90) return '🎉';
+            if (score >= 80) return '⭐';
+            if (score >= 70) return '👍';
+            if (score >= 60) return '📚';
+            if (score >= 50) return '💪';
+            return '🔄';
+        }
+        
+        function showStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function showResult(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${type}">${message}</div>`;
+        }
+        
+        function showError(elementId, message) {
+            showResult(elementId, `❌ ${message}`, 'error');
+        }
+        
+        // ================================================================
+        // INICIALIZAÇÃO
+        // ================================================================
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🧪 Página de teste Azure Speech SDK carregada');
+            console.log('🌐 URL atual:', window.location.href);
+            console.log('💡 Abra as ferramentas de desenvolvedor para ver logs detalhados');
+            
+            // Verificar suporte do navegador
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showError('result1', 'Seu navegador não suporta gravação de áudio. Use Chrome, Firefox ou Safari mais recentes.');
+                document.getElementById('startRecording').disabled = true;
+            }
+            
+            // Verificar Web Audio API
+            if (!window.AudioContext && !window.webkitAudioContext) {
+                console.warn('⚠️ Web Audio API não disponível - alguns recursos podem não funcionar');
+            }
+            
+            // Testar conectividade básica ao carregar
+            testBasicConnectivity();
+        });
+        
+        async function testBasicConnectivity() {
+            try {
+                console.log('🔌 Testando conectividade básica...');
+                
+                const response = await fetch('/api/debug-azure-env');
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Conectividade OK:', data);
+                    
+                    if (!data.azure.hasKey || !data.azure.hasRegion) {
+                        console.warn('⚠️ Credenciais Azure podem estar faltando');
+                    }
+                } else {
+                    console.warn('⚠️ Problema de conectividade:', response.status);
+                }
+            } catch (error) {
+                console.warn('⚠️ Erro na conectividade básica:', error.message);
+            }
+        }
+        
+        // Expor funções úteis no console para debug
+        window.debugAzure = {
+            testRecording: testRecordedAudio,
+            testSystem: getSystemInfo,
+            testConnectivity: testAzureConnectivity,
+            testPipeline: testCompletePipeline,
+            generateAudio: generateSyntheticAudio,
+            recordedBlob: () => recordedBlob
+        };
+        
+        console.log('🛠️ Funções de debug disponíveis em: window.debugAzure');
+    </script>
+</body>
+</html> 
