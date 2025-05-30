@@ -473,6 +473,12 @@ export class AzureSpeechSDKService {
     return new Promise((resolve) => {
       try {
         console.log('🎯 Performing Speech SDK Assessment...');
+        console.log('🌍 Environment info:', {
+          nodeEnv: process.env.NODE_ENV,
+          vercelRegion: process.env.VERCEL_REGION,
+          azureRegion: process.env.AZURE_SPEECH_REGION,
+          timestamp: new Date().toISOString()
+        });
 
         // ✅ CRIAR SPEECH RECOGNIZER CONFORME DOCUMENTAÇÃO MICROSOFT
         // Documentação: var recognizer = new SpeechRecognizer(speechConfig, "en-US", audioConfig);
@@ -491,9 +497,28 @@ export class AzureSpeechSDKService {
         recognizer.sessionStarted = (s, e) => {
           sessionId = e.sessionId;
           console.log(`🔗 Speech SDK Session started: ${sessionId}`);
+          console.log('📊 Session details:', {
+            sessionId: sessionId,
+            timestamp: new Date().toISOString(),
+            environment: 'vercel-serverless'
+          });
+        };
+
+        // 📊 ADICIONAR MAIS EVENT LISTENERS PARA DEBUG
+        recognizer.sessionStopped = (s, e) => {
+          console.log(`🛑 Speech SDK Session stopped: ${e.sessionId}`);
+        };
+
+        recognizer.speechStartDetected = (s, e) => {
+          console.log(`🎤 Speech start detected: ${e.sessionId}`);
+        };
+
+        recognizer.speechEndDetected = (s, e) => {
+          console.log(`🔇 Speech end detected: ${e.sessionId}`);
         };
 
         // 🎯 EXECUTAR RECOGNITION
+        console.log('🚀 Starting recognizeOnceAsync...');
         recognizer.recognizeOnceAsync(
           (speechResult: speechsdk.SpeechRecognitionResult) => {
             try {

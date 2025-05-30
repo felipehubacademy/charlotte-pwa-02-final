@@ -55,7 +55,9 @@ export async function POST(request: NextRequest) {
       type: audioFile.type,
       size: audioFile.size,
       hasReference: !!referenceText,
-      referenceLength: referenceText?.length || 0
+      referenceLength: referenceText?.length || 0,
+      environment: process.env.NODE_ENV,
+      vercelRegion: process.env.VERCEL_REGION
     });
 
     // ✅ CONVERTER FILE PARA BLOB
@@ -63,19 +65,28 @@ export async function POST(request: NextRequest) {
       type: audioFile.type 
     });
 
-    // 🎯 EXECUTAR AZURE SPEECH SDK ASSESSMENT
-    console.log('🎯 Calling Azure Speech SDK Assessment...');
-    const sdkResult = await assessPronunciationWithSDK(
+    // 🎯 EXECUTAR AZURE SPEECH SDK ASSESSMENT COM TIMEOUT MAIOR
+    console.log('🎯 Calling Azure Speech SDK Assessment with extended timeout...');
+    
+    // Criar uma Promise com timeout de 30 segundos para Vercel
+    const assessmentPromise = assessPronunciationWithSDK(
       audioBlob,
       referenceText?.trim() || undefined,
-      'Intermediate' // Por enquanto fixo, depois pode vir do request
+      'Intermediate'
     );
+    
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Azure Speech SDK timeout (30s)')), 30000);
+    });
+    
+    const sdkResult = await Promise.race([assessmentPromise, timeoutPromise]) as any;
 
     console.log('📊 Speech SDK Result:', {
       success: sdkResult.success,
       hasResult: !!sdkResult.result,
       error: sdkResult.error,
-      shouldRetry: sdkResult.shouldRetry
+      shouldRetry: sdkResult.shouldRetry,
+      environment: 'vercel-serverless'
     });
 
     // ✅ PROCESSAR RESULTADO
