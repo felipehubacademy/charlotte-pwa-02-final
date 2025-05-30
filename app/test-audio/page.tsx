@@ -43,6 +43,32 @@ export default function TestAudioPage() {
     }
   };
 
+  const testAzureSpeech = async () => {
+    if (!audioBlob) return;
+
+    setIsLoading(true);
+    setTestResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'test-audio.webm');
+      formData.append('referenceText', 'Hi there, how\'s it going?');
+
+      const response = await fetch('/api/test-azure-speech', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      setTestResult({ azureSpeechTest: result });
+    } catch (error) {
+      console.error('Azure Speech test failed:', error);
+      setTestResult({ azureSpeechTest: { error: 'Test failed', details: error } });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const testAudio = async () => {
     if (!audioBlob) return;
 
@@ -106,13 +132,23 @@ export default function TestAudioPage() {
           {/* Test Controls */}
           <div className="bg-charcoal p-6 rounded-lg">
             <h2 className="text-lg font-semibold text-white mb-4">2. Test Pipeline</h2>
-            <button
-              onClick={testAudio}
-              disabled={!audioBlob || isLoading}
-              className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
-            >
-              {isLoading ? 'Testing...' : 'Test Audio Pipeline'}
-            </button>
+            <div className="space-x-4">
+              <button
+                onClick={testAudio}
+                disabled={!audioBlob || isLoading}
+                className="px-4 py-2 bg-blue-500 text-white rounded disabled:opacity-50"
+              >
+                {isLoading ? 'Testing...' : 'Test Audio Pipeline'}
+              </button>
+              
+              <button
+                onClick={testAzureSpeech}
+                disabled={!audioBlob || isLoading}
+                className="px-4 py-2 bg-purple-500 text-white rounded disabled:opacity-50"
+              >
+                {isLoading ? 'Testing...' : 'Test Azure Speech SDK'}
+              </button>
+            </div>
           </div>
 
           {/* Results */}
