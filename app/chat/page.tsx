@@ -718,8 +718,8 @@ export default function ChatPage() {
           id: generateMessageId('user-image'),
           role: 'user',
           content: user.user_level === 'Novice' 
-            ? '📸 Foto enviada - O que é este objeto?' 
-            : '📸 Photo sent - What is this object?',
+            ? 'O que você vê nesta foto?' 
+            : 'What do you see in this photo?',
           messageType: 'image',
           timestamp: new Date(),
           audioUrl: thumbnailData // Using audioUrl field to store image data
@@ -731,24 +731,26 @@ export default function ChatPage() {
         try {
           // Create optimized prompt for vocabulary learning with XP system
           const vocabularyPrompt = user.user_level === 'Novice' 
-            ? `Analise esta imagem e identifique o objeto principal. Responda no formato EXATO:
+            ? `Olhe esta imagem e me ajude a aprender vocabulário em inglês. 
 
-🔤 **[Nome em inglês]** - [tradução em português]
-📖 [definição simples em português]
-💬 "[frase de exemplo em inglês]"
+Identifique o objeto principal e me ensine:
+- O nome em inglês
+- A tradução em português  
+- Uma frase de exemplo
 
-Seja MUITO SUCINTA. Depois me peça para praticar enviando uma frase usando esta nova palavra.
+Seja natural e conversacional, como se estivesse ensinando um amigo. Depois me peça para praticar usando esta palavra em uma frase.
 
-IMPORTANTE: Inclua no final da sua resposta a palavra descoberta no formato: VOCABULARY_WORD:[palavra_em_inglês]`
-            : `Analyze this image and identify the main object. Respond in this EXACT format:
+IMPORTANTE: Termine sua resposta com: VOCABULARY_WORD:[palavra_em_inglês]`
+            : `Look at this image and help me learn English vocabulary.
 
-🔤 **[English name]** - [Portuguese translation]
-📖 [simple definition in English]
-💬 "[example sentence in English]"
+Identify the main object and teach me:
+- The English name
+- Portuguese translation
+- An example sentence
 
-Be VERY CONCISE. Then ask me to practice by sending a sentence using this new word.
+Be natural and conversational, as if teaching a friend. Then ask me to practice using this word in a sentence.
 
-IMPORTANT: Include at the end of your response the discovered word in the format: VOCABULARY_WORD:[english_word]`;
+IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
           // Call assistant API for vocabulary analysis
           const response = await fetch('/api/assistant', {
@@ -793,14 +795,14 @@ IMPORTANT: Include at the end of your response the discovered word in the format
                   vocabularyXP = 5;
                   
                   // Extract vocabulary data from assistant response
-                  const englishMatch = assistantFeedback.match(/\*\*([^*]+)\*\*\s*-\s*([^📖]+)/);
-                  const definitionMatch = assistantFeedback.match(/📖\s*([^💬]+)/);
-                  const exampleMatch = assistantFeedback.match(/💬\s*"([^"]+)"/);
+                  const englishMatch = assistantFeedback.match(/(?:nome em inglês|english name)[:\-\s]*([^\n\r]+)/i);
+                  const translationMatch = assistantFeedback.match(/(?:tradução|translation)[:\-\s]*([^\n\r]+)/i);
+                  const exampleMatch = assistantFeedback.match(/(?:exemplo|example)[:\-\s]*["]?([^"\n\r]+)["]?/i);
                   
                   const vocabularyData = {
                     word: discoveredWord,
-                    translation: englishMatch ? englishMatch[2].trim() : undefined,
-                    definition: definitionMatch ? definitionMatch[1].trim() : undefined,
+                    translation: translationMatch ? translationMatch[1].trim() : undefined,
+                    definition: `English word: ${discoveredWord}`,
                     example_sentence: exampleMatch ? exampleMatch[1].trim() : undefined,
                     image_data: thumbnailData
                   };

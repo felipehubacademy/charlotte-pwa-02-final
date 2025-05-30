@@ -192,8 +192,19 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
             <p className="text-sm leading-relaxed">{message.content}</p>
           )}
           
+          {/* Image display for photo messages */}
+          {message.messageType === 'image' && message.audioUrl && (
+            <div className={`${message.content ? 'mt-3 pt-3 border-t border-white/10' : ''}`}>
+              <img
+                src={message.audioUrl}
+                alt="Captured photo"
+                className="w-full max-w-48 rounded-lg object-cover"
+              />
+            </div>
+          )}
+          
           {/* Audio player for voice messages */}
-          {(message.audioUrl || message.audioBlob) && (
+          {(message.audioUrl || message.audioBlob) && message.messageType !== 'image' && (
             <div className={`flex items-center space-x-3 ${message.content ? 'mt-3 pt-3 border-t border-white/10' : ''}`}>
               <button
                 onClick={togglePlayback}
