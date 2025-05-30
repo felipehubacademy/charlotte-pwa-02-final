@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     console.log('🎯 Starting recognition...');
 
-    return new Promise((resolve) => {
+    return new Promise<NextResponse>((resolve) => {
       recognizer.recognizeOnceAsync(
         (result) => {
           console.log('✅ Recognition completed:', {
