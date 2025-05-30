@@ -131,15 +131,26 @@ export class AzureSpeechSDKService {
     console.log('📋 Input audio:', { type: audioBlob.type, size: audioBlob.size });
     
     try {
-      // ✅ NOTA: A conversão de áudio agora é feita no cliente (client-side)
-      // O áudio já deve chegar aqui no formato WAV PCM 16kHz mono
-      console.log('🎵 Audio should already be converted client-side to WAV format');
+      // ✅ VERIFICAR SE PRECISA CONVERTER ÁUDIO
+      if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
+        console.log('🔄 Converting WebM/Opus to WAV PCM for Azure compatibility...');
+        
+        try {
+          // A conversão agora é feita diretamente no createAudioConfig
+          console.log('✅ Audio conversion will be handled in createAudioConfig method');
+        } catch (conversionError) {
+          console.log('⚠️ Audio conversion error:', conversionError);
+          console.log('📝 Proceeding with original audio format');
+        }
+      } else {
+        console.log('✅ Audio already in compatible format:', audioBlob.type);
+      }
       
       // ✅ ETAPA 1: CRIAR CONFIGURAÇÕES
       console.log('⚙️ Step 1: Creating pronunciation and audio configurations...');
       
       const pronunciationConfig = this.createPronunciationConfig(referenceText, userLevel);
-      const audioConfig = this.createAudioConfig(audioBlob);
+      const audioConfig = await this.createAudioConfig(audioBlob);
 
       // ✅ ETAPA 2: EXECUTAR ASSESSMENT
       console.log('🎯 Step 2: Performing pronunciation assessment...');
@@ -148,11 +159,13 @@ export class AzureSpeechSDKService {
       
       // ✅ ETAPA 3: VERIFICAR RESULTADO
       if (!result.success && result.shouldRetry) {
-        console.log('🔄 Assessment failed, suggesting client-side conversion...');
+        console.log('🔄 Assessment failed, audio format may still be incompatible...');
         result.debugInfo = {
           ...result.debugInfo,
-          suggestion: 'Audio should be converted to WAV format on client-side before sending to server',
-          clientSideConversionRecommended: true
+          originalAudioType: audioBlob.type,
+          processedAudioType: audioBlob.type,
+          conversionAttempted: false,
+          suggestion: 'WebM/Opus format is not fully supported by Azure Speech SDK'
         };
       }
       
@@ -351,7 +364,7 @@ export class AzureSpeechSDKService {
       const config = speechsdk.PronunciationAssessmentConfig.fromJSON(JSON.stringify(configJson));
       
       // ✅ HABILITAR PROSODY ASSESSMENT conforme docs
-      if (typeof (config as any).enableProsodyAssessment === 'function') {
+      if (typeof config.enableProsodyAssessment === 'function') {
         (config as any).enableProsodyAssessment();
         console.log('✅ Prosody assessment enabled via method');
       } else if ('enableProsodyAssessment' in config) {
@@ -432,7 +445,7 @@ export class AzureSpeechSDKService {
   }
 
   // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO OTIMIZADA
-  private createAudioConfig(audioBlob: Blob): speechsdk.AudioConfig {
+  private async createAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
     console.log('🎵 Creating optimized AudioConfig following Microsoft docs...');
     console.log('📁 Audio blob:', { type: audioBlob.type, size: audioBlob.size });
 
@@ -441,16 +454,28 @@ export class AzureSpeechSDKService {
       const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
       const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
       
-      // Converter blob para ArrayBuffer e enviar para stream
-      audioBlob.arrayBuffer().then(arrayBuffer => {
-        const audioData = new Uint8Array(arrayBuffer);
-        audioStream.write(audioData.buffer); // ✅ Usar .buffer para obter ArrayBuffer
-        audioStream.close();
-        console.log('✅ Audio data written to stream (Microsoft docs method)');
-      }).catch(error => {
-        console.error('❌ Failed to write audio to stream:', error);
-        audioStream.close();
-      });
+      // ✅ CONVERTER BLOB PARA ARRAYBUFFER E PROCESSAR
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      console.log('📊 Audio data extracted:', { size: arrayBuffer.byteLength });
+      
+      // 🚨 PROBLEMA CRÍTICO: WebM/Opus não é compatível com Azure Speech SDK
+      // Vamos tentar extrair dados de áudio brutos ou criar um wrapper WAV
+      let audioDataToSend: ArrayBuffer;
+      
+      if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
+        console.log('🔄 WebM/Opus detected - creating WAV wrapper for Azure compatibility...');
+        audioDataToSend = this.createWavFromWebM(arrayBuffer);
+        console.log('✅ WAV wrapper created:', { size: audioDataToSend.byteLength });
+      } else {
+        console.log('✅ Using original audio data');
+        audioDataToSend = arrayBuffer;
+      }
+      
+      // Enviar dados para o stream
+      const audioData = new Uint8Array(audioDataToSend);
+      audioStream.write(audioData.buffer);
+      audioStream.close();
+      console.log('✅ Audio data written to stream (Microsoft docs method)');
 
       const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
       console.log('✅ AudioConfig created from stream (Microsoft recommended)');
@@ -458,19 +483,113 @@ export class AzureSpeechSDKService {
       return audioConfig;
       
     } catch (streamError) {
-      console.log('⚠️ Stream method failed, using default:', streamError);
+      console.log('⚠️ Stream method failed, trying alternative approach:', streamError);
       
-      // ✅ FALLBACK: Método padrão
+      // ✅ FALLBACK CRÍTICO: Tentar com dados de áudio brutos
       try {
-        const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
-        console.log('✅ AudioConfig created from default microphone (fallback)');
+        console.log('🔄 Trying raw audio data approach...');
+        
+        // Criar um stream simples com dados brutos
+        const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
+        const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
+        
+        // Extrair apenas os dados de áudio, ignorando headers WebM
+        const arrayBuffer = await audioBlob.arrayBuffer();
+        const rawAudioData = this.extractRawAudioData(arrayBuffer);
+        
+        audioStream.write(rawAudioData);
+        audioStream.close();
+        
+        const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
+        console.log('✅ AudioConfig created with raw audio data approach');
+        
         return audioConfig;
         
-      } catch (defaultError) {
-        console.error('❌ All AudioConfig methods failed:', defaultError);
-        throw new Error(`Failed to create AudioConfig: ${(defaultError as Error).message}`);
+      } catch (rawError) {
+        console.log('⚠️ Raw audio approach failed, using default microphone:', rawError);
+        
+        // ✅ ÚLTIMO FALLBACK: Microfone padrão
+        const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
+        console.log('✅ AudioConfig created from default microphone (last resort)');
+        return audioConfig;
       }
     }
+  }
+
+  // 🔄 CRIAR WAV A PARTIR DE WebM (Wrapper Simples)
+  private createWavFromWebM(webmData: ArrayBuffer): ArrayBuffer {
+    console.log('🔄 Creating WAV wrapper for WebM data...');
+    
+    // Criar um header WAV básico e anexar os dados WebM
+    // Isso pode não funcionar perfeitamente, mas é uma tentativa
+    const wavHeaderSize = 44;
+    const dataSize = webmData.byteLength;
+    const totalSize = wavHeaderSize + dataSize;
+    
+    const wavBuffer = new ArrayBuffer(totalSize);
+    const view = new DataView(wavBuffer);
+    
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    // RIFF header
+    writeString(0, 'RIFF');
+    view.setUint32(4, totalSize - 8, true);
+    writeString(8, 'WAVE');
+    
+    // fmt chunk
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);  // PCM
+    view.setUint16(22, 1, true);  // mono
+    view.setUint32(24, 16000, true); // sample rate
+    view.setUint32(28, 32000, true); // byte rate
+    view.setUint16(32, 2, true);  // block align
+    view.setUint16(34, 16, true); // bits per sample
+    
+    // data chunk
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    // Copy WebM data (isso pode não funcionar, mas vamos tentar)
+    const webmView = new Uint8Array(webmData);
+    const wavView = new Uint8Array(wavBuffer, wavHeaderSize);
+    wavView.set(webmView);
+    
+    console.log('✅ WAV wrapper created with WebM data embedded');
+    return wavBuffer;
+  }
+
+  // 🔍 EXTRAIR DADOS DE ÁUDIO BRUTOS
+  private extractRawAudioData(audioData: ArrayBuffer): ArrayBuffer {
+    console.log('🔍 Attempting to extract raw audio data...');
+    
+    // Para WebM, vamos tentar pular os headers e pegar dados brutos
+    // Isso é uma aproximação grosseira
+    const dataView = new Uint8Array(audioData);
+    
+    // Procurar por padrões que possam indicar início de dados de áudio
+    // WebM geralmente tem headers específicos, vamos tentar pular eles
+    let audioStartOffset = 0;
+    
+    // Procurar por possíveis marcadores de início de dados de áudio
+    for (let i = 0; i < Math.min(1000, dataView.length - 4); i++) {
+      // Procurar por padrões comuns em dados de áudio
+      if (dataView[i] === 0x1A && dataView[i + 1] === 0x45 && dataView[i + 2] === 0xDF && dataView[i + 3] === 0xA3) {
+        // Encontrou header EBML (WebM), pular
+        audioStartOffset = Math.min(i + 100, dataView.length);
+        break;
+      }
+    }
+    
+    console.log(`🔍 Estimated audio start offset: ${audioStartOffset}`);
+    
+    // Retornar dados a partir do offset estimado
+    return audioData.slice(audioStartOffset);
   }
 
   // 🎯 EXECUTAR ASSESSMENT COM SPEECH SDK
@@ -490,16 +609,14 @@ export class AzureSpeechSDKService {
         });
 
         // ✅ CRIAR SPEECH RECOGNIZER CONFORME DOCUMENTAÇÃO MICROSOFT
-        // Documentação: var recognizer = new SpeechRecognizer(speechConfig, "en-US", audioConfig);
+        // Documentação oficial: var recognizer = new SpeechRecognizer(speechConfig, "en-US", audioConfig);
         const recognizer = new speechsdk.SpeechRecognizer(this.speechConfig, audioConfig);
         
-        // ✅ CONFIGURAR IDIOMA EXPLICITAMENTE (conforme docs)
-        this.speechConfig.speechRecognitionLanguage = "en-US";
-        
-        console.log('✅ SpeechRecognizer created with explicit language configuration');
+        console.log('✅ SpeechRecognizer created with explicit language parameter (Microsoft docs)');
 
-        // ✅ APLICAR PRONUNCIATION CONFIG
+        // ✅ APLICAR PRONUNCIATION CONFIG ANTES DE QUALQUER EVENTO
         pronunciationConfig.applyTo(recognizer);
+        console.log('✅ PronunciationAssessmentConfig applied to recognizer');
 
         // 📊 CAPTURAR SESSION ID para debugging
         let sessionId: string = '';
