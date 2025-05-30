@@ -781,8 +781,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           
           if (vocabularyMatch) {
             discoveredWord = vocabularyMatch[1].toLowerCase();
-            // Remove the VOCABULARY_WORD tag from the response
-            assistantFeedback = assistantFeedback.replace(/\s*VOCABULARY_WORD:\w+\s*/, '');
+            // Remove the VOCABULARY_WORD tag from the response completely
+            assistantFeedback = assistantFeedback.replace(/\s*VOCABULARY_WORD:\w+\s*/g, '').trim();
             
             // Check if word already exists for this user
             if (supabaseService.isAvailable()) {
@@ -794,18 +794,33 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                   // New vocabulary word discovered! +5 XP
                   vocabularyXP = 5;
                   
-                  // Extract vocabulary data from assistant response
-                  const englishMatch = assistantFeedback.match(/(?:nome em inglês|english name)[:\-\s]*([^\n\r]+)/i);
-                  const translationMatch = assistantFeedback.match(/(?:tradução|translation)[:\-\s]*([^\n\r]+)/i);
-                  const exampleMatch = assistantFeedback.match(/(?:exemplo|example)[:\-\s]*["]?([^"\n\r]+)["]?/i);
-                  
+                  // Extract vocabulary data from assistant response - more flexible parsing
                   const vocabularyData = {
                     word: discoveredWord,
-                    translation: translationMatch ? translationMatch[1].trim() : undefined,
+                    translation: undefined, // Will be extracted from natural response
                     definition: `English word: ${discoveredWord}`,
-                    example_sentence: exampleMatch ? exampleMatch[1].trim() : undefined,
+                    example_sentence: undefined, // Will be extracted from natural response
                     image_data: thumbnailData
                   };
+                  
+                  // Try to extract translation and example from natural response
+                  const lines = assistantFeedback.split('\n').filter((line: string) => line.trim());
+                  for (const line of lines) {
+                    // Look for translation patterns
+                    if (line.includes('português') || line.includes('Portuguese') || line.includes('tradução')) {
+                      const translationMatch = line.match(/[:\-]\s*(.+)/);
+                      if (translationMatch) {
+                        vocabularyData.translation = translationMatch[1].trim();
+                      }
+                    }
+                    // Look for example patterns
+                    if (line.includes('example') || line.includes('exemplo') || line.includes('"')) {
+                      const exampleMatch = line.match(/["\"]([^"\"]+)["\"]/) || line.match(/example[:\-]\s*(.+)/i);
+                      if (exampleMatch) {
+                        vocabularyData.example_sentence = exampleMatch[1].trim();
+                      }
+                    }
+                  }
                   
                   // Save vocabulary to database
                   await vocabularyService.saveVocabulary(user.entra_id, vocabularyData);

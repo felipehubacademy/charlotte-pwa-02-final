@@ -96,7 +96,7 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
 
   const isUser = message.role === 'user';
   const isNovice = userLevel === 'Novice';
-  const isAudioResponse = !isUser && message.technicalFeedback;
+  const isAudioResponse = !isUser && message.technicalFeedback && message.messageType !== 'image';
 
   // Função para transcrever áudio
   const handleTranscription = React.useCallback(async () => {
@@ -198,7 +198,7 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
               <img
                 src={message.audioUrl}
                 alt="Captured photo"
-                className="w-full max-w-48 rounded-lg object-cover"
+                className="w-full max-w-32 rounded-lg object-cover"
               />
             </div>
           )}
