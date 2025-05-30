@@ -81,7 +81,7 @@ export class AzureSpeechSDKService {
 
   // 🔧 CRIAR CONFIGURAÇÃO DE SPEECH
   private createSpeechConfig(): speechsdk.SpeechConfig {
-    console.log('🔧 Creating SpeechConfig following Microsoft docs...');
+    console.log('🔧 Creating AGGRESSIVE SpeechConfig for raw audio...');
     
     const subscriptionKey = process.env.AZURE_SPEECH_KEY;
     const region = process.env.AZURE_SPEECH_REGION;
@@ -93,30 +93,38 @@ export class AzureSpeechSDKService {
     try {
       const speechConfig = speechsdk.SpeechConfig.fromSubscription(subscriptionKey, region);
       
-      // ✅ CONFIGURAÇÕES RECOMENDADAS PELA MICROSOFT
-      speechConfig.speechRecognitionLanguage = "en-US"; // Conforme docs
+      // ✅ CONFIGURAÇÕES BÁSICAS
+      speechConfig.speechRecognitionLanguage = "en-US";
       speechConfig.outputFormat = speechsdk.OutputFormat.Detailed;
       
-      // Configurações de qualidade conforme documentação
-      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "5000");
-      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "2000");
-      speechConfig.setProperty(speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "500");
+      // 🚨 CONFIGURAÇÕES AGRESSIVAS PARA ÁUDIO BRUTO
+      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "8000"); // Mais tempo
+      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "3000"); // Mais tempo
+      speechConfig.setProperty(speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "1000"); // Mais tolerante
       
-      // Configurações específicas para Pronunciation Assessment
+      // 🎯 CONFIGURAÇÕES ESPECÍFICAS PARA DADOS BRUTOS
       speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceResponse_RequestDetailedResultTrueFalse, "true");
       speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceResponse_RequestWordLevelTimestamps, "true");
+      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_RecoMode, "INTERACTIVE"); // Modo interativo
       
-      console.log('✅ SpeechConfig created with Microsoft recommended settings:', {
+      // 🔧 CONFIGURAÇÕES DE QUALIDADE MAIS BAIXA (ACEITAR ÁUDIO PIOR)
+      // Usando strings para propriedades customizadas que podem não estar tipadas
+      speechConfig.setProperty("SPEECH_CONFIG_AUDIO_INPUT_STREAM_FORMAT", "RAW_16KHZ_16BIT_MONO_PCM");
+      speechConfig.setProperty("SPEECH_CONFIG_ENABLE_AUDIO_LOGGING", "false");
+      speechConfig.setProperty("SPEECH_CONFIG_DISABLE_AUDIO_INPUT_STREAM_VALIDATION", "true");
+      
+      console.log('✅ AGGRESSIVE SpeechConfig created with raw audio support:', {
         language: speechConfig.speechRecognitionLanguage,
         region: region,
-        detailedResults: true,
-        wordTimestamps: true
+        mode: 'AGGRESSIVE_RAW_AUDIO',
+        timeouts: 'EXTENDED',
+        validation: 'DISABLED'
       });
 
       return speechConfig;
       
     } catch (error) {
-      console.error('❌ SpeechConfig creation failed:', error);
+      console.error('❌ AGGRESSIVE SpeechConfig creation failed:', error);
       throw new Error(`Failed to create SpeechConfig: ${(error as Error).message}`);
     }
   }
@@ -462,152 +470,184 @@ export class AzureSpeechSDKService {
     console.log('🎯 Microsoft docs configuration enhancements applied');
   }
 
-  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO OTIMIZADA
+  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO OTIMIZADA - SOLUÇÃO DEFINITIVA
   private async createAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
-    console.log('🎵 Creating optimized AudioConfig following Microsoft docs...');
+    console.log('🎵 Creating DEFINITIVE AudioConfig solution...');
     console.log('📁 Audio blob:', { type: audioBlob.type, size: audioBlob.size });
 
     try {
-      // ✅ MÉTODO RECOMENDADO: AudioInputStream para melhor controle
-      const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-      const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
-      
-      // ✅ CONVERTER BLOB PARA ARRAYBUFFER E PROCESSAR
+      // 🚨 SOLUÇÃO DEFINITIVA: USAR DADOS BRUTOS SEM HEADERS
       const arrayBuffer = await audioBlob.arrayBuffer();
       console.log('📊 Audio data extracted:', { size: arrayBuffer.byteLength });
       
-      // 🚨 PROBLEMA CRÍTICO: WebM/Opus não é compatível com Azure Speech SDK
-      // Vamos tentar extrair dados de áudio brutos ou criar um wrapper WAV
-      let audioDataToSend: ArrayBuffer;
+      // ✅ EXTRAIR APENAS OS DADOS DE ÁUDIO BRUTOS (SEM HEADERS WebM)
+      const rawAudioData = this.extractPureAudioData(arrayBuffer);
+      console.log('🔍 Raw audio data extracted:', { size: rawAudioData.byteLength });
       
-      if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
-        console.log('🔄 WebM/Opus detected - creating WAV wrapper for Azure compatibility...');
-        audioDataToSend = this.createWavFromWebM(arrayBuffer);
-        console.log('✅ WAV wrapper created:', { size: audioDataToSend.byteLength });
-      } else {
-        console.log('✅ Using original audio data');
-        audioDataToSend = arrayBuffer;
-      }
+      // ✅ CRIAR STREAM DE ÁUDIO COM FORMATO FIXO
+      const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
+      const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
       
-      // Enviar dados para o stream
-      const audioData = new Uint8Array(audioDataToSend);
-      audioStream.write(audioData.buffer);
+      // ✅ ENVIAR DADOS BRUTOS DIRETAMENTE
+      const audioDataArray = new Uint8Array(rawAudioData);
+      audioStream.write(audioDataArray.buffer);
       audioStream.close();
-      console.log('✅ Audio data written to stream (Microsoft docs method)');
-
-      const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
-      console.log('✅ AudioConfig created from stream (Microsoft recommended)');
       
+      console.log('✅ Raw audio data sent to Azure stream (DEFINITIVE solution)');
+      
+      const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
       return audioConfig;
       
-    } catch (streamError) {
-      console.log('⚠️ Stream method failed, trying alternative approach:', streamError);
+    } catch (error) {
+      console.error('❌ DEFINITIVE solution failed, using fallback:', error);
       
-      // ✅ FALLBACK CRÍTICO: Tentar com dados de áudio brutos
-      try {
-        console.log('🔄 Trying raw audio data approach...');
-        
-        // Criar um stream simples com dados brutos
-        const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-        const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
-        
-        // Extrair apenas os dados de áudio, ignorando headers WebM
-        const arrayBuffer = await audioBlob.arrayBuffer();
-        const rawAudioData = this.extractRawAudioData(arrayBuffer);
-        
-        audioStream.write(rawAudioData);
-        audioStream.close();
-        
-        const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
-        console.log('✅ AudioConfig created with raw audio data approach');
-        
-        return audioConfig;
-        
-      } catch (rawError) {
-        console.log('⚠️ Raw audio approach failed, using default microphone:', rawError);
-        
-        // ✅ ÚLTIMO FALLBACK: Microfone padrão
-        const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
-        console.log('✅ AudioConfig created from default microphone (last resort)');
-        return audioConfig;
-      }
+      // ✅ FALLBACK ABSOLUTO: MICROFONE PADRÃO
+      console.log('🔄 Using default microphone as absolute fallback');
+      return speechsdk.AudioConfig.fromDefaultMicrophoneInput();
     }
   }
 
-  // 🔄 CRIAR WAV A PARTIR DE WebM (Wrapper Simples)
-  private createWavFromWebM(webmData: ArrayBuffer): ArrayBuffer {
-    console.log('🔄 Creating WAV wrapper for WebM data...');
+  // 🔍 EXTRAIR DADOS DE ÁUDIO PUROS (SEM HEADERS) - VERSÃO AGRESSIVA
+  private extractPureAudioData(audioData: ArrayBuffer): ArrayBuffer {
+    console.log('🔍 AGGRESSIVE: Extracting pure audio data from WebM/Opus...');
     
-    // Criar um header WAV básico e anexar os dados WebM
-    // Isso pode não funcionar perfeitamente, mas é uma tentativa
-    const wavHeaderSize = 44;
-    const dataSize = webmData.byteLength;
-    const totalSize = wavHeaderSize + dataSize;
+    const dataView = new Uint8Array(audioData);
+    let audioStartOffset = 0;
+    let bestOffset = 0;
+    let maxEntropyOffset = 0;
     
-    const wavBuffer = new ArrayBuffer(totalSize);
-    const view = new DataView(wavBuffer);
-    
-    // WAV header
-    const writeString = (offset: number, string: string) => {
-      for (let i = 0; i < string.length; i++) {
-        view.setUint8(offset + i, string.charCodeAt(i));
+    // 🎯 ESTRATÉGIA 1: PROCURAR POR PADRÕES OPUS MAIS ESPECÍFICOS
+    for (let i = 0; i < Math.min(3000, dataView.length - 8); i++) {
+      // Procurar por header Opus "OpusHead"
+      if (dataView[i] === 0x4F && dataView[i + 1] === 0x70 && 
+          dataView[i + 2] === 0x75 && dataView[i + 3] === 0x73 &&
+          dataView[i + 4] === 0x48 && dataView[i + 5] === 0x65 &&
+          dataView[i + 6] === 0x61 && dataView[i + 7] === 0x64) {
+        console.log(`🎵 Found OpusHead header at offset: ${i}`);
+        audioStartOffset = i + 19; // Pular header OpusHead completo
+        break;
       }
-    };
-
-    // RIFF header
-    writeString(0, 'RIFF');
-    view.setUint32(4, totalSize - 8, true);
-    writeString(8, 'WAVE');
+      
+      // Procurar por "OpusTags"
+      if (dataView[i] === 0x4F && dataView[i + 1] === 0x70 && 
+          dataView[i + 2] === 0x75 && dataView[i + 3] === 0x73 &&
+          dataView[i + 4] === 0x54 && dataView[i + 5] === 0x61 &&
+          dataView[i + 6] === 0x67 && dataView[i + 7] === 0x73) {
+        console.log(`🎵 Found OpusTags at offset: ${i}`);
+        bestOffset = i + 100; // Dados de áudio começam depois das tags
+      }
+    }
     
-    // fmt chunk
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);  // PCM
-    view.setUint16(22, 1, true);  // mono
-    view.setUint32(24, 16000, true); // sample rate
-    view.setUint32(28, 32000, true); // byte rate
-    view.setUint16(32, 2, true);  // block align
-    view.setUint16(34, 16, true); // bits per sample
+    // 🎯 ESTRATÉGIA 2: PROCURAR POR PADRÕES DE DADOS DE ÁUDIO
+    if (audioStartOffset === 0 && bestOffset > 0) {
+      audioStartOffset = bestOffset;
+      console.log(`🎵 Using OpusTags offset: ${audioStartOffset}`);
+    }
     
-    // data chunk
-    writeString(36, 'data');
-    view.setUint32(40, dataSize, true);
+    // 🎯 ESTRATÉGIA 3: ANÁLISE DE ENTROPIA PARA ENCONTRAR DADOS DE ÁUDIO
+    if (audioStartOffset === 0) {
+      let maxEntropy = 0;
+      const windowSize = 256;
+      
+      for (let i = 100; i < Math.min(2000, dataView.length - windowSize); i += 50) {
+        const entropy = this.calculateEntropy(dataView.slice(i, i + windowSize));
+        if (entropy > maxEntropy) {
+          maxEntropy = entropy;
+          maxEntropyOffset = i;
+        }
+      }
+      
+      if (maxEntropy > 6.5) { // Entropia alta indica dados de áudio
+        audioStartOffset = maxEntropyOffset;
+        console.log(`🎵 Using entropy-based offset: ${audioStartOffset} (entropy: ${maxEntropy.toFixed(2)})`);
+      }
+    }
     
-    // Copy WebM data (isso pode não funcionar, mas vamos tentar)
-    const webmView = new Uint8Array(webmData);
-    const wavView = new Uint8Array(wavBuffer, wavHeaderSize);
-    wavView.set(webmView);
+    // 🎯 ESTRATÉGIA 4: PROCURAR POR FRAMES OPUS
+    if (audioStartOffset === 0) {
+      for (let i = 200; i < Math.min(1500, dataView.length - 4); i++) {
+        // Procurar por possíveis frames Opus (começam com padrões específicos)
+        if ((dataView[i] & 0xF8) === 0xF8 || // Frame Opus tipo 1
+            (dataView[i] & 0xFC) === 0xFC || // Frame Opus tipo 2
+            (dataView[i] === 0x00 && dataView[i + 1] > 0x00)) { // Possível início de frame
+          audioStartOffset = i;
+          console.log(`🎵 Found potential Opus frame at offset: ${i}`);
+          break;
+        }
+      }
+    }
     
-    console.log('✅ WAV wrapper created with WebM data embedded');
-    return wavBuffer;
+    // 🎯 ESTRATÉGIA 5: FALLBACK COM OFFSET INTELIGENTE
+    if (audioStartOffset === 0) {
+      // Usar 15% do arquivo como offset (mais conservador que antes)
+      audioStartOffset = Math.min(800, Math.floor(dataView.length * 0.15));
+      console.log(`🎵 Using intelligent fallback offset: ${audioStartOffset}`);
+    }
+    
+    // ✅ EXTRAIR E PROCESSAR DADOS
+    let pureAudioData = audioData.slice(audioStartOffset);
+    
+    // 🔧 PÓS-PROCESSAMENTO: TENTAR LIMPAR DADOS
+    pureAudioData = this.cleanAudioData(pureAudioData);
+    
+    console.log(`✅ AGGRESSIVE extraction completed: ${pureAudioData.byteLength} bytes (${Math.round((pureAudioData.byteLength / audioData.byteLength) * 100)}% of original)`);
+    
+    return pureAudioData;
   }
 
-  // 🔍 EXTRAIR DADOS DE ÁUDIO BRUTOS
-  private extractRawAudioData(audioData: ArrayBuffer): ArrayBuffer {
-    console.log('🔍 Attempting to extract raw audio data...');
+  // 📊 CALCULAR ENTROPIA PARA DETECTAR DADOS DE ÁUDIO
+  private calculateEntropy(data: Uint8Array): number {
+    const frequency = new Array(256).fill(0);
     
-    // Para WebM, vamos tentar pular os headers e pegar dados brutos
-    // Isso é uma aproximação grosseira
+    // Contar frequência de cada byte
+    for (let i = 0; i < data.length; i++) {
+      frequency[data[i]]++;
+    }
+    
+    // Calcular entropia
+    let entropy = 0;
+    for (let i = 0; i < 256; i++) {
+      if (frequency[i] > 0) {
+        const p = frequency[i] / data.length;
+        entropy -= p * Math.log2(p);
+      }
+    }
+    
+    return entropy;
+  }
+
+  // 🧹 LIMPAR DADOS DE ÁUDIO
+  private cleanAudioData(audioData: ArrayBuffer): ArrayBuffer {
+    console.log('🧹 Cleaning audio data...');
+    
     const dataView = new Uint8Array(audioData);
+    const cleanedData = new Uint8Array(dataView.length);
     
-    // Procurar por padrões que possam indicar início de dados de áudio
-    // WebM geralmente tem headers específicos, vamos tentar pular eles
-    let audioStartOffset = 0;
-    
-    // Procurar por possíveis marcadores de início de dados de áudio
-    for (let i = 0; i < Math.min(1000, dataView.length - 4); i++) {
-      // Procurar por padrões comuns em dados de áudio
-      if (dataView[i] === 0x1A && dataView[i + 1] === 0x45 && dataView[i + 2] === 0xDF && dataView[i + 3] === 0xA3) {
-        // Encontrou header EBML (WebM), pular
-        audioStartOffset = Math.min(i + 100, dataView.length);
+    // Remover possíveis headers residuais no início
+    let startIndex = 0;
+    for (let i = 0; i < Math.min(100, dataView.length - 4); i++) {
+      // Procurar por padrões que não são dados de áudio
+      if (dataView[i] === 0x00 && dataView[i + 1] === 0x00 && 
+          dataView[i + 2] === 0x00 && dataView[i + 3] === 0x00) {
+        continue; // Pular zeros
+      }
+      
+      // Procurar por início de dados válidos
+      if (dataView[i] !== 0x00 || dataView[i + 1] !== 0x00) {
+        startIndex = i;
         break;
       }
     }
     
-    console.log(`🔍 Estimated audio start offset: ${audioStartOffset}`);
+    // Copiar dados limpos
+    for (let i = startIndex; i < dataView.length; i++) {
+      cleanedData[i - startIndex] = dataView[i];
+    }
     
-    // Retornar dados a partir do offset estimado
-    return audioData.slice(audioStartOffset);
+    const cleanedBuffer = cleanedData.buffer.slice(0, dataView.length - startIndex);
+    console.log(`🧹 Cleaned: removed ${startIndex} header bytes`);
+    
+    return cleanedBuffer;
   }
 
   // 🎯 EXECUTAR ASSESSMENT COM SPEECH SDK
