@@ -343,18 +343,43 @@ async function tryWhisperFallback(audioFile: File): Promise<{
     const formData = new FormData();
     formData.append('audio', audioFile);
 
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'http://localhost:3000';
+    // ✅ CORRIGIR CONSTRUÇÃO DA URL
+    const baseUrl = typeof window !== 'undefined' 
+      ? '' // Cliente: URL relativa
+      : process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL.replace(/-[a-z0-9]+\.vercel\.app$/, '.vercel.app')}` 
+        : 'http://localhost:3000'; // Servidor: URL absoluta
+
+    const apiUrl = `${baseUrl}/api/transcribe`;
     
-    const response = await fetch(`${baseUrl}/api/transcribe`, {
+    console.log('🌐 Whisper fallback URL:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
       method: 'POST',
       body: formData,
     });
 
+    // ✅ VERIFICAR SE A RESPOSTA É REALMENTE JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      console.error('❌ Whisper API returned non-JSON response:', {
+        status: response.status,
+        statusText: response.statusText,
+        contentType,
+        url: apiUrl
+      });
+      
+      // Tentar ler como texto para debug
+      const textResponse = await response.text();
+      console.error('❌ Response body (first 200 chars):', textResponse.substring(0, 200));
+      
+      return { success: false };
+    }
+
     const data = await response.json();
 
     if (response.ok && data.success && data.transcription?.trim()) {
+      console.log('✅ Whisper fallback successful:', data.transcription);
       return {
         success: true,
         text: data.transcription.trim(),
@@ -362,7 +387,9 @@ async function tryWhisperFallback(audioFile: File): Promise<{
       };
     }
 
+    console.log('⚠️ Whisper fallback failed:', data);
     return { success: false };
+    
   } catch (error) {
     console.error('❌ Whisper fallback failed:', error);
     return { success: false };

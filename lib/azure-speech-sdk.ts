@@ -1,7 +1,6 @@
 // lib/azure-speech-sdk.ts - IMPLEMENTAÇÃO CORRETA COM SPEECH SDK
 
 import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
-import { ServerAudioConverter, AudioConversionResult } from './audio-converter-server';
 
 export interface PronunciationResult {
   text: string;
@@ -132,53 +131,28 @@ export class AzureSpeechSDKService {
     console.log('📋 Input audio:', { type: audioBlob.type, size: audioBlob.size });
     
     try {
-      // ✅ ETAPA 1: CONVERTER ÁUDIO PARA FORMATO SUPORTADO
-      console.log('🎵 Step 1: Converting audio to Azure-compatible format...');
+      // ✅ NOTA: A conversão de áudio agora é feita no cliente (client-side)
+      // O áudio já deve chegar aqui no formato WAV PCM 16kHz mono
+      console.log('🎵 Audio should already be converted client-side to WAV format');
       
-      const audioBuffer = await audioBlob.arrayBuffer();
-      const inputFormat = ServerAudioConverter.detectAudioFormat(audioBlob.type);
-      
-      console.log(`📋 Detected format: ${inputFormat}`);
-      
-      // Tentar conversão para WAV PCM 16kHz
-      const conversionResult = await ServerAudioConverter.convertToAzureFormat(
-        Buffer.from(audioBuffer),
-        inputFormat
-      );
-      
-      let processedAudioBuffer: ArrayBuffer;
-      
-      if (conversionResult.success && conversionResult.audioBuffer) {
-        console.log('✅ Audio conversion successful');
-        console.log(`📊 Converted: ${conversionResult.format}, ${conversionResult.sampleRate}Hz, ${conversionResult.channels}ch`);
-        processedAudioBuffer = new ArrayBuffer(conversionResult.audioBuffer.length);
-        new Uint8Array(processedAudioBuffer).set(conversionResult.audioBuffer);
-      } else {
-        console.log('⚠️ Audio conversion failed, using original audio');
-        console.log(`❌ Conversion error: ${conversionResult.error}`);
-        processedAudioBuffer = audioBuffer;
-      }
-
-      // ✅ ETAPA 2: CRIAR CONFIGURAÇÕES
-      console.log('⚙️ Step 2: Creating pronunciation and audio configurations...');
+      // ✅ ETAPA 1: CRIAR CONFIGURAÇÕES
+      console.log('⚙️ Step 1: Creating pronunciation and audio configurations...');
       
       const pronunciationConfig = this.createPronunciationConfig(referenceText, userLevel);
       const audioConfig = this.createAudioConfig(audioBlob);
 
-      // ✅ ETAPA 3: EXECUTAR ASSESSMENT
-      console.log('🎯 Step 3: Performing pronunciation assessment...');
+      // ✅ ETAPA 2: EXECUTAR ASSESSMENT
+      console.log('🎯 Step 2: Performing pronunciation assessment...');
       
       const result = await this.performAssessment(pronunciationConfig, audioConfig);
       
-      // ✅ ETAPA 4: VERIFICAR SE PRECISA DE RETRY COM CONVERSÃO
-      if (!result.success && result.shouldRetry && !conversionResult.success) {
-        console.log('🔄 Assessment failed and audio was not converted. Suggesting hybrid approach...');
+      // ✅ ETAPA 3: VERIFICAR RESULTADO
+      if (!result.success && result.shouldRetry) {
+        console.log('🔄 Assessment failed, suggesting client-side conversion...');
         result.debugInfo = {
           ...result.debugInfo,
-          audioConversionAttempted: true,
-          audioConversionSuccess: conversionResult.success,
-          audioConversionError: conversionResult.error,
-          suggestion: 'Consider using hybrid approach with Whisper transcription'
+          suggestion: 'Audio should be converted to WAV format on client-side before sending to server',
+          clientSideConversionRecommended: true
         };
       }
       
