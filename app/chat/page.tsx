@@ -1145,10 +1145,10 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       <div className={`flex-shrink-0 bg-secondary ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-fixed-footer' 
+          ? 'ios-fixed-footer pb-safe' 
           : 'pb-safe'
       }`}>
-        <div className="max-w-3xl mx-auto px-4 py-4">
+        <div className="max-w-3xl mx-auto px-4 py-6">
           <div className="flex items-end space-x-3">
             
             {/* Interface normal */}

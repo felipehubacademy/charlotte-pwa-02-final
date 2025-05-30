@@ -396,7 +396,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   return (
     <div className={`flex-1 overflow-y-auto px-4 py-6 chat-scroll ${
-      isIOSPWA ? 'pt-24 pb-32' : ''
+      isIOSPWA ? 'pt-24 pb-48' : ''
     }`}>
       <div className="max-w-2xl mx-auto">
         {/* Messages */}
