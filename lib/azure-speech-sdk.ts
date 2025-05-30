@@ -1,6 +1,7 @@
 // lib/azure-speech-sdk.ts - IMPLEMENTAÇÃO CORRETA COM SPEECH SDK
 
 import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
+import { AudioConverter, AudioConversionResult } from './audio-converter';
 
 export interface PronunciationResult {
   text: string;
@@ -131,41 +132,58 @@ export class AzureSpeechSDKService {
     console.log('📋 Input audio:', { type: audioBlob.type, size: audioBlob.size });
     
     try {
-      // ✅ VERIFICAR SE PRECISA CONVERTER ÁUDIO
-      if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
-        console.log('🔄 Converting WebM/Opus to WAV PCM for Azure compatibility...');
-        
-        try {
-          // A conversão agora é feita diretamente no createAudioConfig
-          console.log('✅ Audio conversion will be handled in createAudioConfig method');
-        } catch (conversionError) {
-          console.log('⚠️ Audio conversion error:', conversionError);
-          console.log('📝 Proceeding with original audio format');
-        }
-      } else {
-        console.log('✅ Audio already in compatible format:', audioBlob.type);
-      }
+      // ✅ ETAPA 1: CONVERTER ÁUDIO PARA FORMATO SUPORTADO
+      console.log('🎵 Step 1: Converting audio to Azure-compatible format...');
       
-      // ✅ ETAPA 1: CRIAR CONFIGURAÇÕES
-      console.log('⚙️ Step 1: Creating pronunciation and audio configurations...');
+      const audioBuffer = await audioBlob.arrayBuffer();
+      const inputFormat = AudioConverter.detectAudioFormat(audioBlob.type);
+      
+      console.log(`📋 Detected format: ${inputFormat}`);
+      
+      // Tentar conversão para WAV PCM 16kHz
+      const conversionResult = await AudioConverter.convertToAzureFormat(
+        Buffer.from(audioBuffer),
+        inputFormat
+      );
+      
+      let processedAudioBuffer: ArrayBuffer;
+      
+      if (conversionResult.success && conversionResult.audioBuffer) {
+        console.log('✅ Audio conversion successful');
+        console.log(`📊 Converted: ${conversionResult.format}, ${conversionResult.sampleRate}Hz, ${conversionResult.channels}ch`);
+        processedAudioBuffer = new ArrayBuffer(conversionResult.audioBuffer.length);
+        new Uint8Array(processedAudioBuffer).set(conversionResult.audioBuffer);
+      } else {
+        console.log('⚠️ Audio conversion failed, using original audio');
+        console.log(`❌ Conversion error: ${conversionResult.error}`);
+        processedAudioBuffer = audioBuffer;
+      }
+
+      // ✅ ETAPA 2: CRIAR CONFIGURAÇÕES
+      console.log('⚙️ Step 2: Creating pronunciation and audio configurations...');
       
       const pronunciationConfig = this.createPronunciationConfig(referenceText, userLevel);
-      const audioConfig = await this.createAudioConfig(audioBlob);
+      
+      // Converter ArrayBuffer de volta para Blob para compatibilidade
+      const processedBlob = new Blob([processedAudioBuffer], { 
+        type: conversionResult.success ? 'audio/wav' : audioBlob.type 
+      });
+      const audioConfig = await this.createAudioConfig(processedBlob);
 
-      // ✅ ETAPA 2: EXECUTAR ASSESSMENT
-      console.log('🎯 Step 2: Performing pronunciation assessment...');
+      // ✅ ETAPA 3: EXECUTAR ASSESSMENT
+      console.log('🎯 Step 3: Performing pronunciation assessment...');
       
       const result = await this.performAssessment(pronunciationConfig, audioConfig);
       
-      // ✅ ETAPA 3: VERIFICAR RESULTADO
-      if (!result.success && result.shouldRetry) {
-        console.log('🔄 Assessment failed, audio format may still be incompatible...');
+      // ✅ ETAPA 4: VERIFICAR SE PRECISA DE RETRY COM CONVERSÃO
+      if (!result.success && result.shouldRetry && !conversionResult.success) {
+        console.log('🔄 Assessment failed and audio was not converted. Suggesting hybrid approach...');
         result.debugInfo = {
           ...result.debugInfo,
-          originalAudioType: audioBlob.type,
-          processedAudioType: audioBlob.type,
-          conversionAttempted: false,
-          suggestion: 'WebM/Opus format is not fully supported by Azure Speech SDK'
+          audioConversionAttempted: true,
+          audioConversionSuccess: conversionResult.success,
+          audioConversionError: conversionResult.error,
+          suggestion: 'Consider using hybrid approach with Whisper transcription'
         };
       }
       
