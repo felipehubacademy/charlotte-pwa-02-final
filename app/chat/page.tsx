@@ -364,6 +364,15 @@ export default function ChatPage() {
         }
         
       } else {
+        console.log('❌ Audio processing failed:', {
+          transcriptionSuccess,
+          pronunciationSuccess,
+          transcriptionError: transcriptionResult.status === 'rejected' ? transcriptionResult.reason : null,
+          pronunciationError: pronunciationResult.status === 'rejected' ? pronunciationResult.reason : null,
+          transcriptionValue: transcriptionResult.status === 'fulfilled' ? transcriptionResult.value : null,
+          pronunciationValue: pronunciationResult.status === 'fulfilled' ? pronunciationResult.value : null
+        });
+        
         const errorResponse: Message = {
           id: generateMessageId('assistant-error'),
           role: 'assistant',
