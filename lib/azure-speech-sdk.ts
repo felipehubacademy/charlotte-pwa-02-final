@@ -140,58 +140,49 @@ export class AzureSpeechSDKService {
     console.log('📋 Input audio:', { type: audioBlob.type, size: audioBlob.size });
     
     try {
-      // ✅ ETAPA 1: CONVERTER ÁUDIO PARA FORMATO SUPORTADO
-      console.log('🎵 Step 1: Converting audio to Azure-compatible format...');
+      // 🚨 SOLUÇÃO DEFINITIVA: BYPASS COMPLETO DA CONVERSÃO
+      console.log('🎵 BYPASS: Skipping audio conversion - using direct approach...');
       
-      const audioBuffer = await audioBlob.arrayBuffer();
-      const inputFormat = AudioConverter.detectAudioFormat(audioBlob.type);
-      
-      console.log(`📋 Detected format: ${inputFormat}`);
-      
-      // Tentar conversão para WAV PCM 16kHz
-      const conversionResult = await AudioConverter.convertToAzureFormat(
-        Buffer.from(audioBuffer),
-        inputFormat
-      );
-      
-      let processedAudioBuffer: ArrayBuffer;
-      
-      if (conversionResult.success && conversionResult.audioBuffer) {
-        console.log('✅ Audio conversion successful');
-        console.log(`📊 Converted: ${conversionResult.format}, ${conversionResult.sampleRate}Hz, ${conversionResult.channels}ch`);
-        processedAudioBuffer = new ArrayBuffer(conversionResult.audioBuffer.length);
-        new Uint8Array(processedAudioBuffer).set(conversionResult.audioBuffer);
-      } else {
-        console.log('⚠️ Audio conversion failed, using original audio');
-        console.log(`❌ Conversion error: ${conversionResult.error}`);
-        processedAudioBuffer = audioBuffer;
-      }
-
-      // ✅ ETAPA 2: CRIAR CONFIGURAÇÕES
-      console.log('⚙️ Step 2: Creating pronunciation and audio configurations...');
+      // ✅ ESTRATÉGIA 1: TENTAR COM ÁUDIO ORIGINAL PRIMEIRO
+      console.log('⚙️ Step 1: Trying with original audio...');
       
       const pronunciationConfig = this.createPronunciationConfig(referenceText, userLevel);
+      let audioConfig: speechsdk.AudioConfig;
       
-      // Converter ArrayBuffer de volta para Blob para compatibilidade
-      const processedBlob = new Blob([processedAudioBuffer], { 
-        type: conversionResult.success ? 'audio/wav' : audioBlob.type 
-      });
-      const audioConfig = await this.createAudioConfig(processedBlob);
+      // Tentar diferentes abordagens
+      try {
+        // Abordagem 1: Áudio original direto
+        audioConfig = await this.createDirectAudioConfig(audioBlob);
+        console.log('✅ Using direct audio approach');
+      } catch (directError) {
+        console.log('❌ Direct audio failed, trying file approach...');
+        
+        try {
+          // Abordagem 2: Simular arquivo de áudio
+          audioConfig = await this.createFileBasedAudioConfig(audioBlob);
+          console.log('✅ Using file-based audio approach');
+        } catch (fileError) {
+          console.log('❌ File-based audio failed, using microphone fallback...');
+          
+          // Abordagem 3: Fallback para microfone
+          audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
+          console.log('✅ Using microphone fallback');
+        }
+      }
 
-      // ✅ ETAPA 3: EXECUTAR ASSESSMENT
-      console.log('🎯 Step 3: Performing pronunciation assessment...');
+      // ✅ EXECUTAR ASSESSMENT
+      console.log('🎯 Step 2: Performing pronunciation assessment...');
       
       const result = await this.performAssessment(pronunciationConfig, audioConfig);
       
-      // ✅ ETAPA 4: VERIFICAR SE PRECISA DE RETRY COM CONVERSÃO
-      if (!result.success && result.shouldRetry && !conversionResult.success) {
-        console.log('🔄 Assessment failed and audio was not converted. Suggesting hybrid approach...');
+      // ✅ ADICIONAR DEBUG INFO DETALHADO
+      if (!result.success) {
         result.debugInfo = {
           ...result.debugInfo,
-          audioConversionAttempted: true,
-          audioConversionSuccess: conversionResult.success,
-          audioConversionError: conversionResult.error,
-          suggestion: 'Consider using hybrid approach with Whisper transcription'
+          originalAudioType: audioBlob.type,
+          originalSize: audioBlob.size,
+          approach: 'BYPASS_CONVERSION',
+          suggestion: 'Audio conversion bypassed - Azure may not support WebM/Opus directly'
         };
       }
       
@@ -205,6 +196,94 @@ export class AzureSpeechSDKService {
         shouldRetry: true,
         retryReason: 'sdk_error'
       };
+    }
+  }
+
+  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO DIRETA
+  private async createDirectAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
+    console.log('🎵 Creating DIRECT AudioConfig...');
+    
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    
+    // ✅ TENTAR DIFERENTES FORMATOS DE STREAM
+    const formats = [
+      speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1),
+      speechsdk.AudioStreamFormat.getWaveFormatPCM(44100, 16, 1),
+      speechsdk.AudioStreamFormat.getWaveFormatPCM(48000, 16, 1),
+      speechsdk.AudioStreamFormat.getWaveFormatPCM(8000, 16, 1)
+    ];
+    
+    for (let i = 0; i < formats.length; i++) {
+      try {
+        const audioFormat = formats[i];
+        const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
+        
+        const audioData = new Uint8Array(arrayBuffer);
+        audioStream.write(audioData.buffer);
+        audioStream.close();
+        
+        console.log(`✅ Direct audio config created with format ${i + 1}`);
+        return speechsdk.AudioConfig.fromStreamInput(audioStream);
+        
+      } catch (formatError) {
+        console.log(`❌ Format ${i + 1} failed:`, formatError);
+        continue;
+      }
+    }
+    
+    throw new Error('All direct audio formats failed');
+  }
+
+  // 📁 CRIAR CONFIGURAÇÃO BASEADA EM ARQUIVO
+  private async createFileBasedAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
+    console.log('📁 Creating FILE-BASED AudioConfig...');
+    
+    // ✅ TENTAR USAR fromWavFileInput com File
+    try {
+      // Converter blob para File
+      const audioFile = new File([audioBlob], 'audio.webm', { type: audioBlob.type });
+      
+      // Tentar usar o arquivo diretamente
+      const audioConfig = speechsdk.AudioConfig.fromWavFileInput(audioFile);
+      
+      console.log('✅ File-based audio config created');
+      return audioConfig;
+      
+    } catch (error) {
+      console.log('❌ File-based approach failed:', error);
+      throw error;
+    }
+  }
+
+  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO SIMPLES
+  private async createSimpleAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
+    console.log('🎵 Creating SIMPLE AudioConfig...');
+    console.log('📁 Audio blob:', { type: audioBlob.type, size: audioBlob.size });
+
+    try {
+      // ✅ MÉTODO MAIS SIMPLES: USAR DADOS DIRETOS
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      
+      // ✅ CRIAR STREAM SIMPLES
+      const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
+      const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
+      
+      // ✅ ENVIAR DADOS COMO ESTÃO
+      const audioData = new Uint8Array(arrayBuffer);
+      audioStream.write(audioData.buffer);
+      audioStream.close();
+      
+      console.log('✅ Simple audio data sent to Azure stream');
+      
+      const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
+      return audioConfig;
+      
+    } catch (error) {
+      console.error('❌ Simple AudioConfig failed:', error);
+      
+      // ✅ FALLBACK: MICROFONE PADRÃO
+      console.log('🔄 Using default microphone as fallback');
+      return speechsdk.AudioConfig.fromDefaultMicrophoneInput();
     }
   }
 
@@ -468,186 +547,6 @@ export class AzureSpeechSDKService {
     }
 
     console.log('🎯 Microsoft docs configuration enhancements applied');
-  }
-
-  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO OTIMIZADA - SOLUÇÃO DEFINITIVA
-  private async createAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
-    console.log('🎵 Creating DEFINITIVE AudioConfig solution...');
-    console.log('📁 Audio blob:', { type: audioBlob.type, size: audioBlob.size });
-
-    try {
-      // 🚨 SOLUÇÃO DEFINITIVA: USAR DADOS BRUTOS SEM HEADERS
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      console.log('📊 Audio data extracted:', { size: arrayBuffer.byteLength });
-      
-      // ✅ EXTRAIR APENAS OS DADOS DE ÁUDIO BRUTOS (SEM HEADERS WebM)
-      const rawAudioData = this.extractPureAudioData(arrayBuffer);
-      console.log('🔍 Raw audio data extracted:', { size: rawAudioData.byteLength });
-      
-      // ✅ CRIAR STREAM DE ÁUDIO COM FORMATO FIXO
-      const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-      const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
-      
-      // ✅ ENVIAR DADOS BRUTOS DIRETAMENTE
-      const audioDataArray = new Uint8Array(rawAudioData);
-      audioStream.write(audioDataArray.buffer);
-      audioStream.close();
-      
-      console.log('✅ Raw audio data sent to Azure stream (DEFINITIVE solution)');
-      
-      const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
-      return audioConfig;
-      
-    } catch (error) {
-      console.error('❌ DEFINITIVE solution failed, using fallback:', error);
-      
-      // ✅ FALLBACK ABSOLUTO: MICROFONE PADRÃO
-      console.log('🔄 Using default microphone as absolute fallback');
-      return speechsdk.AudioConfig.fromDefaultMicrophoneInput();
-    }
-  }
-
-  // 🔍 EXTRAIR DADOS DE ÁUDIO PUROS (SEM HEADERS) - VERSÃO AGRESSIVA
-  private extractPureAudioData(audioData: ArrayBuffer): ArrayBuffer {
-    console.log('🔍 AGGRESSIVE: Extracting pure audio data from WebM/Opus...');
-    
-    const dataView = new Uint8Array(audioData);
-    let audioStartOffset = 0;
-    let bestOffset = 0;
-    let maxEntropyOffset = 0;
-    
-    // 🎯 ESTRATÉGIA 1: PROCURAR POR PADRÕES OPUS MAIS ESPECÍFICOS
-    for (let i = 0; i < Math.min(3000, dataView.length - 8); i++) {
-      // Procurar por header Opus "OpusHead"
-      if (dataView[i] === 0x4F && dataView[i + 1] === 0x70 && 
-          dataView[i + 2] === 0x75 && dataView[i + 3] === 0x73 &&
-          dataView[i + 4] === 0x48 && dataView[i + 5] === 0x65 &&
-          dataView[i + 6] === 0x61 && dataView[i + 7] === 0x64) {
-        console.log(`🎵 Found OpusHead header at offset: ${i}`);
-        audioStartOffset = i + 19; // Pular header OpusHead completo
-        break;
-      }
-      
-      // Procurar por "OpusTags"
-      if (dataView[i] === 0x4F && dataView[i + 1] === 0x70 && 
-          dataView[i + 2] === 0x75 && dataView[i + 3] === 0x73 &&
-          dataView[i + 4] === 0x54 && dataView[i + 5] === 0x61 &&
-          dataView[i + 6] === 0x67 && dataView[i + 7] === 0x73) {
-        console.log(`🎵 Found OpusTags at offset: ${i}`);
-        bestOffset = i + 100; // Dados de áudio começam depois das tags
-      }
-    }
-    
-    // 🎯 ESTRATÉGIA 2: PROCURAR POR PADRÕES DE DADOS DE ÁUDIO
-    if (audioStartOffset === 0 && bestOffset > 0) {
-      audioStartOffset = bestOffset;
-      console.log(`🎵 Using OpusTags offset: ${audioStartOffset}`);
-    }
-    
-    // 🎯 ESTRATÉGIA 3: ANÁLISE DE ENTROPIA PARA ENCONTRAR DADOS DE ÁUDIO
-    if (audioStartOffset === 0) {
-      let maxEntropy = 0;
-      const windowSize = 256;
-      
-      for (let i = 100; i < Math.min(2000, dataView.length - windowSize); i += 50) {
-        const entropy = this.calculateEntropy(dataView.slice(i, i + windowSize));
-        if (entropy > maxEntropy) {
-          maxEntropy = entropy;
-          maxEntropyOffset = i;
-        }
-      }
-      
-      if (maxEntropy > 6.5) { // Entropia alta indica dados de áudio
-        audioStartOffset = maxEntropyOffset;
-        console.log(`🎵 Using entropy-based offset: ${audioStartOffset} (entropy: ${maxEntropy.toFixed(2)})`);
-      }
-    }
-    
-    // 🎯 ESTRATÉGIA 4: PROCURAR POR FRAMES OPUS
-    if (audioStartOffset === 0) {
-      for (let i = 200; i < Math.min(1500, dataView.length - 4); i++) {
-        // Procurar por possíveis frames Opus (começam com padrões específicos)
-        if ((dataView[i] & 0xF8) === 0xF8 || // Frame Opus tipo 1
-            (dataView[i] & 0xFC) === 0xFC || // Frame Opus tipo 2
-            (dataView[i] === 0x00 && dataView[i + 1] > 0x00)) { // Possível início de frame
-          audioStartOffset = i;
-          console.log(`🎵 Found potential Opus frame at offset: ${i}`);
-          break;
-        }
-      }
-    }
-    
-    // 🎯 ESTRATÉGIA 5: FALLBACK COM OFFSET INTELIGENTE
-    if (audioStartOffset === 0) {
-      // Usar 15% do arquivo como offset (mais conservador que antes)
-      audioStartOffset = Math.min(800, Math.floor(dataView.length * 0.15));
-      console.log(`🎵 Using intelligent fallback offset: ${audioStartOffset}`);
-    }
-    
-    // ✅ EXTRAIR E PROCESSAR DADOS
-    let pureAudioData = audioData.slice(audioStartOffset);
-    
-    // 🔧 PÓS-PROCESSAMENTO: TENTAR LIMPAR DADOS
-    pureAudioData = this.cleanAudioData(pureAudioData);
-    
-    console.log(`✅ AGGRESSIVE extraction completed: ${pureAudioData.byteLength} bytes (${Math.round((pureAudioData.byteLength / audioData.byteLength) * 100)}% of original)`);
-    
-    return pureAudioData;
-  }
-
-  // 📊 CALCULAR ENTROPIA PARA DETECTAR DADOS DE ÁUDIO
-  private calculateEntropy(data: Uint8Array): number {
-    const frequency = new Array(256).fill(0);
-    
-    // Contar frequência de cada byte
-    for (let i = 0; i < data.length; i++) {
-      frequency[data[i]]++;
-    }
-    
-    // Calcular entropia
-    let entropy = 0;
-    for (let i = 0; i < 256; i++) {
-      if (frequency[i] > 0) {
-        const p = frequency[i] / data.length;
-        entropy -= p * Math.log2(p);
-      }
-    }
-    
-    return entropy;
-  }
-
-  // 🧹 LIMPAR DADOS DE ÁUDIO
-  private cleanAudioData(audioData: ArrayBuffer): ArrayBuffer {
-    console.log('🧹 Cleaning audio data...');
-    
-    const dataView = new Uint8Array(audioData);
-    const cleanedData = new Uint8Array(dataView.length);
-    
-    // Remover possíveis headers residuais no início
-    let startIndex = 0;
-    for (let i = 0; i < Math.min(100, dataView.length - 4); i++) {
-      // Procurar por padrões que não são dados de áudio
-      if (dataView[i] === 0x00 && dataView[i + 1] === 0x00 && 
-          dataView[i + 2] === 0x00 && dataView[i + 3] === 0x00) {
-        continue; // Pular zeros
-      }
-      
-      // Procurar por início de dados válidos
-      if (dataView[i] !== 0x00 || dataView[i + 1] !== 0x00) {
-        startIndex = i;
-        break;
-      }
-    }
-    
-    // Copiar dados limpos
-    for (let i = startIndex; i < dataView.length; i++) {
-      cleanedData[i - startIndex] = dataView[i];
-    }
-    
-    const cleanedBuffer = cleanedData.buffer.slice(0, dataView.length - startIndex);
-    console.log(`🧹 Cleaned: removed ${startIndex} header bytes`);
-    
-    return cleanedBuffer;
   }
 
   // 🎯 EXECUTAR ASSESSMENT COM SPEECH SDK
