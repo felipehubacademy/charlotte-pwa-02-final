@@ -1,7 +1,6 @@
-// lib/azure-speech-sdk.ts - IMPLEMENTAÇÃO CORRETA COM SPEECH SDK
+// lib/azure-speech-definitive.ts - IMPLEMENTAÇÃO DEFINITIVA SEGUINDO DOCS MICROSOFT
 
 import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
-import { AudioConverter, AudioConversionResult } from './audio-converter';
 
 export interface PronunciationResult {
   text: string;
@@ -14,7 +13,7 @@ export interface PronunciationResult {
   phonemes: PhonemeResult[];
   feedback: string[];
   confidence: number;
-  assessmentMethod: 'azure-sdk';
+  assessmentMethod: 'azure-sdk-definitive';
   sessionId?: string;
   debugInfo?: any;
 }
@@ -22,7 +21,7 @@ export interface PronunciationResult {
 export interface WordResult {
   word: string;
   accuracyScore: number;
-  errorType?: 'None' | 'Omission' | 'Insertion' | 'Mispronunciation' | 'UnexpectedBreak' | 'MissingBreak' | 'Monotone';
+  errorType?: string;
   syllables?: SyllableResult[];
 }
 
@@ -50,17 +49,10 @@ export interface AudioProcessingResult {
   debugInfo?: any;
 }
 
-export class AzureSpeechSDKService {
+export class AzureSpeechDefinitiveService {
   private speechConfig: speechsdk.SpeechConfig;
   private region: string;
   private subscriptionKey: string;
-  private sdkCapabilities: {
-    hasProsodyAssessment: boolean;
-    hasPhonemeAlphabet: boolean;
-    hasNBestPhonemes: boolean;
-    hasJSONConfig: boolean;
-    sdkVersion: string;
-  };
 
   constructor() {
     this.region = process.env.AZURE_SPEECH_REGION || '';
@@ -70,258 +62,80 @@ export class AzureSpeechSDKService {
       throw new Error('Azure Speech credentials not configured');
     }
 
-    // ✅ DETECTAR CAPACIDADES DO SDK
-    this.sdkCapabilities = this.detectSDKCapabilities();
-
-    // ✅ CONFIGURAÇÃO CORRETA DO SPEECH SDK
-    this.speechConfig = this.createSpeechConfig();
-    
-    console.log('✅ AzureSpeechSDKService initialized with capabilities:', this.sdkCapabilities);
+    this.speechConfig = this.createOptimizedSpeechConfig();
+    console.log('✅ Azure Speech Definitive Service initialized');
   }
 
-  // 🔧 CRIAR CONFIGURAÇÃO DE SPEECH
-  private createSpeechConfig(): speechsdk.SpeechConfig {
-    console.log('🔧 Creating AGGRESSIVE SpeechConfig for raw audio...');
+  // 🎯 CONFIGURAÇÃO OTIMIZADA SEGUINDO DOCUMENTAÇÃO MICROSOFT
+  private createOptimizedSpeechConfig(): speechsdk.SpeechConfig {
+    console.log('🔧 Creating optimized SpeechConfig following Microsoft docs...');
     
-    const subscriptionKey = process.env.AZURE_SPEECH_KEY;
-    const region = process.env.AZURE_SPEECH_REGION;
-
-    if (!subscriptionKey || !region) {
-      throw new Error('Azure Speech credentials not configured');
-    }
-
-    try {
-      const speechConfig = speechsdk.SpeechConfig.fromSubscription(subscriptionKey, region);
-      
-      // ✅ CONFIGURAÇÕES BÁSICAS
-      speechConfig.speechRecognitionLanguage = "en-US";
-      speechConfig.outputFormat = speechsdk.OutputFormat.Detailed;
-      
-      // 🚨 CONFIGURAÇÕES AGRESSIVAS PARA ÁUDIO BRUTO
-      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "8000"); // Mais tempo
-      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "3000"); // Mais tempo
-      speechConfig.setProperty(speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "1000"); // Mais tolerante
-      
-      // 🎯 CONFIGURAÇÕES ESPECÍFICAS PARA DADOS BRUTOS
-      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceResponse_RequestDetailedResultTrueFalse, "true");
-      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceResponse_RequestWordLevelTimestamps, "true");
-      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_RecoMode, "INTERACTIVE"); // Modo interativo
-      
-      // 🔧 CONFIGURAÇÕES DE QUALIDADE MAIS BAIXA (ACEITAR ÁUDIO PIOR)
-      // Usando strings para propriedades customizadas que podem não estar tipadas
-      speechConfig.setProperty("SPEECH_CONFIG_AUDIO_INPUT_STREAM_FORMAT", "RAW_16KHZ_16BIT_MONO_PCM");
-      speechConfig.setProperty("SPEECH_CONFIG_ENABLE_AUDIO_LOGGING", "false");
-      speechConfig.setProperty("SPEECH_CONFIG_DISABLE_AUDIO_INPUT_STREAM_VALIDATION", "true");
-      
-      console.log('✅ AGGRESSIVE SpeechConfig created with raw audio support:', {
-        language: speechConfig.speechRecognitionLanguage,
-        region: region,
-        mode: 'AGGRESSIVE_RAW_AUDIO',
-        timeouts: 'EXTENDED',
-        validation: 'DISABLED'
-      });
-
-      return speechConfig;
-      
-    } catch (error) {
-      console.error('❌ AGGRESSIVE SpeechConfig creation failed:', error);
-      throw new Error(`Failed to create SpeechConfig: ${(error as Error).message}`);
-    }
+    const speechConfig = speechsdk.SpeechConfig.fromSubscription(
+      this.subscriptionKey, 
+      this.region
+    );
+    
+    // ✅ CONFIGURAÇÕES BÁSICAS OBRIGATÓRIAS
+    speechConfig.speechRecognitionLanguage = "en-US";
+    speechConfig.outputFormat = speechsdk.OutputFormat.Detailed;
+    
+    // ✅ CONFIGURAÇÕES RECOMENDADAS PELA MICROSOFT
+    speechConfig.setProperty(
+      speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, 
+      "5000"
+    );
+    speechConfig.setProperty(
+      speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, 
+      "1000"
+    );
+    speechConfig.setProperty(
+      speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, 
+      "500"
+    );
+    
+    // ✅ HABILITAR LOGS DETALHADOS (para debug)
+    speechConfig.setProperty(
+      speechsdk.PropertyId.SpeechServiceResponse_RequestDetailedResultTrueFalse, 
+      "true"
+    );
+    
+    console.log('✅ Optimized SpeechConfig created');
+    return speechConfig;
   }
 
-  // 🎯 MÉTODO PRINCIPAL: Pronunciation Assessment com Speech SDK
-  async assessPronunciation(
-    audioBlob: Blob,
-    referenceText?: string,
-    userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate'
-  ): Promise<AudioProcessingResult> {
-    
-    console.log('🎯 Starting Azure Speech SDK Assessment...');
-    console.log('📋 Input audio:', { type: audioBlob.type, size: audioBlob.size });
+  // 🎵 CONVERTER WEBM/OPUS PARA WAV PCM 16kHz MONO (CLIENTE)
+  private async convertWebMToWavPCM(audioBlob: Blob): Promise<Blob> {
+    console.log('🎵 Converting WebM/Opus to WAV PCM 16kHz mono...');
     
     try {
-      // 🚨 SOLUÇÃO DEFINITIVA: BYPASS COMPLETO DA CONVERSÃO
-      console.log('🎵 BYPASS: Skipping audio conversion - using direct approach...');
-      
-      // ✅ ESTRATÉGIA 1: TENTAR COM ÁUDIO ORIGINAL PRIMEIRO
-      console.log('⚙️ Step 1: Trying with original audio...');
-      
-      const pronunciationConfig = this.createPronunciationConfig(referenceText, userLevel);
-      let audioConfig: speechsdk.AudioConfig;
-      
-      // Tentar diferentes abordagens
-      try {
-        // Abordagem 1: Áudio original direto
-        audioConfig = await this.createDirectAudioConfig(audioBlob);
-        console.log('✅ Using direct audio approach');
-      } catch (directError) {
-        console.log('❌ Direct audio failed, trying file approach...');
-        
-        try {
-          // Abordagem 2: Simular arquivo de áudio
-          audioConfig = await this.createFileBasedAudioConfig(audioBlob);
-          console.log('✅ Using file-based audio approach');
-        } catch (fileError) {
-          console.log('❌ File-based audio failed, using microphone fallback...');
-          
-          // Abordagem 3: Fallback para microfone
-          audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
-          console.log('✅ Using microphone fallback');
-        }
-      }
-
-      // ✅ EXECUTAR ASSESSMENT
-      console.log('🎯 Step 2: Performing pronunciation assessment...');
-      
-      const result = await this.performAssessment(pronunciationConfig, audioConfig);
-      
-      // ✅ ADICIONAR DEBUG INFO DETALHADO
-      if (!result.success) {
-        result.debugInfo = {
-          ...result.debugInfo,
-          originalAudioType: audioBlob.type,
-          originalSize: audioBlob.size,
-          approach: 'BYPASS_CONVERSION',
-          suggestion: 'Audio conversion bypassed - Azure may not support WebM/Opus directly'
-        };
-      }
-      
-      return result;
-
-    } catch (error) {
-      console.error('❌ Azure Speech SDK Assessment failed:', error);
-      return {
-        success: false,
-        error: `Azure Speech SDK assessment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        shouldRetry: true,
-        retryReason: 'sdk_error'
-      };
-    }
-  }
-
-  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO DIRETA
-  private async createDirectAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
-    console.log('🎵 Creating DIRECT AudioConfig...');
-    
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    
-    // ✅ TENTAR DIFERENTES FORMATOS DE STREAM
-    const formats = [
-      speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1),
-      speechsdk.AudioStreamFormat.getWaveFormatPCM(44100, 16, 1),
-      speechsdk.AudioStreamFormat.getWaveFormatPCM(48000, 16, 1),
-      speechsdk.AudioStreamFormat.getWaveFormatPCM(8000, 16, 1)
-    ];
-    
-    for (let i = 0; i < formats.length; i++) {
-      try {
-        const audioFormat = formats[i];
-        const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
-        
-        const audioData = new Uint8Array(arrayBuffer);
-        audioStream.write(audioData.buffer);
-        audioStream.close();
-        
-        console.log(`✅ Direct audio config created with format ${i + 1}`);
-        return speechsdk.AudioConfig.fromStreamInput(audioStream);
-        
-      } catch (formatError) {
-        console.log(`❌ Format ${i + 1} failed:`, formatError);
-        continue;
-      }
-    }
-    
-    throw new Error('All direct audio formats failed');
-  }
-
-  // 📁 CRIAR CONFIGURAÇÃO BASEADA EM ARQUIVO
-  private async createFileBasedAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
-    console.log('📁 Creating FILE-BASED AudioConfig...');
-    
-    // ✅ TENTAR USAR fromWavFileInput com File
-    try {
-      // Converter blob para File
-      const audioFile = new File([audioBlob], 'audio.webm', { type: audioBlob.type });
-      
-      // Tentar usar o arquivo diretamente
-      const audioConfig = speechsdk.AudioConfig.fromWavFileInput(audioFile);
-      
-      console.log('✅ File-based audio config created');
-      return audioConfig;
-      
-    } catch (error) {
-      console.log('❌ File-based approach failed:', error);
-      throw error;
-    }
-  }
-
-  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO SIMPLES
-  private async createSimpleAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
-    console.log('🎵 Creating SIMPLE AudioConfig...');
-    console.log('📁 Audio blob:', { type: audioBlob.type, size: audioBlob.size });
-
-    try {
-      // ✅ MÉTODO MAIS SIMPLES: USAR DADOS DIRETOS
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      
-      // ✅ CRIAR STREAM SIMPLES
-      const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-      const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
-      
-      // ✅ ENVIAR DADOS COMO ESTÃO
-      const audioData = new Uint8Array(arrayBuffer);
-      audioStream.write(audioData.buffer);
-      audioStream.close();
-      
-      console.log('✅ Simple audio data sent to Azure stream');
-      
-      const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
-      return audioConfig;
-      
-    } catch (error) {
-      console.error('❌ Simple AudioConfig failed:', error);
-      
-      // ✅ FALLBACK: MICROFONE PADRÃO
-      console.log('🔄 Using default microphone as fallback');
-      return speechsdk.AudioConfig.fromDefaultMicrophoneInput();
-    }
-  }
-
-  // 🎵 CONVERTER ÁUDIO PARA WAV PCM 16kHz
-  private async convertToWavPCM(audioBlob: Blob): Promise<ArrayBuffer | null> {
-    try {
-      // ✅ VERIFICAR SE ESTAMOS NO BROWSER (não no servidor Node.js)
-      if (typeof window === 'undefined') {
-        console.warn('⚠️ Web Audio API not available on server side');
-        return null;
-      }
-
-      // Verificar se Web Audio API está disponível no browser
+      // ✅ VERIFICAR SE WEB AUDIO API ESTÁ DISPONÍVEL
       if (typeof AudioContext === 'undefined' && typeof (window as any).webkitAudioContext === 'undefined') {
-        console.warn('⚠️ Web Audio API not available in this browser');
-        return null;
+        throw new Error('Web Audio API not available');
       }
 
       const AudioContextClass = AudioContext || (window as any).webkitAudioContext;
       const audioContext = new AudioContextClass();
 
-      // Decodificar áudio
+      // ✅ DECODIFICAR ÁUDIO WEBM/OPUS
       const arrayBuffer = await audioBlob.arrayBuffer();
+      console.log('📊 Original audio buffer size:', arrayBuffer.byteLength);
+      
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-
-      console.log('📊 Original audio:', {
+      console.log('📊 Decoded audio properties:', {
         sampleRate: audioBuffer.sampleRate,
         channels: audioBuffer.numberOfChannels,
-        duration: audioBuffer.duration
+        duration: audioBuffer.duration,
+        length: audioBuffer.length
       });
 
-      // Resample para 16kHz se necessário
+      // ✅ PROCESSAR PARA 16kHz MONO
       const targetSampleRate = 16000;
       let processedBuffer = audioBuffer;
 
+      // Resample se necessário
       if (audioBuffer.sampleRate !== targetSampleRate) {
         console.log(`🔄 Resampling from ${audioBuffer.sampleRate}Hz to ${targetSampleRate}Hz...`);
-        processedBuffer = await this.resampleAudio(audioBuffer, targetSampleRate, audioContext);
+        processedBuffer = this.resampleAudioBuffer(audioBuffer, targetSampleRate, audioContext);
       }
 
       // Converter para mono se necessário
@@ -330,34 +144,33 @@ export class AzureSpeechSDKService {
         processedBuffer = this.convertToMono(processedBuffer, audioContext);
       }
 
-      // Converter para WAV PCM
-      const wavBuffer = this.audioBufferToWav(processedBuffer);
-      
-      console.log('✅ Audio converted:', {
-        originalSize: arrayBuffer.byteLength,
-        convertedSize: wavBuffer.byteLength,
-        sampleRate: targetSampleRate,
-        channels: 1
+      // ✅ CONVERTER PARA WAV PCM
+      const wavArrayBuffer = this.audioBufferToWavPCM(processedBuffer);
+      const wavBlob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
+
+      console.log('✅ Audio conversion completed:', {
+        originalSize: audioBlob.size,
+        convertedSize: wavBlob.size,
+        format: 'WAV PCM 16kHz mono'
       });
 
       // Cleanup
       audioContext.close();
-
-      return wavBuffer;
+      
+      return wavBlob;
 
     } catch (error) {
       console.error('❌ Audio conversion failed:', error);
-      return null;
+      throw new Error(`Audio conversion failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
-  // 🔄 RESAMPLE ÁUDIO
-  private async resampleAudio(
-    audioBuffer: AudioBuffer, 
-    targetSampleRate: number, 
+  // 🔄 RESAMPLE AUDIO BUFFER
+  private resampleAudioBuffer(
+    audioBuffer: AudioBuffer,
+    targetSampleRate: number,
     audioContext: AudioContext
-  ): Promise<AudioBuffer> {
-    
+  ): AudioBuffer {
     const ratio = targetSampleRate / audioBuffer.sampleRate;
     const newLength = Math.round(audioBuffer.length * ratio);
     const newBuffer = audioContext.createBuffer(
@@ -370,6 +183,7 @@ export class AzureSpeechSDKService {
       const inputData = audioBuffer.getChannelData(channel);
       const outputData = newBuffer.getChannelData(channel);
 
+      // Linear interpolation resampling
       for (let i = 0; i < newLength; i++) {
         const sourceIndex = i / ratio;
         const index = Math.floor(sourceIndex);
@@ -391,7 +205,7 @@ export class AzureSpeechSDKService {
     const monoBuffer = audioContext.createBuffer(1, audioBuffer.length, audioBuffer.sampleRate);
     const monoData = monoBuffer.getChannelData(0);
 
-    // Misturar todos os canais
+    // Mix all channels to mono
     for (let i = 0; i < audioBuffer.length; i++) {
       let sum = 0;
       for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
@@ -403,617 +217,495 @@ export class AzureSpeechSDKService {
     return monoBuffer;
   }
 
-  // 📦 CONVERTER AudioBuffer para WAV
-  private audioBufferToWav(audioBuffer: AudioBuffer): ArrayBuffer {
+  // 📦 CONVERTER PARA WAV PCM (FORMATO EXATO QUE AZURE ESPERA)
+  private audioBufferToWavPCM(audioBuffer: AudioBuffer): ArrayBuffer {
     const length = audioBuffer.length;
     const sampleRate = audioBuffer.sampleRate;
-    const buffer = new ArrayBuffer(44 + length * 2);
+    const numChannels = audioBuffer.numberOfChannels;
+    const bytesPerSample = 2; // 16-bit
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = length * blockAlign;
+    const buffer = new ArrayBuffer(44 + dataSize);
     const view = new DataView(buffer);
-    const channelData = audioBuffer.getChannelData(0);
 
-    // WAV header
+    // ✅ WAV HEADER EXATO CONFORME ESPECIFICAÇÃO
     const writeString = (offset: number, string: string) => {
       for (let i = 0; i < string.length; i++) {
         view.setUint8(offset + i, string.charCodeAt(i));
       }
     };
 
+    // RIFF chunk descriptor
     writeString(0, 'RIFF');
-    view.setUint32(4, 36 + length * 2, true);
+    view.setUint32(4, 36 + dataSize, true); // ChunkSize
     writeString(8, 'WAVE');
-    writeString(12, 'fmt ');
-    view.setUint32(16, 16, true);
-    view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true);
-    view.setUint32(24, sampleRate, true);
-    view.setUint32(28, sampleRate * 2, true);
-    view.setUint16(32, 2, true);
-    view.setUint16(34, 16, true);
-    writeString(36, 'data');
-    view.setUint32(40, length * 2, true);
 
-    // Convert float samples to 16-bit PCM
+    // fmt sub-chunk
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+    view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+    view.setUint16(22, numChannels, true); // NumChannels
+    view.setUint32(24, sampleRate, true); // SampleRate
+    view.setUint32(28, byteRate, true); // ByteRate
+    view.setUint16(32, blockAlign, true); // BlockAlign
+    view.setUint16(34, 16, true); // BitsPerSample
+
+    // data sub-chunk
+    writeString(36, 'data');
+    view.setUint32(40, dataSize, true); // Subchunk2Size
+
+    // ✅ CONVERTER FLOAT32 PARA 16-BIT PCM
     let offset = 44;
     for (let i = 0; i < length; i++) {
-      const sample = Math.max(-1, Math.min(1, channelData[i]));
-      view.setInt16(offset, sample * 0x7FFF, true);
-      offset += 2;
+      for (let channel = 0; channel < numChannels; channel++) {
+        const sample = audioBuffer.getChannelData(channel)[i];
+        // Clamp and convert to 16-bit signed integer
+        const clampedSample = Math.max(-1, Math.min(1, sample));
+        const intSample = Math.round(clampedSample * 0x7FFF);
+        view.setInt16(offset, intSample, true);
+        offset += 2;
+      }
     }
 
     return buffer;
   }
 
-  // ⚙️ CRIAR CONFIGURAÇÃO DE PRONUNCIATION ASSESSMENT
-  private createPronunciationConfig(
-    referenceText?: string, 
+  // 🎯 MÉTODO PRINCIPAL: Pronunciation Assessment
+  async assessPronunciation(
+    audioBlob: Blob,
+    referenceText?: string,
+    userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate'
+  ): Promise<AudioProcessingResult> {
+    
+    console.log('🎯 Starting Azure Speech Assessment (Definitive Version)...');
+    console.log('📋 Input:', {
+      audioType: audioBlob.type,
+      audioSize: audioBlob.size,
+      hasReference: !!referenceText,
+      userLevel
+    });
+
+    try {
+      // ✅ ETAPA 1: CONVERTER ÁUDIO PARA FORMATO SUPORTADO
+      let processedAudioBlob: Blob;
+      
+      if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
+        console.log('🔄 Converting WebM/Opus to WAV PCM...');
+        processedAudioBlob = await this.convertWebMToWavPCM(audioBlob);
+      } else if (audioBlob.type.includes('wav')) {
+        console.log('✅ Audio already in WAV format, using as-is');
+        processedAudioBlob = audioBlob;
+      } else {
+        console.log('⚠️ Unsupported audio format, attempting conversion...');
+        processedAudioBlob = await this.convertWebMToWavPCM(audioBlob);
+      }
+
+      // ✅ ETAPA 2: CRIAR CONFIGURAÇÃO DE ÁUDIO
+      const audioConfig = await this.createAudioConfigFromBlob(processedAudioBlob);
+
+      // ✅ ETAPA 3: CRIAR CONFIGURAÇÃO DE PRONUNCIATION ASSESSMENT
+      const pronunciationConfig = this.createPronunciationAssessmentConfig(
+        referenceText,
+        userLevel
+      );
+
+      // ✅ ETAPA 4: EXECUTAR ASSESSMENT
+      return await this.performPronunciationAssessment(
+        pronunciationConfig,
+        audioConfig,
+        referenceText
+      );
+
+    } catch (error: any) {
+      console.error('❌ Pronunciation assessment failed:', error);
+      return {
+        success: false,
+        error: `Assessment failed: ${error.message}`,
+        shouldRetry: true,
+        retryReason: 'processing_error'
+      };
+    }
+  }
+
+  // 🎵 CRIAR AUDIO CONFIG A PARTIR DO BLOB
+  private async createAudioConfigFromBlob(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
+    console.log('🎵 Creating AudioConfig from processed blob...');
+    
+    try {
+      // ✅ MÉTODO RECOMENDADO: PUSH STREAM COM FORMATO ESPECÍFICO
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const audioData = new Uint8Array(arrayBuffer);
+
+      // ✅ DEFINIR FORMATO EXATO (WAV PCM 16kHz mono)
+      const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
+      
+      // ✅ CRIAR PUSH STREAM
+      const pushStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
+      
+      // ✅ ENVIAR DADOS DE ÁUDIO
+      pushStream.write(audioData.buffer);
+      pushStream.close();
+
+      console.log('✅ AudioConfig created successfully');
+      return speechsdk.AudioConfig.fromStreamInput(pushStream);
+
+    } catch (error) {
+      console.error('❌ Failed to create AudioConfig:', error);
+      throw new Error(`AudioConfig creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // ⚙️ CRIAR PRONUNCIATION ASSESSMENT CONFIG
+  private createPronunciationAssessmentConfig(
+    referenceText?: string,
     userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate'
   ): speechsdk.PronunciationAssessmentConfig {
     
-    console.log('⚙️ Creating Pronunciation Assessment Config following Microsoft docs...');
-    console.log('📋 Reference text:', referenceText || 'none (unscripted assessment)');
-
-    // ✅ MÉTODO RECOMENDADO PELA MICROSOFT: Usar JSON config
+    console.log('⚙️ Creating PronunciationAssessmentConfig...');
+    
     try {
-      // Configuração JSON conforme documentação oficial
-      const configJson = {
+      // ✅ USAR MÉTODO JSON CONFORME DOCUMENTAÇÃO MICROSOFT
+      const assessmentConfig = {
         referenceText: referenceText || "",
         gradingSystem: "HundredMark",
         granularity: "Phoneme",
         phonemeAlphabet: "IPA",
         nBestPhonemeCount: 5,
-        enableMiscue: false
+        enableMiscue: false,
+        enableProsodyAssessment: true
       };
 
-      console.log('📋 Using Microsoft recommended JSON config:', configJson);
-      
-      const config = speechsdk.PronunciationAssessmentConfig.fromJSON(JSON.stringify(configJson));
-      
-      // ✅ HABILITAR PROSODY ASSESSMENT conforme docs
-      if (typeof config.enableProsodyAssessment === 'function') {
-        (config as any).enableProsodyAssessment();
-        console.log('✅ Prosody assessment enabled via method');
-      } else if ('enableProsodyAssessment' in config) {
-        (config as any).enableProsodyAssessment = true;
-        console.log('✅ Prosody assessment enabled via property');
-      }
-      
-      console.log('✅ Microsoft docs JSON config created successfully');
-      return config;
-      
-    } catch (jsonError) {
-      console.log('⚠️ Microsoft docs JSON config failed, trying basic:', jsonError);
-    }
+      console.log('📋 Assessment config:', assessmentConfig);
 
-    // ✅ FALLBACK: Configuração básica conforme docs
-    try {
-      const basicConfig = new speechsdk.PronunciationAssessmentConfig(
+      const config = speechsdk.PronunciationAssessmentConfig.fromJSON(
+        JSON.stringify(assessmentConfig)
+      );
+
+      console.log('✅ PronunciationAssessmentConfig created');
+      return config;
+
+    } catch (error) {
+      console.error('❌ Failed to create PronunciationAssessmentConfig:', error);
+      
+      // ✅ FALLBACK: CONFIGURAÇÃO BÁSICA
+      console.log('🔄 Using fallback basic configuration...');
+      return new speechsdk.PronunciationAssessmentConfig(
         referenceText || "",
         speechsdk.PronunciationAssessmentGradingSystem.HundredMark,
         speechsdk.PronunciationAssessmentGranularity.Phoneme,
-        false // enableMiscue
+        false
       );
-      
-      console.log('✅ Basic config created following Microsoft docs');
-      
-      // Aplicar melhorias baseadas na documentação
-      this.applyMicrosoftDocsEnhancements(basicConfig);
-      
-      return basicConfig;
-      
-    } catch (basicError) {
-      console.error('❌ Even basic config failed:', basicError);
-      throw new Error(`Failed to create pronunciation config: ${(basicError as Error).message || 'Unknown error'}`);
     }
   }
 
-  // 🔧 APLICAR MELHORIAS BASEADAS NA DOCUMENTAÇÃO MICROSOFT
-  private applyMicrosoftDocsEnhancements(config: speechsdk.PronunciationAssessmentConfig): void {
-    console.log('🔧 Applying Microsoft docs enhancements...');
-    
-    // 1. Prosody Assessment (conforme docs)
-    try {
-      if (typeof (config as any).enableProsodyAssessment === 'function') {
-        (config as any).enableProsodyAssessment();
-        console.log('✅ Prosody assessment enabled via method (Microsoft docs)');
-      } else if ('enableProsodyAssessment' in config) {
-        (config as any).enableProsodyAssessment = true;
-        console.log('✅ Prosody assessment enabled via property (Microsoft docs)');
-      }
-    } catch (error) {
-      console.log('⚠️ Could not enable prosody assessment:', error);
-    }
-
-    // 2. NBest Phoneme Count (conforme docs)
-    try {
-      if ('nbestPhonemeCount' in config) {
-        (config as any).nbestPhonemeCount = 5;
-        console.log('✅ NBest phoneme count set to 5 (Microsoft docs)');
-      } else if ('NBestPhonemeCount' in config) {
-        (config as any).NBestPhonemeCount = 5;
-        console.log('✅ NBest phoneme count set to 5 via NBestPhonemeCount (Microsoft docs)');
-      }
-    } catch (error) {
-      console.log('⚠️ Could not set NBest phoneme count:', error);
-    }
-
-    // 3. Phoneme Alphabet IPA (conforme docs)
-    try {
-      if ('phonemeAlphabet' in config) {
-        (config as any).phonemeAlphabet = "IPA";
-        console.log('✅ Phoneme alphabet set to IPA (Microsoft docs)');
-      }
-    } catch (error) {
-      console.log('⚠️ Could not set phoneme alphabet:', error);
-    }
-
-    console.log('🎯 Microsoft docs configuration enhancements applied');
-  }
-
-  // 🎯 EXECUTAR ASSESSMENT COM SPEECH SDK
-  private async performAssessment(
+  // 🎯 EXECUTAR PRONUNCIATION ASSESSMENT
+  private async performPronunciationAssessment(
     pronunciationConfig: speechsdk.PronunciationAssessmentConfig,
-    audioConfig: speechsdk.AudioConfig
+    audioConfig: speechsdk.AudioConfig,
+    referenceText?: string
   ): Promise<AudioProcessingResult> {
     
     return new Promise((resolve) => {
+      console.log('🎯 Performing pronunciation assessment...');
+      
       try {
-        console.log('🎯 Performing Speech SDK Assessment...');
-        console.log('🌍 Environment info:', {
-          nodeEnv: process.env.NODE_ENV,
-          vercelRegion: process.env.VERCEL_REGION,
-          azureRegion: process.env.AZURE_SPEECH_REGION,
-          timestamp: new Date().toISOString()
-        });
-
-        // ✅ CRIAR SPEECH RECOGNIZER CONFORME DOCUMENTAÇÃO MICROSOFT
-        // Documentação oficial: var recognizer = new SpeechRecognizer(speechConfig, "en-US", audioConfig);
+        // ✅ CRIAR SPEECH RECOGNIZER
         const recognizer = new speechsdk.SpeechRecognizer(this.speechConfig, audioConfig);
         
-        console.log('✅ SpeechRecognizer created with explicit language parameter (Microsoft docs)');
-
-        // ✅ APLICAR PRONUNCIATION CONFIG ANTES DE QUALQUER EVENTO
+        // ✅ APLICAR PRONUNCIATION CONFIG
         pronunciationConfig.applyTo(recognizer);
-        console.log('✅ PronunciationAssessmentConfig applied to recognizer');
+        
+        let sessionId = '';
 
-        // 📊 CAPTURAR SESSION ID para debugging
-        let sessionId: string = '';
+        // ✅ EVENT LISTENERS
         recognizer.sessionStarted = (s, e) => {
           sessionId = e.sessionId;
-          console.log(`🔗 Speech SDK Session started: ${sessionId}`);
-          console.log('📊 Session details:', {
-            sessionId: sessionId,
-            timestamp: new Date().toISOString(),
-            environment: 'vercel-serverless'
-          });
+          console.log(`🔗 Session started: ${sessionId}`);
         };
 
-        // 📊 ADICIONAR MAIS EVENT LISTENERS PARA DEBUG
         recognizer.sessionStopped = (s, e) => {
-          console.log(`🛑 Speech SDK Session stopped: ${e.sessionId}`);
+          console.log(`🛑 Session stopped: ${e.sessionId}`);
         };
 
-        recognizer.speechStartDetected = (s, e) => {
-          console.log(`🎤 Speech start detected: ${e.sessionId}`);
-        };
-
-        recognizer.speechEndDetected = (s, e) => {
-          console.log(`🔇 Speech end detected: ${e.sessionId}`);
-        };
-
-        // 🎯 EXECUTAR RECOGNITION
-        console.log('🚀 Starting recognizeOnceAsync...');
+        // ✅ EXECUTAR RECOGNITION
         recognizer.recognizeOnceAsync(
-          (speechResult: speechsdk.SpeechRecognitionResult) => {
+          (result: speechsdk.SpeechRecognitionResult) => {
             try {
-              console.log('📥 Speech SDK Result received:', {
-                reason: speechResult.reason,
-                text: speechResult.text,
+              console.log('📥 Recognition result received:', {
+                reason: result.reason,
+                text: result.text,
                 sessionId
               });
 
-              // ✅ PROCESSAR RESULTADO
-              const processedResult = this.processSpeechSDKResult(speechResult, sessionId);
-              
-              // Limpeza
-              recognizer.close();
-              
-              resolve(processedResult);
+              // ✅ VERIFICAR SE RECOGNITION FOI BEM-SUCEDIDO
+              if (result.reason !== speechsdk.ResultReason.RecognizedSpeech) {
+                console.error('❌ Speech not recognized:', result.reason);
+                
+                recognizer.close();
+                resolve({
+                  success: false,
+                  error: 'Speech not recognized',
+                  shouldRetry: true,
+                  retryReason: 'speech_not_recognized',
+                  debugInfo: {
+                    reason: result.reason,
+                    sessionId,
+                    referenceText,
+                    azureErrorDetails: result.errorDetails
+                  }
+                });
+                return;
+              }
 
-            } catch (error) {
-              console.error('❌ Error processing Speech SDK result:', error);
+              // ✅ VERIFICAR SE HÁ TEXTO
+              if (!result.text || result.text.trim().length === 0) {
+                console.error('❌ No text recognized');
+                
+                recognizer.close();
+                resolve({
+                  success: false,
+                  error: 'No text recognized',
+                  shouldRetry: true,
+                  retryReason: 'no_text_recognized',
+                  debugInfo: {
+                    reason: result.reason,
+                    sessionId,
+                    referenceText
+                  }
+                });
+                return;
+              }
+
+              console.log('✅ Text recognized:', result.text);
+
+              // ✅ EXTRAIR PRONUNCIATION ASSESSMENT RESULT
+              const pronunciationResult = speechsdk.PronunciationAssessmentResult.fromResult(result);
+              
+              if (!pronunciationResult) {
+                console.error('❌ No pronunciation assessment data');
+                
+                recognizer.close();
+                resolve({
+                  success: false,
+                  error: 'No pronunciation assessment data',
+                  shouldRetry: false,
+                  debugInfo: {
+                    text: result.text,
+                    sessionId,
+                    referenceText
+                  }
+                });
+                return;
+              }
+
+              // ✅ PROCESSAR RESULTADO FINAL
+              const finalResult = this.buildFinalResult(
+                result.text,
+                pronunciationResult,
+                result,
+                sessionId
+              );
+
+              console.log('✅ Assessment completed successfully:', {
+                pronunciationScore: finalResult.pronunciationScore,
+                accuracyScore: finalResult.accuracyScore,
+                text: finalResult.text
+              });
+
+              recognizer.close();
+              resolve({
+                success: true,
+                result: finalResult
+              });
+
+            } catch (processingError: any) {
+              console.error('❌ Error processing result:', processingError);
               recognizer.close();
               resolve({
                 success: false,
-                error: `Result processing failed: ${error}`
+                error: `Result processing failed: ${processingError.message}`
               });
             }
           },
           (error: string) => {
-            console.error('❌ Speech SDK Recognition failed:', error);
+            console.error('❌ Recognition error:', error);
             recognizer.close();
             resolve({
               success: false,
-              error: `Speech SDK recognition failed: ${error}`
+              error: `Recognition failed: ${error}`,
+              shouldRetry: true,
+              retryReason: 'recognition_error'
             });
           }
         );
 
-      } catch (error) {
-        console.error('❌ Speech SDK setup failed:', error);
+      } catch (setupError: any) {
+        console.error('❌ Assessment setup failed:', setupError);
         resolve({
           success: false,
-          error: `Speech SDK setup failed: ${error}`
+          error: `Assessment setup failed: ${setupError.message}`
         });
       }
     });
   }
 
-  // 📊 PROCESSAR RESULTADO DO SPEECH SDK
-  private processSpeechSDKResult(
-    speechResult: speechsdk.SpeechRecognitionResult,
-    sessionId: string
-  ): AudioProcessingResult {
-    
-    try {
-      // Verificar se recognition foi bem-sucedido
-      if (speechResult.reason !== speechsdk.ResultReason.RecognizedSpeech) {
-        console.warn('❌ Speech not recognized:', speechResult.reason);
-        
-        return {
-          success: false,
-          error: 'Speech not recognized',
-          shouldRetry: true,
-          retryReason: 'speech_not_recognized',
-          debugInfo: {
-            reason: speechResult.reason,
-            sessionId,
-            suggestion: 'WebM/Opus format may not be fully supported by Azure SDK v1.44.0'
-          }
-        };
-      }
-
-      // Verificar se há texto reconhecido
-      if (!speechResult.text || speechResult.text.trim().length === 0) {
-        console.warn('❌ No text recognized');
-        
-        return {
-          success: false,
-          error: 'No text recognized',
-          shouldRetry: true,
-          retryReason: 'no_text',
-          debugInfo: {
-            reason: speechResult.reason,
-            sessionId,
-            suggestion: 'Consider using WAV format or implementing audio conversion'
-          }
-        };
-      }
-
-      console.log('✅ Text recognized:', speechResult.text);
-
-      // ✅ EXTRAIR PRONUNCIATION ASSESSMENT RESULT
-      const pronunciationResult = speechsdk.PronunciationAssessmentResult.fromResult(speechResult);
-      
-      if (!pronunciationResult) {
-        console.error('❌ No pronunciation assessment data');
-        return {
-          success: false,
-          error: 'No pronunciation assessment data available'
-        };
-      }
-      
-      // 🚨 VALIDAÇÃO CRÍTICA: Verificar se realmente temos dados de assessment
-      console.log('🔍 CRITICAL CHECK: Pronunciation Assessment Validation');
-      console.log('📊 Has pronunciationResult:', !!pronunciationResult);
-      console.log('📊 pronunciationResult type:', typeof pronunciationResult);
-      console.log('📊 pronunciationResult keys:', Object.keys(pronunciationResult));
-      
-      // Verificar se os scores são válidos (não zero ou undefined)
-      const hasValidScores = pronunciationResult.accuracyScore > 0 || 
-                            pronunciationResult.fluencyScore > 0 || 
-                            pronunciationResult.pronunciationScore > 0;
-      
-      if (!hasValidScores) {
-        console.error('🚨 CRITICAL: No valid pronunciation scores detected!');
-        console.error('🔍 This suggests Azure is doing speech recognition only, not pronunciation assessment');
-        return {
-          success: false,
-          error: 'Azure pronunciation assessment failed - no valid scores',
-          shouldRetry: false,
-          debugInfo: {
-            pronunciationResult,
-            sessionId,
-            suggestion: 'Check pronunciation assessment configuration'
-          }
-        };
-      }
-
-      // ✅ EXTRAIR DADOS DETALHADOS DO JSON
-      const jsonResult = speechResult.properties.getProperty(
-        speechsdk.PropertyId.SpeechServiceResponse_JsonResult
-      );
-
-      let detailedData: any = {};
-      try {
-        detailedData = JSON.parse(jsonResult);
-        console.log('📊 Detailed JSON result parsed successfully');
-      } catch (error) {
-        console.warn('⚠️ Could not parse detailed JSON result:', error);
-      }
-
-      // ✅ CONSTRUIR RESULTADO FINAL
-      const result = this.buildPronunciationResult(
-        speechResult.text,
-        pronunciationResult,
-        detailedData,
-        sessionId
-      );
-
-      console.log('✅ Pronunciation result built successfully:', {
-        pronunciationScore: result.pronunciationScore,
-        accuracyScore: result.accuracyScore,
-        wordsCount: result.words.length,
-        phonemesCount: result.phonemes.length
-      });
-
-      return {
-        success: true,
-        result
-      };
-
-    } catch (error: any) {
-      console.error('❌ Error processing Speech SDK result:', error);
-      return {
-        success: false,
-        error: `Failed to process Speech SDK result: ${error.message}`
-      };
-    }
-  }
-
   // 🏗️ CONSTRUIR RESULTADO FINAL
-  private buildPronunciationResult(
+  private buildFinalResult(
     recognizedText: string,
     pronunciationResult: speechsdk.PronunciationAssessmentResult,
-    detailedData: any,
+    speechResult: speechsdk.SpeechRecognitionResult,
     sessionId: string
   ): PronunciationResult {
     
-    // 🔍 DEBUG: INVESTIGAR DADOS BRUTOS DO AZURE
-    console.log('🔍 DEBUGGING Azure Raw Data:');
-    console.log('📊 pronunciationResult object:', pronunciationResult);
-    console.log('📊 pronunciationResult.accuracyScore:', pronunciationResult.accuracyScore);
-    console.log('📊 pronunciationResult.fluencyScore:', pronunciationResult.fluencyScore);
-    console.log('📊 pronunciationResult.pronunciationScore:', pronunciationResult.pronunciationScore);
-    console.log('📊 detailedData structure:', JSON.stringify(detailedData, null, 2));
-    
-    // ✅ EXTRAIR SCORES REAIS DO AZURE
+    console.log('🏗️ Building final result...');
+
+    // ✅ EXTRAIR SCORES
     const accuracyScore = Math.round(pronunciationResult.accuracyScore || 0);
     const fluencyScore = Math.round(pronunciationResult.fluencyScore || 0);
     const completenessScore = Math.round(pronunciationResult.completenessScore || 0);
     const pronunciationScore = Math.round(pronunciationResult.pronunciationScore || 0);
     const prosodyScore = Math.round(pronunciationResult.prosodyScore || 0);
 
-    console.log('📊 Real Azure Scores:', {
-      accuracy: accuracyScore,
-      fluency: fluencyScore,
-      completeness: completenessScore,
-      pronunciation: pronunciationScore,
-      prosody: prosodyScore
-    });
-    
-    // 🚨 VALIDAÇÃO CRÍTICA: Verificar se scores fazem sentido
-    if (pronunciationScore > 90 && recognizedText.includes('lush')) {
-      console.log('🚨 SUSPICIOUS: High score for gibberish detected!');
-      console.log('🔍 Recognized text:', recognizedText);
-      console.log('🔍 This might indicate a problem with Azure assessment');
-    }
-
-    // ✅ EXTRAIR ANÁLISE DE PALAVRAS
-    const words = this.extractWordAnalysis(detailedData);
-    
-    // ✅ EXTRAIR ANÁLISE DE FONEMAS
-    const phonemes = this.extractPhonemeAnalysis(detailedData);
-
-    // 🎯 APLICAR LÓGICA EDUCACIONAL INTELIGENTE
-    const adjustedScores = this.applyEducationalLogic(
-      accuracyScore,
-      fluencyScore,
-      pronunciationScore,
-      words,
-      phonemes,
-      recognizedText
+    // ✅ EXTRAIR DADOS DETALHADOS
+    const jsonResult = speechResult.properties.getProperty(
+      speechsdk.PropertyId.SpeechServiceResponse_JsonResult
     );
 
-    // 🚨 VERIFICAR SE PRECISA REPETIR
-    if (adjustedScores.shouldRetry) {
-      console.log(`🔄 REQUESTING RETRY: ${adjustedScores.retryReason}`);
-      
-      // Retornar resultado especial indicando que precisa repetir
-      return {
-        text: recognizedText,
-        accuracyScore: 0,
-        fluencyScore: 0,
-        completenessScore: 0,
-        pronunciationScore: 0,
-        prosodyScore: undefined,
-        words,
-        phonemes,
-        feedback: this.generateRetryFeedback(adjustedScores.retryReason!),
-        confidence: 0,
-        assessmentMethod: 'azure-sdk',
-        sessionId,
-        debugInfo: {
-          originalResult: pronunciationResult,
-          originalScores: { accuracyScore, pronunciationScore },
-          adjustedScores,
-          retryRequested: true,
-          retryReason: adjustedScores.retryReason,
-          detailedDataKeys: Object.keys(detailedData)
-        }
-      };
+    let detailedData: any = {};
+    try {
+      if (jsonResult) {
+        detailedData = JSON.parse(jsonResult);
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not parse detailed JSON result:', error);
     }
 
+    // ✅ EXTRAIR PALAVRAS E FONEMAS
+    const words = this.extractWordDetails(detailedData);
+    const phonemes = this.extractPhonemeDetails(detailedData);
+
     // ✅ GERAR FEEDBACK INTELIGENTE
-    const feedback = this.generateIntelligentFeedback(
+    const feedback = this.generateSmartFeedback(
       recognizedText,
-      adjustedScores.pronunciationScore,
-      adjustedScores.accuracyScore,
+      pronunciationScore,
+      accuracyScore,
       fluencyScore,
       prosodyScore,
-      words,
-      phonemes
+      words
     );
 
     return {
       text: recognizedText,
-      accuracyScore: adjustedScores.accuracyScore,
+      accuracyScore,
       fluencyScore,
       completenessScore,
-      pronunciationScore: adjustedScores.pronunciationScore,
+      pronunciationScore,
       prosodyScore: prosodyScore > 0 ? prosodyScore : undefined,
       words,
       phonemes,
       feedback,
-      confidence: adjustedScores.pronunciationScore / 100,
-      assessmentMethod: 'azure-sdk',
+      confidence: pronunciationScore / 100,
+      assessmentMethod: 'azure-sdk-definitive',
       sessionId,
       debugInfo: {
-        originalResult: pronunciationResult,
-        originalScores: { accuracyScore, pronunciationScore },
-        adjustedScores,
-        detailedDataKeys: Object.keys(detailedData)
+        detailedDataAvailable: !!jsonResult,
+        wordsExtracted: words.length,
+        phonemesExtracted: phonemes.length
       }
     };
   }
 
-  // 📝 EXTRAIR ANÁLISE DE PALAVRAS
-  private extractWordAnalysis(detailedData: any): WordResult[] {
+  // 📝 EXTRAIR DETALHES DAS PALAVRAS
+  private extractWordDetails(detailedData: any): WordResult[] {
+    const words: WordResult[] = [];
+    
     try {
-      const words: WordResult[] = [];
-      
       if (detailedData.NBest?.[0]?.Words) {
         for (const wordData of detailedData.NBest[0].Words) {
-          const word: WordResult = {
+          words.push({
             word: wordData.Word,
             accuracyScore: Math.round(wordData.PronunciationAssessment?.AccuracyScore || 0),
             errorType: wordData.PronunciationAssessment?.ErrorType || 'None'
-          };
-
-          // Extrair sílabas se disponível
-          if (wordData.Syllables) {
-            word.syllables = wordData.Syllables.map((syl: any) => ({
-              syllable: syl.Syllable,
-              accuracyScore: Math.round(syl.PronunciationAssessment?.AccuracyScore || 0),
-              offset: syl.Offset || 0,
-              duration: syl.Duration || 0
-            }));
-          }
-
-          words.push(word);
+          });
         }
       }
-
-      console.log(`📝 Extracted ${words.length} word analyses`);
-      return words;
-
     } catch (error) {
-      console.error('❌ Error extracting word analysis:', error);
-      return [];
+      console.warn('⚠️ Could not extract word details:', error);
     }
+    
+    return words;
   }
 
-  // 🔊 EXTRAIR ANÁLISE DE FONEMAS
-  private extractPhonemeAnalysis(detailedData: any): PhonemeResult[] {
+  // 🔊 EXTRAIR DETALHES DOS FONEMAS
+  private extractPhonemeDetails(detailedData: any): PhonemeResult[] {
+    const phonemes: PhonemeResult[] = [];
+    
     try {
-      const phonemes: PhonemeResult[] = [];
-      
       if (detailedData.NBest?.[0]?.Words) {
         for (const wordData of detailedData.NBest[0].Words) {
           if (wordData.Phonemes) {
             for (const phonemeData of wordData.Phonemes) {
-              const phoneme: PhonemeResult = {
+              phonemes.push({
                 phoneme: phonemeData.Phoneme,
                 accuracyScore: Math.round(phonemeData.PronunciationAssessment?.AccuracyScore || 0),
                 offset: phonemeData.Offset || 0,
                 duration: phonemeData.Duration || 0
-              };
-
-              // Extrair NBest phonemes se disponível
-              if (phonemeData.PronunciationAssessment?.NBestPhonemes) {
-                phoneme.nbestPhonemes = phonemeData.PronunciationAssessment.NBestPhonemes.map((nb: any) => ({
-                  phoneme: nb.Phoneme,
-                  score: Math.round(nb.Score || 0)
-                }));
-              }
-
-              phonemes.push(phoneme);
+              });
             }
           }
         }
       }
-
-      console.log(`🔊 Extracted ${phonemes.length} phoneme analyses`);
-      return phonemes;
-
     } catch (error) {
-      console.error('❌ Error extracting phoneme analysis:', error);
-      return [];
+      console.warn('⚠️ Could not extract phoneme details:', error);
     }
+    
+    return phonemes;
   }
 
   // 🧠 GERAR FEEDBACK INTELIGENTE
-  private generateIntelligentFeedback(
+  private generateSmartFeedback(
     text: string,
     pronScore: number,
     accuracy: number,
     fluency: number,
     prosody: number,
-    words: WordResult[],
-    phonemes: PhonemeResult[]
+    words: WordResult[]
   ): string[] {
     
     const feedback: string[] = [];
 
-    // Feedback geral baseado no score
+    // Feedback baseado no score geral
     if (pronScore >= 90) {
-      feedback.push('🎉 Outstanding pronunciation! You sound very natural and clear.');
+      feedback.push('🎉 Excellent pronunciation! You sound very natural.');
     } else if (pronScore >= 80) {
-      feedback.push('👍 Excellent pronunciation! Your speech is very understandable.');
+      feedback.push('👍 Great job! Your pronunciation is very clear.');
     } else if (pronScore >= 70) {
-      feedback.push('📚 Good pronunciation! You\'re communicating effectively.');
+      feedback.push('📚 Good pronunciation! Keep practicing to improve further.');
     } else if (pronScore >= 60) {
-      feedback.push('💪 Keep practicing! Your pronunciation is developing well.');
-    } else if (pronScore >= 40) {
-      feedback.push('🔄 Focus on clarity - try speaking more slowly and distinctly.');
+      feedback.push('💪 Your pronunciation is developing well. Keep it up!');
     } else {
-      feedback.push('🎤 Let\'s work on pronunciation fundamentals together.');
+      feedback.push('🔄 Focus on clear pronunciation. Try speaking more slowly.');
     }
 
     // Feedback específico por categoria
     if (accuracy < 70) {
-      feedback.push('🎯 Focus on pronouncing each sound clearly and accurately.');
+      feedback.push('🎯 Work on pronouncing each sound clearly and accurately.');
     }
 
     if (fluency < 70) {
-      feedback.push('🌊 Work on speaking more smoothly with natural rhythm.');
+      feedback.push('🌊 Practice speaking more smoothly with natural rhythm.');
     }
 
     if (prosody > 0 && prosody < 70) {
-      feedback.push('🎵 Practice natural intonation and stress patterns.');
+      feedback.push('🎵 Work on natural intonation and stress patterns.');
     }
 
-    // Análise de palavras problemáticas
-    const problemWords = words.filter(w => w.accuracyScore < 60 && w.errorType !== 'None');
+    // Feedback sobre palavras específicas
+    const problemWords = words.filter(w => w.accuracyScore < 60);
     if (problemWords.length > 0 && problemWords.length <= 3) {
       const wordList = problemWords.map(w => `"${w.word}"`).join(', ');
-      feedback.push(`🔍 Pay attention to: ${wordList}`);
-    }
-
-    // Análise de fonemas problemáticos
-    const problemPhonemes = phonemes.filter(p => p.accuracyScore < 50);
-    if (problemPhonemes.length > 0 && problemPhonemes.length <= 3) {
-      const phonemeList = [...new Set(problemPhonemes.map(p => p.phoneme))].join(', ');
-      feedback.push(`🔤 Practice these sounds: ${phonemeList}`);
+      feedback.push(`🔍 Pay special attention to: ${wordList}`);
     }
 
     return feedback;
@@ -1024,336 +716,35 @@ export class AzureSpeechSDKService {
     try {
       console.log('🧪 Testing Azure Speech SDK connection...');
       
-      // Teste simples de configuração
       const testConfig = speechsdk.SpeechConfig.fromSubscription(
-        this.subscriptionKey, 
+        this.subscriptionKey,
         this.region
       );
       
-      if (testConfig) {
-        console.log('✅ Speech SDK configuration is valid');
-        return true;
-      }
-      
-      return false;
+      return !!testConfig;
     } catch (error) {
-      console.error('❌ Speech SDK connection test failed:', error);
+      console.error('❌ Connection test failed:', error);
       return false;
     }
-  }
-
-  // 🔍 DETECTAR RECURSOS DISPONÍVEIS NO SDK
-  private detectSDKCapabilities(): {
-    hasProsodyAssessment: boolean;
-    hasPhonemeAlphabet: boolean;
-    hasNBestPhonemes: boolean;
-    hasJSONConfig: boolean;
-    sdkVersion: string;
-  } {
-    console.log('🔍 Detecting SDK capabilities...');
-    
-    const capabilities = {
-      hasProsodyAssessment: false,
-      hasPhonemeAlphabet: false,
-      hasNBestPhonemes: false,
-      hasJSONConfig: false,
-      sdkVersion: 'unknown'
-    };
-
-    try {
-      // Detectar versão do SDK
-      capabilities.sdkVersion = (speechsdk as any).version || '1.44.0';
-      console.log(`📦 SDK Version: ${capabilities.sdkVersion}`);
-
-      // Testar configuração JSON
-      try {
-        const testJson = speechsdk.PronunciationAssessmentConfig.fromJSON('{"referenceText":"test","gradingSystem":"HundredMark","granularity":"Phoneme"}');
-        capabilities.hasJSONConfig = true;
-        console.log('✅ JSON configuration supported');
-      } catch {
-        console.log('❌ JSON configuration not supported');
-      }
-
-      // Testar configuração básica para detectar propriedades
-      try {
-        const testConfig = new speechsdk.PronunciationAssessmentConfig(
-          "test",
-          speechsdk.PronunciationAssessmentGradingSystem.HundredMark,
-          speechsdk.PronunciationAssessmentGranularity.Phoneme,
-          true
-        );
-
-        // Testar prosody assessment
-        if (typeof (testConfig as any).enableProsodyAssessment === 'function' || 'enableProsodyAssessment' in testConfig) {
-          capabilities.hasProsodyAssessment = true;
-          console.log('✅ Prosody assessment supported');
-        } else {
-          console.log('❌ Prosody assessment not supported');
-        }
-
-        // Testar phoneme alphabet
-        if ('phonemeAlphabet' in testConfig) {
-          capabilities.hasPhonemeAlphabet = true;
-          console.log('✅ Phoneme alphabet supported');
-        } else {
-          console.log('❌ Phoneme alphabet not supported');
-        }
-
-        // Testar NBest phonemes
-        if ('nbestPhonemeCount' in testConfig) {
-          capabilities.hasNBestPhonemes = true;
-          console.log('✅ NBest phonemes supported');
-        } else {
-          console.log('❌ NBest phonemes not supported');
-        }
-
-      } catch (error) {
-        console.log('⚠️ Could not test basic config for capabilities:', error);
-      }
-
-    } catch (error) {
-      console.log('⚠️ Error detecting SDK capabilities:', error);
-    }
-
-    console.log('📊 SDK Capabilities Summary:', capabilities);
-    return capabilities;
-  }
-
-  // 🔄 MÉTODO EXPERIMENTAL: Assessment com texto conhecido (para quando áudio falha)
-  async assessPronunciationWithKnownText(
-    audioBlob: Blob,
-    recognizedText: string,
-    referenceText?: string
-  ): Promise<AudioProcessingResult> {
-    try {
-      console.log('🔄 Attempting pronunciation assessment with known text...');
-      console.log('📝 Recognized text:', recognizedText);
-      console.log('📋 Reference text:', referenceText || 'none');
-
-      // Se não temos texto de referência, usar o texto reconhecido
-      const textToUse = referenceText || recognizedText;
-
-      // Tentar assessment com texto específico
-      const result = await this.assessPronunciation(audioBlob, textToUse);
-      
-      if (result.success) {
-        console.log('✅ Assessment with known text succeeded');
-        return result;
-      } else {
-        console.log('⚠️ Assessment with known text also failed');
-        return {
-          success: false,
-          error: 'Azure SDK cannot process this audio format',
-          shouldRetry: false,
-          debugInfo: {
-            recognizedText,
-            referenceText,
-            suggestion: 'Consider implementing client-side audio conversion or using alternative assessment method'
-          }
-        };
-      }
-
-    } catch (error: any) {
-      console.error('❌ Assessment with known text failed:', error);
-      return {
-        success: false,
-        error: `Assessment with known text failed: ${error.message}`
-      };
-    }
-  }
-
-  // 🎯 APLICAR LÓGICA EDUCACIONAL INTELIGENTE
-  private applyEducationalLogic(
-    accuracyScore: number,
-    fluencyScore: number,
-    pronunciationScore: number,
-    words: WordResult[],
-    phonemes: PhonemeResult[],
-    recognizedText: string
-  ): { pronunciationScore: number; accuracyScore: number; shouldRetry?: boolean; retryReason?: string } {
-    
-    console.log('🎯 Applying Educational Logic...');
-    console.log('📊 Original Azure Scores:', { accuracyScore, pronunciationScore });
-    
-    // 🚨 VERIFICAÇÃO 1: Detectar Gibberish Severo
-    const gibberishLevel = this.detectGibberishLevel(recognizedText, words);
-    if (gibberishLevel >= 3) { // Nível alto de gibberish
-      console.log('🚨 SEVERE GIBBERISH DETECTED - Requesting retry');
-      return {
-        pronunciationScore: 0,
-        accuracyScore: 0,
-        shouldRetry: true,
-        retryReason: 'gibberish_detected'
-      };
-    }
-    
-    // 🚨 VERIFICAÇÃO 2: Mispronunciation Excessiva
-    const mispronunciationWords = words.filter(w => w.errorType === 'Mispronunciation');
-    const mispronunciationRatio = words.length > 0 ? mispronunciationWords.length / words.length : 0;
-    
-    if (mispronunciationRatio > 0.6) { // Mais de 60% das palavras mal pronunciadas
-      console.log(`🚨 EXCESSIVE MISPRONUNCIATION DETECTED - ${Math.round(mispronunciationRatio * 100)}% of words`);
-      return {
-        pronunciationScore: 0,
-        accuracyScore: 0,
-        shouldRetry: true,
-        retryReason: 'excessive_mispronunciation'
-      };
-    }
-    
-    // 🚨 VERIFICAÇÃO 3: Fonemas Muito Ruins
-    const poorPhonemes = phonemes.filter(p => p.accuracyScore < 20);
-    const poorPhonemeRatio = phonemes.length > 0 ? poorPhonemes.length / phonemes.length : 0;
-    
-    if (poorPhonemeRatio > 0.7) { // Mais de 70% dos fonemas muito ruins
-      console.log(`🚨 SEVERE PHONEME ISSUES DETECTED - ${Math.round(poorPhonemeRatio * 100)}% poor phonemes`);
-      return {
-        pronunciationScore: 0,
-        accuracyScore: 0,
-        shouldRetry: true,
-        retryReason: 'severe_phoneme_issues'
-      };
-    }
-    
-    // ✅ APLICAR PENALIDADES MENORES (para casos não extremos)
-    let adjustedPronunciation = pronunciationScore;
-    let adjustedAccuracy = accuracyScore;
-    
-    // Penalidade moderada por mispronunciation (20-60%)
-    if (mispronunciationRatio > 0.2 && mispronunciationRatio <= 0.6) {
-      const mispronunciationPenalty = Math.round(mispronunciationRatio * 20);
-      adjustedPronunciation = Math.max(0, adjustedPronunciation - mispronunciationPenalty);
-      adjustedAccuracy = Math.max(0, adjustedAccuracy - mispronunciationPenalty);
-      
-      console.log(`⚠️ Moderate Mispronunciation Penalty: ${mispronunciationWords.length}/${words.length} words = -${mispronunciationPenalty} points`);
-    }
-    
-    // Penalidade moderada por fonemas ruins (30-70%)
-    if (poorPhonemeRatio > 0.3 && poorPhonemeRatio <= 0.7) {
-      const phonemePenalty = Math.round(poorPhonemeRatio * 15);
-      adjustedPronunciation = Math.max(0, adjustedPronunciation - phonemePenalty);
-      adjustedAccuracy = Math.max(0, adjustedAccuracy - phonemePenalty);
-      
-      console.log(`⚠️ Moderate Phoneme Penalty: ${poorPhonemes.length}/${phonemes.length} phonemes = -${phonemePenalty} points`);
-    }
-    
-    // Penalidade por gibberish moderado
-    if (gibberishLevel > 0 && gibberishLevel < 3) {
-      const gibberishPenalty = gibberishLevel * 10;
-      adjustedPronunciation = Math.max(0, adjustedPronunciation - gibberishPenalty);
-      adjustedAccuracy = Math.max(0, adjustedAccuracy - gibberishPenalty);
-      
-      console.log(`⚠️ Moderate Gibberish Penalty: Level ${gibberishLevel} = -${gibberishPenalty} points`);
-    }
-    
-    console.log('📊 Adjusted Scores:', { 
-      pronunciation: `${pronunciationScore} → ${adjustedPronunciation}`,
-      accuracy: `${accuracyScore} → ${adjustedAccuracy}`
-    });
-    
-    return { 
-      pronunciationScore: adjustedPronunciation, 
-      accuracyScore: adjustedAccuracy 
-    };
-  }
-  
-  // 🔍 DETECTAR NÍVEL DE GIBBERISH (0-5)
-  private detectGibberishLevel(recognizedText: string, words: WordResult[]): number {
-    let gibberishLevel = 0;
-    
-    // Nível 1: Repetição excessiva
-    const wordCounts = new Map<string, number>();
-    words.forEach(w => {
-      const count = wordCounts.get(w.word.toLowerCase()) || 0;
-      wordCounts.set(w.word.toLowerCase(), count + 1);
-    });
-    
-    for (const [word, count] of wordCounts) {
-      if (count > 8) {
-        gibberishLevel += 2;
-        console.log(`🔄 Excessive repetition: "${word}" repeated ${count} times`);
-      } else if (count > 5) {
-        gibberishLevel += 1;
-        console.log(`🔄 High repetition: "${word}" repeated ${count} times`);
-      }
-    }
-    
-    // Nível 2: Palavras muito estranhas
-    const strangeWords = words.filter(w => 
-      w.word.length <= 2 || 
-      w.word.includes('lush') || 
-      w.word.includes('glish') ||
-      w.word.includes('ish') ||
-      /^[a-z]{1,3}$/.test(w.word.toLowerCase())
-    );
-    
-    const strangeRatio = words.length > 0 ? strangeWords.length / words.length : 0;
-    if (strangeRatio > 0.7) {
-      gibberishLevel += 2;
-      console.log(`🤔 Very strange words: ${strangeWords.length}/${words.length} (${Math.round(strangeRatio * 100)}%)`);
-    } else if (strangeRatio > 0.4) {
-      gibberishLevel += 1;
-      console.log(`🤔 Some strange words: ${strangeWords.length}/${words.length} (${Math.round(strangeRatio * 100)}%)`);
-    }
-    
-    // Nível 3: Texto muito curto com problemas
-    if (words.length < 5 && strangeRatio > 0.5) {
-      gibberishLevel += 1;
-      console.log(`📏 Short text with issues: ${words.length} words, ${Math.round(strangeRatio * 100)}% strange`);
-    }
-    
-    console.log(`🎯 Gibberish Level: ${gibberishLevel}/5`);
-    return Math.min(5, gibberishLevel);
-  }
-  
-  // 🔄 GERAR FEEDBACK PARA RETRY
-  private generateRetryFeedback(retryReason: string): string[] {
-    const feedback: string[] = [];
-    
-    switch (retryReason) {
-      case 'gibberish_detected':
-        feedback.push('🎤 I couldn\'t understand what you said clearly.');
-        feedback.push('💡 Try speaking more slowly and clearly.');
-        feedback.push('🔄 Please try again with real words!');
-        break;
-        
-      case 'excessive_mispronunciation':
-        feedback.push('🗣️ I had trouble understanding most of what you said.');
-        feedback.push('💡 Try speaking more slowly and focus on clear pronunciation.');
-        feedback.push('🔄 Let\'s try that again!');
-        break;
-        
-      case 'severe_phoneme_issues':
-        feedback.push('🔤 The audio quality seems to have issues.');
-        feedback.push('💡 Make sure you\'re speaking clearly into the microphone.');
-        feedback.push('🔄 Please try recording again!');
-        break;
-        
-      default:
-        feedback.push('🎤 Let\'s try that again!');
-        feedback.push('💡 Speak clearly and at a normal pace.');
-        break;
-    }
-    
-    return feedback;
   }
 }
 
-// 🎯 FUNÇÃO PRINCIPAL PARA USO EXTERNO
-export async function assessPronunciationWithSDK(
+// 🎯 FUNÇÃO PRINCIPAL PARA EXPORTAÇÃO
+export async function assessPronunciationDefinitive(
   audioBlob: Blob,
   referenceText?: string,
   userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate'
 ): Promise<AudioProcessingResult> {
   
   try {
-    const service = new AzureSpeechSDKService();
+    const service = new AzureSpeechDefinitiveService();
     return await service.assessPronunciation(audioBlob, referenceText, userLevel);
   } catch (error: any) {
-    console.error('❌ Speech SDK Service initialization failed:', error);
+    console.error('❌ Service initialization failed:', error);
     return {
       success: false,
-      error: `Service initialization failed: ${error.message}`
+      error: `Service initialization failed: ${error.message}`,
+      shouldRetry: false
     };
   }
 }

@@ -780,16 +780,16 @@ export default function ChatPage() {
         // Add question message (separate balloon)
         const questionMessage: Message = {
           id: generateMessageId('user-question'),
-          role: 'user',
+      role: 'user',
           content: user.user_level === 'Novice' 
             ? 'O que você vê nesta foto?' 
             : 'What do you see in this photo?',
           messageType: 'text',
           timestamp: new Date()
-        };
+    };
 
         setMessages(prev => [...prev, imageMessage, questionMessage]);
-        setIsProcessingMessage(true);
+    setIsProcessingMessage(true);
 
         try {
           // Create optimized prompt for vocabulary learning with XP system
@@ -827,25 +827,25 @@ Be natural and conversational. Then challenge me to use this word in a creative 
 IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
           // Call assistant API for vocabulary analysis
-          const response = await fetch('/api/assistant', {
-            method: 'POST',
+      const response = await fetch('/api/assistant', {
+        method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        body: JSON.stringify({
               transcription: vocabularyPrompt,
-              pronunciationData: null,
-              userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
-              userName: user?.name?.split(' ')[0] || 'Student',
+          pronunciationData: null,
+          userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+          userName: user?.name?.split(' ')[0] || 'Student',
               messageType: 'image',
               imageData: imageData, // Send full image data to assistant
               conversationContext: conversationContext.generateContextForAssistant()
-            })
-          });
+        })
+      });
 
           if (!response.ok) throw new Error(`Assistant API error: ${response.status}`);
-          const data = await response.json();
+      const data = await response.json();
           if (!data.success) throw new Error(data.error || 'Assistant API failed');
 
-          const assistantResult = data.result;
+      const assistantResult = data.result;
           let assistantFeedback = assistantResult.feedback;
           
           // Extract vocabulary word from response - improved regex
@@ -924,63 +924,63 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           // Don't add vocabulary XP notification - keep conversation natural
           // The XP is already awarded silently in the background
 
-          await sendSequentialMessages(
-            aiMessages,
-            (msg) => setMessages(prev => [...prev, msg]),
-            generateMessageId,
-            1200,
+      await sendSequentialMessages(
+        aiMessages,
+        (msg) => setMessages(prev => [...prev, msg]),
+        generateMessageId,
+        1200,
             undefined // No technical feedback for image messages
-          );
+      );
 
           // Add to conversation context
-          aiMessages.forEach(msg => 
-            conversationContext.addMessage('assistant', msg, 'text')
-          );
+      aiMessages.forEach(msg => 
+        conversationContext.addMessage('assistant', msg, 'text')
+      );
 
           // Save practice with vocabulary XP
-          if (supabaseService.isAvailable() && user?.entra_id) {
+      if (supabaseService.isAvailable() && user?.entra_id) {
             const totalXPAwarded = (assistantResult.xpAwarded || 3) + vocabularyXP; // Base XP + vocabulary XP
-            
-            await supabaseService.saveAudioPractice({
-              user_id: user.entra_id,
+        
+        await supabaseService.saveAudioPractice({
+          user_id: user.entra_id,
               transcription: `Image analysis: ${discoveredWord || 'object identification'}`,
-              accuracy_score: null,
-              fluency_score: null,
-              completeness_score: null,
-              pronunciation_score: null,
+          accuracy_score: null,
+          fluency_score: null,
+          completeness_score: null,
+          pronunciation_score: null,
               xp_awarded: totalXPAwarded,
               practice_type: 'camera_object',
-              audio_duration: 0,
+          audio_duration: 0,
               feedback: assistantFeedback,
               technicalFeedback: assistantResult.technicalFeedback
-            });
-            
+        });
+        
             setSessionXP(prev => prev + totalXPAwarded);
             setTotalXP(prev => prev + totalXPAwarded);
-            
-            setTimeout(() => loadUserStats(), 1000);
-          }
+        
+        setTimeout(() => loadUserStats(), 1000);
+      }
 
-        } catch (error) {
+    } catch (error) {
           console.error('Error processing image with assistant:', error);
           
           // Fallback response
           const fallbackResponse: Message = {
             id: generateMessageId('assistant-image-error'),
-            role: 'assistant',
+        role: 'assistant',
             content: user.user_level === 'Novice'
               ? "Desculpe, tive problemas para analisar sua foto. Sorry, I had trouble analyzing your photo. Please try again!"
               : "I'm sorry, I had trouble analyzing your photo. Please try taking another picture with better lighting.",
-            timestamp: new Date(),
-            messageType: 'text'
-          };
-          
-          setMessages(prev => [...prev, fallbackResponse]);
-        } finally {
-          setIsProcessingMessage(false);
-        }
+        timestamp: new Date(),
+        messageType: 'text'
       };
       
+          setMessages(prev => [...prev, fallbackResponse]);
+    } finally {
+      setIsProcessingMessage(false);
+    }
+  };
+
       img.src = imageData;
     } catch (error) {
       console.error('Error processing image:', error);
@@ -1053,7 +1053,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       // ✅ CONVERTER PARA WAV PCM
       const wavBuffer = audioBufferToWav(processedBuffer);
       const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
-      
+        
       console.log('✅ REAL conversion completed:', {
         originalSize: audioBlob.size,
         convertedSize: wavBlob.size,
@@ -1188,20 +1188,20 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       id: generateMessageId('user'),
       role: 'user',
       content: message.trim(),
-      timestamp: new Date(),
-      messageType: 'text'
-    };
+              timestamp: new Date(),
+              messageType: 'text'
+            };
 
     setMessages(prev => [...prev, userMessage]);
     const userText = message.trim();
     setMessage('');
     setIsProcessingMessage(true);
-
+        
     conversationContext.addMessage('user', userText, 'text');
-
+        
     try {
-      const contextPrompt = conversationContext.generateContextForAssistant();
-      
+        const contextPrompt = conversationContext.generateContextForAssistant();
+        
       const response = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1222,23 +1222,23 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       const assistantResult = data.result;
       const aiMessages = splitIntoMultipleMessages(assistantResult.feedback);
 
-      await sendSequentialMessages(
-        aiMessages,
-        (msg) => setMessages(prev => [...prev, msg]),
-        generateMessageId,
+        await sendSequentialMessages(
+          aiMessages,
+          (msg) => setMessages(prev => [...prev, msg]),
+          generateMessageId,
         1200,
         assistantResult.technicalFeedback
-      );
+        );
 
-      aiMessages.forEach(msg => 
-        conversationContext.addMessage('assistant', msg, 'text')
-      );
+        aiMessages.forEach(msg => 
+          conversationContext.addMessage('assistant', msg, 'text')
+        );
 
-      if (supabaseService.isAvailable() && user?.entra_id) {
+        if (supabaseService.isAvailable() && user?.entra_id) {
         const wordCount = userText.split(' ').filter(word => word.trim()).length;
-        
-        await supabaseService.saveAudioPractice({
-          user_id: user.entra_id,
+          
+          await supabaseService.saveAudioPractice({
+            user_id: user.entra_id,
           transcription: userText,
           accuracy_score: null,
           fluency_score: null,
@@ -1252,12 +1252,12 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           grammar_errors: assistantResult.grammarErrors || null,
           text_complexity: assistantResult.textComplexity || null,
           word_count: wordCount
-        });
-        
+          });
+          
         setSessionXP(prev => prev + assistantResult.xpAwarded);
         setTotalXP(prev => prev + assistantResult.xpAwarded);
-        
-        setTimeout(() => loadUserStats(), 1000);
+          
+          setTimeout(() => loadUserStats(), 1000);
       }
     } catch (error) {
       console.error('❌ Error processing text message:', error);
@@ -1265,15 +1265,15 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       const fallbackResponse = user?.user_level === 'Novice' 
         ? `Desculpe, ${user?.name?.split(' ')[0] || 'there'}! I had a small technical issue, but I can see you're practicing English! Keep writing - it really helps improve your skills! 😊`
         : `I apologize for the technical hiccup, ${user?.name?.split(' ')[0] || 'there'}! Your English practice is valuable regardless. What would you like to talk about next?`;
-      
+        
       const aiResponse: Message = {
         id: generateMessageId('assistant-fallback'),
-        role: 'assistant',
+          role: 'assistant',
         content: fallbackResponse,
-        timestamp: new Date(),
-        messageType: 'text'
-      };
-      
+          timestamp: new Date(),
+          messageType: 'text'
+        };
+        
       setMessages(prev => [...prev, aiResponse]);
     } finally {
       setIsProcessingMessage(false);
@@ -1392,7 +1392,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                               <span className="absolute right-[44px] bottom-1/2 transform translate-y-1/2 text-red-500 font-mono text-sm font-semibold px-2">
                                 {formatTime(recordingTime)}
                               </span>
-                              <button
+                        <button 
                                 onClick={stopRecording}
                                 className="absolute right-2 bottom-2 p-2 text-red-500 bg-red-500/20 rounded-full animate-pulse transition-colors select-none"
                                 title="Click to stop recording"
@@ -1456,8 +1456,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                             <button 
                               onClick={handleCameraClick}
                               className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none mb-1.5"
-                              title="Take photo"
-                            >
+                          title="Take photo"
+                        >
                               <Camera size={16} />
                             </button>
                           )}
@@ -1470,7 +1470,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                               title={user?.user_level === 'Novice' ? 'Toque para gravar' : 'Tap to record'}
                             >
                               <Mic size={16} />
-                            </button>
+                        </button>
                           )}
                         </>
                       )}
