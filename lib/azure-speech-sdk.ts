@@ -74,16 +74,51 @@ export class AzureSpeechSDKService {
     this.sdkCapabilities = this.detectSDKCapabilities();
 
     // ✅ CONFIGURAÇÃO CORRETA DO SPEECH SDK
-    this.speechConfig = speechsdk.SpeechConfig.fromSubscription(
-      this.subscriptionKey, 
-      this.region
-    );
+    this.speechConfig = this.createSpeechConfig();
     
-    // Configurações obrigatórias
-    this.speechConfig.speechRecognitionLanguage = "en-US";
-    this.speechConfig.outputFormat = speechsdk.OutputFormat.Detailed;
-
     console.log('✅ AzureSpeechSDKService initialized with capabilities:', this.sdkCapabilities);
+  }
+
+  // 🔧 CRIAR CONFIGURAÇÃO DE SPEECH
+  private createSpeechConfig(): speechsdk.SpeechConfig {
+    console.log('🔧 Creating SpeechConfig following Microsoft docs...');
+    
+    const subscriptionKey = process.env.AZURE_SPEECH_KEY;
+    const region = process.env.AZURE_SPEECH_REGION;
+
+    if (!subscriptionKey || !region) {
+      throw new Error('Azure Speech credentials not configured');
+    }
+
+    try {
+      const speechConfig = speechsdk.SpeechConfig.fromSubscription(subscriptionKey, region);
+      
+      // ✅ CONFIGURAÇÕES RECOMENDADAS PELA MICROSOFT
+      speechConfig.speechRecognitionLanguage = "en-US"; // Conforme docs
+      speechConfig.outputFormat = speechsdk.OutputFormat.Detailed;
+      
+      // Configurações de qualidade conforme documentação
+      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "5000");
+      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "2000");
+      speechConfig.setProperty(speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "500");
+      
+      // Configurações específicas para Pronunciation Assessment
+      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceResponse_RequestDetailedResultTrueFalse, "true");
+      speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceResponse_RequestWordLevelTimestamps, "true");
+      
+      console.log('✅ SpeechConfig created with Microsoft recommended settings:', {
+        language: speechConfig.speechRecognitionLanguage,
+        region: region,
+        detailedResults: true,
+        wordTimestamps: true
+      });
+
+      return speechConfig;
+      
+    } catch (error) {
+      console.error('❌ SpeechConfig creation failed:', error);
+      throw new Error(`Failed to create SpeechConfig: ${(error as Error).message}`);
+    }
   }
 
   // 🎯 MÉTODO PRINCIPAL: Pronunciation Assessment com Speech SDK
@@ -128,7 +163,7 @@ export class AzureSpeechSDKService {
       console.log('⚙️ Step 2: Creating pronunciation and audio configurations...');
       
       const pronunciationConfig = this.createPronunciationConfig(referenceText, userLevel);
-      const audioConfig = this.createAudioConfig(processedAudioBuffer);
+      const audioConfig = this.createAudioConfig(audioBlob);
 
       // ✅ ETAPA 3: EXECUTAR ASSESSMENT
       console.log('🎯 Step 3: Performing pronunciation assessment...');
@@ -322,50 +357,54 @@ export class AzureSpeechSDKService {
     userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate'
   ): speechsdk.PronunciationAssessmentConfig {
     
-    console.log('⚙️ Creating Pronunciation Assessment Config...');
-    console.log('📋 Using SDK capabilities:', this.sdkCapabilities);
+    console.log('⚙️ Creating Pronunciation Assessment Config following Microsoft docs...');
+    console.log('📋 Reference text:', referenceText || 'none (unscripted assessment)');
 
-    // ✅ MÉTODO 1: Tentar configuração JSON se suportada
-    if (this.sdkCapabilities.hasJSONConfig) {
-      try {
-        // ✅ USAR FORMATO EXATO DA DOCUMENTAÇÃO MICROSOFT
-        const configJson = {
-          referenceText: referenceText || "",
-          gradingSystem: "HundredMark",
-          granularity: "Phoneme",
-          enableMiscue: true,
-          phonemeAlphabet: "IPA",        // ✅ CONFORME DOCS MICROSOFT
-          nBestPhonemeCount: 5           // ✅ CONFORME DOCS MICROSOFT
-        };
+    // ✅ MÉTODO RECOMENDADO PELA MICROSOFT: Usar JSON config
+    try {
+      // Configuração JSON conforme documentação oficial
+      const configJson = {
+        referenceText: referenceText || "",
+        gradingSystem: "HundredMark",
+        granularity: "Phoneme",
+        phonemeAlphabet: "IPA",
+        nBestPhonemeCount: 5,
+        enableMiscue: false
+      };
 
-        // Adicionar prosody apenas se suportado
-        if (this.sdkCapabilities.hasProsodyAssessment) {
-          (configJson as any).enableProsodyAssessment = true;
-        }
-
-        console.log('📋 Config JSON (Microsoft docs format):', configJson);
-        const config = speechsdk.PronunciationAssessmentConfig.fromJSON(JSON.stringify(configJson));
-        console.log('✅ JSON config created successfully using Microsoft documentation format');
-        return config;
-        
-      } catch (jsonError) {
-        console.log('⚠️ Microsoft docs JSON config failed, trying basic:', jsonError);
+      console.log('📋 Using Microsoft recommended JSON config:', configJson);
+      
+      const config = speechsdk.PronunciationAssessmentConfig.fromJSON(JSON.stringify(configJson));
+      
+      // ✅ HABILITAR PROSODY ASSESSMENT conforme docs
+      if (typeof (config as any).enableProsodyAssessment === 'function') {
+        (config as any).enableProsodyAssessment();
+        console.log('✅ Prosody assessment enabled via method');
+      } else if ('enableProsodyAssessment' in config) {
+        (config as any).enableProsodyAssessment = true;
+        console.log('✅ Prosody assessment enabled via property');
       }
+      
+      console.log('✅ Microsoft docs JSON config created successfully');
+      return config;
+      
+    } catch (jsonError) {
+      console.log('⚠️ Microsoft docs JSON config failed, trying basic:', jsonError);
     }
 
-    // ✅ MÉTODO 2: Configuração básica garantida
+    // ✅ FALLBACK: Configuração básica conforme docs
     try {
       const basicConfig = new speechsdk.PronunciationAssessmentConfig(
         referenceText || "",
         speechsdk.PronunciationAssessmentGradingSystem.HundredMark,
         speechsdk.PronunciationAssessmentGranularity.Phoneme,
-        true
+        false // enableMiscue
       );
       
-      console.log('✅ Basic config created successfully');
+      console.log('✅ Basic config created following Microsoft docs');
       
-      // Aplicar melhorias baseadas nas capacidades detectadas
-      this.applyCapabilityBasedEnhancements(basicConfig);
+      // Aplicar melhorias baseadas na documentação
+      this.applyMicrosoftDocsEnhancements(basicConfig);
       
       return basicConfig;
       
@@ -375,91 +414,87 @@ export class AzureSpeechSDKService {
     }
   }
 
-  // 🔧 APLICAR MELHORIAS BASEADAS NAS CAPACIDADES
-  private applyCapabilityBasedEnhancements(config: speechsdk.PronunciationAssessmentConfig): void {
-    console.log('🔧 Applying capability-based enhancements...');
+  // 🔧 APLICAR MELHORIAS BASEADAS NA DOCUMENTAÇÃO MICROSOFT
+  private applyMicrosoftDocsEnhancements(config: speechsdk.PronunciationAssessmentConfig): void {
+    console.log('🔧 Applying Microsoft docs enhancements...');
     
-    // Aplicar prosódia apenas se suportada
-    if (this.sdkCapabilities.hasProsodyAssessment) {
-      try {
-        if (typeof (config as any).enableProsodyAssessment === 'function') {
-          (config as any).enableProsodyAssessment();
-          console.log('✅ Prosody assessment enabled via method');
-        } else if ('enableProsodyAssessment' in config) {
-          (config as any).enableProsodyAssessment = true;
-          console.log('✅ Prosody assessment enabled via property');
-        }
-      } catch (error) {
-        console.log('⚠️ Could not enable prosody assessment:', error);
+    // 1. Prosody Assessment (conforme docs)
+    try {
+      if (typeof (config as any).enableProsodyAssessment === 'function') {
+        (config as any).enableProsodyAssessment();
+        console.log('✅ Prosody assessment enabled via method (Microsoft docs)');
+      } else if ('enableProsodyAssessment' in config) {
+        (config as any).enableProsodyAssessment = true;
+        console.log('✅ Prosody assessment enabled via property (Microsoft docs)');
       }
-    } else {
-      console.log('⚠️ Prosody assessment not available in SDK v' + this.sdkCapabilities.sdkVersion);
+    } catch (error) {
+      console.log('⚠️ Could not enable prosody assessment:', error);
     }
 
-    // Aplicar alfabeto fonético apenas se suportado
-    if (this.sdkCapabilities.hasPhonemeAlphabet) {
-      try {
-        (config as any).phonemeAlphabet = "IPA";
-        console.log('✅ Phoneme alphabet set to IPA');
-      } catch (error) {
-        console.log('⚠️ Could not set phoneme alphabet:', error);
-      }
-    } else {
-      console.log('⚠️ Phoneme alphabet not available in SDK v' + this.sdkCapabilities.sdkVersion);
-    }
-
-    // Aplicar NBest phonemes apenas se suportado
-    if (this.sdkCapabilities.hasNBestPhonemes) {
-      try {
+    // 2. NBest Phoneme Count (conforme docs)
+    try {
+      if ('nbestPhonemeCount' in config) {
         (config as any).nbestPhonemeCount = 5;
-        console.log('✅ NBest phoneme count set to 5');
-      } catch (error) {
-        console.log('⚠️ Could not set NBest phoneme count:', error);
+        console.log('✅ NBest phoneme count set to 5 (Microsoft docs)');
+      } else if ('NBestPhonemeCount' in config) {
+        (config as any).NBestPhonemeCount = 5;
+        console.log('✅ NBest phoneme count set to 5 via NBestPhonemeCount (Microsoft docs)');
       }
-    } else {
-      console.log('⚠️ NBest phonemes not available in SDK v' + this.sdkCapabilities.sdkVersion);
+    } catch (error) {
+      console.log('⚠️ Could not set NBest phoneme count:', error);
     }
 
-    console.log('🎯 Configuration enhanced based on available SDK capabilities');
+    // 3. Phoneme Alphabet IPA (conforme docs)
+    try {
+      if ('phonemeAlphabet' in config) {
+        (config as any).phonemeAlphabet = "IPA";
+        console.log('✅ Phoneme alphabet set to IPA (Microsoft docs)');
+      }
+    } catch (error) {
+      console.log('⚠️ Could not set phoneme alphabet:', error);
+    }
+
+    console.log('🎯 Microsoft docs configuration enhancements applied');
   }
 
-  // 🎤 CRIAR CONFIGURAÇÃO DE ÁUDIO
-  private createAudioConfig(audioBuffer: ArrayBuffer): speechsdk.AudioConfig {
+  // 🎵 CRIAR CONFIGURAÇÃO DE ÁUDIO OTIMIZADA
+  private createAudioConfig(audioBlob: Blob): speechsdk.AudioConfig {
+    console.log('🎵 Creating optimized AudioConfig following Microsoft docs...');
+    console.log('📁 Audio blob:', { type: audioBlob.type, size: audioBlob.size });
+
     try {
-      console.log('🎤 Creating Audio Config from buffer...');
-      console.log('📊 Audio buffer size:', audioBuffer.byteLength);
-
-      // ✅ MÉTODO CORRETO: Usar PushAudioInputStream com formato específico
+      // ✅ MÉTODO RECOMENDADO: AudioInputStream para melhor controle
       const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-      const pushStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
+      const audioStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
       
-      // Escrever dados de áudio
-      const uint8Array = new Uint8Array(audioBuffer);
-      pushStream.write(uint8Array.buffer);
-      pushStream.close();
+      // Converter blob para ArrayBuffer e enviar para stream
+      audioBlob.arrayBuffer().then(arrayBuffer => {
+        const audioData = new Uint8Array(arrayBuffer);
+        audioStream.write(audioData.buffer); // ✅ Usar .buffer para obter ArrayBuffer
+        audioStream.close();
+        console.log('✅ Audio data written to stream (Microsoft docs method)');
+      }).catch(error => {
+        console.error('❌ Failed to write audio to stream:', error);
+        audioStream.close();
+      });
 
-      // Criar AudioConfig a partir do stream
-      const audioConfig = speechsdk.AudioConfig.fromStreamInput(pushStream);
-
-      console.log('✅ Audio config created successfully with PCM format specification');
+      const audioConfig = speechsdk.AudioConfig.fromStreamInput(audioStream);
+      console.log('✅ AudioConfig created from stream (Microsoft recommended)');
+      
       return audioConfig;
-
-    } catch (error) {
-      console.error('❌ Audio config creation failed:', error);
       
-      // ✅ FALLBACK: Tentar sem especificação de formato
+    } catch (streamError) {
+      console.log('⚠️ Stream method failed, using default:', streamError);
+      
+      // ✅ FALLBACK: Método padrão
       try {
-        console.log('🔄 Trying fallback audio config...');
-        const pushStream = speechsdk.AudioInputStream.createPushStream();
-        const uint8Array = new Uint8Array(audioBuffer);
-        pushStream.write(uint8Array.buffer);
-        pushStream.close();
-        const audioConfig = speechsdk.AudioConfig.fromStreamInput(pushStream);
-        console.log('✅ Fallback audio config created successfully');
+        const audioConfig = speechsdk.AudioConfig.fromDefaultMicrophoneInput();
+        console.log('✅ AudioConfig created from default microphone (fallback)');
         return audioConfig;
-      } catch (fallbackError) {
-        console.error('❌ Fallback audio config also failed:', fallbackError);
-        throw fallbackError;
+        
+      } catch (defaultError) {
+        console.error('❌ All AudioConfig methods failed:', defaultError);
+        throw new Error(`Failed to create AudioConfig: ${(defaultError as Error).message}`);
       }
     }
   }
