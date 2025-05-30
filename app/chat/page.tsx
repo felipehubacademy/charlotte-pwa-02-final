@@ -808,6 +808,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               .replace(/\s*VOCABULARY_WORD:\s*\[?\w+\]?\s*/gi, '')
               .replace(/VOCABULARY_WORD:\s*\[?\w+\]?/gi, '')
               .replace(/\n\s*VOCABULARY_WORD.*$/gim, '')
+              // Remove markdown formatting for natural conversation
+              .replace(/\*\*(.*?)\*\*/g, '$1')
+              .replace(/\*(.*?)\*/g, '$1')
               .trim();
             
             // Check if word already exists for this user
@@ -866,17 +869,15 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           // Split response into multiple messages
           const aiMessages = splitIntoMultipleMessages(assistantFeedback);
 
-          // Add vocabulary XP notification if new word was discovered
-          if (vocabularyXP > 0) {
-            aiMessages.push(`🎉 New vocabulary discovered! +${vocabularyXP} XP`);
-          }
+          // Don't add vocabulary XP notification - keep conversation natural
+          // The XP is already awarded silently in the background
 
           await sendSequentialMessages(
             aiMessages,
             (msg) => setMessages(prev => [...prev, msg]),
             generateMessageId,
             1200,
-            assistantResult.technicalFeedback
+            undefined // No technical feedback for image messages
           );
 
           // Add to conversation context

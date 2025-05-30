@@ -677,8 +677,14 @@ Your response should help the student learn new vocabulary through visual associ
 
     const feedback = completion.choices[0]?.message?.content || 'I had trouble analyzing the image. Please try again!';
 
+    // Clean markdown formatting for natural conversation
+    const cleanFeedback = feedback
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .trim();
+
     const response: AssistantResponse = {
-      feedback: feedback,
+      feedback: cleanFeedback,
       xpAwarded: 3, // Base XP for image analysis (vocabulary XP added separately)
       nextChallenge: '',
       tips: [],
