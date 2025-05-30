@@ -1,7 +1,5 @@
 // lib/pronunciation.ts - INTERFACE ATUALIZADA PARA SPEECH SDK
 
-import { ClientAudioConverter } from './audio-converter-client';
-
 export interface PronunciationResult {
   text: string;
   accuracyScore: number;
@@ -62,38 +60,17 @@ export async function assessPronunciation(
 ): Promise<PronunciationResponse> {
   try {
     console.log('🎯 Starting pronunciation assessment process...');
-    console.log('📁 Original audio:', { type: audioBlob.type, size: audioBlob.size });
+    console.log('📁 Audio received:', { type: audioBlob.type, size: audioBlob.size });
 
-    // 🎯 CONVERTER PARA WAV SE NECESSÁRIO
-    let processedAudioBlob = audioBlob;
-    
-    if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
-      console.log('🔄 Converting WebM/Opus to WAV for Azure compatibility...');
-      
-      const conversionResult = await ClientAudioConverter.convertToAzureFormat(audioBlob);
-      
-      if (conversionResult.success && conversionResult.audioBlob) {
-        processedAudioBlob = conversionResult.audioBlob;
-        console.log('✅ Audio converted successfully for Azure:', {
-          originalType: audioBlob.type,
-          newType: processedAudioBlob.type,
-          originalSize: audioBlob.size,
-          newSize: processedAudioBlob.size,
-          sampleRate: conversionResult.sampleRate,
-          channels: conversionResult.channels
-        });
-      } else {
-        console.warn('⚠️ Audio conversion failed, using original:', conversionResult.error);
-        // Continuar com áudio original se conversão falhar
-      }
-    }
+    // ✅ NOTA: A conversão de áudio deve ser feita no CLIENTE antes de enviar para o servidor
+    // O áudio já deve chegar aqui convertido para WAV se necessário
     
     // Criar FormData para enviar arquivo e texto de referência
     const formData = new FormData();
     
     // Converter blob para arquivo
-    const audioFile = new File([processedAudioBlob], 'audio.wav', {
-      type: processedAudioBlob.type || 'audio/wav'
+    const audioFile = new File([audioBlob], 'audio.wav', {
+      type: audioBlob.type || 'audio/wav'
     });
     
     formData.append('audio', audioFile);
