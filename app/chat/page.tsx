@@ -796,17 +796,18 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           const assistantResult = data.result;
           let assistantFeedback = assistantResult.feedback;
           
-          // Extract vocabulary word from response
-          const vocabularyMatch = assistantFeedback.match(/VOCABULARY_WORD:(\w+)/i);
+          // Extract vocabulary word from response - improved regex
+          const vocabularyMatch = assistantFeedback.match(/VOCABULARY_WORD:\s*\[?(\w+)\]?/i);
           let discoveredWord = null;
           let vocabularyXP = 0;
           
           if (vocabularyMatch) {
             discoveredWord = vocabularyMatch[1].toLowerCase();
-            // Remove the VOCABULARY_WORD tag from the response completely
+            // Remove the VOCABULARY_WORD tag from the response completely - improved regex
             assistantFeedback = assistantFeedback
-              .replace(/\s*VOCABULARY_WORD:\w+\s*/gi, '')
-              .replace(/VOCABULARY_WORD:\[\w+\]/gi, '')
+              .replace(/\s*VOCABULARY_WORD:\s*\[?\w+\]?\s*/gi, '')
+              .replace(/VOCABULARY_WORD:\s*\[?\w+\]?/gi, '')
+              .replace(/\n\s*VOCABULARY_WORD.*$/gim, '')
               .trim();
             
             // Check if word already exists for this user

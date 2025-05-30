@@ -648,9 +648,8 @@ IMPORTANT INSTRUCTIONS:
 1. Identify the MAIN object in the image
 2. Follow the EXACT format requested in the user's prompt
 3. Be VERY CONCISE and focused
-4. Include the vocabulary word at the end in the format: VOCABULARY_WORD:[english_word]
-5. Use the conversation context to maintain natural flow
-6. Make it educational but engaging
+4. Use the conversation context to maintain natural flow
+5. Make it educational but engaging
 
 Your response should help the student learn new vocabulary through visual association.`;
 
