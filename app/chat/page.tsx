@@ -13,6 +13,7 @@ import XPCounter from '@/components/ui/XPCounter';
 import { ConversationContextManager } from '@/lib/conversation-context';
 import { calculateAudioXP, AudioAssessmentResult } from '@/lib/audio-xp-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
+import { ClientAudioConverter } from '@/lib/audio-converter-client';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -248,11 +249,40 @@ export default function ChatPage() {
       blobType: audioBlob.type 
     });
 
+    // ✅ CONVERTER ÁUDIO PARA WAV SE NECESSÁRIO (CLIENT-SIDE)
+    let processedAudioBlob = audioBlob;
+    
+    if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
+      console.log('🔄 Converting WebM/Opus to WAV for Azure compatibility...');
+      
+      try {
+        const conversionResult = await ClientAudioConverter.convertToAzureFormat(audioBlob);
+        
+        if (conversionResult.success && conversionResult.audioBlob) {
+          processedAudioBlob = conversionResult.audioBlob;
+          console.log('✅ Audio converted successfully:', {
+            originalType: audioBlob.type,
+            newType: processedAudioBlob.type,
+            originalSize: audioBlob.size,
+            newSize: processedAudioBlob.size,
+            sampleRate: conversionResult.sampleRate,
+            channels: conversionResult.channels
+          });
+        } else {
+          console.warn('⚠️ Audio conversion failed, using original:', conversionResult.error);
+          // Continuar com áudio original se conversão falhar
+        }
+      } catch (error) {
+        console.error('❌ Audio conversion error:', error);
+        // Continuar com áudio original se conversão falhar
+      }
+    }
+
     const audioMessage: Message = {
       id: generateMessageId('user-audio'),
       role: 'user',
       content: '',
-      audioBlob: audioBlob,
+      audioBlob: processedAudioBlob, // ✅ Usar áudio convertido
       audioDuration: duration,
       timestamp: new Date(),
       messageType: 'audio'
@@ -263,10 +293,14 @@ export default function ChatPage() {
 
     try {
       console.log('🔄 Starting transcription and pronunciation assessment...');
+      console.log('📁 Using processed audio:', { 
+        type: processedAudioBlob.type, 
+        size: processedAudioBlob.size 
+      });
       
       const [transcriptionResult, pronunciationResult] = await Promise.allSettled([
-        transcribeAudio(audioBlob),
-        assessPronunciation(audioBlob)
+        transcribeAudio(processedAudioBlob), // ✅ Usar áudio convertido
+        assessPronunciation(processedAudioBlob) // ✅ Usar áudio convertido
       ]);
       
       console.log('📝 Transcription result:', transcriptionResult);
