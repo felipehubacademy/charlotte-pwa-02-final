@@ -23,8 +23,19 @@ export interface TranscriptionResult {
         size: audioFile.size
       });
   
+      // Determinar URL base
+      const baseUrl = typeof window !== 'undefined' 
+        ? '' // Cliente: URL relativa
+        : process.env.VERCEL_URL 
+          ? `https://${process.env.VERCEL_URL}` 
+          : 'http://localhost:3000'; // Servidor: URL absoluta
+  
+      const apiUrl = `${baseUrl}/api/transcribe`;
+      
+      console.log('Transcription API URL:', apiUrl);
+  
       // Fazer a requisição para nossa API
-      const response = await fetch('/api/transcribe', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         body: formData,
       });

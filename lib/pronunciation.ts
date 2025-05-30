@@ -81,8 +81,19 @@ export async function assessPronunciation(
       referenceLength: referenceText?.length || 0
     });
 
+    // Determinar URL base
+    const baseUrl = typeof window !== 'undefined' 
+      ? '' // Cliente: URL relativa
+      : process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}` 
+        : 'http://localhost:3000'; // Servidor: URL absoluta
+
+    const apiUrl = `${baseUrl}/api/pronunciation`;
+    
+    console.log('Pronunciation API URL:', apiUrl);
+
     // ✅ USAR NOVA API COM SPEECH SDK
-    const response = await fetch('/api/pronunciation', {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       body: formData,
     });
