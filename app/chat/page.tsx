@@ -242,6 +242,12 @@ export default function ChatPage() {
 
   // Audio processing
   const handleAudioWithAssistantAPI = useCallback(async (audioBlob: Blob, duration: number) => {
+    console.log('🎤 Starting audio processing:', { 
+      blobSize: audioBlob.size, 
+      duration, 
+      blobType: audioBlob.type 
+    });
+
     const audioMessage: Message = {
       id: generateMessageId('user-audio'),
       role: 'user',
@@ -256,13 +262,20 @@ export default function ChatPage() {
     setIsProcessingMessage(true);
 
     try {
+      console.log('🔄 Starting transcription and pronunciation assessment...');
+      
       const [transcriptionResult, pronunciationResult] = await Promise.allSettled([
         transcribeAudio(audioBlob),
         assessPronunciation(audioBlob)
       ]);
       
+      console.log('📝 Transcription result:', transcriptionResult);
+      console.log('🎯 Pronunciation result:', pronunciationResult);
+      
       const transcriptionSuccess = transcriptionResult.status === 'fulfilled' && transcriptionResult.value.success;
       const pronunciationSuccess = pronunciationResult.status === 'fulfilled' && pronunciationResult.value.success;
+      
+      console.log('✅ Success status:', { transcriptionSuccess, pronunciationSuccess });
       
       if (transcriptionSuccess && pronunciationSuccess) {
         const transcription = transcriptionResult.value.transcription;
