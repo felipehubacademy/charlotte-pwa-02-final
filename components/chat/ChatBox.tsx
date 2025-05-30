@@ -198,7 +198,7 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
               <img
                 src={message.audioUrl}
                 alt="Captured photo"
-                className="w-full max-w-32 rounded-lg object-cover"
+                className="w-full max-w-24 rounded-lg object-cover"
               />
             </div>
           )}
