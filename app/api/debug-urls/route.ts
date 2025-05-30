@@ -3,10 +3,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
+  const originalVercelUrl = process.env.VERCEL_URL;
+  const correctedVercelUrl = originalVercelUrl?.replace(/-[a-z0-9]+\.vercel\.app$/, '.vercel.app');
+  
   const baseUrl = typeof window !== 'undefined' 
     ? '' // Cliente: URL relativa
-    : process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
+    : correctedVercelUrl 
+      ? `https://${correctedVercelUrl}` 
       : 'http://localhost:3000'; // Servidor: URL absoluta
 
   const transcribeUrl = `${baseUrl}/api/transcribe`;
@@ -14,12 +17,13 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     environment: process.env.NODE_ENV,
-    vercelUrl: process.env.VERCEL_URL,
+    originalVercelUrl,
+    correctedVercelUrl,
     baseUrl,
     transcribeUrl,
     pronunciationUrl,
     isServer: typeof window === 'undefined',
     requestUrl: request.url,
-    headers: Object.fromEntries(request.headers.entries())
+    actualHost: request.headers.get('host')
   });
 } 
