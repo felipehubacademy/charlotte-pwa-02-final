@@ -249,33 +249,29 @@ export default function ChatPage() {
       blobType: audioBlob.type 
     });
 
-    // ✅ CONVERTER ÁUDIO PARA WAV SE NECESSÁRIO (CLIENT-SIDE)
+    // ✅ CONVERSÃO REAL DE ÁUDIO NO CLIENTE
     let processedAudioBlob = audioBlob;
     
     if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
-      console.log('🔄 Converting WebM/Opus to WAV for Azure compatibility...');
+      console.log('🔄 Converting WebM/Opus to WAV using REAL conversion...');
       
       try {
-        const conversionResult = await ClientAudioConverter.convertToAzureFormat(audioBlob);
+        processedAudioBlob = await convertAudioToWAV(audioBlob);
         
-        if (conversionResult.success && conversionResult.audioBlob) {
-          processedAudioBlob = conversionResult.audioBlob;
-          console.log('✅ Audio converted successfully:', {
-            originalType: audioBlob.type,
-            newType: processedAudioBlob.type,
-            originalSize: audioBlob.size,
-            newSize: processedAudioBlob.size,
-            sampleRate: conversionResult.sampleRate,
-            channels: conversionResult.channels
-          });
-        } else {
-          console.warn('⚠️ Audio conversion failed, using original:', conversionResult.error);
-          // Continuar com áudio original se conversão falhar
-        }
+        console.log('✅ REAL audio conversion completed:', {
+          originalType: audioBlob.type,
+          newType: processedAudioBlob.type,
+          originalSize: audioBlob.size,
+          newSize: processedAudioBlob.size,
+          format: 'WAV PCM 16kHz mono'
+        });
       } catch (error) {
-        console.error('❌ Audio conversion error:', error);
+        console.error('❌ REAL audio conversion error:', error);
+        console.log('🔄 Using original audio as fallback');
         // Continuar com áudio original se conversão falhar
       }
+    } else {
+      console.log('✅ Audio already in compatible format:', audioBlob.type);
     }
 
     const audioMessage: Message = {
@@ -1016,6 +1012,157 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       cameraInputRef.current.value = '';
     }
   }, [handleImageCapture]);
+
+  // 🎯 CONVERSÃO DE ÁUDIO REAL NO CLIENTE
+  const convertAudioToWAV = async (audioBlob: Blob): Promise<Blob> => {
+    console.log('🎵 Starting REAL audio conversion in browser...');
+    console.log('📋 Input:', { type: audioBlob.type, size: audioBlob.size });
+
+    try {
+      // ✅ USAR WEB AUDIO API PARA CONVERSÃO REAL
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Decodificar áudio WebM/Opus
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      console.log('✅ Audio decoded:', {
+        sampleRate: audioBuffer.sampleRate,
+        channels: audioBuffer.numberOfChannels,
+        duration: audioBuffer.duration
+      });
+
+      // ✅ CONVERTER PARA 16kHz MONO PCM
+      const targetSampleRate = 16000;
+      const targetChannels = 1;
+      
+      let processedBuffer = audioBuffer;
+      
+      // Resample se necessário
+      if (audioBuffer.sampleRate !== targetSampleRate) {
+        processedBuffer = await resampleAudio(audioBuffer, targetSampleRate, audioContext);
+        console.log(`🔄 Resampled from ${audioBuffer.sampleRate}Hz to ${targetSampleRate}Hz`);
+      }
+      
+      // Converter para mono se necessário
+      if (processedBuffer.numberOfChannels > 1) {
+        processedBuffer = convertToMono(processedBuffer, audioContext);
+        console.log('🔄 Converted to mono');
+      }
+
+      // ✅ CONVERTER PARA WAV PCM
+      const wavBuffer = audioBufferToWav(processedBuffer);
+      const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+      
+      console.log('✅ REAL conversion completed:', {
+        originalSize: audioBlob.size,
+        convertedSize: wavBlob.size,
+        format: 'WAV PCM 16kHz mono'
+      });
+
+      // Cleanup
+      audioContext.close();
+      
+      return wavBlob;
+
+    } catch (error) {
+      console.error('❌ REAL audio conversion failed:', error);
+      console.log('🔄 Returning original audio as fallback');
+      return audioBlob;
+    }
+  };
+
+  // 🔄 RESAMPLE ÁUDIO
+  const resampleAudio = async (
+    audioBuffer: AudioBuffer, 
+    targetSampleRate: number, 
+    audioContext: AudioContext
+  ): Promise<AudioBuffer> => {
+    
+    const ratio = targetSampleRate / audioBuffer.sampleRate;
+    const newLength = Math.round(audioBuffer.length * ratio);
+    const newBuffer = audioContext.createBuffer(
+      audioBuffer.numberOfChannels,
+      newLength,
+      targetSampleRate
+    );
+
+    for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+      const inputData = audioBuffer.getChannelData(channel);
+      const outputData = newBuffer.getChannelData(channel);
+
+      for (let i = 0; i < newLength; i++) {
+        const sourceIndex = i / ratio;
+        const index = Math.floor(sourceIndex);
+        const fraction = sourceIndex - index;
+
+        if (index + 1 < inputData.length) {
+          outputData[i] = inputData[index] * (1 - fraction) + inputData[index + 1] * fraction;
+        } else {
+          outputData[i] = inputData[index] || 0;
+        }
+      }
+    }
+
+    return newBuffer;
+  };
+
+  // 🎵 CONVERTER PARA MONO
+  const convertToMono = (audioBuffer: AudioBuffer, audioContext: AudioContext): AudioBuffer => {
+    const monoBuffer = audioContext.createBuffer(1, audioBuffer.length, audioBuffer.sampleRate);
+    const monoData = monoBuffer.getChannelData(0);
+
+    // Misturar todos os canais
+    for (let i = 0; i < audioBuffer.length; i++) {
+      let sum = 0;
+      for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+        sum += audioBuffer.getChannelData(channel)[i];
+      }
+      monoData[i] = sum / audioBuffer.numberOfChannels;
+    }
+
+    return monoBuffer;
+  };
+
+  // 📦 CONVERTER AudioBuffer para WAV
+  const audioBufferToWav = (audioBuffer: AudioBuffer): ArrayBuffer => {
+    const length = audioBuffer.length;
+    const sampleRate = audioBuffer.sampleRate;
+    const buffer = new ArrayBuffer(44 + length * 2);
+    const view = new DataView(buffer);
+    const channelData = audioBuffer.getChannelData(0);
+
+    // WAV header
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, length * 2, true);
+
+    // Convert float samples to 16-bit PCM
+    let offset = 44;
+    for (let i = 0; i < length; i++) {
+      const sample = Math.max(-1, Math.min(1, channelData[i]));
+      view.setInt16(offset, sample * 0x7FFF, true);
+      offset += 2;
+    }
+
+    return buffer;
+  };
 
   // Loading
   if (!isMounted || isLoading) {
