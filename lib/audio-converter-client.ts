@@ -14,9 +14,6 @@ export class ClientAudioConverter {
   // 🎵 CONVERTER WEBM PARA WAV PCM 16kHz MONO
   static async convertWebMToWAV(webmBlob: Blob): Promise<ClientAudioConversionResult> {
     try {
-      console.log('🎵 Converting WebM to WAV using Web Audio API...');
-      console.log('📁 Input WebM blob:', { size: webmBlob.size, type: webmBlob.type });
-      
       // Verificar se Web Audio API está disponível
       if (typeof AudioContext === 'undefined' && typeof (window as any).webkitAudioContext === 'undefined') {
         throw new Error('Web Audio API not available in this browser');
@@ -27,18 +24,9 @@ export class ClientAudioConverter {
       
       // Converter blob para ArrayBuffer
       const arrayBuffer = await webmBlob.arrayBuffer();
-      console.log('📊 ArrayBuffer size:', arrayBuffer.byteLength);
       
       // Decodificar áudio
-      console.log('🔄 Decoding audio data...');
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      
-      console.log('📊 Original audio properties:', {
-        sampleRate: audioBuffer.sampleRate,
-        channels: audioBuffer.numberOfChannels,
-        duration: audioBuffer.duration,
-        length: audioBuffer.length
-      });
       
       // Converter para 16kHz mono
       const targetSampleRate = 16000;
@@ -47,13 +35,6 @@ export class ClientAudioConverter {
       // Converter para WAV
       const wavArrayBuffer = this.audioBufferToWav(processedBuffer);
       const wavBlob = new Blob([wavArrayBuffer], { type: 'audio/wav' });
-      
-      console.log('✅ WAV conversion completed:', {
-        originalSize: webmBlob.size,
-        wavSize: wavBlob.size,
-        sampleRate: targetSampleRate,
-        channels: 1
-      });
       
       // Cleanup
       audioContext.close();
@@ -86,13 +67,11 @@ export class ClientAudioConverter {
     
     // Resample se necessário
     if (audioBuffer.sampleRate !== targetSampleRate) {
-      console.log(`🔄 Resampling from ${audioBuffer.sampleRate}Hz to ${targetSampleRate}Hz...`);
       processedBuffer = await this.resampleAudio(audioBuffer, targetSampleRate, audioContext);
     }
     
     // Converter para mono se necessário
     if (processedBuffer.numberOfChannels > 1) {
-      console.log('🔄 Converting to mono...');
       processedBuffer = this.convertToMono(processedBuffer, audioContext);
     }
     
@@ -193,12 +172,10 @@ export class ClientAudioConverter {
   
   // 🎯 MÉTODO PRINCIPAL: AUTO-DETECTAR E CONVERTER
   static async convertToAzureFormat(audioBlob: Blob): Promise<ClientAudioConversionResult> {
-    console.log(`🎯 Converting ${audioBlob.type} to Azure-compatible WAV format...`);
-    
     // Verificar se é WebM/Opus
     if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
       return await this.convertWebMToWAV(audioBlob);
-    } 
+    }
     
     // Se já é WAV, verificar se precisa de processamento
     if (audioBlob.type.includes('wav')) {

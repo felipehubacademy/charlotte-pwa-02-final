@@ -59,12 +59,6 @@ export async function assessPronunciation(
   referenceText?: string
 ): Promise<PronunciationResponse> {
   try {
-    console.log('🎯 Starting pronunciation assessment process...');
-    console.log('📁 Audio received:', { type: audioBlob.type, size: audioBlob.size });
-
-    // ✅ NOTA: A conversão de áudio deve ser feita no CLIENTE antes de enviar para o servidor
-    // O áudio já deve chegar aqui convertido para WAV se necessário
-    
     // Criar FormData para enviar arquivo e texto de referência
     const formData = new FormData();
     
@@ -80,13 +74,6 @@ export async function assessPronunciation(
       formData.append('referenceText', referenceText.trim());
     }
 
-    console.log('🎯 Sending audio for Speech SDK assessment:', {
-      audioType: audioFile.type,
-      audioSize: audioFile.size,
-      hasReferenceText: !!referenceText,
-      referenceLength: referenceText?.length || 0
-    });
-
     // Determinar URL base
     const baseUrl = typeof window !== 'undefined' 
       ? '' // Cliente: URL relativa
@@ -95,8 +82,6 @@ export async function assessPronunciation(
         : 'http://localhost:3000'; // Servidor: URL absoluta
 
     const apiUrl = `${baseUrl}/api/pronunciation`;
-    
-    console.log('🌐 Pronunciation API URL:', apiUrl);
 
     // ✅ USAR NOVA API COM SPEECH SDK
     const response = await fetch(apiUrl, {
@@ -112,7 +97,6 @@ export async function assessPronunciation(
 
     // ✅ VERIFICAR SE DEVE FAZER RETRY
     if (data.shouldRetry) {
-      console.log('⚠️ API suggests retry:', data.retryReason);
       return {
         success: false,
         error: data.error,
@@ -120,13 +104,6 @@ export async function assessPronunciation(
         retryReason: data.retryReason
       };
     }
-
-    console.log('✅ Speech SDK assessment successful:', {
-      pronunciationScore: data.result?.pronunciationScore,
-      assessmentMethod: data.result?.assessmentMethod,
-      hasPhonemes: !!data.result?.phonemes?.length,
-      hasProsody: data.result?.prosodyScore !== undefined && data.result?.prosodyScore !== null
-    });
 
     return {
       success: true,
