@@ -164,13 +164,78 @@ export class AzureSpeechOfficialService {
                   overall: pronunciationAssessmentResult.pronunciationScore
                 });
 
-                // ✅ GERAR FEEDBACK
-                const feedback = this.generateOfficialFeedback(
+                // ✅ EXTRAIR DADOS DETALHADOS DO JSON
+                let detailedWords: WordResult[] = [];
+                let detailedPhonemes: PhonemeResult[] = [];
+                
+                try {
+                  if (pronunciationAssessmentResultJson) {
+                    const jsonResult = JSON.parse(pronunciationAssessmentResultJson);
+                    console.log('📋 Detailed JSON result available:', {
+                      hasNBest: !!jsonResult.NBest,
+                      nbestLength: jsonResult.NBest?.length || 0
+                    });
+                    
+                    // Extrair dados de palavras
+                    if (jsonResult.NBest && jsonResult.NBest[0] && jsonResult.NBest[0].Words) {
+                      detailedWords = jsonResult.NBest[0].Words.map((word: any) => ({
+                        word: word.Word,
+                        accuracyScore: Math.round(word.PronunciationAssessment?.AccuracyScore || 0),
+                        errorType: word.PronunciationAssessment?.ErrorType || 'None',
+                        syllables: word.Syllables?.map((syl: any) => ({
+                          syllable: syl.Syllable,
+                          accuracyScore: Math.round(syl.PronunciationAssessment?.AccuracyScore || 0),
+                          offset: syl.Offset || 0,
+                          duration: syl.Duration || 0
+                        })) || []
+                      }));
+                      
+                      console.log('📝 Extracted words:', {
+                        count: detailedWords.length,
+                        words: detailedWords.map(w => `${w.word}(${w.accuracyScore})`).join(', ')
+                      });
+                    }
+                    
+                    // Extrair dados de fonemas
+                    if (jsonResult.NBest && jsonResult.NBest[0] && jsonResult.NBest[0].Words) {
+                      const allPhonemes: PhonemeResult[] = [];
+                      
+                      jsonResult.NBest[0].Words.forEach((word: any) => {
+                        if (word.Phonemes) {
+                          word.Phonemes.forEach((phoneme: any) => {
+                            allPhonemes.push({
+                              phoneme: phoneme.Phoneme,
+                              accuracyScore: Math.round(phoneme.PronunciationAssessment?.AccuracyScore || 0),
+                              nbestPhonemes: phoneme.PronunciationAssessment?.NBestPhonemes?.map((nb: any) => ({
+                                phoneme: nb.Phoneme,
+                                score: Math.round(nb.Score || 0)
+                              })) || [],
+                              offset: phoneme.Offset || 0,
+                              duration: phoneme.Duration || 0
+                            });
+                          });
+                        }
+                      });
+                      
+                      detailedPhonemes = allPhonemes;
+                      console.log('🔤 Extracted phonemes:', {
+                        count: detailedPhonemes.length,
+                        phonemes: detailedPhonemes.slice(0, 5).map(p => `${p.phoneme}(${p.accuracyScore})`).join(', ')
+                      });
+                    }
+                  }
+                } catch (jsonError) {
+                  console.warn('⚠️ Could not parse detailed JSON result:', jsonError);
+                }
+
+                // ✅ GERAR FEEDBACK MELHORADO COM DADOS DETALHADOS
+                const feedback = this.generateDetailedFeedback(
                   pronunciationAssessmentResult.accuracyScore,
                   pronunciationAssessmentResult.fluencyScore,
                   pronunciationAssessmentResult.completenessScore || 100,
                   pronunciationAssessmentResult.prosodyScore,
-                  userLevel
+                  userLevel,
+                  detailedWords
                 );
 
                 speechRecognizer.close();
@@ -185,8 +250,8 @@ export class AzureSpeechOfficialService {
                     prosodyScore: Math.round(pronunciationAssessmentResult.prosodyScore || 0),
                     feedback,
                     assessmentMethod: 'azure-sdk-official',
-                    words: [],
-                    phonemes: [],
+                    words: detailedWords,
+                    phonemes: detailedPhonemes,
                     confidence: pronunciationAssessmentResult.pronunciationScore / 100
                   }
                 });
@@ -281,7 +346,64 @@ export class AzureSpeechOfficialService {
     }
   }
 
-  // 🧠 GERAR FEEDBACK OFICIAL
+  // 🧠 GERAR FEEDBACK DETALHADO COM ANÁLISE DE PALAVRAS
+  private generateDetailedFeedback(
+    accuracy: number,
+    fluency: number,
+    completeness: number,
+    prosody: number,
+    userLevel: string,
+    words: WordResult[]
+  ): string[] {
+    const feedback: string[] = [];
+
+    // Feedback principal baseado nos scores
+    if (accuracy >= 90) {
+      feedback.push('🎉 Outstanding pronunciation! You sound like a native speaker.');
+    } else if (accuracy >= 80) {
+      feedback.push('👍 Excellent pronunciation! Very clear and accurate.');
+    } else if (accuracy >= 70) {
+      feedback.push('📚 Good pronunciation! Keep practicing to improve further.');
+    } else if (accuracy >= 60) {
+      feedback.push('💪 Your pronunciation is developing well. Keep it up!');
+    } else {
+      feedback.push('🔄 Focus on clear pronunciation. Try speaking more slowly.');
+    }
+
+    // Feedback específico por categoria
+    if (fluency < 70) {
+      feedback.push('🌊 Work on speaking more smoothly with natural rhythm.');
+    }
+
+    if (prosody > 0 && prosody < 70) {
+      feedback.push('🎵 Practice natural intonation and stress patterns.');
+    }
+
+    // ✅ FEEDBACK ESPECÍFICO BASEADO EM PALAVRAS PROBLEMÁTICAS
+    if (words && words.length > 0) {
+      const problemWords = words.filter(w => 
+        w.accuracyScore < 60 || (w.errorType && w.errorType !== 'None')
+      );
+      
+      if (problemWords.length > 0 && problemWords.length <= 3) {
+        const wordList = problemWords.map(w => `"${w.word}"`).join(', ');
+        feedback.push(`🔍 Focus on these words: ${wordList}`);
+      }
+      
+      // Feedback por tipo de erro
+      const errorTypes = problemWords.map(w => w.errorType).filter(e => e && e !== 'None');
+      if (errorTypes.includes('Mispronunciation')) {
+        feedback.push('🎯 Work on clearer pronunciation of individual sounds.');
+      }
+      if (errorTypes.includes('Omission')) {
+        feedback.push('📢 Make sure to pronounce all words clearly - don\'t skip any.');
+      }
+    }
+
+    return feedback;
+  }
+
+  // 🧠 GERAR FEEDBACK OFICIAL (MÉTODO ORIGINAL MANTIDO PARA COMPATIBILIDADE)
   private generateOfficialFeedback(
     accuracy: number,
     fluency: number,
