@@ -40,6 +40,44 @@ export interface PhonemeResult {
   duration: number;
 }
 
+export interface TimingResult {
+  wordTiming: Array<{
+    word: string;
+    startTime: number;
+    duration: number;
+    speakingRate: number;
+  }>;
+  totalDuration: number;
+  averageSpeakingRate: number;
+  pauseAnalysis: {
+    totalPauses: number;
+    averagePauseLength: number;
+    longestPause: number;
+  };
+}
+
+export interface ConfidenceAnalysis {
+  overallConfidence: number;
+  wordConfidences: Array<{
+    word: string;
+    confidence: number;
+    alternatives: string[];
+  }>;
+  lowConfidenceWords: string[];
+}
+
+export interface ProsodyAnalysis {
+  prosodyScore: number;
+  intonationFeedback: string[];
+  rhythmFeedback: string[];
+  stressFeedback: string[];
+  breakAnalysis: {
+    unexpectedBreaks: number;
+    missingBreaks: number;
+    appropriateBreaks: number;
+  };
+}
+
 export interface AudioProcessingResult {
   success: boolean;
   result?: PronunciationResult;
@@ -47,6 +85,9 @@ export interface AudioProcessingResult {
   retryReason?: string;
   shouldRetry?: boolean;
   debugInfo?: any;
+  timingAnalysis?: TimingResult;
+  confidenceAnalysis?: ConfidenceAnalysis;
+  prosodyAnalysis?: ProsodyAnalysis;
 }
 
 export class AzureSpeechOfficialService {
@@ -78,6 +119,11 @@ export class AzureSpeechOfficialService {
     // ✅ CONFIGURAÇÃO OFICIAL CONFORME DOCUMENTAÇÃO
     speechConfig.speechRecognitionLanguage = "en-US";
     speechConfig.outputFormat = speechsdk.OutputFormat.Detailed;
+    
+    // ✅ CONFIGURAÇÕES AVANÇADAS PARA MELHOR PERFORMANCE
+    speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_InitialSilenceTimeoutMs, "10000");
+    speechConfig.setProperty(speechsdk.PropertyId.SpeechServiceConnection_EndSilenceTimeoutMs, "3000");
+    speechConfig.setProperty(speechsdk.PropertyId.Speech_SegmentationSilenceTimeoutMs, "500");
     
     console.log('✅ Official SpeechConfig created following Microsoft documentation');
     return speechConfig;
@@ -141,6 +187,50 @@ export class AzureSpeechOfficialService {
       console.log('🎯 Creating SpeechRecognizer following official pattern...');
       
       const speechRecognizer = new speechsdk.SpeechRecognizer(this.speechConfig, audioConfig);
+      
+      // ✅ ADICIONAR PHRASE LIST PARA MELHOR RECONHECIMENTO
+      console.log('📝 Adding phrase list for improved recognition...');
+      try {
+        const phraseList = speechsdk.PhraseListGrammar.fromRecognizer(speechRecognizer);
+        
+        // Palavras relacionadas a pronunciation assessment
+        phraseList.addPhrase("pronunciation");
+        phraseList.addPhrase("assessment");
+        phraseList.addPhrase("accuracy");
+        phraseList.addPhrase("fluency");
+        phraseList.addPhrase("Charlotte");
+        phraseList.addPhrase("English");
+        
+        // Palavras comuns que podem ser mal reconhecidas
+        phraseList.addPhrase("the");
+        phraseList.addPhrase("and");
+        phraseList.addPhrase("that");
+        phraseList.addPhrase("have");
+        phraseList.addPhrase("for");
+        phraseList.addPhrase("not");
+        phraseList.addPhrase("with");
+        phraseList.addPhrase("you");
+        phraseList.addPhrase("this");
+        phraseList.addPhrase("but");
+        
+        // Se há texto de referência, adicionar suas palavras
+        if (referenceText && referenceText.trim()) {
+          const referenceWords = referenceText.toLowerCase()
+            .replace(/[^\w\s]/g, ' ')
+            .split(/\s+/)
+            .filter(word => word.length > 2);
+          
+          referenceWords.forEach(word => {
+            phraseList.addPhrase(word);
+          });
+          
+          console.log(`✅ Added ${referenceWords.length} reference words to phrase list`);
+        }
+        
+        console.log('✅ Phrase list configured successfully');
+      } catch (phraseError) {
+        console.warn('⚠️ Could not configure phrase list:', phraseError);
+      }
       
       // ✅ APLICAR CONFIGURAÇÃO CONFORME DOCUMENTAÇÃO
       pronunciationAssessmentConfig.applyTo(speechRecognizer);
@@ -288,6 +378,11 @@ export class AzureSpeechOfficialService {
                   detailedPhonemes
                 );
 
+                // ✅ EXTRAIR ANÁLISES AVANÇADAS
+                const timingAnalysis = this.extractTimingAnalysis(pronunciationAssessmentResultJson);
+                const confidenceAnalysis = this.extractConfidenceAnalysis(pronunciationAssessmentResultJson);
+                const prosodyAnalysis = this.extractProsodyAnalysis(pronunciationAssessmentResultJson);
+
                 speechRecognizer.close();
                 resolve({
                   success: true,
@@ -303,7 +398,10 @@ export class AzureSpeechOfficialService {
                     words: detailedWords,
                     phonemes: detailedPhonemes,
                     confidence: pronunciationAssessmentResult.pronunciationScore / 100
-                  }
+                  },
+                  timingAnalysis,
+                  confidenceAnalysis,
+                  prosodyAnalysis
                 });
 
               } else {
@@ -565,6 +663,150 @@ export class AzureSpeechOfficialService {
     } catch (error) {
       console.error('❌ Official connection test failed:', error);
       return false;
+    }
+  }
+
+  // 🧠 EXTRAIR ANÁLISES AVANÇADAS
+  private extractTimingAnalysis(jsonResult: string): TimingResult | undefined {
+    try {
+      if (!jsonResult) return undefined;
+      
+      const parsed = JSON.parse(jsonResult);
+      const words = parsed.NBest?.[0]?.Words || [];
+      
+      if (words.length === 0) return undefined;
+      
+      const wordTiming = words.map((word: any) => ({
+        word: word.Word,
+        startTime: (word.Offset || 0) / 10000, // Convert to milliseconds
+        duration: (word.Duration || 0) / 10000,
+        speakingRate: word.Word.length / ((word.Duration || 1) / 10000000) // chars per second
+      }));
+      
+      const totalDuration = (parsed.Duration || 0) / 10000;
+      const totalChars = words.reduce((sum: number, word: any) => sum + word.Word.length, 0);
+      const averageSpeakingRate = totalChars / (totalDuration / 1000);
+      
+      // Análise de pausas (simplificada)
+      const pauses = [];
+      for (let i = 1; i < words.length; i++) {
+        const prevEnd = (words[i-1].Offset + words[i-1].Duration) / 10000;
+        const currentStart = words[i].Offset / 10000;
+        const pauseLength = currentStart - prevEnd;
+        if (pauseLength > 100) { // Pausas maiores que 100ms
+          pauses.push(pauseLength);
+        }
+      }
+      
+      return {
+        wordTiming,
+        totalDuration,
+        averageSpeakingRate,
+        pauseAnalysis: {
+          totalPauses: pauses.length,
+          averagePauseLength: pauses.length > 0 ? pauses.reduce((a, b) => a + b, 0) / pauses.length : 0,
+          longestPause: pauses.length > 0 ? Math.max(...pauses) : 0
+        }
+      };
+    } catch (error) {
+      console.warn('⚠️ Could not extract timing analysis:', error);
+      return undefined;
+    }
+  }
+
+  private extractConfidenceAnalysis(jsonResult: string): ConfidenceAnalysis | undefined {
+    try {
+      if (!jsonResult) return undefined;
+      
+      const parsed = JSON.parse(jsonResult);
+      const nbest = parsed.NBest || [];
+      
+      if (nbest.length === 0) return undefined;
+      
+      const overallConfidence = nbest[0].Confidence || 0;
+      const words = nbest[0].Words || [];
+      
+      const wordConfidences = words.map((word: any) => {
+        // Extrair alternativas do NBest se disponível
+        const alternatives = nbest.slice(1, 4).map((alt: any) => {
+          const altWords = alt.Words || [];
+          const matchingWord = altWords.find((w: any) => w.Offset === word.Offset);
+          return matchingWord?.Word;
+        }).filter(Boolean);
+        
+        return {
+          word: word.Word,
+          confidence: word.PronunciationAssessment?.AccuracyScore / 100 || 0,
+          alternatives
+        };
+      });
+      
+      const lowConfidenceWords = wordConfidences
+        .filter((w: any) => w.confidence < 0.7)
+        .map((w: any) => w.word);
+      
+      return {
+        overallConfidence,
+        wordConfidences,
+        lowConfidenceWords
+      };
+    } catch (error) {
+      console.warn('⚠️ Could not extract confidence analysis:', error);
+      return undefined;
+    }
+  }
+
+  private extractProsodyAnalysis(jsonResult: string): ProsodyAnalysis | undefined {
+    try {
+      if (!jsonResult) return undefined;
+      
+      const parsed = JSON.parse(jsonResult);
+      const prosodyScore = parsed.NBest?.[0]?.PronunciationAssessment?.ProsodyScore || 0;
+      
+      // Análise de feedback de prosódia (baseado em padrões comuns)
+      const intonationFeedback = [];
+      const rhythmFeedback = [];
+      const stressFeedback = [];
+      
+      if (prosodyScore < 60) {
+        intonationFeedback.push('Work on varying your pitch more naturally');
+        rhythmFeedback.push('Practice maintaining consistent rhythm');
+        stressFeedback.push('Focus on word stress patterns');
+      } else if (prosodyScore < 80) {
+        intonationFeedback.push('Good intonation, try to be more expressive');
+        rhythmFeedback.push('Rhythm is developing well');
+      } else {
+        intonationFeedback.push('Excellent natural intonation');
+        rhythmFeedback.push('Great rhythm and flow');
+      }
+      
+      // Análise de breaks (simplificada - seria mais complexa com dados reais)
+      const words = parsed.NBest?.[0]?.Words || [];
+      let unexpectedBreaks = 0;
+      let missingBreaks = 0;
+      let appropriateBreaks = 0;
+      
+      words.forEach((word: any) => {
+        const errorType = word.PronunciationAssessment?.ErrorType;
+        if (errorType === 'UnexpectedBreak') unexpectedBreaks++;
+        else if (errorType === 'MissingBreak') missingBreaks++;
+        else appropriateBreaks++;
+      });
+      
+      return {
+        prosodyScore,
+        intonationFeedback,
+        rhythmFeedback,
+        stressFeedback,
+        breakAnalysis: {
+          unexpectedBreaks,
+          missingBreaks,
+          appropriateBreaks
+        }
+      };
+    } catch (error) {
+      console.warn('⚠️ Could not extract prosody analysis:', error);
+      return undefined;
     }
   }
 }
