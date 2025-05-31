@@ -108,14 +108,23 @@ export class AzureSpeechOfficialService {
       
       // ✅ HABILITAR PROSODY ASSESSMENT CONFORME DOCUMENTAÇÃO OFICIAL
       try {
+        // Método 1: Tentar enableProsodyAssessment() como any cast
         if (typeof (pronunciationAssessmentConfig as any).enableProsodyAssessment === 'function') {
           (pronunciationAssessmentConfig as any).enableProsodyAssessment();
-          console.log('✅ Prosody assessment enabled successfully');
-        } else {
-          console.log('⚠️ Prosody assessment not available - enableProsodyAssessment is not a function');
+          console.log('✅ Prosody assessment enabled successfully (direct method)');
+        }
+        // Método 2: Verificar se existe como propriedade
+        else if ('enableProsodyAssessment' in pronunciationAssessmentConfig) {
+          (pronunciationAssessmentConfig as any).enableProsodyAssessment();
+          console.log('✅ Prosody assessment enabled successfully (property check)');
+        }
+        else {
+          console.log('⚠️ Prosody assessment not available - enableProsodyAssessment method not found');
+          console.log('🔍 Available methods:', Object.getOwnPropertyNames(pronunciationAssessmentConfig));
         }
       } catch (e) {
-        console.log('⚠️ Prosody assessment method not available in this SDK version');
+        console.log('⚠️ Prosody assessment error:', e);
+        console.log('🔍 SDK Version: 1.44.0 - Prosody should be supported');
       }
       
       // ✅ CONFIGURAR NBEST PHONEMES PARA ANÁLISE DETALHADA
