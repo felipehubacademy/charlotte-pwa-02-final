@@ -1,7 +1,7 @@
 // app/api/pronunciation/route.ts - IMPLEMENTAÇÃO DEFINITIVA COM CONVERSÃO DE ÁUDIO
 
 import { NextRequest, NextResponse } from 'next/server';
-import { assessPronunciationDefinitive } from '@/lib/azure-speech-sdk';
+import { assessPronunciationOfficial } from '@/lib/azure-speech-sdk';
 
 interface APIResponse {
   success: boolean;
@@ -39,6 +39,49 @@ interface APIResponse {
   shouldRetry?: boolean;
   retryReason?: string;
   debugInfo?: any;
+}
+
+// ✅ HANDLER GET PARA TESTES
+export async function GET() {
+  try {
+    // Verificar se as credenciais Azure estão configuradas
+    const hasAzureKey = !!process.env.AZURE_SPEECH_KEY;
+    const hasAzureRegion = !!process.env.AZURE_SPEECH_REGION;
+    const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+
+    return NextResponse.json({
+      status: 'ok',
+      message: 'Pronunciation endpoint is working',
+      endpoint: '/api/pronunciation',
+      method: 'GET',
+      supportedMethods: ['POST'],
+      description: 'Send POST request with audio file and optional referenceText in FormData',
+      timestamp: new Date().toISOString(),
+      configuration: {
+        azureConfigured: hasAzureKey && hasAzureRegion,
+        azureRegion: hasAzureRegion ? process.env.AZURE_SPEECH_REGION : 'not configured',
+        openaiConfigured: hasOpenAIKey,
+        fallbackAvailable: hasOpenAIKey
+      },
+      features: [
+        'Azure Speech SDK pronunciation assessment',
+        'Whisper transcription fallback',
+        'Encouraging feedback generation',
+        'Real audio format conversion',
+        'Detailed phoneme analysis'
+      ]
+    });
+
+  } catch (error: any) {
+    return NextResponse.json({
+      status: 'error',
+      message: 'Endpoint test failed',
+      error: error.message,
+      endpoint: '/api/pronunciation',
+      method: 'GET',
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -83,7 +126,7 @@ export async function POST(request: NextRequest) {
     // 🎯 EXECUTAR AZURE SPEECH SDK ASSESSMENT DEFINITIVO
     console.log('🎯 Calling definitive Azure Speech SDK Assessment...');
     
-    const assessmentPromise = assessPronunciationDefinitive(
+    const assessmentPromise = assessPronunciationOfficial(
       audioBlob,
       referenceText?.trim() || undefined,
       'Intermediate'

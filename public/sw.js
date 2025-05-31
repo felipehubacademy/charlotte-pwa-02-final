@@ -1,6 +1,6 @@
-const CACHE_NAME = 'charlotte-pwa-v2.0.1';
-const STATIC_CACHE = 'charlotte-static-v2.0.1';
-const DYNAMIC_CACHE = 'charlotte-dynamic-v2.0.1';
+const CACHE_NAME = 'charlotte-pwa-v2.0.2';
+const STATIC_CACHE = 'charlotte-static-v2.0.2';
+const DYNAMIC_CACHE = 'charlotte-dynamic-v2.0.2';
 
 // Arquivos essenciais para cache
 const STATIC_ASSETS = [
@@ -31,7 +31,7 @@ const CACHE_STRATEGIES = {
 
 // Instalação do Service Worker
 self.addEventListener('install', (event) => {
-  console.log('🔧 [SW] Installing Service Worker v2.0.1');
+  console.log('🔧 [SW] Installing Service Worker v2.0.2');
   
   event.waitUntil(
     caches.open(STATIC_CACHE)
@@ -51,7 +51,7 @@ self.addEventListener('install', (event) => {
 
 // Ativação do Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('🚀 [SW] Activating Service Worker v2.0.1');
+  console.log('🚀 [SW] Activating Service Worker v2.0.2');
   
   event.waitUntil(
     caches.keys()
@@ -145,7 +145,8 @@ async function cacheFirst(request) {
   
   const networkResponse = await fetch(request);
   
-  if (networkResponse.ok) {
+  // Só cachear requisições GET que foram bem-sucedidas
+  if (networkResponse.ok && request.method === 'GET') {
     const cache = await caches.open(STATIC_CACHE);
     cache.put(request, networkResponse.clone());
   }
@@ -158,18 +159,22 @@ async function networkFirst(request) {
   try {
     const networkResponse = await fetch(request);
     
-    if (networkResponse.ok) {
+    // Só cachear requisições GET que foram bem-sucedidas
+    if (networkResponse.ok && request.method === 'GET') {
       const cache = await caches.open(DYNAMIC_CACHE);
       cache.put(request, networkResponse.clone());
     }
     
     return networkResponse;
   } catch (error) {
-    const cachedResponse = await caches.match(request);
-    
-    if (cachedResponse) {
-      console.log('📱 [SW] Serving from cache (offline):', request.url);
-      return cachedResponse;
+    // Só tentar buscar do cache para requisições GET
+    if (request.method === 'GET') {
+      const cachedResponse = await caches.match(request);
+      
+      if (cachedResponse) {
+        console.log('📱 [SW] Serving from cache (offline):', request.url);
+        return cachedResponse;
+      }
     }
     
     throw error;
@@ -178,6 +183,11 @@ async function networkFirst(request) {
 
 // Atualizar cache em background
 async function updateCacheInBackground(request) {
+  // Só atualizar cache para requisições GET
+  if (request.method !== 'GET') {
+    return;
+  }
+  
   try {
     const networkResponse = await fetch(request);
     
@@ -249,4 +259,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-console.log('🎯 [SW] Charlotte PWA Service Worker v2.0.1 loaded'); 
+console.log('🎯 [SW] Charlotte PWA Service Worker v2.0.2 loaded'); 

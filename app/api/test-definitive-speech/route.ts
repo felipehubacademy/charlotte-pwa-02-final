@@ -1,7 +1,7 @@
 // app/api/test-definitive-speech/route.ts - Teste da implementação definitiva
 
 import { NextRequest, NextResponse } from 'next/server';
-import { assessPronunciationDefinitive } from '@/lib/azure-speech-sdk';
+import { assessPronunciationOfficial } from '@/lib/azure-speech-sdk';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,6 +19,12 @@ export async function POST(request: NextRequest) {
         }
       }, { status: 500 });
     }
+
+    console.log('🔑 Azure credentials verified:', {
+      hasKey: !!process.env.AZURE_SPEECH_KEY,
+      keyLength: process.env.AZURE_SPEECH_KEY?.length,
+      region: process.env.AZURE_SPEECH_REGION
+    });
 
     // Processar FormData
     const formData = await request.formData();
@@ -47,12 +53,39 @@ export async function POST(request: NextRequest) {
     console.log('🎯 Starting definitive assessment test...');
     const startTime = Date.now();
 
+    // 🔍 CAPTURAR LOGS DETALHADOS DO AZURE
+    const originalConsoleLog = console.log;
+    const originalConsoleError = console.error;
+    const originalConsoleWarn = console.warn;
+    
+    const capturedLogs: string[] = [];
+    
+    console.log = (...args) => {
+      capturedLogs.push(`[LOG] ${args.join(' ')}`);
+      originalConsoleLog(...args);
+    };
+    
+    console.error = (...args) => {
+      capturedLogs.push(`[ERROR] ${args.join(' ')}`);
+      originalConsoleError(...args);
+    };
+    
+    console.warn = (...args) => {
+      capturedLogs.push(`[WARN] ${args.join(' ')}`);
+      originalConsoleWarn(...args);
+    };
+
     // Executar teste da implementação definitiva
-    const result = await assessPronunciationDefinitive(
+    const result = await assessPronunciationOfficial(
       audioBlob,
-      referenceText,
+      referenceText?.trim() || undefined,
       'Intermediate'
     );
+    
+    // Restaurar console
+    console.log = originalConsoleLog;
+    console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
 
     const endTime = Date.now();
     const processingTime = endTime - startTime;
@@ -97,6 +130,7 @@ export async function POST(request: NextRequest) {
       shouldRetry: result.shouldRetry,
       retryReason: result.retryReason,
       debugInfo: result.debugInfo,
+      capturedLogs: capturedLogs.slice(-50), // Últimos 50 logs
       recommendations: generateTestRecommendations(result, audioFile.type)
     };
 

@@ -7,6 +7,43 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ✅ HANDLER GET PARA TESTES
+export async function GET() {
+  try {
+    // Verificar se a API key está configurada
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json({
+        status: 'error',
+        message: 'OpenAI API key not configured',
+        endpoint: '/api/transcribe',
+        method: 'GET',
+        timestamp: new Date().toISOString()
+      }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      status: 'ok',
+      message: 'Transcribe endpoint is working',
+      endpoint: '/api/transcribe',
+      method: 'GET',
+      supportedMethods: ['POST'],
+      description: 'Send POST request with audio file in FormData',
+      timestamp: new Date().toISOString(),
+      openaiConfigured: true
+    });
+
+  } catch (error: any) {
+    return NextResponse.json({
+      status: 'error',
+      message: 'Endpoint test failed',
+      error: error.message,
+      endpoint: '/api/transcribe',
+      method: 'GET',
+      timestamp: new Date().toISOString()
+    }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verificar se a API key está configurada

@@ -1,375 +1,392 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teste Azure Speech Definitivo - Charlotte PWA</title>
+    <title>🎯 Azure Speech SDK Test - Charlotte v2</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+            padding: 20px;
         }
-        
+
         .container {
+            max-width: 1200px;
+            margin: 0 auto;
             background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
             padding: 30px;
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
-            backdrop-filter: blur(10px);
-        }
-        
-        h1 {
-            color: #333;
             text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
             margin-bottom: 10px;
-            font-size: 2.2em;
         }
-        
-        .subtitle {
-            text-align: center;
-            color: #666;
-            margin-bottom: 30px;
-            font-size: 1.1em;
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
         }
-        
+
+        .content {
+            padding: 30px;
+        }
+
         .test-section {
-            margin: 30px 0;
+            background: #f8f9fa;
+            border-radius: 15px;
             padding: 25px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #fafafa 0%, #f0f0f0 100%);
-            transition: all 0.3s ease;
+            margin-bottom: 25px;
+            border-left: 5px solid #4facfe;
         }
-        
-        .test-section:hover {
-            border-color: #0066cc;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 20px rgba(0,102,204,0.1);
-        }
-        
-        .test-section h3 {
-            margin-top: 0;
-            color: #0066cc;
-            font-size: 1.3em;
+
+        .test-section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        
-        button {
-            background: linear-gradient(135deg, #0066cc 0%, #004499 100%);
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border: none;
             padding: 12px 24px;
             border-radius: 8px;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            margin: 10px 5px;
+            font-size: 1rem;
             transition: all 0.3s ease;
-            box-shadow: 0 2px 10px rgba(0,102,204,0.2);
+            margin: 5px;
         }
-        
-        button:hover {
-            background: linear-gradient(135deg, #0052a3 0%, #003366 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 15px rgba(0,102,204,0.3);
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
-        
-        button:disabled {
-            background: #ccc;
+
+        .btn:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
             transform: none;
-            box-shadow: none;
         }
-        
-        .recording {
-            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+
+        .btn.recording {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            animation: pulse 1.5s infinite;
         }
-        
-        .recording:hover {
-            background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
-        }
-        
-        input[type="text"], input[type="file"] {
-            width: 100%;
-            padding: 12px;
-            margin: 10px 0;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s ease;
-            box-sizing: border-box;
-        }
-        
-        input[type="text"]:focus, input[type="file"]:focus {
-            border-color: #0066cc;
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(0,102,204,0.1);
-        }
-        
-        .result {
-            margin: 20px 0;
-            padding: 20px;
-            border-radius: 8px;
-            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-            white-space: pre-wrap;
-            font-size: 14px;
-            line-height: 1.5;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 2px solid #c3e6cb;
-        }
-        
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 2px solid #f5c6cb;
-        }
-        
-        .info {
-            background: #d1ecf1;
-            color: #0c5460;
-            border: 2px solid #bee5eb;
-        }
-        
-        .status {
-            margin: 10px 0;
-            padding: 15px;
-            border-radius: 8px;
-            font-weight: 600;
-            text-align: center;
-        }
-        
-        .recording-indicator {
-            display: none;
-            color: #dc3545;
-            font-weight: bold;
-            animation: pulse 1s infinite;
-            margin-left: 10px;
-        }
-        
+
         @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.05); }
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
         }
-        
-        .audio-controls {
-            display: none;
-            margin: 20px 0;
-            padding: 15px;
-            background: #f8f9fa;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
+
+        .result {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            border: 1px solid #e9ecef;
         }
-        
-        audio {
-            width: 100%;
-            margin: 10px 0;
+
+        .result.success {
+            border-left: 5px solid #28a745;
+            background: #f8fff9;
         }
-        
+
+        .result.error {
+            border-left: 5px solid #dc3545;
+            background: #fff8f8;
+        }
+
+        .result.info {
+            border-left: 5px solid #17a2b8;
+            background: #f8fcff;
+        }
+
         .stats {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 15px;
-            margin: 20px 0;
+            margin-top: 20px;
         }
-        
+
         .stat-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
             text-align: center;
-            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
+
         .stat-value {
-            font-size: 1.5em;
+            font-size: 2rem;
             font-weight: bold;
-            color: #0066cc;
+            color: #4facfe;
         }
-        
+
         .stat-label {
-            font-size: 0.9em;
-            color: #666;
+            color: #6c757d;
             margin-top: 5px;
         }
-        
-        .progress-bar {
+
+        .file-input {
+            margin: 10px 0;
+            padding: 10px;
+            border: 2px dashed #4facfe;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-input:hover {
+            background: #f8fcff;
+        }
+
+        .file-input input {
+            display: none;
+        }
+
+        .progress {
             width: 100%;
             height: 6px;
-            background: #e0e0e0;
+            background: #e9ecef;
             border-radius: 3px;
             overflow: hidden;
             margin: 10px 0;
         }
-        
-        .progress-fill {
+
+        .progress-bar {
             height: 100%;
-            background: linear-gradient(90deg, #0066cc, #00cc66);
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
             width: 0%;
             transition: width 0.3s ease;
         }
-        
-        .tips {
-            background: #fff3cd;
-            border: 1px solid #ffeaa7;
-            color: #856404;
+
+        .endpoint-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #6c757d;
+        }
+
+        .status-indicator.ok {
+            background: #28a745;
+        }
+
+        .status-indicator.error {
+            background: #dc3545;
+        }
+
+        .debug-info {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            background: #f8f9fa;
             padding: 15px;
             border-radius: 8px;
-            margin: 20px 0;
-        }
-        
-        .tips h4 {
-            margin-top: 0;
-            color: #856404;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🧪 Teste Azure Speech SDK</h1>
-        <p class="subtitle">Charlotte PWA - Implementação Definitiva</p>
-        
-        <div class="tips">
-            <h4>💡 Dicas para Melhor Resultado:</h4>
-            <ul>
-                <li>🎤 Use um ambiente silencioso</li>
-                <li>🗣️ Fale claramente e em ritmo normal</li>
-                <li>📱 Permita acesso ao microfone quando solicitado</li>
-                <li>⏱️ Gravações de 2-5 segundos são ideais</li>
-            </ul>
+        <div class="header">
+            <h1>🎯 Azure Speech SDK Test</h1>
+            <p>Charlotte v2 - Comprehensive Audio Processing Test Suite</p>
         </div>
-        
-        <!-- Teste 1: Gravação de Áudio -->
-        <div class="test-section">
-            <h3>🎤 Teste 1: Gravar e Analisar Pronúncia</h3>
-            <p>Grave sua voz diretamente no navegador e teste a análise de pronúncia do Azure Speech SDK.</p>
-            
-            <input type="text" id="referenceText1" placeholder="Texto de referência (opcional)" value="Hello world how are you today">
-            
-            <div>
-                <button id="startRecording" onclick="startRecording()">🎤 Iniciar Gravação</button>
-                <button id="stopRecording" onclick="stopRecording()" disabled>⏹️ Parar Gravação</button>
-                <span class="recording-indicator" id="recordingIndicator">🔴 GRAVANDO...</span>
+
+        <div class="content">
+            <!-- Seção 1: Teste de Endpoints -->
+            <div class="test-section">
+                <h2>🔗 1. Endpoint Connectivity Test</h2>
+                <p>Testing API endpoints availability and configuration</p>
+                
+                <button class="btn" onclick="testEndpoints()">🧪 Test All Endpoints</button>
+                
+                <div id="endpoint-results"></div>
             </div>
-            
-            <div class="progress-bar" id="recordingProgress" style="display: none;">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            
-            <div class="audio-controls" id="audioControls">
-                <audio id="audioPlayback" controls></audio>
-                <div class="stats" id="audioStats" style="display: none;">
-                    <div class="stat-card">
-                        <div class="stat-value" id="audioDuration">--</div>
-                        <div class="stat-label">Duração (s)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="audioSize">--</div>
-                        <div class="stat-label">Tamanho (KB)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="audioFormat">--</div>
-                        <div class="stat-label">Formato</div>
-                    </div>
+
+            <!-- Seção 2: Gravação de Áudio -->
+            <div class="test-section">
+                <h2>🎤 2. Audio Recording Test</h2>
+                <p>Record audio directly in the browser and test Azure Speech SDK</p>
+                
+                <button class="btn" id="recordBtn" onclick="toggleRecording()">🎙️ Start Recording</button>
+                <button class="btn" onclick="testRecordedAudio()" id="testRecordedBtn" disabled>🎯 Test Recorded Audio</button>
+                
+                <div class="progress" id="recordingProgress" style="display: none;">
+                    <div class="progress-bar" id="recordingProgressBar"></div>
                 </div>
-                <button onclick="testRecordedAudio()">🧪 Analisar Pronúncia</button>
+                
+                <div id="recording-results"></div>
             </div>
-            
-            <div id="result1"></div>
-        </div>
-        
-        <!-- Teste 2: Upload de Arquivo -->
-        <div class="test-section">
-            <h3>📁 Teste 2: Upload de Arquivo de Áudio</h3>
-            <p>Faça upload de um arquivo de áudio existente (.webm, .wav, .mp3, .m4a).</p>
-            
-            <input type="file" id="audioFile" accept="audio/*" onchange="handleFileUpload()">
-            <input type="text" id="referenceText2" placeholder="Texto de referência (opcional)" value="Hello world">
-            
-            <div id="fileInfo" style="display: none;" class="stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="fileName">--</div>
-                    <div class="stat-label">Arquivo</div>
+
+            <!-- Seção 3: Upload de Arquivo -->
+            <div class="test-section">
+                <h2>📁 3. File Upload Test</h2>
+                <p>Upload an audio file and test pronunciation assessment</p>
+                
+                <div class="file-input" onclick="document.getElementById('audioFile').click()">
+                    <input type="file" id="audioFile" accept="audio/*" onchange="handleFileUpload(this)">
+                    <p>📎 Click to select audio file</p>
                 </div>
+                
+                <input type="text" id="referenceText" placeholder="Reference text (optional)" 
+                       style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px;">
+                
+                <button class="btn" onclick="testUploadedFile()" id="testFileBtn" disabled>🎯 Test Uploaded File</button>
+                
+                <div id="upload-results"></div>
+            </div>
+
+            <!-- Seção 4: Pipeline Completo -->
+            <div class="test-section">
+                <h2>🔄 4. Complete Pipeline Test</h2>
+                <p>Test the complete audio processing pipeline with detailed analysis</p>
+                
+                <button class="btn" onclick="testCompletePipeline()">🚀 Run Complete Test</button>
+                
+                <div id="pipeline-results"></div>
+            </div>
+
+            <!-- Estatísticas -->
+            <div class="stats" id="stats" style="display: none;">
                 <div class="stat-card">
-                    <div class="stat-value" id="fileSize">--</div>
-                    <div class="stat-label">Tamanho (KB)</div>
+                    <div class="stat-value" id="totalTests">0</div>
+                    <div class="stat-label">Total Tests</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value" id="fileType">--</div>
-                    <div class="stat-label">Tipo</div>
+                    <div class="stat-value" id="successfulTests">0</div>
+                    <div class="stat-label">Successful</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgProcessingTime">0ms</div>
+                    <div class="stat-label">Avg Processing Time</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="azureSuccessRate">0%</div>
+                    <div class="stat-label">Azure Success Rate</div>
                 </div>
             </div>
-            
-            <div>
-                <button onclick="testUploadedFile()" id="testFileButton" disabled>🧪 Analisar Arquivo</button>
-            </div>
-            
-            <div id="result2"></div>
-        </div>
-        
-        <!-- Teste 3: Informações do Sistema -->
-        <div class="test-section">
-            <h3>ℹ️ Teste 3: Informações do Sistema</h3>
-            <p>Verificar configurações, conectividade e disponibilidade dos serviços.</p>
-            
-            <div>
-                <button onclick="getSystemInfo()">ℹ️ Verificar Sistema</button>
-                <button onclick="testAzureConnectivity()">🌐 Testar Azure</button>
-                <button onclick="testAllEndpoints()">🔗 Testar Endpoints</button>
-            </div>
-            
-            <div id="result3"></div>
-        </div>
-        
-        <!-- Teste 4: Pipeline Completo -->
-        <div class="test-section">
-            <h3>🔄 Teste 4: Pipeline Completo</h3>
-            <p>Testar todo o pipeline de áudio: transcription + pronunciation assessment.</p>
-            
-            <div>
-                <button onclick="testCompletePipeline()">🔄 Testar Pipeline</button>
-                <button onclick="generateSyntheticAudio()">🎵 Testar com Áudio Sintético</button>
-            </div>
-            
-            <div id="result4"></div>
         </div>
     </div>
 
     <script>
+        // ✅ CONFIGURAÇÃO ATUALIZADA PARA PORTA 3000
+        const API_BASE = 'http://localhost:3000';
+        
         let mediaRecorder;
         let recordedChunks = [];
-        let recordedBlob;
-        let recordingTimer;
-        let recordingStartTime;
-        
-        // ================================================================
-        // GRAVAÇÃO DE ÁUDIO
-        // ================================================================
-        
+        let isRecording = false;
+        let testStats = {
+            total: 0,
+            successful: 0,
+            processingTimes: [],
+            azureSuccesses: 0
+        };
+
+        // 🔗 TESTAR ENDPOINTS
+        async function testEndpoints() {
+            const endpoints = [
+                { name: 'Transcribe', url: '/api/transcribe' },
+                { name: 'Pronunciation', url: '/api/pronunciation' },
+                { name: 'Azure Test', url: '/api/azure-test' },
+                { name: 'Debug Azure Env', url: '/api/debug-azure-env' },
+                { name: 'Audio Pipeline Test', url: '/api/audio-pipeline-test' }
+            ];
+
+            const resultsDiv = document.getElementById('endpoint-results');
+            resultsDiv.innerHTML = '<p>🔄 Testing endpoints...</p>';
+
+            let html = '';
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const startTime = Date.now();
+                    const response = await fetch(`${API_BASE}${endpoint.url}`);
+                    const endTime = Date.now();
+                    const responseTime = endTime - startTime;
+                    
+                    const isOk = response.ok;
+                    const statusClass = isOk ? 'ok' : 'error';
+                    
+                    html += `
+                        <div class="endpoint-status">
+                            <div class="status-indicator ${statusClass}"></div>
+                            <strong>${endpoint.name}:</strong>
+                            <span>Status: ${response.status} (${responseTime}ms)</span>
+                            ${isOk ? '✅ OK' : '❌ ERRO'}
+                        </div>
+                    `;
+                    
+                    if (isOk) {
+                        const data = await response.json();
+                        console.log(`${endpoint.name} response:`, data);
+                    }
+                    
+                } catch (error) {
+                    html += `
+                        <div class="endpoint-status">
+                            <div class="status-indicator error"></div>
+                            <strong>${endpoint.name}:</strong>
+                            <span>❌ Error: ${error.message}</span>
+                        </div>
+                    `;
+                }
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+
+        // 🎤 GRAVAÇÃO DE ÁUDIO
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                stopRecording();
+            }
+        }
+
         async function startRecording() {
             try {
-                console.log('🎤 Iniciando gravação...');
-                
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
-                        sampleRate: 48000,
+                        sampleRate: 16000,
                         channelCount: 1,
                         echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
+                        noiseSuppression: true
+                    } 
                 });
                 
                 mediaRecorder = new MediaRecorder(stream, {
@@ -377,7 +394,6 @@
                 });
                 
                 recordedChunks = [];
-                recordingStartTime = Date.now();
                 
                 mediaRecorder.ondataavailable = (event) => {
                     if (event.data.size > 0) {
@@ -386,585 +402,286 @@
                 };
                 
                 mediaRecorder.onstop = () => {
-                    recordedBlob = new Blob(recordedChunks, { type: 'audio/webm;codecs=opus' });
+                    const recordedBlob = new Blob(recordedChunks, { type: 'audio/webm;codecs=opus' });
+                    window.recordedAudio = recordedBlob;
+                    document.getElementById('testRecordedBtn').disabled = false;
                     
-                    const audioUrl = URL.createObjectURL(recordedBlob);
-                    document.getElementById('audioPlayback').src = audioUrl;
-                    document.getElementById('audioControls').style.display = 'block';
-                    
-                    // Mostrar estatísticas do áudio
-                    updateAudioStats(recordedBlob);
-                    
-                    // Parar stream
-                    stream.getTracks().forEach(track => track.stop());
-                    
-                    // Resetar progress bar
-                    document.getElementById('recordingProgress').style.display = 'none';
-                    document.getElementById('progressFill').style.width = '0%';
+                    document.getElementById('recording-results').innerHTML = `
+                        <div class="result success">
+                            ✅ <strong>Gravação concluída!</strong><br>
+                            📊 Tamanho: ${recordedBlob.size} bytes<br>
+                            🎵 Formato: ${recordedBlob.type}
+                        </div>
+                    `;
                 };
                 
-                mediaRecorder.start(100); // Coleta dados a cada 100ms
+                mediaRecorder.start();
+                isRecording = true;
                 
-                // UI updates
-                document.getElementById('startRecording').disabled = true;
-                document.getElementById('stopRecording').disabled = false;
-                document.getElementById('recordingIndicator').style.display = 'inline';
-                document.getElementById('recordingProgress').style.display = 'block';
+                const recordBtn = document.getElementById('recordBtn');
+                recordBtn.textContent = '⏹️ Stop Recording';
+                recordBtn.classList.add('recording');
                 
-                // Progress bar animation
-                startProgressAnimation();
+                // Mostrar progresso
+                const progressDiv = document.getElementById('recordingProgress');
+                progressDiv.style.display = 'block';
                 
-                showStatus('result1', '🎤 Gravação em andamento... Fale claramente!', 'info');
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 2;
+                    document.getElementById('recordingProgressBar').style.width = `${Math.min(progress, 100)}%`;
+                    
+                    if (progress >= 100) {
+                        clearInterval(progressInterval);
+                        if (isRecording) {
+                            stopRecording();
+                        }
+                    }
+                }, 100);
+                
+                window.recordingInterval = progressInterval;
                 
             } catch (error) {
-                console.error('❌ Erro ao acessar microfone:', error);
-                showError('result1', `Erro ao acessar microfone: ${error.message}`);
+                document.getElementById('recording-results').innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro na gravação:</strong> ${error.message}
+                    </div>
+                `;
             }
         }
-        
+
         function stopRecording() {
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            if (mediaRecorder && isRecording) {
                 mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
                 
-                document.getElementById('startRecording').disabled = false;
-                document.getElementById('stopRecording').disabled = true;
-                document.getElementById('recordingIndicator').style.display = 'none';
+                const recordBtn = document.getElementById('recordBtn');
+                recordBtn.textContent = '🎙️ Start Recording';
+                recordBtn.classList.remove('recording');
                 
-                if (recordingTimer) {
-                    clearInterval(recordingTimer);
+                if (window.recordingInterval) {
+                    clearInterval(window.recordingInterval);
                 }
                 
-                const duration = ((Date.now() - recordingStartTime) / 1000).toFixed(1);
-                showStatus('result1', `✅ Gravação concluída! (${duration}s) Você pode reproduzir e analisar o áudio.`, 'success');
+                document.getElementById('recordingProgress').style.display = 'none';
             }
         }
-        
-        function startProgressAnimation() {
-            let progress = 0;
-            recordingTimer = setInterval(() => {
-                progress += 2;
-                document.getElementById('progressFill').style.width = `${Math.min(progress, 100)}%`;
-            }, 100);
-        }
-        
-        function updateAudioStats(blob) {
-            const duration = recordedBlob ? ((Date.now() - recordingStartTime) / 1000).toFixed(1) : '--';
-            const size = (blob.size / 1024).toFixed(1);
-            const format = blob.type;
-            
-            document.getElementById('audioDuration').textContent = duration;
-            document.getElementById('audioSize').textContent = size;
-            document.getElementById('audioFormat').textContent = format.split('/')[1];
-            document.getElementById('audioStats').style.display = 'grid';
-        }
-        
-        // ================================================================
-        // UPLOAD DE ARQUIVO
-        // ================================================================
-        
-        function handleFileUpload() {
-            const fileInput = document.getElementById('audioFile');
-            const file = fileInput.files[0];
-            
-            if (file) {
-                const fileName = file.name;
-                const fileSize = (file.size / 1024).toFixed(1);
-                const fileType = file.type.split('/')[1] || 'unknown';
-                
-                document.getElementById('fileName').textContent = fileName;
-                document.getElementById('fileSize').textContent = fileSize;
-                document.getElementById('fileType').textContent = fileType;
-                document.getElementById('fileInfo').style.display = 'grid';
-                document.getElementById('testFileButton').disabled = false;
-                
-                console.log('📁 Arquivo selecionado:', { fileName, fileSize: `${fileSize}KB`, fileType });
-            }
-        }
-        
-        // ================================================================
-        // TESTES DE FUNCIONALIDADE
-        // ================================================================
-        
+
+        // 🎯 TESTAR ÁUDIO GRAVADO
         async function testRecordedAudio() {
-            if (!recordedBlob) {
-                showError('result1', 'Nenhum áudio gravado. Por favor, grave um áudio primeiro.');
+            if (!window.recordedAudio) {
+                alert('❌ Nenhum áudio gravado encontrado!');
                 return;
             }
-            
-            const referenceText = document.getElementById('referenceText1').value.trim();
-            await testAudioBlob(recordedBlob, referenceText, 'result1', 'Áudio Gravado');
-        }
-        
-        async function testUploadedFile() {
-            const fileInput = document.getElementById('audioFile');
-            const file = fileInput.files[0];
-            
-            if (!file) {
-                showError('result2', 'Por favor, selecione um arquivo de áudio.');
-                return;
-            }
-            
-            const referenceText = document.getElementById('referenceText2').value.trim();
-            await testAudioBlob(file, referenceText, 'result2', 'Arquivo Enviado');
-        }
-        
-        async function testAudioBlob(audioBlob, referenceText, resultElementId, testName) {
-            showStatus(resultElementId, `🔄 Analisando ${testName}...`, 'info');
-            
+
+            const resultsDiv = document.getElementById('recording-results');
+            resultsDiv.innerHTML = '<p>🔄 Testando áudio gravado...</p>';
+
             try {
-                const formData = new FormData();
-                formData.append('audio', audioBlob, 'audio.webm');
-                
-                if (referenceText) {
-                    formData.append('referenceText', referenceText);
-                }
-                
-                console.log(`🎯 Enviando ${testName} para análise...`, {
-                    audioSize: audioBlob.size,
-                    audioType: audioBlob.type,
-                    hasReference: !!referenceText
-                });
-                
                 const startTime = Date.now();
                 
-                const response = await fetch('/api/pronunciation', {
+                const formData = new FormData();
+                formData.append('audio', window.recordedAudio, 'recorded.webm');
+                
+                const response = await fetch(`${API_BASE}/api/pronunciation`, {
                     method: 'POST',
                     body: formData
                 });
                 
                 const endTime = Date.now();
-                const responseTime = endTime - startTime;
+                const processingTime = endTime - startTime;
                 
                 const result = await response.json();
                 
-                console.log('📊 Resultado recebido:', result);
-                
-                // Formatar resultado detalhado
-                let resultText = formatDetailedResult(result, responseTime, testName);
-                
-                showResult(resultElementId, resultText, result.success ? 'success' : 'error');
+                updateStats(true, processingTime, result.result?.assessmentMethod === 'azure-sdk-definitive');
+                displayResult(resultsDiv, result, processingTime, 'Áudio Gravado');
                 
             } catch (error) {
-                console.error('❌ Erro na requisição:', error);
-                showError(resultElementId, `Erro na requisição: ${error.message}`);
+                updateStats(false, 0, false);
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro no teste:</strong> ${error.message}
+                    </div>
+                `;
             }
         }
-        
-        // ================================================================
-        // TESTES DO SISTEMA
-        // ================================================================
-        
-        async function getSystemInfo() {
-            showStatus('result3', '🔄 Obtendo informações do sistema...', 'info');
-            
+
+        // 📁 UPLOAD DE ARQUIVO
+        function handleFileUpload(input) {
+            const file = input.files[0];
+            if (file) {
+                window.uploadedFile = file;
+                document.getElementById('testFileBtn').disabled = false;
+                
+                const fileInfo = document.querySelector('.file-input p');
+                fileInfo.innerHTML = `📎 ${file.name} (${file.size} bytes)`;
+            }
+        }
+
+        async function testUploadedFile() {
+            if (!window.uploadedFile) {
+                alert('❌ Nenhum arquivo selecionado!');
+                return;
+            }
+
+            const resultsDiv = document.getElementById('upload-results');
+            resultsDiv.innerHTML = '<p>🔄 Testando arquivo enviado...</p>';
+
             try {
-                const endpoints = [
-                    { name: 'Debug Azure Env', url: '/api/debug-azure-env' },
-                    { name: 'Azure Test', url: '/api/azure-test' },
-                    { name: 'Debug URLs', url: '/api/debug-urls' }
-                ];
-                
-                let infoText = `ℹ️ INFORMAÇÕES DO SISTEMA\n\n`;
-                
-                for (const endpoint of endpoints) {
-                    try {
-                        const response = await fetch(endpoint.url);
-                        const data = await response.json();
-                        
-                        infoText += `📋 ${endpoint.name}:\n`;
-                        infoText += `   Status: ${response.status} ${response.ok ? '✅' : '❌'}\n`;
-                        infoText += `   ${JSON.stringify(data, null, 2)}\n\n`;
-                        
-                    } catch (error) {
-                        infoText += `📋 ${endpoint.name}:\n`;
-                        infoText += `   ❌ Erro: ${error.message}\n\n`;
-                    }
-                }
-                
-                showResult('result3', infoText, 'info');
-                
-            } catch (error) {
-                showError('result3', `Erro ao obter informações: ${error.message}`);
-            }
-        }
-        
-        async function testAzureConnectivity() {
-            showStatus('result3', '🌐 Testando conectividade Azure...', 'info');
-            
-            try {
-                const response = await fetch('/api/azure-test');
-                const result = await response.json();
-                
-                let resultText = `🌐 TESTE DE CONECTIVIDADE AZURE\n\n`;
-                resultText += `Status: ${response.status} ${response.ok ? '✅' : '❌'}\n`;
-                resultText += `Sucesso: ${result.success ? '✅' : '❌'}\n`;
-                
-                if (result.success) {
-                    resultText += `Região: ${result.details?.region}\n`;
-                    resultText += `Endpoints: ${result.details?.endpointsCount}\n`;
-                } else {
-                    resultText += `Erro: ${result.error}\n`;
-                    if (result.details) {
-                        resultText += `Detalhes: ${JSON.stringify(result.details, null, 2)}\n`;
-                    }
-                }
-                
-                showResult('result3', resultText, result.success ? 'success' : 'error');
-                
-            } catch (error) {
-                showError('result3', `Erro no teste Azure: ${error.message}`);
-            }
-        }
-        
-        async function testAllEndpoints() {
-            showStatus('result3', '🔗 Testando todos os endpoints...', 'info');
-            
-            const endpoints = [
-                '/api/azure-test',
-                '/api/debug-azure-env',
-                '/api/debug-urls',
-                '/api/transcribe',
-                '/api/pronunciation',
-                '/api/audio-pipeline-test'
-            ];
-            
-            let resultText = `🔗 TESTE DE ENDPOINTS\n\n`;
-            
-            for (const endpoint of endpoints) {
-                try {
-                    const startTime = Date.now();
-                    const response = await fetch(endpoint, { method: 'GET' });
-                    const endTime = Date.now();
-                    
-                    resultText += `${endpoint}:\n`;
-                    resultText += `   Status: ${response.status} (${endTime - startTime}ms)\n`;
-                    resultText += `   ${response.ok ? '✅ OK' : '❌ ERRO'}\n\n`;
-                    
-                } catch (error) {
-                    resultText += `${endpoint}:\n`;
-                    resultText += `   ❌ ERRO: ${error.message}\n\n`;
-                }
-            }
-            
-            showResult('result3', resultText, 'info');
-        }
-        
-        async function testCompletePipeline() {
-            showStatus('result4', '🔄 Testando pipeline completo...', 'info');
-            
-            try {
-                // Usar áudio gravado se disponível, senão criar sintético
-                let testBlob = recordedBlob;
-                
-                if (!testBlob) {
-                    testBlob = await generateSyntheticAudioBlob();
-                }
+                const startTime = Date.now();
                 
                 const formData = new FormData();
-                formData.append('audio', testBlob, 'pipeline-test.webm');
+                formData.append('audio', window.uploadedFile);
                 
-                const response = await fetch('/api/audio-pipeline-test', {
+                const referenceText = document.getElementById('referenceText').value.trim();
+                if (referenceText) {
+                    formData.append('referenceText', referenceText);
+                }
+                
+                const response = await fetch(`${API_BASE}/api/pronunciation`, {
                     method: 'POST',
                     body: formData
                 });
                 
+                const endTime = Date.now();
+                const processingTime = endTime - startTime;
+                
                 const result = await response.json();
                 
-                let resultText = `🔄 TESTE DO PIPELINE COMPLETO\n\n`;
-                resultText += `Sucesso Geral: ${result.success ? '✅' : '❌'}\n`;
-                resultText += `Tempo de Processamento: ${result.processingTime}ms\n\n`;
-                
-                if (result.transcription) {
-                    resultText += `📝 TRANSCRIÇÃO:\n`;
-                    resultText += `   Sucesso: ${result.transcription.success ? '✅' : '❌'}\n`;
-                    if (result.transcription.text) {
-                        resultText += `   Texto: "${result.transcription.text}"\n`;
-                    }
-                    if (result.transcription.error) {
-                        resultText += `   Erro: ${result.transcription.error}\n`;
-                    }
-                    resultText += `\n`;
-                }
-                
-                if (result.pronunciation) {
-                    resultText += `🗣️ PRONÚNCIA:\n`;
-                    resultText += `   Sucesso: ${result.pronunciation.success ? '✅' : '❌'}\n`;
-                    if (result.pronunciation.scores) {
-                        resultText += `   Score Pronúncia: ${result.pronunciation.scores.pronunciation}\n`;
-                        resultText += `   Score Precisão: ${result.pronunciation.scores.accuracy}\n`;
-                        resultText += `   Score Fluência: ${result.pronunciation.scores.fluency}\n`;
-                    }
-                    if (result.pronunciation.error) {
-                        resultText += `   Erro: ${result.pronunciation.error}\n`;
-                    }
-                }
-                
-                showResult('result4', resultText, result.success ? 'success' : 'error');
+                updateStats(true, processingTime, result.result?.assessmentMethod === 'azure-sdk-definitive');
+                displayResult(resultsDiv, result, processingTime, 'Arquivo Enviado');
                 
             } catch (error) {
-                showError('result4', `Erro no teste de pipeline: ${error.message}`);
+                updateStats(false, 0, false);
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro no teste:</strong> ${error.message}
+                    </div>
+                `;
             }
         }
-        
-        async function generateSyntheticAudio() {
-            showStatus('result4', '🎵 Gerando áudio sintético...', 'info');
-            
+
+        // 🚀 TESTE COMPLETO DO PIPELINE
+        async function testCompletePipeline() {
+            const resultsDiv = document.getElementById('pipeline-results');
+            resultsDiv.innerHTML = '<p>🔄 Executando teste completo do pipeline...</p>';
+
             try {
-                const audioBlob = await generateSyntheticAudioBlob();
+                const startTime = Date.now();
                 
-                // Testar com o áudio sintético
-                await testAudioBlob(audioBlob, 'Hello world', 'result4', 'Áudio Sintético');
+                const response = await fetch(`${API_BASE}/api/audio-pipeline-test`, {
+                    method: 'POST'
+                });
+                
+                const endTime = Date.now();
+                const processingTime = endTime - startTime;
+                
+                const result = await response.json();
+                
+                updateStats(true, processingTime, result.pronunciationResult?.assessmentMethod === 'azure-sdk-definitive');
+                
+                resultsDiv.innerHTML = `
+                    <div class="result ${result.success ? 'success' : 'error'}">
+                        <h3>${result.success ? '✅' : '❌'} Pipeline Test Result</h3>
+                        <div class="debug-info">${JSON.stringify(result, null, 2)}</div>
+                    </div>
+                `;
                 
             } catch (error) {
-                showError('result4', `Erro ao gerar áudio sintético: ${error.message}`);
+                updateStats(false, 0, false);
+                resultsDiv.innerHTML = `
+                    <div class="result error">
+                        ❌ <strong>Erro no pipeline:</strong> ${error.message}
+                    </div>
+                `;
             }
         }
-        
-        async function generateSyntheticAudioBlob() {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const sampleRate = 16000;
-            const duration = 2;
-            const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-            
-            const channelData = buffer.getChannelData(0);
-            
-            // Gerar sequência de tons para simular fala
-            const frequencies = [440, 523, 659, 784]; // A, C, E, G
-            const noteLength = sampleRate * duration / frequencies.length;
-            
-            for (let freq = 0; freq < frequencies.length; freq++) {
-                const startSample = freq * noteLength;
-                const endSample = Math.min((freq + 1) * noteLength, buffer.length);
-                
-                for (let i = startSample; i < endSample; i++) {
-                    const t = i / sampleRate;
-                    channelData[i] = Math.sin(2 * Math.PI * frequencies[freq] * t) * 0.1 * 
-                                     (1 - (i - startSample) / noteLength) * 0.5; // Fade out
-                }
-            }
-            
-            // Converter para WAV Blob
-            return audioBufferToWavBlob(buffer);
-        }
-        
-        function audioBufferToWavBlob(audioBuffer) {
-            const length = audioBuffer.length;
-            const sampleRate = audioBuffer.sampleRate;
-            const buffer = new ArrayBuffer(44 + length * 2);
-            const view = new DataView(buffer);
-            const channelData = audioBuffer.getChannelData(0);
 
-            // WAV header
-            const writeString = (offset, string) => {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            };
-
-            writeString(0, 'RIFF');
-            view.setUint32(4, 36 + length * 2, true);
-            writeString(8, 'WAVE');
-            writeString(12, 'fmt ');
-            view.setUint32(16, 16, true);
-            view.setUint16(20, 1, true);
-            view.setUint16(22, 1, true);
-            view.setUint32(24, sampleRate, true);
-            view.setUint32(28, sampleRate * 2, true);
-            view.setUint16(32, 2, true);
-            view.setUint16(34, 16, true);
-            writeString(36, 'data');
-            view.setUint32(40, length * 2, true);
-
-            // Convert samples to 16-bit PCM
-            let offset = 44;
-            for (let i = 0; i < length; i++) {
-                const sample = Math.max(-1, Math.min(1, channelData[i]));
-                view.setInt16(offset, sample * 0x7FFF, true);
-                offset += 2;
-            }
-
-            return new Blob([buffer], { type: 'audio/wav' });
-        }
-        
-        // ================================================================
-        // FUNÇÕES AUXILIARES DE UI
-        // ================================================================
-        
-        function formatDetailedResult(result, responseTime, testName) {
-            let resultText = `📊 RESULTADO: ${testName.toUpperCase()} (${responseTime}ms)\n\n`;
+        // 📊 EXIBIR RESULTADO
+        function displayResult(container, result, processingTime, testType) {
+            const isSuccess = result.success;
+            const data = result.result;
             
-            // Status geral
-            resultText += `✅ Sucesso: ${result.success ? 'SIM' : 'NÃO'}\n`;
+            let html = `
+                <div class="result ${isSuccess ? 'success' : 'error'}">
+                    <h3>${isSuccess ? '✅' : '❌'} ${testType} - ${processingTime}ms</h3>
+            `;
             
-            if (result.success && result.result) {
-                const res = result.result;
+            if (isSuccess && data) {
+                html += `
+                    <p><strong>📝 Texto:</strong> "${data.text}"</p>
+                    <p><strong>🎯 Método:</strong> ${data.assessmentMethod}</p>
+                    <p><strong>📊 Score:</strong> ${data.pronunciationScore}/100</p>
+                    <p><strong>🎤 Precisão:</strong> ${data.accuracyScore}/100</p>
+                    <p><strong>🌊 Fluência:</strong> ${data.fluencyScore}/100</p>
+                    <p><strong>✅ Completude:</strong> ${data.completenessScore}/100</p>
+                    ${data.prosodyScore ? `<p><strong>🎵 Prosódia:</strong> ${data.prosodyScore}/100</p>` : ''}
+                    <p><strong>💬 Feedback:</strong></p>
+                    <ul>
+                        ${data.feedback.map(f => `<li>${f}</li>`).join('')}
+                    </ul>
+                `;
                 
-                // Texto reconhecido
-                resultText += `📝 Texto: "${res.text}"\n\n`;
-                
-                // Scores principais
-                resultText += `🎯 SCORES DE PRONÚNCIA:\n`;
-                resultText += `   • Pronúncia Geral: ${res.pronunciationScore}/100 ${getScoreEmoji(res.pronunciationScore)}\n`;
-                resultText += `   • Precisão: ${res.accuracyScore}/100 ${getScoreEmoji(res.accuracyScore)}\n`;
-                resultText += `   • Fluência: ${res.fluencyScore}/100 ${getScoreEmoji(res.fluencyScore)}\n`;
-                resultText += `   • Completude: ${res.completenessScore}/100 ${getScoreEmoji(res.completenessScore)}\n`;
-                
-                if (res.prosodyScore !== undefined) {
-                    resultText += `   • Prosódia: ${res.prosodyScore}/100 ${getScoreEmoji(res.prosodyScore)}\n`;
+                if (data.words && data.words.length > 0) {
+                    html += `
+                        <p><strong>📝 Palavras (${data.words.length}):</strong></p>
+                        <div style="display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0;">
+                            ${data.words.map(w => `
+                                <span style="background: ${w.accuracyScore >= 70 ? '#d4edda' : '#f8d7da'}; 
+                                             padding: 3px 8px; border-radius: 5px; font-size: 0.9rem;">
+                                    ${w.word} (${w.accuracyScore})
+                                </span>
+                            `).join('')}
+                        </div>
+                    `;
                 }
-                
-                resultText += `\n`;
-                
-                // Análise detalhada
-                if (res.detailedAnalysis) {
-                    const analysis = res.detailedAnalysis;
-                    resultText += `🔍 ANÁLISE DETALHADA:\n`;
-                    resultText += `   • Total de palavras: ${analysis.totalWords}\n`;
-                    if (analysis.totalPhonemes > 0) {
-                        resultText += `   • Total de fonemas: ${analysis.totalPhonemes}\n`;
-                    }
-                    if (analysis.errorWords > 0) {
-                        resultText += `   • Palavras com problemas: ${analysis.errorWords}\n`;
-                    }
-                    if (analysis.poorPhonemes > 0) {
-                        resultText += `   • Fonemas problemáticos: ${analysis.poorPhonemes}\n`;
-                    }
-                    resultText += `   • Precisão média das palavras: ${analysis.avgWordAccuracy}/100\n\n`;
-                }
-                
-                // Feedback
-                if (res.feedback && res.feedback.length > 0) {
-                    resultText += `💬 FEEDBACK:\n`;
-                    res.feedback.forEach(feedback => {
-                        resultText += `   • ${feedback}\n`;
-                    });
-                    resultText += `\n`;
-                }
-                
-                // Feedback de prosódia
-                if (res.prosodyFeedback && res.prosodyFeedback.length > 0) {
-                    resultText += `🎵 FEEDBACK DE PROSÓDIA:\n`;
-                    res.prosodyFeedback.forEach(feedback => {
-                        resultText += `   • ${feedback}\n`;
-                    });
-                    resultText += `\n`;
-                }
-                
-                // Informações técnicas
-                resultText += `🔬 INFORMAÇÕES TÉCNICAS:\n`;
-                resultText += `   • Método: ${res.assessmentMethod}\n`;
-                resultText += `   • Confiança: ${(res.confidence * 100).toFixed(1)}%\n`;
-                
-                if (res.sessionId) {
-                    resultText += `   • Session ID: ${res.sessionId.substring(0, 8)}...\n`;
-                }
-                
-                // Palavras analisadas
-                if (res.words && res.words.length > 0) {
-                    resultText += `\n📝 ANÁLISE POR PALAVRA:\n`;
-                    res.words.forEach((word, index) => {
-                        const emoji = getScoreEmoji(word.accuracyScore);
-                        const errorInfo = word.errorType && word.errorType !== 'None' ? ` (${word.errorType})` : '';
-                        resultText += `   ${index + 1}. "${word.word}": ${word.accuracyScore}/100 ${emoji}${errorInfo}\n`;
-                    });
-                }
-                
             } else {
-                // Erro ou falha
-                if (result.error) {
-                    resultText += `❌ Erro: ${result.error}\n`;
-                }
-                
-                if (result.shouldRetry) {
-                    resultText += `🔄 Retry sugerido: ${result.retryReason}\n`;
-                }
-                
-                if (result.debugInfo) {
-                    resultText += `\n🔍 DEBUG INFO:\n${JSON.stringify(result.debugInfo, null, 2)}`;
-                }
+                html += `
+                    <p><strong>❌ Erro:</strong> ${result.error}</p>
+                    ${result.shouldRetry ? '<p>🔄 <em>Retry recomendado</em></p>' : ''}
+                `;
             }
             
-            return resultText;
-        }
-        
-        function getScoreEmoji(score) {
-            if (score >= 90) return '🎉';
-            if (score >= 80) return '⭐';
-            if (score >= 70) return '👍';
-            if (score >= 60) return '📚';
-            if (score >= 50) return '💪';
-            return '🔄';
-        }
-        
-        function showStatus(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="status ${type}">${message}</div>`;
-        }
-        
-        function showResult(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="result ${type}">${message}</div>`;
-        }
-        
-        function showError(elementId, message) {
-            showResult(elementId, `❌ ${message}`, 'error');
-        }
-        
-        // ================================================================
-        // INICIALIZAÇÃO
-        // ================================================================
-        
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🧪 Página de teste Azure Speech SDK carregada');
-            console.log('🌐 URL atual:', window.location.href);
-            console.log('💡 Abra as ferramentas de desenvolvedor para ver logs detalhados');
+            html += `
+                    <div class="debug-info">${JSON.stringify(result, null, 2)}</div>
+                </div>
+            `;
             
-            // Verificar suporte do navegador
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                showError('result1', 'Seu navegador não suporta gravação de áudio. Use Chrome, Firefox ou Safari mais recentes.');
-                document.getElementById('startRecording').disabled = true;
-            }
+            container.innerHTML = html;
+        }
+
+        // 📈 ATUALIZAR ESTATÍSTICAS
+        function updateStats(success, processingTime, azureSuccess) {
+            testStats.total++;
+            if (success) testStats.successful++;
+            if (processingTime > 0) testStats.processingTimes.push(processingTime);
+            if (azureSuccess) testStats.azureSuccesses++;
             
-            // Verificar Web Audio API
-            if (!window.AudioContext && !window.webkitAudioContext) {
-                console.warn('⚠️ Web Audio API não disponível - alguns recursos podem não funcionar');
-            }
+            document.getElementById('totalTests').textContent = testStats.total;
+            document.getElementById('successfulTests').textContent = testStats.successful;
             
-            // Testar conectividade básica ao carregar
-            testBasicConnectivity();
+            const avgTime = testStats.processingTimes.length > 0 
+                ? Math.round(testStats.processingTimes.reduce((a, b) => a + b, 0) / testStats.processingTimes.length)
+                : 0;
+            document.getElementById('avgProcessingTime').textContent = `${avgTime}ms`;
+            
+            const azureRate = testStats.total > 0 
+                ? Math.round((testStats.azureSuccesses / testStats.total) * 100)
+                : 0;
+            document.getElementById('azureSuccessRate').textContent = `${azureRate}%`;
+            
+            document.getElementById('stats').style.display = 'grid';
+        }
+
+        // 🚀 INICIALIZAÇÃO
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🎯 Azure Speech SDK Test Page Loaded');
+            console.log('🌐 API Base URL:', API_BASE);
+            
+            // Testar endpoints automaticamente
+            testEndpoints();
         });
-        
-        async function testBasicConnectivity() {
-            try {
-                console.log('🔌 Testando conectividade básica...');
-                
-                const response = await fetch('/api/debug-azure-env');
-                if (response.ok) {
-                    const data = await response.json();
-                    console.log('✅ Conectividade OK:', data);
-                    
-                    if (!data.azure.hasKey || !data.azure.hasRegion) {
-                        console.warn('⚠️ Credenciais Azure podem estar faltando');
-                    }
-                } else {
-                    console.warn('⚠️ Problema de conectividade:', response.status);
-                }
-            } catch (error) {
-                console.warn('⚠️ Erro na conectividade básica:', error.message);
-            }
-        }
-        
-        // Expor funções úteis no console para debug
-        window.debugAzure = {
-            testRecording: testRecordedAudio,
-            testSystem: getSystemInfo,
-            testConnectivity: testAzureConnectivity,
-            testPipeline: testCompletePipeline,
-            generateAudio: generateSyntheticAudio,
-            recordedBlob: () => recordedBlob
-        };
-        
-        console.log('🛠️ Funções de debug disponíveis em: window.debugAzure');
     </script>
 </body>
 </html> 
