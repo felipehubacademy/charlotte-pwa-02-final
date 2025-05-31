@@ -125,7 +125,7 @@ export async function assessPronunciation(
       pronunciationScore: data.result?.pronunciationScore,
       assessmentMethod: data.result?.assessmentMethod,
       hasPhonemes: !!data.result?.phonemes?.length,
-      hasProsody: !!data.result?.prosodyScore
+      hasProsody: data.result?.prosodyScore !== undefined && data.result?.prosodyScore !== null
     });
 
     return {

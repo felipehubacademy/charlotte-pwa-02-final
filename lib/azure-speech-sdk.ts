@@ -113,10 +113,15 @@ export class AzureSpeechOfficialService {
         // ✅ HABILITAR PROSODY ASSESSMENT CONFORME DOCUMENTAÇÃO OFICIAL MICROSOFT
         try {
           // Seguindo documentação oficial JavaScript: pronunciationAssessmentConfig.enableProsodyAssessment();
+          console.log('🎵 Attempting to enable prosody assessment...');
+          console.log('🔍 PronunciationAssessmentConfig methods:', Object.getOwnPropertyNames(pronunciationAssessmentConfig));
+          console.log('🔍 PronunciationAssessmentConfig prototype:', Object.getOwnPropertyNames(Object.getPrototypeOf(pronunciationAssessmentConfig)));
+          
           (pronunciationAssessmentConfig as any).enableProsodyAssessment();
           console.log('✅ Prosody assessment enabled successfully following Microsoft docs');
         } catch (e) {
           console.log('⚠️ Prosody assessment method not available, trying JSON config...');
+          console.log('🔍 Error details:', e);
           
           // Método 2: Usar configuração JSON conforme documentação alternativa
           const configJson = {
@@ -127,6 +132,7 @@ export class AzureSpeechOfficialService {
             enableProsodyAssessment: true  // ← HABILITAR VIA JSON
           };
           
+          console.log('🎵 Trying JSON config for prosody:', configJson);
           pronunciationAssessmentConfig = sdk.PronunciationAssessmentConfig.fromJSON(JSON.stringify(configJson));
           console.log('✅ Prosody assessment enabled via JSON configuration');
         }
@@ -186,6 +192,16 @@ export class AzureSpeechOfficialService {
                   completeness: pronunciationAssessmentResult.completenessScore,
                   prosody: pronunciationAssessmentResult.prosodyScore,
                   overall: pronunciationAssessmentResult.pronunciationScore
+                });
+                
+                // ✅ LOG DETALHADO DO PROSODY PARA DEBUGGING
+                console.log('🎵 Prosody assessment details:', {
+                  prosodyScore: pronunciationAssessmentResult.prosodyScore,
+                  prosodyType: typeof pronunciationAssessmentResult.prosodyScore,
+                  prosodyUndefined: pronunciationAssessmentResult.prosodyScore === undefined,
+                  prosodyNull: pronunciationAssessmentResult.prosodyScore === null,
+                  prosodyZero: pronunciationAssessmentResult.prosodyScore === 0,
+                  prosodyExists: 'prosodyScore' in pronunciationAssessmentResult
                 });
 
                 // ✅ EXTRAIR DADOS DETALHADOS DO JSON
