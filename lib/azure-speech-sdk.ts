@@ -106,17 +106,24 @@ export class AzureSpeechOfficialService {
         false // enableMiscue
       );
       
-      // ✅ HABILITAR PROSODY ASSESSMENT CONFORME DOCUMENTAÇÃO
-      // Note: enableProsodyAssessment pode não estar disponível em todas as versões do SDK
+      // ✅ HABILITAR PROSODY ASSESSMENT CONFORME DOCUMENTAÇÃO OFICIAL
       try {
         if (typeof (pronunciationAssessmentConfig as any).enableProsodyAssessment === 'function') {
           (pronunciationAssessmentConfig as any).enableProsodyAssessment();
-          console.log('✅ Prosody assessment enabled');
+          console.log('✅ Prosody assessment enabled successfully');
         } else {
-          console.log('⚠️ Prosody assessment not available in this SDK version');
+          console.log('⚠️ Prosody assessment not available - enableProsodyAssessment is not a function');
         }
       } catch (e) {
-        console.log('⚠️ Prosody assessment method not found, continuing without it');
+        console.log('⚠️ Prosody assessment method not available in this SDK version');
+      }
+      
+      // ✅ CONFIGURAR NBEST PHONEMES PARA ANÁLISE DETALHADA
+      try {
+        (pronunciationAssessmentConfig as any).nBestPhonemeCount = 5;
+        console.log('✅ NBest phoneme count set to 5');
+      } catch (e) {
+        console.log('⚠️ NBest phoneme count not available in this SDK version');
       }
 
       console.log('✅ Official PronunciationAssessmentConfig created');
@@ -173,43 +180,59 @@ export class AzureSpeechOfficialService {
                     const jsonResult = JSON.parse(pronunciationAssessmentResultJson);
                     console.log('📋 Detailed JSON result available:', {
                       hasNBest: !!jsonResult.NBest,
-                      nbestLength: jsonResult.NBest?.length || 0
+                      nbestLength: jsonResult.NBest?.length || 0,
+                      hasWords: !!jsonResult.NBest?.[0]?.Words,
+                      wordsCount: jsonResult.NBest?.[0]?.Words?.length || 0
                     });
                     
-                    // Extrair dados de palavras
+                    // ✅ EXTRAIR DADOS COMPLETOS DE PALAVRAS (CONFORME DOCUMENTAÇÃO)
                     if (jsonResult.NBest && jsonResult.NBest[0] && jsonResult.NBest[0].Words) {
-                      detailedWords = jsonResult.NBest[0].Words.map((word: any) => ({
-                        word: word.Word,
-                        accuracyScore: Math.round(word.PronunciationAssessment?.AccuracyScore || 0),
-                        errorType: word.PronunciationAssessment?.ErrorType || 'None',
-                        syllables: word.Syllables?.map((syl: any) => ({
+                      detailedWords = jsonResult.NBest[0].Words.map((word: any) => {
+                        // Extrair sílabas se disponíveis
+                        const syllables: SyllableResult[] = word.Syllables?.map((syl: any) => ({
                           syllable: syl.Syllable,
                           accuracyScore: Math.round(syl.PronunciationAssessment?.AccuracyScore || 0),
                           offset: syl.Offset || 0,
                           duration: syl.Duration || 0
-                        })) || []
-                      }));
+                        })) || [];
+                        
+                        return {
+                          word: word.Word,
+                          accuracyScore: Math.round(word.PronunciationAssessment?.AccuracyScore || 0),
+                          errorType: word.PronunciationAssessment?.ErrorType || 'None',
+                          syllables
+                        };
+                      });
                       
-                      console.log('📝 Extracted words:', {
+                      console.log('📝 Extracted detailed words:', {
                         count: detailedWords.length,
-                        words: detailedWords.map(w => `${w.word}(${w.accuracyScore})`).join(', ')
+                        wordsWithSyllables: detailedWords.filter(w => w.syllables && w.syllables.length > 0).length,
+                        sample: detailedWords.slice(0, 3).map(w => ({
+                          word: w.word,
+                          score: w.accuracyScore,
+                          errorType: w.errorType,
+                          syllableCount: w.syllables?.length || 0
+                        }))
                       });
                     }
                     
-                    // Extrair dados de fonemas
+                    // ✅ EXTRAIR DADOS COMPLETOS DE FONEMAS COM NBEST (CONFORME DOCUMENTAÇÃO)
                     if (jsonResult.NBest && jsonResult.NBest[0] && jsonResult.NBest[0].Words) {
                       const allPhonemes: PhonemeResult[] = [];
                       
                       jsonResult.NBest[0].Words.forEach((word: any) => {
                         if (word.Phonemes) {
                           word.Phonemes.forEach((phoneme: any) => {
+                            // Extrair NBest phonemes se disponíveis
+                            const nbestPhonemes = phoneme.PronunciationAssessment?.NBestPhonemes?.map((nb: any) => ({
+                              phoneme: nb.Phoneme,
+                              score: Math.round(nb.Score || 0)
+                            })) || [];
+                            
                             allPhonemes.push({
                               phoneme: phoneme.Phoneme,
                               accuracyScore: Math.round(phoneme.PronunciationAssessment?.AccuracyScore || 0),
-                              nbestPhonemes: phoneme.PronunciationAssessment?.NBestPhonemes?.map((nb: any) => ({
-                                phoneme: nb.Phoneme,
-                                score: Math.round(nb.Score || 0)
-                              })) || [],
+                              nbestPhonemes,
                               offset: phoneme.Offset || 0,
                               duration: phoneme.Duration || 0
                             });
@@ -218,14 +241,31 @@ export class AzureSpeechOfficialService {
                       });
                       
                       detailedPhonemes = allPhonemes;
-                      console.log('🔤 Extracted phonemes:', {
+                      console.log('🔤 Extracted detailed phonemes:', {
                         count: detailedPhonemes.length,
-                        phonemes: detailedPhonemes.slice(0, 5).map(p => `${p.phoneme}(${p.accuracyScore})`).join(', ')
+                        phonemesWithNBest: detailedPhonemes.filter(p => p.nbestPhonemes && p.nbestPhonemes.length > 0).length,
+                        avgAccuracy: detailedPhonemes.length > 0 
+                          ? Math.round(detailedPhonemes.reduce((sum, p) => sum + p.accuracyScore, 0) / detailedPhonemes.length)
+                          : 0,
+                        sample: detailedPhonemes.slice(0, 5).map(p => ({
+                          phoneme: p.phoneme,
+                          score: p.accuracyScore,
+                          nbestCount: p.nbestPhonemes?.length || 0
+                        }))
                       });
                     }
+                    
+                    // ✅ LOG COMPLETO DO JSON PARA DEBUGGING (APENAS PRIMEIRAS LINHAS)
+                    console.log('🔍 Raw JSON sample (first 500 chars):', 
+                      pronunciationAssessmentResultJson.substring(0, 500) + '...'
+                    );
+                    
+                  } else {
+                    console.warn('⚠️ No detailed JSON result available from Azure Speech SDK');
                   }
                 } catch (jsonError) {
-                  console.warn('⚠️ Could not parse detailed JSON result:', jsonError);
+                  console.error('❌ Error parsing detailed JSON result:', jsonError);
+                  console.log('📄 Raw JSON that failed to parse:', pronunciationAssessmentResultJson);
                 }
 
                 // ✅ GERAR FEEDBACK MELHORADO COM DADOS DETALHADOS
@@ -235,7 +275,8 @@ export class AzureSpeechOfficialService {
                   pronunciationAssessmentResult.completenessScore || 100,
                   pronunciationAssessmentResult.prosodyScore,
                   userLevel,
-                  detailedWords
+                  detailedWords,
+                  detailedPhonemes
                 );
 
                 speechRecognizer.close();
@@ -346,18 +387,19 @@ export class AzureSpeechOfficialService {
     }
   }
 
-  // 🧠 GERAR FEEDBACK DETALHADO COM ANÁLISE DE PALAVRAS
+  // 🧠 GERAR FEEDBACK DETALHADO COM ANÁLISE COMPLETA
   private generateDetailedFeedback(
     accuracy: number,
     fluency: number,
     completeness: number,
     prosody: number,
     userLevel: string,
-    words: WordResult[]
+    words: WordResult[],
+    phonemes?: PhonemeResult[]
   ): string[] {
     const feedback: string[] = [];
 
-    // Feedback principal baseado nos scores
+    // ✅ FEEDBACK PRINCIPAL BASEADO NOS SCORES
     if (accuracy >= 90) {
       feedback.push('🎉 Outstanding pronunciation! You sound like a native speaker.');
     } else if (accuracy >= 80) {
@@ -370,34 +412,96 @@ export class AzureSpeechOfficialService {
       feedback.push('🔄 Focus on clear pronunciation. Try speaking more slowly.');
     }
 
-    // Feedback específico por categoria
+    // ✅ FEEDBACK ESPECÍFICO DE FLUÊNCIA
     if (fluency < 70) {
       feedback.push('🌊 Work on speaking more smoothly with natural rhythm.');
+    } else if (fluency >= 95) {
+      feedback.push('🌟 Excellent fluency! Your speech flows naturally.');
     }
 
-    if (prosody > 0 && prosody < 70) {
-      feedback.push('🎵 Practice natural intonation and stress patterns.');
+    // ✅ FEEDBACK ESPECÍFICO DE PROSÓDIA (SE DISPONÍVEL)
+    if (prosody > 0) {
+      if (prosody >= 80) {
+        feedback.push('🎵 Excellent intonation and stress patterns!');
+      } else if (prosody >= 60) {
+        feedback.push('🎶 Good rhythm! Work on varying your intonation more.');
+      } else {
+        feedback.push('🎵 Practice natural intonation and stress patterns.');
+      }
     }
 
-    // ✅ FEEDBACK ESPECÍFICO BASEADO EM PALAVRAS PROBLEMÁTICAS
+    // ✅ ANÁLISE DETALHADA DE PALAVRAS PROBLEMÁTICAS
     if (words && words.length > 0) {
       const problemWords = words.filter(w => 
         w.accuracyScore < 60 || (w.errorType && w.errorType !== 'None')
       );
       
-      if (problemWords.length > 0 && problemWords.length <= 3) {
-        const wordList = problemWords.map(w => `"${w.word}"`).join(', ');
-        feedback.push(`🔍 Focus on these words: ${wordList}`);
+      if (problemWords.length > 0) {
+        if (problemWords.length <= 3) {
+          const wordList = problemWords.map(w => `"${w.word}" (${w.accuracyScore}%)`).join(', ');
+          feedback.push(`🔍 Focus on these words: ${wordList}`);
+        } else {
+          feedback.push(`🔍 ${problemWords.length} words need attention. Focus on clearer pronunciation.`);
+        }
+        
+        // Feedback específico por tipo de erro
+        const errorTypes = problemWords.map(w => w.errorType).filter(e => e && e !== 'None');
+        const uniqueErrors = [...new Set(errorTypes)];
+        
+        uniqueErrors.forEach(errorType => {
+          switch (errorType) {
+            case 'Mispronunciation':
+              feedback.push('🎯 Work on clearer pronunciation of individual sounds.');
+              break;
+            case 'Omission':
+              feedback.push('📢 Make sure to pronounce all words clearly - don\'t skip any.');
+              break;
+            case 'Insertion':
+              feedback.push('✂️ Avoid adding extra sounds or words.');
+              break;
+            case 'UnexpectedBreak':
+              feedback.push('🔗 Work on connecting words more smoothly.');
+              break;
+            case 'MissingBreak':
+              feedback.push('⏸️ Add appropriate pauses between phrases.');
+              break;
+          }
+        });
       }
+    }
+
+    // ✅ ANÁLISE DE FONEMAS PROBLEMÁTICOS (SE DISPONÍVEL)
+    if (phonemes && phonemes.length > 0) {
+      const problemPhonemes = phonemes.filter(p => p.accuracyScore < 50);
       
-      // Feedback por tipo de erro
-      const errorTypes = problemWords.map(w => w.errorType).filter(e => e && e !== 'None');
-      if (errorTypes.includes('Mispronunciation')) {
-        feedback.push('🎯 Work on clearer pronunciation of individual sounds.');
+      if (problemPhonemes.length > 0) {
+        // Agrupar fonemas problemáticos por frequência
+        const phonemeCount = new Map<string, number>();
+        problemPhonemes.forEach(p => {
+          phonemeCount.set(p.phoneme, (phonemeCount.get(p.phoneme) || 0) + 1);
+        });
+        
+        // Pegar os 3 fonemas mais problemáticos
+        const topProblems = Array.from(phonemeCount.entries())
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 3);
+        
+        if (topProblems.length > 0) {
+          const phonemeList = topProblems.map(([phoneme, count]) => 
+            count > 1 ? `/${phoneme}/ (${count}x)` : `/${phoneme}/`
+          ).join(', ');
+          feedback.push(`🔤 Practice these sounds: ${phonemeList}`);
+        }
       }
-      if (errorTypes.includes('Omission')) {
-        feedback.push('📢 Make sure to pronounce all words clearly - don\'t skip any.');
-      }
+    }
+
+    // ✅ FEEDBACK BASEADO NO NÍVEL DO USUÁRIO
+    if (userLevel === 'Advanced' && accuracy >= 85) {
+      feedback.push('🚀 Advanced level: Focus on subtle pronunciation nuances and natural rhythm.');
+    } else if (userLevel === 'Intermediate' && accuracy >= 75) {
+      feedback.push('📈 Great progress! You\'re ready for more challenging pronunciation exercises.');
+    } else if (userLevel === 'Novice' && accuracy >= 60) {
+      feedback.push('🌱 Good foundation! Keep practicing basic pronunciation patterns.');
     }
 
     return feedback;
