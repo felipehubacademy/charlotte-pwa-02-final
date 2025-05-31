@@ -1,6 +1,6 @@
 // lib/azure-speech-sdk.ts - IMPLEMENTAÇÃO SEGUINDO DOCUMENTAÇÃO OFICIAL MICROSOFT
 
-import * as speechsdk from 'microsoft-cognitiveservices-speech-sdk';
+import * as sdk from 'microsoft-cognitiveservices-speech-sdk';
 
 export interface PronunciationResult {
   text: string;
@@ -50,7 +50,7 @@ export interface AudioProcessingResult {
 }
 
 export class AzureSpeechOfficialService {
-  private speechConfig: speechsdk.SpeechConfig;
+  private speechConfig: sdk.SpeechConfig;
   private region: string;
   private subscriptionKey: string;
 
@@ -67,17 +67,17 @@ export class AzureSpeechOfficialService {
   }
 
   // 🎯 CONFIGURAÇÃO OFICIAL SEGUINDO DOCUMENTAÇÃO MICROSOFT
-  private createOfficialSpeechConfig(): speechsdk.SpeechConfig {
+  private createOfficialSpeechConfig(): sdk.SpeechConfig {
     console.log('🔧 Creating SpeechConfig following OFFICIAL Microsoft docs...');
     
-    const speechConfig = speechsdk.SpeechConfig.fromSubscription(
+    const speechConfig = sdk.SpeechConfig.fromSubscription(
       this.subscriptionKey, 
       this.region
     );
     
     // ✅ CONFIGURAÇÃO OFICIAL CONFORME DOCUMENTAÇÃO
     speechConfig.speechRecognitionLanguage = "en-US";
-    speechConfig.outputFormat = speechsdk.OutputFormat.Detailed;
+    speechConfig.outputFormat = sdk.OutputFormat.Detailed;
     
     console.log('✅ Official SpeechConfig created following Microsoft documentation');
     return speechConfig;
@@ -96,35 +96,43 @@ export class AzureSpeechOfficialService {
       // ✅ CRIAR AUDIO CONFIG OFICIAL
       const audioConfig = await this.createOfficialAudioConfig(audioBlob);
 
-      // ✅ CRIAR PRONUNCIATION ASSESSMENT CONFIG OFICIAL
+      // ✅ CRIAR PRONUNCIATION ASSESSMENT CONFIG OFICIAL COM PROSODY
       console.log('⚙️ Creating PronunciationAssessmentConfig following official docs...');
       
-      const pronunciationAssessmentConfig = new speechsdk.PronunciationAssessmentConfig(
-        referenceText || "", // referenceText
-        speechsdk.PronunciationAssessmentGradingSystem.HundredMark, // gradingSystem
-        speechsdk.PronunciationAssessmentGranularity.Phoneme, // granularity
-        false // enableMiscue
-      );
+      // Método 1: Tentar configuração direta conforme documentação
+      let pronunciationAssessmentConfig: sdk.PronunciationAssessmentConfig;
       
-      // ✅ HABILITAR PROSODY ASSESSMENT CONFORME DOCUMENTAÇÃO OFICIAL
       try {
-        // Método 1: Tentar enableProsodyAssessment() como any cast
-        if (typeof (pronunciationAssessmentConfig as any).enableProsodyAssessment === 'function') {
+        pronunciationAssessmentConfig = new sdk.PronunciationAssessmentConfig(
+          referenceText || "", // referenceText
+          sdk.PronunciationAssessmentGradingSystem.HundredMark, // gradingSystem
+          sdk.PronunciationAssessmentGranularity.Phoneme, // granularity
+          false // enableMiscue
+        );
+        
+        // ✅ HABILITAR PROSODY ASSESSMENT CONFORME DOCUMENTAÇÃO OFICIAL MICROSOFT
+        try {
+          // Seguindo documentação oficial JavaScript: pronunciationAssessmentConfig.enableProsodyAssessment();
           (pronunciationAssessmentConfig as any).enableProsodyAssessment();
-          console.log('✅ Prosody assessment enabled successfully (direct method)');
-        }
-        // Método 2: Verificar se existe como propriedade
-        else if ('enableProsodyAssessment' in pronunciationAssessmentConfig) {
-          (pronunciationAssessmentConfig as any).enableProsodyAssessment();
-          console.log('✅ Prosody assessment enabled successfully (property check)');
-        }
-        else {
-          console.log('⚠️ Prosody assessment not available - enableProsodyAssessment method not found');
-          console.log('🔍 Available methods:', Object.getOwnPropertyNames(pronunciationAssessmentConfig));
+          console.log('✅ Prosody assessment enabled successfully following Microsoft docs');
+        } catch (e) {
+          console.log('⚠️ Prosody assessment method not available, trying JSON config...');
+          
+          // Método 2: Usar configuração JSON conforme documentação alternativa
+          const configJson = {
+            referenceText: referenceText || "",
+            gradingSystem: "HundredMark",
+            granularity: "Phoneme",
+            enableMiscue: false,
+            enableProsodyAssessment: true  // ← HABILITAR VIA JSON
+          };
+          
+          pronunciationAssessmentConfig = sdk.PronunciationAssessmentConfig.fromJSON(JSON.stringify(configJson));
+          console.log('✅ Prosody assessment enabled via JSON configuration');
         }
       } catch (e) {
-        console.log('⚠️ Prosody assessment error:', e);
-        console.log('🔍 SDK Version: 1.44.0 - Prosody should be supported');
+        console.log('⚠️ Error creating PronunciationAssessmentConfig:', e);
+        throw e;
       }
       
       // ✅ CONFIGURAR NBEST PHONEMES PARA ANÁLISE DETALHADA
@@ -140,7 +148,7 @@ export class AzureSpeechOfficialService {
       // ✅ CRIAR SPEECH RECOGNIZER CONFORME DOCUMENTAÇÃO OFICIAL
       console.log('🎯 Creating SpeechRecognizer following official pattern...');
       
-      const speechRecognizer = new speechsdk.SpeechRecognizer(this.speechConfig, audioConfig);
+      const speechRecognizer = new sdk.SpeechRecognizer(this.speechConfig, audioConfig);
       
       // ✅ APLICAR CONFIGURAÇÃO CONFORME DOCUMENTAÇÃO
       pronunciationAssessmentConfig.applyTo(speechRecognizer);
@@ -154,7 +162,7 @@ export class AzureSpeechOfficialService {
 
         // ✅ PATTERN OFICIAL DA MICROSOFT
         speechRecognizer.recognizeOnceAsync(
-          (speechRecognitionResult: speechsdk.SpeechRecognitionResult) => {
+          (speechRecognitionResult: sdk.SpeechRecognitionResult) => {
             try {
               console.log('📥 Official recognition result received:', {
                 reason: speechRecognitionResult.reason,
@@ -163,14 +171,14 @@ export class AzureSpeechOfficialService {
               });
 
               // ✅ VERIFICAR RESULTADO CONFORME DOCUMENTAÇÃO
-              if (speechRecognitionResult.reason === speechsdk.ResultReason.RecognizedSpeech) {
+              if (speechRecognitionResult.reason === sdk.ResultReason.RecognizedSpeech) {
                 console.log('🎉 OFFICIAL Azure Speech Assessment SUCCESS!');
                 
                 // ✅ EXTRAIR RESULTADO CONFORME DOCUMENTAÇÃO OFICIAL
-                const pronunciationAssessmentResult = speechsdk.PronunciationAssessmentResult.fromResult(speechRecognitionResult);
+                const pronunciationAssessmentResult = sdk.PronunciationAssessmentResult.fromResult(speechRecognitionResult);
                 
                 // ✅ EXTRAIR JSON CONFORME DOCUMENTAÇÃO OFICIAL
-                const pronunciationAssessmentResultJson = speechRecognitionResult.properties.getProperty(speechsdk.PropertyId.SpeechServiceResponse_JsonResult);
+                const pronunciationAssessmentResultJson = speechRecognitionResult.properties.getProperty(sdk.PropertyId.SpeechServiceResponse_JsonResult);
 
                 console.log('📊 Official pronunciation scores:', {
                   accuracy: pronunciationAssessmentResult.accuracyScore,
@@ -309,7 +317,7 @@ export class AzureSpeechOfficialService {
     } else {
                 console.error('❌ Official speech not recognized:', {
                   reason: speechRecognitionResult.reason,
-                  reasonText: speechsdk.ResultReason[speechRecognitionResult.reason],
+                  reasonText: sdk.ResultReason[speechRecognitionResult.reason],
                   errorDetails: speechRecognitionResult.errorDetails
                 });
                 
@@ -321,7 +329,7 @@ export class AzureSpeechOfficialService {
                   retryReason: 'speech_not_recognized',
                   debugInfo: {
                     reason: speechRecognitionResult.reason,
-                    reasonText: speechsdk.ResultReason[speechRecognitionResult.reason],
+                    reasonText: sdk.ResultReason[speechRecognitionResult.reason],
                     sessionId,
                     referenceText,
                     azureErrorDetails: speechRecognitionResult.errorDetails
@@ -363,7 +371,7 @@ export class AzureSpeechOfficialService {
   }
 
   // 🎵 CRIAR AUDIO CONFIG OFICIAL
-  private async createOfficialAudioConfig(audioBlob: Blob): Promise<speechsdk.AudioConfig> {
+  private async createOfficialAudioConfig(audioBlob: Blob): Promise<sdk.AudioConfig> {
     console.log('🎵 Creating OFFICIAL AudioConfig...');
     
     try {
@@ -378,14 +386,14 @@ export class AzureSpeechOfficialService {
       // Conforme documentação: usar AudioConfig.fromWavFileInput ou fromStreamInput
       
       // Criar stream de áudio oficial
-      const audioFormat = speechsdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-      const pushStream = speechsdk.AudioInputStream.createPushStream(audioFormat);
+      const audioFormat = sdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
+      const pushStream = sdk.AudioInputStream.createPushStream(audioFormat);
       
       // Enviar dados de áudio
       pushStream.write(arrayBuffer);
       pushStream.close();
 
-      const audioConfig = speechsdk.AudioConfig.fromStreamInput(pushStream);
+      const audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
       
       console.log('✅ Official AudioConfig created successfully');
       return audioConfig;
@@ -556,7 +564,7 @@ export class AzureSpeechOfficialService {
     try {
       console.log('🧪 Testing OFFICIAL Azure Speech SDK connection...');
       
-      const testConfig = speechsdk.SpeechConfig.fromSubscription(
+      const testConfig = sdk.SpeechConfig.fromSubscription(
         this.subscriptionKey, 
         this.region
       );
