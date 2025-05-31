@@ -96,6 +96,14 @@ export function calculateAudioXP(
     text
   } = assessmentResult;
 
+  console.log('🎯 Calculating XP with retry logic:', {
+    pronunciationScore,
+    accuracyScore,
+    text: text.substring(0, 50) + '...',
+    duration: audioDuration,
+    userLevel
+  });
+
   // 🔍 VERIFICAR SE PRECISA REPETIR
   const retryCheck = shouldRequestRetry(assessmentResult, audioDuration);
   

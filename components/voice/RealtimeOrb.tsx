@@ -89,7 +89,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
     
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
-      const time = (animationPhase || 0) * 0.02;
+      const time = animationPhase * 0.02;
       
       // Múltiplas ondas senoidais para complexidade
       const wave1 = Math.sin(angle * 3 + time * 2) * 3;
@@ -97,7 +97,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
       const wave3 = Math.sin(angle * 7 + time * 3) * 1;
       
       // Intensidade baseada no áudio
-      const audioWave = audioLevels[i % audioLevels.length] || (audioIntensity || 0);
+      const audioWave = audioLevels[i % audioLevels.length] || audioIntensity;
       const audioEffect = audioWave * (isSpeaking ? 8 : isListening ? 4 : 1);
       
       const radius = baseRadius + wave1 + wave2 + wave3 + audioEffect;
@@ -155,11 +155,11 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           <motion.circle
             cx="100"
             cy="100"
-            r={95}
+            r="95"
             fill="url(#glowGradient)"
             animate={isActive ? {
-              r: [90, Math.max(90, 95 + (audioIntensity || 0) * 10), 90],
-              opacity: [0.3, Math.min(1, 0.6 + (audioIntensity || 0) * 0.3), 0.3],
+              r: [90, 95 + audioIntensity * 10, 90],
+              opacity: [0.3, 0.6 + audioIntensity * 0.3, 0.3],
             } : {
               r: 85,
               opacity: 0.2
@@ -178,19 +178,15 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
               d={generateWaveData(waveIndex)}
               fill="none"
               stroke={colors.primary}
-              strokeWidth={Math.max(0.1, 1.5 - waveIndex * 0.2)}
-              opacity={Math.min(1, 0.4 + waveIndex * 0.1)}
+              strokeWidth={1.5 - waveIndex * 0.2}
+              opacity={0.4 + waveIndex * 0.1}
               filter="url(#glow)"
               animate={isActive ? {
-                opacity: [0.3, Math.min(1, 0.7 + (audioIntensity || 0) * 0.3), 0.3],
-                strokeWidth: [
-                  Math.max(0.1, 1.5 - waveIndex * 0.2), 
-                  Math.max(0.1, 2 - waveIndex * 0.2), 
-                  Math.max(0.1, 1.5 - waveIndex * 0.2)
-                ],
+                opacity: [0.3, 0.7 + audioIntensity * 0.3, 0.3],
+                strokeWidth: [1.5 - waveIndex * 0.2, 2 - waveIndex * 0.2, 1.5 - waveIndex * 0.2],
               } : {
                 opacity: 0.2,
-                strokeWidth: Math.max(0.1, 1 - waveIndex * 0.1)
+                strokeWidth: 1 - waveIndex * 0.1
               }}
               transition={{
                 duration: 2 + waveIndex * 0.5,
@@ -205,11 +201,11 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           <motion.circle
             cx="100"
             cy="100"
-            r={50}
+            r="50"
             fill="url(#mainGradient)"
             filter="url(#glow)"
             animate={isActive ? {
-              r: [48, Math.max(48, 50 + (audioIntensity || 0) * 3), 48],
+              r: [48, 50 + audioIntensity * 3, 48],
             } : {
               r: 45
             }}
@@ -224,12 +220,12 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           <motion.circle
             cx="100"
             cy="100"
-            r={15}
+            r="15"
             fill={colors.primary}
             opacity="0.9"
             animate={isActive ? {
-              r: [12, Math.max(12, 15 + (audioIntensity || 0) * 2), 12],
-              opacity: [0.7, Math.min(1, 0.9 + (audioIntensity || 0) * 0.1), 0.7],
+              r: [12, 15 + audioIntensity * 2, 12],
+              opacity: [0.7, 0.9 + audioIntensity * 0.1, 0.7],
             } : {
               r: 10,
               opacity: 0.6
@@ -244,22 +240,20 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           {/* Partículas flutuantes */}
           {Array.from({ length: 12 }).map((_, particleIndex) => {
             const angle = (particleIndex / 12) * 360;
-            const radius = 65 + Math.sin((animationPhase || 0) * 0.03 + particleIndex) * 10;
+            const radius = 65 + Math.sin(animationPhase * 0.03 + particleIndex) * 10;
             const x = 100 + Math.cos(angle * Math.PI / 180) * radius;
             const y = 100 + Math.sin(angle * Math.PI / 180) * radius;
-            const particleRadius = 1.5;
-            const activeRadius = isActive ? (1 + (audioIntensity || 0) * 1) : 0.8;
             
             return (
               <motion.circle
                 key={`particle-${particleIndex}`}
                 cx={x}
                 cy={y}
-                r={particleRadius}
+                r="1.5"
                 fill={colors.primary}
                 opacity="0.6"
                 animate={isActive ? {
-                  r: [1, Math.max(1, 2 + (audioIntensity || 0)), 1],
+                  r: [1, 2 + audioIntensity, 1],
                   opacity: [0.4, 0.8, 0.4],
                 } : {
                   r: 0.8,

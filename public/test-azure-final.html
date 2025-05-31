@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Azure Speech SDK - Final Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .test-section h2 {
+            margin-top: 0;
+            color: #FFD700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid #4CAF50;
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 1px solid #F44336;
+        }
+        
+        .status.info {
+            background: rgba(33, 150, 243, 0.3);
+            border: 1px solid #2196F3;
+        }
+        
+        .results {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .score-display {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .score-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .score-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #FFD700;
+        }
+        
+        .recording-indicator {
+            display: none;
+            background: #FF4444;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            text-align: center;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .comparison-table th {
+            background: rgba(255, 255, 255, 0.1);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Azure Speech SDK - Final Test</h1>
+        
+        <!-- Test 1: Azure Connectivity -->
+        <div class="test-section">
+            <h2>🔗 Azure Connectivity Test</h2>
+            <button onclick="testAzureConnectivity()">Test Azure Connection</button>
+            <div id="connectivity-status"></div>
+        </div>
+        
+        <!-- Test 2: Audio Recording & Assessment -->
+        <div class="test-section">
+            <h2>🎤 Audio Recording & Assessment</h2>
+            <button id="record-btn" onclick="toggleRecording()">🎤 Start Recording</button>
+            <button onclick="testWithSampleAudio()">🎵 Test with Sample Audio</button>
+            <button onclick="testWithRealAudio()">🎯 Test with REAL Audio</button>
+            <div class="recording-indicator" id="recording-indicator">
+                🔴 Recording... Speak clearly!
+            </div>
+            <div id="recording-status"></div>
+            <div id="assessment-results"></div>
+        </div>
+        
+        <!-- Test 3: Comparison Results -->
+        <div class="test-section">
+            <h2>📊 Results Comparison</h2>
+            <div id="comparison-results"></div>
+        </div>
+        
+        <!-- Test 4: Debug Information -->
+        <div class="test-section">
+            <h2>🔍 Debug Information</h2>
+            <button onclick="showDebugInfo()">Show Debug Info</button>
+            <div id="debug-info"></div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let testResults = [];
+
+        // Test Azure Connectivity
+        async function testAzureConnectivity() {
+            const statusDiv = document.getElementById('connectivity-status');
+            statusDiv.innerHTML = '<div class="status info">🔄 Testing Azure connectivity...</div>';
+            
+            try {
+                const response = await fetch('/api/azure-test');
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = `
+                        <div class="status success">✅ Azure Connected Successfully!</div>
+                        <div class="results">${JSON.stringify(result, null, 2)}</div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="status error">❌ Azure Connection Failed</div>
+                        <div class="results">${JSON.stringify(result, null, 2)}</div>
+                    `;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status error">❌ Connection Error: ${error.message}</div>
+                `;
+            }
+        }
+
+        // Toggle Recording
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                await stopRecording();
+            }
+        }
+
+        // Start Recording
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        sampleRate: 16000,
+                        channelCount: 1,
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+                    await processAudio(audioBlob);
+                    
+                    // Stop all tracks
+                    stream.getTracks().forEach(track => track.stop());
+                };
+                
+                mediaRecorder.start();
+                isRecording = true;
+                
+                document.getElementById('record-btn').textContent = '🛑 Stop Recording';
+                document.getElementById('recording-indicator').style.display = 'block';
+                document.getElementById('recording-status').innerHTML = 
+                    '<div class="status info">🎤 Recording started... Speak clearly!</div>';
+                
+            } catch (error) {
+                document.getElementById('recording-status').innerHTML = 
+                    `<div class="status error">❌ Recording failed: ${error.message}</div>`;
+            }
+        }
+
+        // Stop Recording
+        async function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                
+                document.getElementById('record-btn').textContent = '🎤 Start Recording';
+                document.getElementById('recording-indicator').style.display = 'none';
+                document.getElementById('recording-status').innerHTML = 
+                    '<div class="status info">🔄 Processing audio...</div>';
+            }
+        }
+
+        // Process Audio
+        async function processAudio(audioBlob) {
+            const statusDiv = document.getElementById('recording-status');
+            const resultsDiv = document.getElementById('assessment-results');
+            
+            try {
+                statusDiv.innerHTML = '<div class="status info">🔄 Sending audio for assessment...</div>';
+                
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'recorded.webm');
+                
+                const response = await fetch('/api/pronunciation', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = '<div class="status success">✅ Assessment completed!</div>';
+                    displayResults(result.result);
+                    testResults.push({
+                        timestamp: new Date().toISOString(),
+                        method: result.result.assessmentMethod,
+                        scores: {
+                            pronunciation: result.result.pronunciationScore,
+                            accuracy: result.result.accuracyScore,
+                            fluency: result.result.fluencyScore,
+                            completeness: result.result.completenessScore
+                        }
+                    });
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Assessment failed: ${result.error}</div>`;
+                    resultsDiv.innerHTML = `<div class="results">${JSON.stringify(result, null, 2)}</div>`;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Processing error: ${error.message}</div>`;
+            }
+        }
+
+        // Display Results
+        function displayResults(result) {
+            const resultsDiv = document.getElementById('assessment-results');
+            
+            const scoreDisplay = `
+                <div class="score-display">
+                    <div class="score-item">
+                        <div class="score-value">${result.pronunciationScore}</div>
+                        <div>Pronunciation</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-value">${result.accuracyScore}</div>
+                        <div>Accuracy</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-value">${result.fluencyScore}</div>
+                        <div>Fluency</div>
+                    </div>
+                    <div class="score-item">
+                        <div class="score-value">${result.completenessScore}</div>
+                        <div>Completeness</div>
+                    </div>
+                </div>
+                
+                <div class="status ${result.assessmentMethod === 'azure-sdk-definitive' ? 'success' : 'info'}">
+                    📊 Assessment Method: <strong>${result.assessmentMethod}</strong>
+                </div>
+                
+                <div class="status info">
+                    💬 Recognized Text: "<strong>${result.text}</strong>"
+                </div>
+                
+                <div class="status info">
+                    📝 Feedback: ${result.feedback.join(' ')}
+                </div>
+                
+                <div class="results">${JSON.stringify(result, null, 2)}</div>
+            `;
+            
+            resultsDiv.innerHTML = scoreDisplay;
+            updateComparison();
+        }
+
+        // Test with Sample Audio
+        async function testWithSampleAudio() {
+            const statusDiv = document.getElementById('recording-status');
+            statusDiv.innerHTML = '<div class="status info">🔄 Testing with synthetic audio...</div>';
+            
+            try {
+                const response = await fetch('/api/audio-pipeline-test', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    statusDiv.innerHTML = '<div class="status success">✅ Sample audio test completed!</div>';
+                    
+                    if (result.pronunciation && result.pronunciation.result) {
+                        displayResults(result.pronunciation.result);
+                    }
+                    
+                    document.getElementById('assessment-results').innerHTML += 
+                        `<div class="results">Full Pipeline Result:\n${JSON.stringify(result, null, 2)}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ Sample test failed</div>`;
+                    document.getElementById('assessment-results').innerHTML = 
+                        `<div class="results">${JSON.stringify(result, null, 2)}</div>`;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ Sample test error: ${error.message}</div>`;
+            }
+        }
+
+        // Test with REAL Audio
+        async function testWithRealAudio() {
+            const statusDiv = document.getElementById('recording-status');
+            statusDiv.innerHTML = '<div class="status info">🔄 Testing with REAL audio...</div>';
+            
+            try {
+                const response = await fetch('/api/test-real-azure', {
+                    method: 'POST'
+                });
+                
+                const result = await response.json();
+                
+                if (result.success && result.azureResult) {
+                    statusDiv.innerHTML = '<div class="status success">✅ REAL audio test completed!</div>';
+                    
+                    if (result.azureResult.result) {
+                        displayResults(result.azureResult.result);
+                    }
+                    
+                    document.getElementById('assessment-results').innerHTML += 
+                        `<div class="results">REAL Audio Test Result:\n${JSON.stringify(result, null, 2)}</div>`;
+                } else {
+                    statusDiv.innerHTML = `<div class="status error">❌ REAL audio test failed</div>`;
+                    document.getElementById('assessment-results').innerHTML = 
+                        `<div class="results">${JSON.stringify(result, null, 2)}</div>`;
+                }
+                
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="status error">❌ REAL audio test error: ${error.message}</div>`;
+            }
+        }
+
+        // Update Comparison
+        function updateComparison() {
+            const comparisonDiv = document.getElementById('comparison-results');
+            
+            if (testResults.length === 0) {
+                comparisonDiv.innerHTML = '<div class="status info">No test results yet. Run some tests first!</div>';
+                return;
+            }
+            
+            const azureResults = testResults.filter(r => r.method === 'azure-sdk-definitive');
+            const whisperResults = testResults.filter(r => r.method === 'whisper-encouraging');
+            
+            const tableHTML = `
+                <table class="comparison-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Count</th>
+                            <th>Avg Pronunciation</th>
+                            <th>Avg Accuracy</th>
+                            <th>Success Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>🎯 Azure SDK Definitive</td>
+                            <td>${azureResults.length}</td>
+                            <td>${azureResults.length > 0 ? Math.round(azureResults.reduce((sum, r) => sum + r.scores.pronunciation, 0) / azureResults.length) : 'N/A'}</td>
+                            <td>${azureResults.length > 0 ? Math.round(azureResults.reduce((sum, r) => sum + r.scores.accuracy, 0) / azureResults.length) : 'N/A'}</td>
+                            <td>${azureResults.length > 0 ? '✅ Working' : '❌ Not Working'}</td>
+                        </tr>
+                        <tr>
+                            <td>🎤 Whisper Fallback</td>
+                            <td>${whisperResults.length}</td>
+                            <td>${whisperResults.length > 0 ? Math.round(whisperResults.reduce((sum, r) => sum + r.scores.pronunciation, 0) / whisperResults.length) : 'N/A'}</td>
+                            <td>${whisperResults.length > 0 ? Math.round(whisperResults.reduce((sum, r) => sum + r.scores.accuracy, 0) / whisperResults.length) : 'N/A'}</td>
+                            <td>${whisperResults.length > 0 ? '✅ Working' : '❌ Not Working'}</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="status ${azureResults.length > 0 ? 'success' : 'error'}">
+                    ${azureResults.length > 0 ? 
+                        '🎉 SUCCESS! Azure Speech SDK is working with definitive implementation!' : 
+                        '⚠️ Azure Speech SDK still falling back to Whisper. Check logs for details.'}
+                </div>
+            `;
+            
+            comparisonDiv.innerHTML = tableHTML;
+        }
+
+        // Show Debug Info
+        async function showDebugInfo() {
+            const debugDiv = document.getElementById('debug-info');
+            
+            const debugInfo = {
+                userAgent: navigator.userAgent,
+                mediaDevicesSupported: !!navigator.mediaDevices,
+                audioContextSupported: !!(window.AudioContext || window.webkitAudioContext),
+                mediaRecorderSupported: !!window.MediaRecorder,
+                testResults: testResults,
+                timestamp: new Date().toISOString()
+            };
+            
+            debugDiv.innerHTML = `<div class="results">${JSON.stringify(debugInfo, null, 2)}</div>`;
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 Azure Speech SDK Final Test Page Loaded');
+            updateComparison();
+        });
+    </script>
+</body>
+</html> 

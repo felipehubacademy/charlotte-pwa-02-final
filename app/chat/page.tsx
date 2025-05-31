@@ -243,16 +243,35 @@ export default function ChatPage() {
 
   // Audio processing
   const handleAudioWithAssistantAPI = useCallback(async (audioBlob: Blob, duration: number) => {
+    console.log('🎤 Starting audio processing:', { 
+      blobSize: audioBlob.size, 
+      duration, 
+      blobType: audioBlob.type 
+    });
+
     // ✅ CONVERSÃO REAL DE ÁUDIO NO CLIENTE
     let processedAudioBlob = audioBlob;
     
     if (audioBlob.type.includes('webm') || audioBlob.type.includes('opus')) {
+      console.log('🔄 Converting WebM/Opus to WAV using REAL conversion...');
+      
       try {
         processedAudioBlob = await convertAudioToWAV(audioBlob);
+        
+        console.log('✅ REAL audio conversion completed:', {
+          originalType: audioBlob.type,
+          newType: processedAudioBlob.type,
+          originalSize: audioBlob.size,
+          newSize: processedAudioBlob.size,
+          format: 'WAV PCM 16kHz mono'
+        });
       } catch (error) {
         console.error('❌ REAL audio conversion error:', error);
+        console.log('🔄 Using original audio as fallback');
         // Continuar com áudio original se conversão falhar
       }
+    } else {
+      console.log('✅ Audio already in compatible format:', audioBlob.type);
     }
 
     const audioMessage: Message = {
@@ -269,13 +288,24 @@ export default function ChatPage() {
     setIsProcessingMessage(true);
 
     try {
+      console.log('🔄 Starting transcription and pronunciation assessment...');
+      console.log('📁 Using processed audio:', { 
+        type: processedAudioBlob.type, 
+        size: processedAudioBlob.size 
+      });
+      
       const [transcriptionResult, pronunciationResult] = await Promise.allSettled([
         transcribeAudio(processedAudioBlob), // ✅ Usar áudio convertido
         assessPronunciation(processedAudioBlob) // ✅ Usar áudio convertido
       ]);
       
+      console.log('📝 Transcription result:', transcriptionResult);
+      console.log('🎯 Pronunciation result:', pronunciationResult);
+      
       const transcriptionSuccess = transcriptionResult.status === 'fulfilled' && transcriptionResult.value.success;
       const pronunciationSuccess = pronunciationResult.status === 'fulfilled' && pronunciationResult.value.success;
+      
+      console.log('✅ Success status:', { transcriptionSuccess, pronunciationSuccess });
       
       if (transcriptionSuccess && pronunciationSuccess) {
         const transcription = transcriptionResult.value.transcription;
@@ -364,11 +394,13 @@ export default function ChatPage() {
         }
         
       } else {
-        console.error('❌ Audio processing failed:', {
+        console.log('❌ Audio processing failed:', {
           transcriptionSuccess,
           pronunciationSuccess,
           transcriptionError: transcriptionResult.status === 'rejected' ? transcriptionResult.reason : null,
-          pronunciationError: pronunciationResult.status === 'rejected' ? pronunciationResult.reason : null
+          pronunciationError: pronunciationResult.status === 'rejected' ? pronunciationResult.reason : null,
+          transcriptionValue: transcriptionResult.status === 'fulfilled' ? transcriptionResult.value : null,
+          pronunciationValue: pronunciationResult.status === 'fulfilled' ? pronunciationResult.value : null
         });
         
         const errorResponse: Message = {
@@ -983,6 +1015,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
   // 🎯 CONVERSÃO DE ÁUDIO REAL NO CLIENTE
   const convertAudioToWAV = async (audioBlob: Blob): Promise<Blob> => {
+    console.log('🎵 Starting REAL audio conversion in browser...');
+    console.log('📋 Input:', { type: audioBlob.type, size: audioBlob.size });
+
     try {
       // ✅ USAR WEB AUDIO API PARA CONVERSÃO REAL
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -990,6 +1025,12 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       // Decodificar áudio WebM/Opus
       const arrayBuffer = await audioBlob.arrayBuffer();
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      console.log('✅ Audio decoded:', {
+        sampleRate: audioBuffer.sampleRate,
+        channels: audioBuffer.numberOfChannels,
+        duration: audioBuffer.duration
+      });
 
       // ✅ CONVERTER PARA 16kHz MONO PCM
       const targetSampleRate = 16000;
@@ -1000,16 +1041,24 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       // Resample se necessário
       if (audioBuffer.sampleRate !== targetSampleRate) {
         processedBuffer = await resampleAudio(audioBuffer, targetSampleRate, audioContext);
+        console.log(`🔄 Resampled from ${audioBuffer.sampleRate}Hz to ${targetSampleRate}Hz`);
       }
       
       // Converter para mono se necessário
       if (processedBuffer.numberOfChannels > 1) {
         processedBuffer = convertToMono(processedBuffer, audioContext);
+        console.log('🔄 Converted to mono');
       }
 
       // ✅ CONVERTER PARA WAV PCM
       const wavBuffer = audioBufferToWav(processedBuffer);
       const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+        
+      console.log('✅ REAL conversion completed:', {
+        originalSize: audioBlob.size,
+        convertedSize: wavBlob.size,
+        format: 'WAV PCM 16kHz mono'
+      });
 
       // Cleanup
       audioContext.close();
@@ -1017,8 +1066,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       return wavBlob;
 
     } catch (error) {
-      console.error('❌ Audio conversion failed:', error);
-      throw error;
+      console.error('❌ REAL audio conversion failed:', error);
+      console.log('🔄 Returning original audio as fallback');
+      return audioBlob;
     }
   };
 

@@ -89,13 +89,17 @@ export class AzureSpeechOfficialService {
     referenceText: string, 
     userLevel: string
   ): Promise<AudioProcessingResult> {
-    console.log('🎯 Starting Azure Speech Assessment...');
+    console.log('🎯 Starting OFFICIAL Azure Speech Assessment...');
+    console.log('📋 Following Microsoft documentation exactly');
 
     try {
       // ✅ CRIAR AUDIO CONFIG OFICIAL
       const audioConfig = await this.createOfficialAudioConfig(audioBlob);
 
       // ✅ CRIAR PRONUNCIATION ASSESSMENT CONFIG OFICIAL COM PROSODY
+      console.log('⚙️ Creating PronunciationAssessmentConfig following official docs...');
+      
+      // Método 1: Tentar configuração direta conforme documentação
       let pronunciationAssessmentConfig: sdk.PronunciationAssessmentConfig;
       
       try {
@@ -108,10 +112,16 @@ export class AzureSpeechOfficialService {
         
         // ✅ HABILITAR PROSODY ASSESSMENT CONFORME DOCUMENTAÇÃO OFICIAL MICROSOFT
         try {
+          // Seguindo documentação oficial JavaScript: pronunciationAssessmentConfig.enableProsodyAssessment();
+          console.log('🎵 Attempting to enable prosody assessment...');
+          console.log('🔍 PronunciationAssessmentConfig methods:', Object.getOwnPropertyNames(pronunciationAssessmentConfig));
+          console.log('🔍 PronunciationAssessmentConfig prototype:', Object.getOwnPropertyNames(Object.getPrototypeOf(pronunciationAssessmentConfig)));
+          
           (pronunciationAssessmentConfig as any).enableProsodyAssessment();
-          console.log('✅ Prosody assessment enabled');
+          console.log('✅ Prosody assessment enabled successfully following Microsoft docs');
         } catch (e) {
           console.log('⚠️ Prosody assessment method not available, trying JSON config...');
+          console.log('🔍 Error details:', e);
           
           // Método 2: Usar configuração JSON conforme documentação alternativa
           const configJson = {
@@ -119,9 +129,10 @@ export class AzureSpeechOfficialService {
             gradingSystem: "HundredMark",
             granularity: "Phoneme",
             enableMiscue: false,
-            enableProsodyAssessment: true
+            enableProsodyAssessment: true  // ← HABILITAR VIA JSON
           };
           
+          console.log('🎵 Trying JSON config for prosody:', configJson);
           pronunciationAssessmentConfig = sdk.PronunciationAssessmentConfig.fromJSON(JSON.stringify(configJson));
           console.log('✅ Prosody assessment enabled via JSON configuration');
         }
@@ -133,30 +144,65 @@ export class AzureSpeechOfficialService {
       // ✅ CONFIGURAR NBEST PHONEMES PARA ANÁLISE DETALHADA
       try {
         (pronunciationAssessmentConfig as any).nBestPhonemeCount = 5;
+        console.log('✅ NBest phoneme count set to 5');
       } catch (e) {
         console.log('⚠️ NBest phoneme count not available in this SDK version');
       }
 
+      console.log('✅ Official PronunciationAssessmentConfig created');
 
       // ✅ CRIAR SPEECH RECOGNIZER CONFORME DOCUMENTAÇÃO OFICIAL
+      console.log('🎯 Creating SpeechRecognizer following official pattern...');
       
       const speechRecognizer = new sdk.SpeechRecognizer(this.speechConfig, audioConfig);
       
       // ✅ APLICAR CONFIGURAÇÃO CONFORME DOCUMENTAÇÃO
       pronunciationAssessmentConfig.applyTo(speechRecognizer);
 
+      console.log('🎯 Performing official pronunciation assessment...');
 
       // ✅ EXECUTAR ASSESSMENT SEGUINDO PADRÃO OFICIAL
       return new Promise((resolve) => {
         const sessionId = Date.now().toString();
+        console.log('🔗 Official session started:', sessionId);
 
         // ✅ PATTERN OFICIAL DA MICROSOFT
         speechRecognizer.recognizeOnceAsync(
           (speechRecognitionResult: sdk.SpeechRecognitionResult) => {
             try {
+              console.log('📥 Official recognition result received:', {
+                reason: speechRecognitionResult.reason,
+                text: speechRecognitionResult.text,
+                sessionId
+              });
+
+              // ✅ VERIFICAR RESULTADO CONFORME DOCUMENTAÇÃO
               if (speechRecognitionResult.reason === sdk.ResultReason.RecognizedSpeech) {
+                console.log('🎉 OFFICIAL Azure Speech Assessment SUCCESS!');
+                
+                // ✅ EXTRAIR RESULTADO CONFORME DOCUMENTAÇÃO OFICIAL
                 const pronunciationAssessmentResult = sdk.PronunciationAssessmentResult.fromResult(speechRecognitionResult);
+                
+                // ✅ EXTRAIR JSON CONFORME DOCUMENTAÇÃO OFICIAL
                 const pronunciationAssessmentResultJson = speechRecognitionResult.properties.getProperty(sdk.PropertyId.SpeechServiceResponse_JsonResult);
+
+                console.log('📊 Official pronunciation scores:', {
+                  accuracy: pronunciationAssessmentResult.accuracyScore,
+                  fluency: pronunciationAssessmentResult.fluencyScore,
+                  completeness: pronunciationAssessmentResult.completenessScore,
+                  prosody: pronunciationAssessmentResult.prosodyScore,
+                  overall: pronunciationAssessmentResult.pronunciationScore
+                });
+                
+                // ✅ LOG DETALHADO DO PROSODY PARA DEBUGGING
+                console.log('🎵 Prosody assessment details:', {
+                  prosodyScore: pronunciationAssessmentResult.prosodyScore,
+                  prosodyType: typeof pronunciationAssessmentResult.prosodyScore,
+                  prosodyUndefined: pronunciationAssessmentResult.prosodyScore === undefined,
+                  prosodyNull: pronunciationAssessmentResult.prosodyScore === null,
+                  prosodyZero: pronunciationAssessmentResult.prosodyScore === 0,
+                  prosodyExists: 'prosodyScore' in pronunciationAssessmentResult
+                });
 
                 // ✅ EXTRAIR DADOS DETALHADOS DO JSON
                 let detailedWords: WordResult[] = [];
@@ -165,6 +211,12 @@ export class AzureSpeechOfficialService {
                 try {
                   if (pronunciationAssessmentResultJson) {
                     const jsonResult = JSON.parse(pronunciationAssessmentResultJson);
+                    console.log('📋 Detailed JSON result available:', {
+                      hasNBest: !!jsonResult.NBest,
+                      nbestLength: jsonResult.NBest?.length || 0,
+                      hasWords: !!jsonResult.NBest?.[0]?.Words,
+                      wordsCount: jsonResult.NBest?.[0]?.Words?.length || 0
+                    });
                     
                     // ✅ EXTRAIR DADOS COMPLETOS DE PALAVRAS (CONFORME DOCUMENTAÇÃO)
                     if (jsonResult.NBest && jsonResult.NBest[0] && jsonResult.NBest[0].Words) {
@@ -183,6 +235,17 @@ export class AzureSpeechOfficialService {
                           errorType: word.PronunciationAssessment?.ErrorType || 'None',
                           syllables
                         };
+                      });
+                      
+                      console.log('📝 Extracted detailed words:', {
+                        count: detailedWords.length,
+                        wordsWithSyllables: detailedWords.filter(w => w.syllables && w.syllables.length > 0).length,
+                        sample: detailedWords.slice(0, 3).map(w => ({
+                          word: w.word,
+                          score: w.accuracyScore,
+                          errorType: w.errorType,
+                          syllableCount: w.syllables?.length || 0
+                        }))
                       });
                     }
                     
@@ -211,12 +274,31 @@ export class AzureSpeechOfficialService {
                       });
                       
                       detailedPhonemes = allPhonemes;
+                      console.log('🔤 Extracted detailed phonemes:', {
+                        count: detailedPhonemes.length,
+                        phonemesWithNBest: detailedPhonemes.filter(p => p.nbestPhonemes && p.nbestPhonemes.length > 0).length,
+                        avgAccuracy: detailedPhonemes.length > 0 
+                          ? Math.round(detailedPhonemes.reduce((sum, p) => sum + p.accuracyScore, 0) / detailedPhonemes.length)
+                          : 0,
+                        sample: detailedPhonemes.slice(0, 5).map(p => ({
+                          phoneme: p.phoneme,
+                          score: p.accuracyScore,
+                          nbestCount: p.nbestPhonemes?.length || 0
+                        }))
+                      });
                     }
+                    
+                    // ✅ LOG COMPLETO DO JSON PARA DEBUGGING (APENAS PRIMEIRAS LINHAS)
+                    console.log('🔍 Raw JSON sample (first 500 chars):', 
+                      pronunciationAssessmentResultJson.substring(0, 500) + '...'
+                    );
+                    
                   } else {
                     console.warn('⚠️ No detailed JSON result available from Azure Speech SDK');
                   }
-                } catch (jsonError) {
+      } catch (jsonError) {
                   console.error('❌ Error parsing detailed JSON result:', jsonError);
+                  console.log('📄 Raw JSON that failed to parse:', pronunciationAssessmentResultJson);
                 }
 
                 // ✅ GERAR FEEDBACK MELHORADO COM DADOS DETALHADOS
@@ -248,7 +330,7 @@ export class AzureSpeechOfficialService {
                   }
                 });
 
-              } else {
+    } else {
                 console.error('❌ Official speech not recognized:', {
                   reason: speechRecognitionResult.reason,
                   reasonText: sdk.ResultReason[speechRecognitionResult.reason],
@@ -271,7 +353,7 @@ export class AzureSpeechOfficialService {
                 });
               }
 
-            } catch (error) {
+      } catch (error) {
               console.error('❌ Official error processing result:', error);
               speechRecognizer.close();
               resolve({
@@ -294,10 +376,10 @@ export class AzureSpeechOfficialService {
         );
       });
 
-    } catch (error) {
+      } catch (error) {
       console.error('❌ Official Azure Speech Assessment failed:', error);
       return {
-        success: false,
+          success: false,
         error: `Official assessment failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         shouldRetry: false
       };
