@@ -9,9 +9,10 @@ import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { transcribeAudio } from '@/lib/transcribe';
 import { assessPronunciation } from '@/lib/pronunciation';
 import { supabaseService } from '@/lib/supabase-service';
-import XPCounter from '@/components/ui/XPCounter';
+import EnhancedXPCounter from '@/components/ui/EnhancedXPCounter';
+import AchievementNotification from '@/components/achievements/AchievementNotification';
 import { ConversationContextManager } from '@/lib/conversation-context';
-import { calculateAudioXP, AudioAssessmentResult } from '@/lib/audio-xp-service';
+import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { ClientAudioConverter } from '@/lib/audio-converter-client';
 
@@ -136,6 +137,11 @@ export default function ChatPage() {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
+  
+  // ✅ NEW: Add missing state variables for EnhancedXPCounter
+  const [currentLevel, setCurrentLevel] = useState(1);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
 
   // Estados de gravação UNIFICADOS
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'preview'>('idle');
@@ -224,7 +230,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  // Load user stats
+  // Load user stats including achievements and level
   const loadUserStats = useCallback(async () => {
     if (!user?.entra_id || !supabaseService.isAvailable()) return;
 
@@ -232,16 +238,35 @@ export default function ChatPage() {
       const stats = await supabaseService.getUserStats(user.entra_id);
       if (stats) {
         setTotalXP(stats.total_xp);
+        // Calculate level from total XP using improved formula
+        const level = Math.floor(Math.sqrt(stats.total_xp / 50)) + 1;
+        setCurrentLevel(level);
       }
 
       const todayXP = await supabaseService.getTodaySessionXP(user.entra_id);
       setSessionXP(todayXP);
+
+      // Load user achievements
+      const userAchievements = await supabaseService.getUserAchievements(user.entra_id);
+      setAchievements(userAchievements);
     } catch (error) {
       console.error('Error loading user stats:', error);
     }
   }, [user?.entra_id]);
 
-  // Audio processing
+  // Handle achievement notifications
+  const handleNewAchievements = useCallback((newAchievements: Achievement[]) => {
+    if (newAchievements.length > 0) {
+      setNewAchievements(newAchievements);
+      setAchievements(prev => [...prev, ...newAchievements]);
+    }
+  }, []);
+
+  const dismissAchievementNotification = useCallback((achievementId: string) => {
+    setNewAchievements(prev => prev.filter(a => a.id !== achievementId));
+  }, []);
+
+  // Audio processing with improved XP system
   const handleAudioWithAssistantAPI = useCallback(async (audioBlob: Blob, duration: number) => {
     console.log('🎤 Starting audio processing:', { 
       blobSize: audioBlob.size, 
@@ -320,10 +345,13 @@ export default function ChatPage() {
           feedback: scores.feedback || []
         };
         
-        const xpResult = calculateAudioXP(
+        // ✅ UPDATED: Use improved XP system instead of legacy calculateAudioXP
+        const xpResult = await improvedAudioXPService.calculateImprovedXP(
           assessmentResult,
           duration,
-          user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate'
+          user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+          user?.entra_id || '',
+          totalXP
         );
         
         if (xpResult.shouldRetry) {
@@ -373,6 +401,7 @@ export default function ChatPage() {
         );
 
         if (supabaseService.isAvailable() && user?.entra_id) {
+          // ✅ UPDATED: Save with improved XP data
           await supabaseService.saveAudioPractice({
             user_id: user.entra_id,
             transcription: transcription,
@@ -384,11 +413,28 @@ export default function ChatPage() {
             practice_type: 'audio_message',
             audio_duration: duration,
             feedback: `${assistantResponse.feedback}\n\n${xpResult.feedback}`,
-            technicalFeedback: assistantResponse.technicalFeedback
+            technicalFeedback: assistantResponse.technicalFeedback,
+            // ✅ NEW: Save improved XP system data
+            achievement_ids: xpResult.achievements.map(a => a.id),
+            surprise_bonus: xpResult.surpriseBonus?.amount || 0,
+            base_xp: xpResult.baseXP,
+            bonus_xp: xpResult.bonusXP
           });
+
+          // ✅ NEW: Save achievements if any were earned
+          if (xpResult.achievements.length > 0) {
+            await supabaseService.saveAchievements(user.entra_id, xpResult.achievements);
+            handleNewAchievements(xpResult.achievements);
+          }
           
           setSessionXP(prev => prev + xpResult.totalXP);
-          setTotalXP(prev => prev + xpResult.totalXP);
+          setTotalXP(prev => {
+            const newTotal = prev + xpResult.totalXP;
+            // Update level based on new total XP
+            const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
+            setCurrentLevel(newLevel);
+            return newTotal;
+          });
           
           setTimeout(() => loadUserStats(), 1000);
         }
@@ -432,7 +478,7 @@ export default function ChatPage() {
     } finally {
       setIsProcessingMessage(false);
     }
-  }, [generateMessageId, user, conversationContext, loadUserStats]);
+  }, [generateMessageId, user, conversationContext, loadUserStats, totalXP, handleNewAchievements]);
 
   // Initialize recording
   const initializeRecording = useCallback(async (): Promise<boolean> => {
@@ -780,16 +826,16 @@ export default function ChatPage() {
         // Add question message (separate balloon)
         const questionMessage: Message = {
           id: generateMessageId('user-question'),
-      role: 'user',
+          role: 'user',
           content: user.user_level === 'Novice' 
             ? 'O que você vê nesta foto?' 
             : 'What do you see in this photo?',
           messageType: 'text',
           timestamp: new Date()
-    };
+        };
 
         setMessages(prev => [...prev, imageMessage, questionMessage]);
-    setIsProcessingMessage(true);
+        setIsProcessingMessage(true);
 
         try {
           // Create optimized prompt for vocabulary learning with XP system
@@ -827,25 +873,25 @@ Be natural and conversational. Then challenge me to use this word in a creative 
 IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
           // Call assistant API for vocabulary analysis
-      const response = await fetch('/api/assistant', {
-        method: 'POST',
+          const response = await fetch('/api/assistant', {
+            method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+            body: JSON.stringify({
               transcription: vocabularyPrompt,
-          pronunciationData: null,
-          userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
-          userName: user?.name?.split(' ')[0] || 'Student',
+              pronunciationData: null,
+              userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+              userName: user?.name?.split(' ')[0] || 'Student',
               messageType: 'image',
               imageData: imageData, // Send full image data to assistant
               conversationContext: conversationContext.generateContextForAssistant()
-        })
-      });
+            })
+          });
 
           if (!response.ok) throw new Error(`Assistant API error: ${response.status}`);
-      const data = await response.json();
+          const data = await response.json();
           if (!data.success) throw new Error(data.error || 'Assistant API failed');
 
-      const assistantResult = data.result;
+          const assistantResult = data.result;
           let assistantFeedback = assistantResult.feedback;
           
           // Extract vocabulary word from response - improved regex
@@ -924,62 +970,62 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           // Don't add vocabulary XP notification - keep conversation natural
           // The XP is already awarded silently in the background
 
-      await sendSequentialMessages(
-        aiMessages,
-        (msg) => setMessages(prev => [...prev, msg]),
-        generateMessageId,
-        1200,
+          await sendSequentialMessages(
+            aiMessages,
+            (msg) => setMessages(prev => [...prev, msg]),
+            generateMessageId,
+            1200,
             undefined // No technical feedback for image messages
-      );
+          );
 
           // Add to conversation context
-      aiMessages.forEach(msg => 
-        conversationContext.addMessage('assistant', msg, 'text')
-      );
+          aiMessages.forEach(msg => 
+            conversationContext.addMessage('assistant', msg, 'text')
+          );
 
           // Save practice with vocabulary XP
-      if (supabaseService.isAvailable() && user?.entra_id) {
+          if (supabaseService.isAvailable() && user?.entra_id) {
             const totalXPAwarded = (assistantResult.xpAwarded || 3) + vocabularyXP; // Base XP + vocabulary XP
-        
-        await supabaseService.saveAudioPractice({
-          user_id: user.entra_id,
+            
+            await supabaseService.saveAudioPractice({
+              user_id: user.entra_id,
               transcription: `Image analysis: ${discoveredWord || 'object identification'}`,
-          accuracy_score: null,
-          fluency_score: null,
-          completeness_score: null,
-          pronunciation_score: null,
+              accuracy_score: null,
+              fluency_score: null,
+              completeness_score: null,
+              pronunciation_score: null,
               xp_awarded: totalXPAwarded,
               practice_type: 'camera_object',
-          audio_duration: 0,
+              audio_duration: 0,
               feedback: assistantFeedback,
               technicalFeedback: assistantResult.technicalFeedback
-        });
-        
+            });
+            
             setSessionXP(prev => prev + totalXPAwarded);
             setTotalXP(prev => prev + totalXPAwarded);
-        
-        setTimeout(() => loadUserStats(), 1000);
-      }
+            
+            setTimeout(() => loadUserStats(), 1000);
+          }
 
-    } catch (error) {
+        } catch (error) {
           console.error('Error processing image with assistant:', error);
           
           // Fallback response
           const fallbackResponse: Message = {
             id: generateMessageId('assistant-image-error'),
-        role: 'assistant',
+            role: 'assistant',
             content: user.user_level === 'Novice'
               ? "Desculpe, tive problemas para analisar sua foto. Sorry, I had trouble analyzing your photo. Please try again!"
               : "I'm sorry, I had trouble analyzing your photo. Please try taking another picture with better lighting.",
-        timestamp: new Date(),
-        messageType: 'text'
-      };
-      
+            timestamp: new Date(),
+            messageType: 'text'
+          };
+          
           setMessages(prev => [...prev, fallbackResponse]);
-    } finally {
-      setIsProcessingMessage(false);
-    }
-  };
+        } finally {
+          setIsProcessingMessage(false);
+        }
+      };
 
       img.src = imageData;
     } catch (error) {
@@ -1188,9 +1234,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       id: generateMessageId('user'),
       role: 'user',
       content: message.trim(),
-              timestamp: new Date(),
-              messageType: 'text'
-            };
+      timestamp: new Date(),
+      messageType: 'text'
+    };
 
     setMessages(prev => [...prev, userMessage]);
     const userText = message.trim();
@@ -1239,23 +1285,29 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           
           await supabaseService.saveAudioPractice({
             user_id: user.entra_id,
-          transcription: userText,
-          accuracy_score: null,
-          fluency_score: null,
-          completeness_score: null,
-          pronunciation_score: null,
-          xp_awarded: assistantResult.xpAwarded,
-          practice_type: 'text_message',
-          audio_duration: 0,
-          feedback: assistantResult.feedback,
-          grammar_score: assistantResult.grammarScore || null,
-          grammar_errors: assistantResult.grammarErrors || null,
-          text_complexity: assistantResult.textComplexity || null,
-          word_count: wordCount
+            transcription: userText,
+            accuracy_score: null,
+            fluency_score: null,
+            completeness_score: null,
+            pronunciation_score: null,
+            xp_awarded: assistantResult.xpAwarded,
+            practice_type: 'text_message',
+            audio_duration: 0,
+            feedback: assistantResult.feedback,
+            grammar_score: assistantResult.grammarScore || null,
+            grammar_errors: assistantResult.grammarErrors || null,
+            text_complexity: assistantResult.textComplexity || null,
+            word_count: wordCount,
           });
           
         setSessionXP(prev => prev + assistantResult.xpAwarded);
-        setTotalXP(prev => prev + assistantResult.xpAwarded);
+        setTotalXP(prev => {
+          const newTotal = prev + assistantResult.xpAwarded;
+          // Update level based on new total XP
+          const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
+          setCurrentLevel(newLevel);
+          return newTotal;
+        });
           
           setTimeout(() => loadUserStats(), 1000);
       }
@@ -1310,10 +1362,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           </div>
           
           <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">
-            <XPCounter 
+            <EnhancedXPCounter 
               sessionXP={sessionXP}
               totalXP={totalXP}
+              currentLevel={currentLevel}
+              achievements={achievements}
               userId={user?.entra_id}
+              userLevel={user?.user_level}
               onXPGained={(amount) => console.log('XP animation completed:', amount)}
             />
             
@@ -1558,6 +1613,12 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         capture="environment"
         onChange={handleFileSelect}
         className="hidden"
+      />
+
+      {/* ✅ NEW: Achievement Notifications */}
+      <AchievementNotification
+        achievements={newAchievements}
+        onDismiss={dismissAchievementNotification}
       />
     </div>
   );

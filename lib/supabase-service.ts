@@ -22,7 +22,7 @@ function getSupabaseClient(): SupabaseClient | null {
   return supabaseInstance;
 }
 
-// ✅ Interface atualizada para incluir dados de gramática
+// ✅ Interface atualizada para incluir dados de gramática e sistema XP melhorado
 interface AudioPracticeData {
   user_id: string;
   transcription: string;
@@ -41,6 +41,11 @@ interface AudioPracticeData {
   word_count?: number | null;
   // 🆕 Feedback técnico para mensagens de áudio
   technicalFeedback?: string;
+  // 🆕 Campos do sistema XP melhorado
+  achievement_ids?: string[];
+  surprise_bonus?: number;
+  base_xp?: number;
+  bonus_xp?: number;
 }
 
 interface UserStats {
@@ -144,6 +149,28 @@ class SupabaseService {
         }
       } catch (grammarFieldError) {
         console.warn('⚠️ Error adding grammar fields, continuing without them:', grammarFieldError);
+      }
+
+      // 🆕 Tentar adicionar campos do sistema XP melhorado de forma segura
+      try {
+        if (data.achievement_ids !== undefined && data.achievement_ids !== null) {
+          practiceData.achievement_ids = data.achievement_ids;
+          console.log('✅ Added achievement_ids:', data.achievement_ids);
+        }
+        if (data.surprise_bonus !== undefined && data.surprise_bonus !== null) {
+          practiceData.surprise_bonus = data.surprise_bonus;
+          console.log('✅ Added surprise_bonus:', data.surprise_bonus);
+        }
+        if (data.base_xp !== undefined && data.base_xp !== null) {
+          practiceData.base_xp = data.base_xp;
+          console.log('✅ Added base_xp:', data.base_xp);
+        }
+        if (data.bonus_xp !== undefined && data.bonus_xp !== null) {
+          practiceData.bonus_xp = data.bonus_xp;
+          console.log('✅ Added bonus_xp:', data.bonus_xp);
+        }
+      } catch (xpFieldError) {
+        console.warn('⚠️ Error adding XP system fields, continuing without them:', xpFieldError);
       }
 
       console.log('🎯 Final practice data to insert:', practiceData);
@@ -345,7 +372,7 @@ class SupabaseService {
     }
   }
 
-  // ✅ VERSÃO FINAL CORRETA - APENAS COLUNAS QUE EXISTEM
+  // ✅ VERSÃO FINAL CORRETA - APENAS COLUNAS QUE EXISTEM (sem user_name)
   private async updateUserProgress(userId: string, xpAwarded: number, practiceType: string) {
     if (!this.supabase) {
       console.error('❌ Supabase not available in updateUserProgress');
@@ -383,7 +410,7 @@ class SupabaseService {
         const newTotalPractices = (existingProgress.total_practices || 0) + 1;
         const newLongestStreak = Math.max(existingProgress.longest_streak || 0, currentStreak);
 
-        // ✅ APENAS COLUNAS QUE EXISTEM NA TABELA
+        // ✅ APENAS COLUNAS QUE EXISTEM NA TABELA (sem user_name)
         const updates: any = {
           total_xp: newTotalXP,
           total_practices: newTotalPractices,
@@ -420,7 +447,7 @@ class SupabaseService {
       } else {
         console.log('🆕 No existing progress found, creating new record...');
         
-        // ✅ APENAS COLUNAS QUE EXISTEM NA TABELA
+        // ✅ APENAS COLUNAS QUE EXISTEM NA TABELA (sem user_name)
         const newProgress: any = {
           user_id: userId,
           total_xp: xpAwarded,
@@ -465,6 +492,10 @@ class SupabaseService {
       } else {
         console.log('✅ Verification - Current data in DB:', verifyData);
         console.log(`🎉 SUCCESS! XP updated to ${verifyData.total_xp}`);
+        
+        // ✅ AUTOMATIZAR: Atualizar posição no leaderboard após ganhar XP
+        console.log('🏆 Updating leaderboard position...');
+        await this.updateLeaderboardPosition(userId);
       }
 
     } catch (error) {
@@ -701,6 +732,638 @@ class SupabaseService {
     } catch (error) {
       console.error('❌ Database test exception:', error);
       return false;
+    }
+  }
+
+  // 🏆 ACHIEVEMENT SYSTEM METHODS
+
+  /**
+   * Salvar conquistas do usuário
+   */
+  async saveAchievements(userId: string, achievements: any[]) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for saveAchievements');
+      return false;
+    }
+
+    try {
+      console.log('🏆 Saving achievements for user:', userId, achievements.length);
+
+      const achievementRecords = achievements.map(achievement => ({
+        user_id: userId,
+        achievement_id: achievement.id,
+        achievement_type: achievement.type,
+        title: achievement.title,
+        description: achievement.description,
+        xp_bonus: achievement.xpBonus,
+        rarity: achievement.rarity,
+        earned_at: achievement.earnedAt.toISOString()
+      }));
+
+      const { error } = await this.supabase
+        .from('user_achievements')
+        .insert(achievementRecords);
+
+      if (error) {
+        console.error('❌ Error saving achievements:', error);
+        return false;
+      }
+
+      console.log('✅ Achievements saved successfully');
+      return true;
+    } catch (error) {
+      console.error('❌ Exception saving achievements:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Buscar conquistas do usuário
+   */
+  async getUserAchievements(userId: string, limit: number = 10) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getUserAchievements');
+      return [];
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('user_achievements')
+        .select('*')
+        .eq('user_id', userId)
+        .order('earned_at', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        console.error('❌ Error fetching achievements:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('❌ Exception fetching achievements:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Buscar conquistas não visualizadas
+   */
+  async getUnreadAchievements(userId: string) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getUnreadAchievements');
+      return [];
+    }
+
+    try {
+      // Por simplicidade, retornar todas as conquistas recentes (últimas 24h)
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+
+      const { data, error } = await this.supabase
+        .from('user_achievements')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('earned_at', yesterday.toISOString())
+        .order('earned_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error fetching unread achievements:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('❌ Exception fetching unread achievements:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Marcar conquistas como lidas
+   */
+  async markAchievementsAsRead(userId: string, achievementIds: string[]) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for markAchievementsAsRead');
+      return false;
+    }
+
+    try {
+      // Por simplicidade, apenas log (em produção poderia ter campo 'read_at')
+      console.log('📖 Marking achievements as read:', userId, achievementIds);
+      return true;
+    } catch (error) {
+      console.error('❌ Exception marking achievements as read:', error);
+      return false;
+    }
+  }
+
+  // 🏅 LEADERBOARD SYSTEM METHODS
+
+  /**
+   * Buscar leaderboard por nível
+   */
+  async getLeaderboard(userLevel: string, limit: number = 50) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getLeaderboard');
+      return {
+        entries: [],
+        totalUsers: 0,
+        lastUpdated: new Date()
+      };
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('user_leaderboard_cache')
+        .select('*')
+        .eq('user_level', userLevel)
+        .order('position', { ascending: true })
+        .limit(limit);
+
+      if (error) {
+        console.error('❌ Error fetching leaderboard:', error);
+        
+        // Se houver erro, tentar popular o cache e tentar novamente
+        console.log('🔄 Attempting to populate leaderboard cache...');
+        const populated = await this.populateLeaderboardCache();
+        
+        if (populated) {
+          // Tentar novamente após popular
+          const { data: retryData, error: retryError } = await this.supabase
+            .from('user_leaderboard_cache')
+            .select('*')
+            .eq('user_level', userLevel)
+            .order('position', { ascending: true })
+            .limit(limit);
+            
+          if (!retryError && retryData) {
+            const { count } = await this.supabase
+              .from('user_leaderboard_cache')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_level', userLevel);
+
+            return {
+              entries: retryData,
+              totalUsers: count || 0,
+              lastUpdated: new Date()
+            };
+          }
+        }
+        
+        return {
+          entries: [],
+          totalUsers: 0,
+          lastUpdated: new Date()
+        };
+      }
+
+      // Se não há dados, tentar popular o cache
+      if (!data || data.length === 0) {
+        console.log('📝 No leaderboard data found, attempting to populate cache...');
+        const populated = await this.populateLeaderboardCache();
+        
+        if (populated) {
+          // Tentar novamente após popular
+          const { data: retryData, error: retryError } = await this.supabase
+            .from('user_leaderboard_cache')
+            .select('*')
+            .eq('user_level', userLevel)
+            .order('position', { ascending: true })
+            .limit(limit);
+            
+          if (!retryError && retryData && retryData.length > 0) {
+            const { count } = await this.supabase
+              .from('user_leaderboard_cache')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_level', userLevel);
+
+            return {
+              entries: retryData,
+              totalUsers: count || 0,
+              lastUpdated: new Date()
+            };
+          }
+        }
+      }
+
+      // Contar total de usuários neste nível
+      const { count } = await this.supabase
+        .from('user_leaderboard_cache')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_level', userLevel);
+
+      return {
+        entries: data || [],
+        totalUsers: count || 0,
+        lastUpdated: new Date()
+      };
+    } catch (error) {
+      console.error('❌ Exception fetching leaderboard:', error);
+      return {
+        entries: [],
+        totalUsers: 0,
+        lastUpdated: new Date()
+      };
+    }
+  }
+
+  /**
+   * Buscar posição específica do usuário
+   */
+  async getUserPosition(userId: string, userLevel: string) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getUserPosition');
+      return null;
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('user_leaderboard_cache')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('user_level', userLevel)
+        .single();
+
+      if (error) {
+        // ✅ CORRIGIDO: Log mais detalhado e retornar null
+        console.error('❌ Error fetching user position:', {
+          error: error.message,
+          code: error.code,
+          details: error.details,
+          userId,
+          userLevel
+        });
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      // ✅ CORRIGIDO: Log mais detalhado e retornar null
+      console.error('❌ Exception fetching user position:', {
+        error: error instanceof Error ? error.message : error,
+        userId,
+        userLevel
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Atualizar cache do leaderboard
+   */
+  async updateLeaderboardPosition(userId: string) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for updateLeaderboardPosition');
+      return false;
+    }
+
+    try {
+      // O trigger automático no banco deveria cuidar disso
+      // Por agora, apenas simular sucesso
+      console.log('🔄 Leaderboard position update triggered for user:', userId);
+      return true;
+    } catch (error) {
+      console.error('❌ Exception updating leaderboard position:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Popular cache do leaderboard com dados reais da tabela users (Entra ID)
+   */
+  async populateLeaderboardCache() {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for populateLeaderboardCache');
+      return false;
+    }
+
+    try {
+      console.log('🔄 Populating leaderboard cache with real user data from Entra ID...');
+
+      // ✅ CORRIGIDO: Buscar dados separadamente para evitar problemas de JOIN
+      console.log('📊 Step 1: Fetching user progress...');
+      const { data: userProgress, error: progressError } = await this.supabase
+        .from('user_progress')
+        .select('user_id, total_xp, streak_days, current_level')
+        .order('total_xp', { ascending: false });
+
+      if (progressError) {
+        console.error('❌ Error fetching user progress:', progressError);
+        return false;
+      }
+
+      if (!userProgress || userProgress.length === 0) {
+        console.log('📝 No user progress found');
+        return true;
+      }
+
+      console.log('📊 Step 2: Fetching users data...');
+      const { data: users, error: usersError } = await this.supabase
+        .from('users')
+        .select('entra_id, name, user_level');
+
+      if (usersError) {
+        console.error('❌ Error fetching users:', usersError);
+        return false;
+      }
+
+      console.log(`👥 Found ${userProgress.length} user progress records and ${users?.length || 0} user records`);
+
+      // ✅ CORRIGIDO: Combinar dados manualmente
+      const usersWithProgress = userProgress.map(progress => {
+        const user = users?.find(u => u.entra_id === progress.user_id);
+        return {
+          ...progress,
+          realUserLevel: user?.user_level || 'Intermediate',
+          realName: user?.name || progress.user_id
+        };
+      });
+
+      console.log('🔗 Combined data successfully');
+
+      // Agrupar por nível real da tabela users
+      const usersByLevel = {
+        'Novice': [] as any[],
+        'Intermediate': [] as any[],
+        'Advanced': [] as any[]
+      };
+
+      usersWithProgress.forEach(userProgress => {
+        const userLevel = userProgress.realUserLevel;
+        
+        if (usersByLevel[userLevel as keyof typeof usersByLevel]) {
+          usersByLevel[userLevel as keyof typeof usersByLevel].push(userProgress);
+        }
+      });
+
+      // Preparar dados para inserção
+      const leaderboardEntries: Array<{
+        user_id: string;
+        user_level: string;
+        display_name: string;
+        avatar_color: string;
+        level_number: number;
+        total_xp: number;
+        current_streak: number;
+        position: number;
+      }> = [];
+
+      for (const [level, levelUsers] of Object.entries(usersByLevel)) {
+        levelUsers
+          .sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0))
+          .forEach((userProgress, index) => {
+            // ✅ Usar nome real do Entra ID
+            const displayName = this.formatDisplayNameForCache(userProgress.realName || userProgress.user_id);
+            const avatarColor = this.generateAvatarColorForCache(userProgress.realName || userProgress.user_id);
+            
+            leaderboardEntries.push({
+              user_id: userProgress.user_id,
+              user_level: level,
+              display_name: displayName,
+              avatar_color: avatarColor,
+              level_number: Math.floor(Math.sqrt((userProgress.total_xp || 0) / 50)) + 1,
+              total_xp: userProgress.total_xp || 0,
+              current_streak: userProgress.streak_days || 0,
+              position: index + 1
+            });
+          });
+      }
+
+      if (leaderboardEntries.length === 0) {
+        console.log('📝 No leaderboard entries to insert');
+        return true;
+      }
+
+      console.log('🗑️ Clearing existing cache...');
+      // Limpar cache existente
+      await this.supabase
+        .from('user_leaderboard_cache')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      console.log('💾 Inserting new leaderboard data...');
+      // Inserir novos dados
+      const { error: insertError } = await this.supabase
+        .from('user_leaderboard_cache')
+        .insert(leaderboardEntries);
+
+      if (insertError) {
+        console.error('❌ Error inserting leaderboard cache:', insertError);
+        return false;
+      }
+
+      console.log('✅ Leaderboard cache populated successfully:', {
+        totalEntries: leaderboardEntries.length,
+        byLevel: {
+          Novice: usersByLevel.Novice.length,
+          Intermediate: usersByLevel.Intermediate.length,
+          Advanced: usersByLevel.Advanced.length
+        }
+      });
+
+      return true;
+
+    } catch (error) {
+      console.error('❌ Exception populating leaderboard cache:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Formatar nome para o cache (privacidade) - COM user_name
+   */
+  private formatDisplayNameForCache(fullName: string): string {
+    if (!fullName || fullName.trim() === '') return 'Anonymous';
+    
+    // Se parece com user_id (sem espaços), gerar nome anônimo
+    if (!fullName.includes(' ')) {
+      const firstChar = fullName.charAt(0).toUpperCase();
+      const hash = fullName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      const number = (hash % 999) + 1;
+      return `User ${firstChar}${number}`;
+    }
+    
+    // ✅ RESTAURADO: Formatar nome real (Primeiro Nome + Inicial do Último)
+    const parts = fullName.trim().split(' ');
+    if (parts.length === 1) return parts[0];
+    
+    const firstName = parts[0];
+    const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+    
+    return `${firstName} ${lastInitial}.`;
+  }
+
+  /**
+   * Gerar cor determinística para avatar
+   */
+  private generateAvatarColorForCache(name: string): string {
+    // ✅ CORRIGIDO: Verificar se name existe e não é vazio
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      name = 'Anonymous'; // Fallback para nome padrão
+    }
+    
+    const colors = [
+      '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+      '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+      '#F8C471', '#82E0AA', '#F1948A', '#85C1E9', '#D7BDE2'
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
+  }
+
+  /**
+   * Testar e inicializar o sistema de leaderboard
+   */
+  async testAndInitializeLeaderboard() {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for testAndInitializeLeaderboard');
+      return false;
+    }
+
+    try {
+      console.log('🔍 Testing leaderboard system...');
+
+      // 1. Verificar se as tabelas existem
+      const { data: tables, error: tablesError } = await this.supabase
+        .from('information_schema.tables')
+        .select('table_name')
+        .in('table_name', ['user_progress', 'user_leaderboard_cache']);
+
+      if (tablesError) {
+        console.error('❌ Error checking tables:', tablesError);
+        return false;
+      }
+
+      console.log('📋 Available tables:', tables?.map(t => t.table_name));
+
+      // 2. Verificar quantos usuários existem
+      const { count: userCount, error: userCountError } = await this.supabase
+        .from('user_progress')
+        .select('*', { count: 'exact', head: true });
+
+      if (userCountError) {
+        console.error('❌ Error counting users:', userCountError);
+        return false;
+      }
+
+      console.log('👥 Total users in user_progress:', userCount);
+
+      // 3. Verificar cache do leaderboard
+      const { count: cacheCount, error: cacheCountError } = await this.supabase
+        .from('user_leaderboard_cache')
+        .select('*', { count: 'exact', head: true });
+
+      if (cacheCountError) {
+        console.error('❌ Error counting leaderboard cache:', cacheCountError);
+        return false;
+      }
+
+      console.log('📊 Total entries in leaderboard cache:', cacheCount);
+
+      // 4. Se não há cache, popular
+      if (cacheCount === 0 && userCount && userCount > 0) {
+        console.log('🔄 Populating leaderboard cache...');
+        const populated = await this.populateLeaderboardCache();
+        
+        if (populated) {
+          console.log('✅ Leaderboard cache populated successfully');
+        } else {
+          console.error('❌ Failed to populate leaderboard cache');
+          return false;
+        }
+      }
+
+      // 5. Testar busca por nível
+      for (const level of ['Novice', 'Intermediate', 'Advanced']) {
+        const { data: levelData, error: levelError } = await this.supabase
+          .from('user_leaderboard_cache')
+          .select('*')
+          .eq('user_level', level)
+          .limit(5);
+
+        if (levelError) {
+          console.error(`❌ Error fetching ${level} leaderboard:`, levelError);
+        } else {
+          console.log(`📈 ${level} leaderboard entries:`, levelData?.length || 0);
+        }
+      }
+
+      console.log('✅ Leaderboard system test completed successfully');
+      return true;
+
+    } catch (error) {
+      console.error('❌ Exception testing leaderboard system:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Buscar avatar do usuário (Entra ID ou placeholder)
+   */
+  async getUserAvatar(userId: string): Promise<{ avatarUrl: string | null; fallbackInitial: string; fallbackColor: string }> {
+    if (!this.supabase) {
+      return { avatarUrl: null, fallbackInitial: 'U', fallbackColor: '#A3FF3C' };
+    }
+
+    try {
+      // Buscar dados do usuário na tabela users (Entra ID)
+      const { data: user, error } = await this.supabase
+        .from('users')
+        .select('name, entra_id')
+        .eq('entra_id', userId)
+        .single();
+
+      if (error || !user) {
+        console.log('❌ User not found for avatar:', userId);
+        return { 
+          avatarUrl: null, 
+          fallbackInitial: userId.charAt(0).toUpperCase(), 
+          fallbackColor: this.generateAvatarColorForCache(userId) 
+        };
+      }
+
+      // ✅ INTEGRAÇÃO COM MICROSOFT GRAPH API
+      try {
+        // Importar o serviço de avatar do Graph (dynamic import para evitar problemas de SSR)
+        const { graphAvatarService } = await import('./microsoft-graph-avatar-service');
+        
+        // Buscar avatar real do Microsoft Graph
+        const graphResult = await graphAvatarService.getUserAvatarCached(userId, user.name);
+        
+        if (graphResult.avatarUrl) {
+          console.log('✅ Successfully loaded avatar from Microsoft Graph for:', user.name);
+          return graphResult;
+        } else {
+          console.log('📷 No photo found in Graph, using fallback for:', user.name);
+        }
+      } catch (graphError) {
+        console.warn('⚠️ Microsoft Graph API not available, using fallback:', graphError);
+      }
+
+      // Fallback com dados reais do usuário
+      const name = user.name || 'Anonymous';
+      const initial = name.charAt(0).toUpperCase();
+      const color = this.generateAvatarColorForCache(name);
+
+      return {
+        avatarUrl: null, // Será null se Graph API não estiver disponível
+        fallbackInitial: initial,
+        fallbackColor: color
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting user avatar:', error);
+      return { 
+        avatarUrl: null, 
+        fallbackInitial: 'U', 
+        fallbackColor: '#A3FF3C' 
+      };
     }
   }
 }

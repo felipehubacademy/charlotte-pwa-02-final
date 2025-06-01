@@ -8,7 +8,6 @@ import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection
 import RealtimeOrb from './RealtimeOrb';
 import XPCounter from '../ui/XPCounter';
 import CharlotteAvatar from '../ui/CharlotteAvatar';
-import { calculateLiveVoiceXP } from '../../lib/audio-xp-service';
 import { supabaseService } from '../../lib/supabase-service';
 
 interface LiveVoiceModalProps {
@@ -75,41 +74,58 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     console.log('🎤 Started conversation tracking at:', now.toISOString());
   }, []);
 
-  // 🎤 Parar tracking e calcular XP final
+  // 🔧 REBALANCEADO: XP muito menor para Live Voice - máximo 40 XP total
+  const calculateFinalXP = useCallback((totalSeconds: number, userLevel: string): number => {
+    const durationMinutes = totalSeconds / 60;
+    
+    // 🎯 TAXAS REBALANCEADAS - Máximo 40 XP total
+    const baseXPPerMinute = {
+      'Novice': 8,        // 8 XP por minuto
+      'Intermediate': 5,  // 5 XP por minuto  
+      'Advanced': 3       // 3 XP por minuto
+    };
+    
+    // Calcular XP base
+    const baseXP = Math.floor(durationMinutes * baseXPPerMinute[userLevel as keyof typeof baseXPPerMinute]);
+    
+    // Bônus por duração da conversa (muito reduzidos)
+    let durationBonus = 0;
+    if (durationMinutes >= 15) durationBonus = 15;      // 15+ minutos - bônus pequeno
+    else if (durationMinutes >= 10) durationBonus = 10; // 10+ minutos - bônus pequeno
+    else if (durationMinutes >= 5) durationBonus = 5;   // 5+ minutos - bônus mínimo
+    else if (durationMinutes >= 2) durationBonus = 2;   // 2+ minutos - bônus mínimo
+    
+    // Sem bônus por nível - manter simples
+    const finalXP = Math.max(3, Math.min(40, baseXP + durationBonus)); // Entre 3-40 XP
+    
+    console.log('🎤 Live voice XP calculated (REBALANCED):', {
+      duration: `${durationMinutes.toFixed(1)} minutes`,
+      rate: `${baseXPPerMinute[userLevel as keyof typeof baseXPPerMinute]} XP/min`,
+      baseXP,
+      durationBonus,
+      finalXP,
+      userLevel
+    });
+    
+    return finalXP;
+  }, []);
+
   const stopConversationTracking = useCallback(async () => {
     if (!conversationStartTime || !user?.entra_id) return;
 
-    const now = new Date();
-    const totalSeconds = Math.floor((now.getTime() - conversationStartTime.getTime()) / 1000);
-    
-    // Só dar XP se a conversa durou pelo menos 30 segundos
-    if (totalSeconds < 30) {
-      console.log('🎤 Conversation too short for XP:', totalSeconds, 'seconds');
-      return;
-    }
-
     try {
-      console.log('🎤 Calculating final conversation XP for', totalSeconds, 'seconds');
-      
-      // 🔧 CORRIGIDO: Sistema de XP mais controlado para conversas finais
+      const endTime = new Date();
+      const totalSeconds = Math.floor((endTime.getTime() - conversationStartTime.getTime()) / 1000);
       const durationMinutes = totalSeconds / 60;
-      let finalXP = 0;
       
-      // XP base por duração (mais conservador)
-      if (durationMinutes >= 10) finalXP = 100; // 10+ minutos
-      else if (durationMinutes >= 5) finalXP = 60;  // 5+ minutos  
-      else if (durationMinutes >= 2) finalXP = 40;  // 2+ minutos
-      else if (durationMinutes >= 1) finalXP = 25;  // 1+ minuto
-      else finalXP = 15; // Menos de 1 minuto
+      console.log('🎤 Stopping live voice conversation:', {
+        duration: `${durationMinutes.toFixed(1)} minutes`,
+        totalSeconds,
+        userLevel
+      });
       
-      // Ajuste por nível
-      const levelMultiplier = {
-        'Novice': 1.2,
-        'Intermediate': 1.0,
-        'Advanced': 0.8
-      };
-      
-      finalXP = Math.floor(finalXP * levelMultiplier[userLevel]);
+      // 🎯 USAR NOVA FUNÇÃO REBALANCEADA
+      const finalXP = calculateFinalXP(totalSeconds, userLevel);
       
       // Salvar no banco de dados
       if (supabaseService.isAvailable()) {
@@ -126,7 +142,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           audio_duration: totalSeconds
         });
 
-        console.log('✅ Live voice practice saved with CONTROLLED XP:', finalXP);
+        console.log('✅ Live voice practice saved with REBALANCED XP:', finalXP);
         
         // Callback para atualizar XP na UI
         onXPGained?.(finalXP);
@@ -135,7 +151,197 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     } catch (error) {
       console.error('❌ Error saving live voice practice:', error);
     }
-  }, [conversationStartTime, user?.entra_id, userLevel, onXPGained]);
+  }, [conversationStartTime, user?.entra_id, userLevel, onXPGained, calculateFinalXP]);
+
+  // 🎤 XP incremental a cada minuto de conversa
+  const updateIncrementalXP = useCallback(async () => {
+    if (!conversationStartTime || !lastXPUpdate || !user?.entra_id) return;
+
+    const now = new Date();
+    const timeSinceLastUpdate = Math.floor((now.getTime() - lastXPUpdate.getTime()) / 1000);
+    
+    // 🔧 CORRIGIDO: Dar XP incremental apenas a cada 2 minutos (120 segundos)
+    // E apenas se a conversa estiver realmente ativa
+    if (timeSinceLastUpdate >= 120 && (isListening || isSpeaking)) {
+      try {
+        // 🔧 CORRIGIDO: XP menor e mais controlado para incrementos
+        const incrementalXP = userLevel === 'Novice' ? 8 : userLevel === 'Intermediate' ? 5 : 3;
+        
+        if (supabaseService.isAvailable()) {
+          await supabaseService.saveAudioPractice({
+            user_id: user.entra_id,
+            transcription: `Live voice conversation segment (2 minutes)`,
+            accuracy_score: null,
+            fluency_score: null,
+            completeness_score: null,
+            pronunciation_score: null,
+            feedback: `Conversation in progress... (+${incrementalXP} XP)`,
+            xp_awarded: incrementalXP,
+            practice_type: 'live_voice',
+            audio_duration: 120
+          });
+
+          console.log('✅ Incremental XP awarded (CONTROLLED):', incrementalXP);
+          onXPGained?.(incrementalXP);
+          setLastXPUpdate(now);
+        }
+      } catch (error) {
+        console.error('❌ Error updating incremental XP:', error);
+      }
+    }
+  }, [conversationStartTime, lastXPUpdate, user?.entra_id, userLevel, onXPGained, isListening, isSpeaking]);
+
+  // 🧹 Limpeza de recursos
+  const cleanup = useCallback(() => {
+    // 🎤 Parar tracking e calcular XP final antes da limpeza
+    if (conversationStartTime && user?.entra_id) {
+      stopConversationTracking();
+    }
+    
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    
+    if (realtimeServiceRef.current) {
+      // 🔧 NOVO: Limpar todos os event listeners antes de desconectar
+      console.log('🧹 Cleaning up Realtime service and event listeners...');
+      
+      // Remover todos os listeners para evitar vazamentos
+      const service = realtimeServiceRef.current;
+      service.off('session_created', () => {});
+      service.off('user_speech_started', () => {});
+      service.off('user_speech_stopped', () => {});
+      service.off('response_created', () => {});
+      service.off('transcript_delta', () => {});
+      service.off('response_done', () => {});
+      service.off('text_delta', () => {});
+      service.off('text_done', () => {});
+      service.off('audio_done', () => {});
+      service.off('input_transcription_completed', () => {});
+      service.off('input_transcription_failed', () => {});
+      service.off('function_call_arguments_delta', () => {});
+      service.off('function_call_arguments_done', () => {});
+      service.off('conversation_item_created', () => {});
+      service.off('error', () => {});
+      service.off('disconnected', () => {});
+      
+      service.disconnect();
+      realtimeServiceRef.current = null;
+    }
+    
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+    }
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    
+    analyserRef.current = null;
+    setAudioLevels([]);
+    setConnectionStatus('disconnected');
+    setIsListening(false);
+    setIsSpeaking(false);
+    setTranscript('');
+    setCurrentTranscript('');
+    
+    // 🎤 Reset tracking states
+    setConversationStartTime(null);
+    setTotalConversationTime(0);
+    setLastXPUpdate(null);
+  }, []); // 🔧 FIXO: Sem dependências para evitar loops
+
+  // 🎤 Efeito para XP incremental
+  useEffect(() => {
+    if (connectionStatus === 'connected' && conversationStartTime) {
+      // 🔧 CORRIGIDO: Verificar a cada 2 minutos (120 segundos) em vez de 30 segundos
+      const interval = setInterval(() => {
+        updateIncrementalXP();
+      }, 120000); // 2 minutos
+
+      return () => clearInterval(interval);
+    }
+  }, [connectionStatus, conversationStartTime]); // 🔧 FIXO: Remover updateIncrementalXP das dependências
+
+  // 🔄 Efeito principal do modal
+  useEffect(() => {
+    if (!isOpen) {
+      cleanup();
+      stopVAD();
+      return;
+    }
+
+    // 🔧 NOVO: Verificar se já existe uma instância ativa
+    if (realtimeServiceRef.current) {
+      console.log('⚠️ Realtime service already exists, cleaning up first...');
+      cleanup();
+    }
+
+    const initializeModal = async () => {
+      setConnectionStatus('connecting');
+      setErrorMessage('');
+      
+      try {
+        console.log('🚀 Initializing new Realtime API instance...');
+        await initializeRealtimeAPI();
+        await startVAD();
+      } catch (error) {
+        console.error('❌ Failed to initialize Realtime API:', error);
+        setConnectionStatus('error');
+      }
+    };
+
+    initializeModal();
+
+    // Cleanup quando o modal fechar
+    return () => {
+      console.log('🧹 Modal effect cleanup triggered...');
+      cleanup();
+      stopVAD();
+    };
+  }, [isOpen]); // 🔧 FIXO: Apenas isOpen como dependência
+
+  // 🔄 Efeito para análise de áudio (apenas para visualização)
+  useEffect(() => {
+    if (connectionStatus === 'connected') {
+      if (analyserRef.current) {
+        startAudioAnalysis();
+      }
+    }
+    
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [connectionStatus]); // 🔧 FIXO: Remover startAudioAnalysis das dependências
+
+  // 🔇 Toggle mute
+  const toggleMute = () => {
+    setIsMuted(!isMuted);
+  };
+
+  // 🔄 Toggle API mode
+  const toggleAPIMode = () => {
+    console.log('API mode toggle disabled - always using Realtime API');
+  };
+
+  // 🚪 Fechar modal
+  const handleClose = () => {
+    cleanup();
+    onClose();
+  };
+
+  // ⏹️ Interromper resposta
+  const interruptResponse = () => {
+    if (realtimeServiceRef.current && isSpeaking) {
+      realtimeServiceRef.current.interruptResponse();
+      setIsSpeaking(false);
+      setIsListening(true);
+    }
+  };
 
   // 🔗 Inicializar OpenAI Realtime API
   const initializeRealtimeAPI = useCallback(async () => {
@@ -368,196 +574,6 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
     analyze();
   }, [connectionStatus]);
-
-  // 🎤 XP incremental a cada minuto de conversa
-  const updateIncrementalXP = useCallback(async () => {
-    if (!conversationStartTime || !lastXPUpdate || !user?.entra_id) return;
-
-    const now = new Date();
-    const timeSinceLastUpdate = Math.floor((now.getTime() - lastXPUpdate.getTime()) / 1000);
-    
-    // 🔧 CORRIGIDO: Dar XP incremental apenas a cada 2 minutos (120 segundos)
-    // E apenas se a conversa estiver realmente ativa
-    if (timeSinceLastUpdate >= 120 && (isListening || isSpeaking)) {
-      try {
-        // 🔧 CORRIGIDO: XP menor e mais controlado para incrementos
-        const incrementalXP = userLevel === 'Novice' ? 25 : userLevel === 'Intermediate' ? 15 : 10;
-        
-        if (supabaseService.isAvailable()) {
-          await supabaseService.saveAudioPractice({
-            user_id: user.entra_id,
-            transcription: `Live voice conversation segment (2 minutes)`,
-            accuracy_score: null,
-            fluency_score: null,
-            completeness_score: null,
-            pronunciation_score: null,
-            feedback: `Conversation in progress... (+${incrementalXP} XP)`,
-            xp_awarded: incrementalXP,
-            practice_type: 'live_voice',
-            audio_duration: 120
-          });
-
-          console.log('✅ Incremental XP awarded (CONTROLLED):', incrementalXP);
-          onXPGained?.(incrementalXP);
-          setLastXPUpdate(now);
-        }
-      } catch (error) {
-        console.error('❌ Error updating incremental XP:', error);
-      }
-    }
-  }, [conversationStartTime, lastXPUpdate, user?.entra_id, userLevel, onXPGained, isListening, isSpeaking]);
-
-  // 🧹 Limpeza de recursos
-  const cleanup = useCallback(() => {
-    // 🎤 Parar tracking e calcular XP final antes da limpeza
-    if (conversationStartTime && user?.entra_id) {
-      stopConversationTracking();
-    }
-    
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-    
-    if (realtimeServiceRef.current) {
-      // 🔧 NOVO: Limpar todos os event listeners antes de desconectar
-      console.log('🧹 Cleaning up Realtime service and event listeners...');
-      
-      // Remover todos os listeners para evitar vazamentos
-      const service = realtimeServiceRef.current;
-      service.off('session_created', () => {});
-      service.off('user_speech_started', () => {});
-      service.off('user_speech_stopped', () => {});
-      service.off('response_created', () => {});
-      service.off('transcript_delta', () => {});
-      service.off('response_done', () => {});
-      service.off('text_delta', () => {});
-      service.off('text_done', () => {});
-      service.off('audio_done', () => {});
-      service.off('input_transcription_completed', () => {});
-      service.off('input_transcription_failed', () => {});
-      service.off('function_call_arguments_delta', () => {});
-      service.off('function_call_arguments_done', () => {});
-      service.off('conversation_item_created', () => {});
-      service.off('error', () => {});
-      service.off('disconnected', () => {});
-      
-      service.disconnect();
-      realtimeServiceRef.current = null;
-    }
-    
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach(track => track.stop());
-      mediaStreamRef.current = null;
-    }
-    
-    if (audioContextRef.current) {
-      audioContextRef.current.close();
-      audioContextRef.current = null;
-    }
-    
-    analyserRef.current = null;
-    setAudioLevels([]);
-    setConnectionStatus('disconnected');
-    setIsListening(false);
-    setIsSpeaking(false);
-    setTranscript('');
-    setCurrentTranscript('');
-    
-    // 🎤 Reset tracking states
-    setConversationStartTime(null);
-    setTotalConversationTime(0);
-    setLastXPUpdate(null);
-  }, []); // 🔧 FIXO: Sem dependências para evitar loops
-
-  // 🎤 Efeito para XP incremental
-  useEffect(() => {
-    if (connectionStatus === 'connected' && conversationStartTime) {
-      // 🔧 CORRIGIDO: Verificar a cada 2 minutos (120 segundos) em vez de 30 segundos
-      const interval = setInterval(() => {
-        updateIncrementalXP();
-      }, 120000); // 2 minutos
-
-      return () => clearInterval(interval);
-    }
-  }, [connectionStatus, conversationStartTime]); // 🔧 FIXO: Remover updateIncrementalXP das dependências
-
-  // 🔄 Efeito principal do modal
-  useEffect(() => {
-    if (!isOpen) {
-      cleanup();
-      stopVAD();
-      return;
-    }
-
-    // 🔧 NOVO: Verificar se já existe uma instância ativa
-    if (realtimeServiceRef.current) {
-      console.log('⚠️ Realtime service already exists, cleaning up first...');
-      cleanup();
-    }
-
-    const initializeModal = async () => {
-      setConnectionStatus('connecting');
-      setErrorMessage('');
-      
-      try {
-        console.log('🚀 Initializing new Realtime API instance...');
-        await initializeRealtimeAPI();
-        await startVAD();
-      } catch (error) {
-        console.error('❌ Failed to initialize Realtime API:', error);
-        setConnectionStatus('error');
-      }
-    };
-
-    initializeModal();
-
-    // Cleanup quando o modal fechar
-    return () => {
-      console.log('🧹 Modal effect cleanup triggered...');
-      cleanup();
-      stopVAD();
-    };
-  }, [isOpen]); // 🔧 FIXO: Apenas isOpen como dependência
-
-  // 🔄 Efeito para análise de áudio (apenas para visualização)
-  useEffect(() => {
-    if (connectionStatus === 'connected') {
-      if (analyserRef.current) {
-        startAudioAnalysis();
-      }
-    }
-    
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [connectionStatus]); // 🔧 FIXO: Remover startAudioAnalysis das dependências
-
-  // 🔇 Toggle mute
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-  };
-
-  // 🔄 Toggle API mode
-  const toggleAPIMode = () => {
-    console.log('API mode toggle disabled - always using Realtime API');
-  };
-
-  // 🚪 Fechar modal
-  const handleClose = () => {
-    cleanup();
-    onClose();
-  };
-
-  // ⏹️ Interromper resposta
-  const interruptResponse = () => {
-    if (realtimeServiceRef.current && isSpeaking) {
-      realtimeServiceRef.current.interruptResponse();
-      setIsSpeaking(false);
-      setIsListening(true);
-    }
-  };
 
   if (!isOpen) return null;
 

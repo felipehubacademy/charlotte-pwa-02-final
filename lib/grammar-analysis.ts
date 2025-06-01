@@ -183,38 +183,49 @@ Provide detailed grammar analysis focusing on the ${userLevel} level. Return onl
     }
   }
 
-  // 🎯 Calcular XP baseado na qualidade gramatical
+  // 🎯 Calcular XP baseado na qualidade gramatical - REBALANCEADO
   private calculateGrammarXP(analysis: GrammarAnalysis, userLevel: string): number {
-    const baseXP = 15; // XP mínimo por mensagem
+    // 🎯 REBALANCEADO: Text Messages - 5-20 XP máximo
+    let baseXP = 5; // XP mínimo por mensagem
     let bonusXP = 0;
 
-    // Bonus baseado na pontuação gramatical
-    if (analysis.overallScore >= 95) bonusXP += 50; // Excelente
-    else if (analysis.overallScore >= 85) bonusXP += 35; // Muito bom
-    else if (analysis.overallScore >= 75) bonusXP += 25; // Bom
-    else if (analysis.overallScore >= 65) bonusXP += 15; // Aceitável
-    else if (analysis.overallScore >= 50) bonusXP += 5;  // Básico
+    // Bonus baseado na pontuação gramatical (muito reduzidos)
+    if (analysis.overallScore >= 95) bonusXP += 15;      // Excelente: 5+15 = 20 XP
+    else if (analysis.overallScore >= 85) bonusXP += 12; // Muito bom: 5+12 = 17 XP
+    else if (analysis.overallScore >= 75) bonusXP += 8;  // Bom: 5+8 = 13 XP
+    else if (analysis.overallScore >= 65) bonusXP += 5;  // Aceitável: 5+5 = 10 XP
+    else if (analysis.overallScore >= 50) bonusXP += 2;  // Básico: 5+2 = 7 XP
+    // Abaixo de 50: apenas 5 XP base
 
-    // Bonus por complexidade apropriada para o nível
+    // Bonus por complexidade apropriada para o nível (reduzido)
     if (analysis.levelAppropriate) {
-      bonusXP += 10;
+      bonusXP += 2; // Máximo 2 XP extra
     }
 
-    // Bonus por tamanho do texto (incentiva textos mais longos)
-    if (analysis.wordCount >= 20) bonusXP += 10;
-    if (analysis.wordCount >= 50) bonusXP += 15;
-
-    // Multiplicador por nível (níveis mais altos precisam de mais qualidade)
+    // Ajuste por nível do usuário (pequenos ajustes)
     const levelMultiplier = {
-      'Novice': 1.2,      // Mais generoso para iniciantes
-      'Intermediate': 1.0, // Padrão
-      'Advanced': 0.9     // Mais exigente para avançados
+      'Novice': 1.0,      // Sem multiplicador
+      'Intermediate': 0.9, // Ligeiramente menos
+      'Advanced': 0.8     // Menos XP para avançados
     };
 
-    const multiplier = levelMultiplier[userLevel as keyof typeof levelMultiplier] || 1.0;
-    const totalXP = Math.round((baseXP + bonusXP) * multiplier);
+    const finalXP = Math.floor((baseXP + bonusXP) * levelMultiplier[userLevel as keyof typeof levelMultiplier]);
+    
+    // 🎯 GARANTIR RANGE 5-20 XP
+    const clampedXP = Math.max(5, Math.min(20, finalXP));
 
-    return Math.max(baseXP, Math.min(100, totalXP)); // Entre 15-100 XP
+    console.log('💬 Text message XP calculated (REBALANCED):', {
+      text: analysis.text.substring(0, 50) + '...',
+      grammarScore: analysis.overallScore,
+      errors: analysis.errors.length,
+      userLevel,
+      baseXP,
+      bonusXP,
+      finalXP,
+      clampedXP
+    });
+
+    return clampedXP;
   }
 
   // 💬 Gerar feedback personalizado

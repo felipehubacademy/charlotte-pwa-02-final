@@ -291,7 +291,7 @@ Keep the response conversational and engaging, avoiding repetitive patterns.`;
 
     const response: AssistantResponse = {
       feedback: assistantResponse,
-      xpAwarded: 15, // XP mínimo para fallback
+      xpAwarded: 8, // 🎯 REBALANCEADO: XP reduzido para fallback (era 15)
       nextChallenge: generateTextChallenge(userLevel),
       tips: ['Keep practicing your written English!', 'Try expressing complex ideas in simple words'],
       encouragement: generateTextEncouragement(userLevel),
@@ -312,7 +312,7 @@ Keep the response conversational and engaging, avoiding repetitive patterns.`;
       success: true, 
       result: {
         feedback: fallbackResponse,
-        xpAwarded: 15,
+        xpAwarded: 8, // 🎯 REBALANCEADO: XP reduzido para fallback final (era 15)
         nextChallenge: generateTextChallenge(userLevel),
         tips: ['Keep writing in English!'],
         encouragement: 'Every message makes you better! 💪',
@@ -683,9 +683,22 @@ Your response should help the student learn new vocabulary through visual associ
       .replace(/\*(.*?)\*/g, '$1')
       .trim();
 
+    // 🎯 REBALANCEADO: Camera XP aumentado para 8-25 XP
+    const cameraXP = userLevel === 'Novice' ? 
+      Math.floor(Math.random() * 18) + 8 :  // 8-25 XP
+      userLevel === 'Intermediate' ? 
+      Math.floor(Math.random() * 15) + 10 : // 10-24 XP
+      Math.floor(Math.random() * 13) + 8;   // 8-20 XP
+
+    console.log('📸 Camera XP calculated (REBALANCED):', {
+      userLevel,
+      xpAwarded: cameraXP,
+      prompt: prompt.substring(0, 50) + '...'
+    });
+
     const response: AssistantResponse = {
       feedback: cleanFeedback,
-      xpAwarded: 3, // Base XP for image analysis (vocabulary XP added separately)
+      xpAwarded: cameraXP, // 🎯 REBALANCEADO: Era 3 XP, agora 8-25 XP
       nextChallenge: '',
       tips: [],
       encouragement: 'Great job using the camera feature!',
@@ -703,7 +716,7 @@ Your response should help the student learn new vocabulary through visual associ
       feedback: userLevel === 'Novice' 
         ? 'Desculpe, tive problemas para analisar sua imagem. Sorry, I had trouble analyzing your image. Please try again!'
         : 'I apologize, but I had trouble analyzing your image. Please try taking another photo with better lighting.',
-      xpAwarded: 1,
+      xpAwarded: 8, // 🎯 REBALANCEADO: Era 1 XP, agora 8 XP mínimo
       nextChallenge: '',
       tips: [],
       encouragement: 'Keep practicing!',
