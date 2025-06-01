@@ -113,7 +113,9 @@ Text to translate to Portuguese:
     // Limitar cache a 100 entradas
     if (translationCache.size > 100) {
       const firstKey = translationCache.keys().next().value;
-      translationCache.delete(firstKey);
+      if (firstKey) {
+        translationCache.delete(firstKey);
+      }
     }
 
     console.log('✅ Translation completed successfully');
