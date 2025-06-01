@@ -3,6 +3,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Mic, Play, Pause, Volume2, Languages } from 'lucide-react';
+import { translationService, TranslationResult } from '@/lib/translation-service';
 
 interface Message {
   id: string;
@@ -91,12 +92,53 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
   const [showTranscription, setShowTranscription] = React.useState(false);
   const [showTechnicalFeedback, setShowTechnicalFeedback] = React.useState(false);
   const [transcription, setTranscription] = React.useState('');
+  const [translation, setTranslation] = React.useState('');
+  const [isTranslating, setIsTranslating] = React.useState(false);
+  const [translationError, setTranslationError] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
   const [audioUrl, setAudioUrl] = React.useState<string>('');
 
   const isUser = message.role === 'user';
   const isNovice = userLevel === 'Novice';
   const isAudioResponse = !isUser && message.technicalFeedback;
+
+  // Função para traduzir mensagem
+  const handleTranslation = React.useCallback(async () => {
+    if (!showTranslation) {
+      // Abrindo tradução - verificar se já temos tradução
+      if (!translation && !isTranslating) {
+        setIsTranslating(true);
+        setTranslationError(false);
+        
+        try {
+          console.log('🔄 Starting translation for:', message.content.substring(0, 50) + '...');
+          
+          const result: TranslationResult = await translationService.translateToPortuguese(
+            message.content,
+            'Charlotte English tutor conversation',
+            userLevel
+          );
+          
+          if (result.success) {
+            setTranslation(result.translatedText);
+            console.log('✅ Translation successful', result.cached ? '(cached)' : '(new)');
+          } else {
+            setTranslationError(true);
+            setTranslation(result.translatedText); // Fallback translation
+            console.warn('⚠️ Translation fallback used:', result.error);
+          }
+        } catch (error) {
+          console.error('❌ Translation failed:', error);
+          setTranslationError(true);
+          setTranslation('Desculpe, não foi possível traduzir esta mensagem no momento. Sorry, I couldn\'t translate this message right now.');
+        } finally {
+          setIsTranslating(false);
+        }
+      }
+    }
+    
+    setShowTranslation(!showTranslation);
+  }, [showTranslation, translation, isTranslating, message.content, userLevel]);
 
   // Função para transcrever áudio
   const handleTranscription = React.useCallback(async () => {
@@ -259,11 +301,16 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
             {/* Traduzir button for Novice users */}
             {isNovice && (
               <button
-                onClick={() => setShowTranslation(!showTranslation)}
-                className="text-xs text-primary hover:text-primary-dark flex items-center space-x-1"
+                onClick={handleTranslation}
+                disabled={isTranslating}
+                className={`text-xs flex items-center space-x-1 transition-colors ${
+                  isTranslating 
+                    ? 'text-white/40 cursor-not-allowed' 
+                    : 'text-primary hover:text-primary-dark'
+                }`}
               >
-                <Languages size={12} />
-                <span>Traduzir</span>
+                <Languages size={12} className={isTranslating ? 'animate-spin' : ''} />
+                <span>{isTranslating ? 'Traduzindo...' : 'Traduzir'}</span>
               </button>
             )}
             
@@ -310,9 +357,39 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
               exit={{ opacity: 0, y: 10 }}
               className="mt-2 p-3 bg-primary/10 backdrop-blur-sm rounded-xl border border-primary/20"
             >
-              <p className="text-sm text-white/80">
-                [Tradução em português da mensagem]
-              </p>
+              <div className="flex items-center space-x-2 mb-2">
+                <Languages size={12} className="text-primary" />
+                <span className="text-xs text-primary font-medium">
+                  Tradução em Português
+                  {translationError && (
+                    <span className="text-yellow-400 ml-1">(tradução básica)</span>
+                  )}
+                </span>
+              </div>
+              
+              {isTranslating ? (
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                  <p className="text-sm text-white/60">Traduzindo mensagem...</p>
+                </div>
+              ) : (
+                <p className="text-sm text-white/90 leading-relaxed">
+                  {translation || 'Tradução não disponível.'}
+                </p>
+              )}
+              
+              {translationError && !isTranslating && (
+                <button
+                  onClick={() => {
+                    setTranslation('');
+                    setTranslationError(false);
+                    handleTranslation();
+                  }}
+                  className="mt-2 text-xs text-primary hover:text-primary-dark underline"
+                >
+                  Tentar novamente
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

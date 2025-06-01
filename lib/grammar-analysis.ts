@@ -96,7 +96,7 @@ export class GrammarAnalysisService {
   ): Promise<GrammarAnalysis> {
     
     const levelInstructions = {
-      'Novice': 'Focus on basic grammar, simple sentence structure, and common vocabulary. Be very encouraging and explain concepts simply. Include Portuguese explanations when helpful.',
+      'Novice': 'Focus on basic grammar, simple sentence structure, and common vocabulary. Be very encouraging and explain concepts simply using clear, basic English.',
       'Intermediate': 'Analyze intermediate grammar, business English usage, and more complex sentence structures. Focus on practical communication skills.',
       'Advanced': 'Provide detailed analysis of advanced grammar, sophisticated vocabulary usage, and professional writing standards.'
     };
@@ -236,7 +236,7 @@ Provide detailed grammar analysis focusing on the ${userLevel} level. Return onl
   ): Promise<string> {
     
     const levelInstructions = {
-      'Novice': 'Use simple, encouraging English. Include Portuguese explanations when helpful. Focus on basic improvements.',
+      'Novice': 'Use simple, encouraging English only. Focus on basic improvements and building confidence with clear explanations.',
       'Intermediate': 'Provide clear, practical feedback. Focus on business English and communication effectiveness.',
       'Advanced': 'Give sophisticated, detailed feedback. Focus on professional writing and advanced language skills.'
     };
@@ -291,10 +291,10 @@ Provide encouraging, helpful feedback focusing on improvement.`;
   private generateEncouragement(score: number, userLevel: string): string {
     const encouragements = {
       'Novice': {
-        excellent: "Fantástico! Your English writing is excellent! 🌟",
-        good: "Muito bem! You're doing great with English! 👍",
-        okay: "Bom trabalho! Keep practicing - you're improving! 💪",
-        needsWork: "Continue tentando! Every message makes you better! 🌱"
+        excellent: "Fantastic! Your English writing is excellent! 🌟",
+        good: "Great job! You're doing wonderful with English! 👍",
+        okay: "Good work! Keep practicing - you're improving! 💪",
+        needsWork: "Keep trying! Every message makes you better! 🌱"
       },
       'Intermediate': {
         excellent: "Outstanding grammar! Your English is really impressive! 🎉",

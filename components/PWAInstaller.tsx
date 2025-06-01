@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Download, Smartphone, X } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -21,12 +22,18 @@ export default function PWAInstaller() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [showBanner, setShowBanner] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
 
   useEffect(() => {
     // Registrar Service Worker
     if ('serviceWorker' in navigator) {
       registerServiceWorker();
     }
+
+    // Detectar iOS
+    const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    setIsIOS(iOS);
 
     // Detectar se já está instalado
     if (window.matchMedia('(display-mode: standalone)').matches) {
@@ -38,6 +45,14 @@ export default function PWAInstaller() {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
+      
+      // Mostrar banner após 3 segundos se não estiver instalado
+      setTimeout(() => {
+        if (!isInstalled) {
+          setShowBanner(true);
+        }
+      }, 3000);
+      
       console.log('📱 [PWA] Install prompt available');
     };
 
@@ -46,6 +61,7 @@ export default function PWAInstaller() {
       setIsInstalled(true);
       setIsInstallable(false);
       setDeferredPrompt(null);
+      setShowBanner(false);
       console.log('✅ [PWA] App installed successfully');
     };
 
@@ -56,7 +72,7 @@ export default function PWAInstaller() {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
-  }, []);
+  }, [isInstalled]);
 
   const registerServiceWorker = async () => {
     try {
@@ -78,13 +94,11 @@ export default function PWAInstaller() {
           newWorker.addEventListener('statechange', () => {
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               console.log('🆕 [PWA] New content available, will refresh on next visit');
-              // Opcional: mostrar notificação de atualização
             }
           });
         }
       });
 
-      // Verificar se há atualizações imediatamente
       registration.update();
 
     } catch (error) {
@@ -103,12 +117,86 @@ export default function PWAInstaller() {
       
       setDeferredPrompt(null);
       setIsInstallable(false);
+      setShowBanner(false);
     } catch (error) {
       console.error('❌ [PWA] Install prompt failed:', error);
     }
   };
 
-  // Não renderizar nada visualmente - apenas lógica
+  const dismissBanner = () => {
+    setShowBanner(false);
+    // Não mostrar novamente nesta sessão
+    sessionStorage.setItem('pwa-banner-dismissed', 'true');
+  };
+
+  // Não mostrar se já foi dispensado nesta sessão
+  useEffect(() => {
+    const dismissed = sessionStorage.getItem('pwa-banner-dismissed');
+    if (dismissed) {
+      setShowBanner(false);
+    }
+  }, []);
+
+  // Banner de instalação para Android/Chrome
+  if (showBanner && isInstallable && !isInstalled && !isIOS) {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg shadow-lg border border-blue-500/20 backdrop-blur-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="bg-white/20 p-2 rounded-lg">
+              <Download className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Install Charlotte App</h3>
+              <p className="text-xs text-blue-100">Get the full experience with offline access!</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleInstallClick}
+              className="bg-white text-blue-600 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 transition-colors"
+            >
+              Install
+            </button>
+            <button
+              onClick={dismissBanner}
+              className="text-white/80 hover:text-white p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Banner de instruções para iOS
+  if (showBanner && isIOS && !isInstalled) {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded-lg shadow-lg border border-gray-700">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start space-x-3">
+            <div className="bg-white/20 p-2 rounded-lg">
+              <Smartphone className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-sm">Install Charlotte App</h3>
+              <p className="text-xs text-gray-300 mt-1">
+                Tap <span className="inline-block w-4 h-4 bg-blue-500 rounded text-center text-xs leading-4">⬆️</span> Share button, then "Add to Home Screen"
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={dismissBanner}
+            className="text-white/80 hover:text-white p-1"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }
 

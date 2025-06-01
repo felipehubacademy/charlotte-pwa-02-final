@@ -60,10 +60,10 @@ const GrammarScoreDisplay: React.FC<GrammarScoreDisplayProps> = ({
   // 🎯 Mensagem de encorajamento baseada no nível e pontuação
   const getEncouragementMessage = () => {
     if (userLevel === 'Novice') {
-      if (grammarScore >= 80) return "Fantástico! Your grammar is excellent! 🌟";
-      if (grammarScore >= 70) return "Muito bem! You're improving fast! 👏";
-      if (grammarScore >= 60) return "Bom trabalho! Keep practicing! 💪";
-      return "Continue tentando! Every message helps! 🌱";
+      if (grammarScore >= 80) return "Excellent grammar! You're mastering English! 🌟";
+      if (grammarScore >= 70) return "Great grammar! Your English is really strong! 🎉";
+      if (grammarScore >= 60) return "Very good! You're improving fast! 👏";
+      return "Keep practicing! Every message helps you improve! 🌱";
     } else if (userLevel === 'Intermediate') {
       if (grammarScore >= 85) return "Outstanding grammar! Professional level! 🏆";
       if (grammarScore >= 75) return "Great work! Your skills are solid! ⭐";

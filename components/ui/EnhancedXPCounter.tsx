@@ -199,8 +199,85 @@ const EnhancedStatsModal: React.FC<{
               </p>
             </div>
 
-            {/* Stats Grid + Recent Activity Side by Side */}
-            <div className="flex gap-4">
+            {/* 📱 MOBILE: Stats Grid 2x2 + Recent Activity abaixo */}
+            <div className="lg:hidden space-y-4">
+              {/* Stats Grid 2x2 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <TrendingUp size={16} className="text-primary" />
+                    <span className="text-white/80 text-xs font-medium">Today</span>
+                  </div>
+                  <span className="text-white text-xl font-bold block mb-1">+{effectiveSessionXP}</span>
+                  <p className="text-white/60 text-xs">XP earned</p>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Award size={16} className="text-primary" />
+                    <span className="text-white/80 text-xs font-medium">Total</span>
+                  </div>
+                  <span className="text-white text-xl font-bold block mb-1">{effectiveTotalXP.toLocaleString()}</span>
+                  <p className="text-white/60 text-xs">XP earned</p>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Calendar size={16} className="text-primary" />
+                    <span className="text-white/80 text-xs font-medium">Streak</span>
+                  </div>
+                  <span className="text-white text-xl font-bold block mb-1">{realData.streak}</span>
+                  <p className="text-white/60 text-xs">days</p>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
+                  <div className="flex items-center space-x-2 mb-2">
+                    <Clock size={16} className="text-primary" />
+                    <span className="text-white/80 text-xs font-medium">Activity</span>
+                  </div>
+                  <span className="text-white text-xl font-bold block mb-1">{realData.recentActivity.length}</span>
+                  <p className="text-white/60 text-xs">recent</p>
+                </div>
+              </div>
+
+              {/* Recent Activity abaixo no mobile */}
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10">
+                <h3 className="text-white/80 text-sm font-medium mb-3">Recent Activity</h3>
+                <div className="max-h-48 overflow-y-auto scrollbar-custom space-y-2">
+                  {realData.recentActivity.length > 0 ? (
+                    realData.recentActivity.map((activity, index) => (
+                      <div key={index} className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
+                        <div className="flex-1">
+                          <p className="text-white/90 text-sm font-medium">{activity.type}</p>
+                          <p className="text-white/50 text-xs">
+                            {activity.timestamp.toLocaleDateString([], { 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })} at {activity.timestamp.toLocaleTimeString([], { 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
+                          </p>
+                        </div>
+                        <span className="text-primary text-sm font-bold ml-3 flex-shrink-0 
+                                         bg-primary/10 px-2 py-1 rounded-md">
+                          +{activity.xp}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-6">
+                      <div className="text-3xl mb-2">🚀</div>
+                      <p className="text-white/50 text-sm">No recent activity</p>
+                      <p className="text-white/30 text-xs mt-1">Start practicing!</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 🖥️ DESKTOP: Stats Grid + Recent Activity lado a lado */}
+            <div className="hidden lg:flex gap-4">
               {/* Stats Grid 2x2 - Menor */}
               <div className="grid grid-cols-2 gap-3 flex-shrink-0">
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
@@ -240,7 +317,7 @@ const EnhancedStatsModal: React.FC<{
                 </div>
               </div>
 
-              {/* Recent Activity - Ao lado */}
+              {/* Recent Activity - Ao lado no desktop */}
               <div className="bg-white/5 rounded-xl p-4 border border-white/10 flex-1">
                 <h3 className="text-white/80 text-sm font-medium mb-3">Recent Activity</h3>
                 <div className="max-h-48 overflow-y-auto scrollbar-custom space-y-2">
@@ -498,21 +575,28 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       console.log('🏆 Loading real achievements from Supabase...');
       const userAchievements = await supabaseService.getUserAchievements(userId, 50);
       
+      console.log('📋 Raw achievements from Supabase:', userAchievements);
+      
       if (userAchievements && userAchievements.length > 0) {
         // Converter dados do Supabase para formato Achievement
-        const formattedAchievements: Achievement[] = userAchievements.map((ach: any) => ({
-          id: ach.achievement_id,
-          type: ach.type || 'general',
-          title: ach.title,
-          description: ach.description,
-          icon: ach.icon || '🏆',
-          rarity: ach.rarity || 'common',
-          xpBonus: ach.xp_bonus || 0,
-          earnedAt: new Date(ach.earned_at)
-        }));
+        const formattedAchievements: Achievement[] = userAchievements.map((ach: any) => {
+          console.log('🔍 Processing achievement:', ach);
+          
+          return {
+            id: ach.achievement_id || ach.id || `achievement-${Date.now()}`,
+            type: ach.achievement_type || ach.type || 'general',
+            title: ach.title || 'Achievement',
+            description: ach.description || 'You earned an achievement!',
+            icon: getAchievementIcon(ach.achievement_type || ach.type || 'general'),
+            rarity: ach.rarity || 'common',
+            xpBonus: ach.xp_bonus || 0,
+            earnedAt: new Date(ach.earned_at || ach.created_at || Date.now())
+          };
+        });
         
         setRealAchievements(formattedAchievements);
-        console.log('✅ Real achievements loaded:', formattedAchievements.length);
+        console.log('✅ Real achievements loaded and formatted:', formattedAchievements.length);
+        console.log('📊 Formatted achievements:', formattedAchievements);
       } else {
         setRealAchievements([]);
         console.log('📝 No achievements found for user');
@@ -520,6 +604,160 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     } catch (error) {
       console.error('❌ Error loading real achievements:', error);
       setRealAchievements([]);
+    }
+  };
+
+  // Helper function to get achievement icon based on type
+  const getAchievementIcon = (type: string): string => {
+    switch (type) {
+      // Audio achievements
+      case 'perfect-practice':
+      case 'perfect-audio':
+        return '🎯';
+      case 'long-sentence':
+      case 'eloquent-speaker':
+        return '🗣️';
+      case 'speed-demon':
+      case 'speed-talker':
+        return '⚡';
+      case 'grammar-master':
+      case 'pronunciation-master':
+        return '🎤';
+      
+      // Text achievements
+      case 'perfect-text':
+        return '📝';
+      case 'detailed-writer':
+        return '✍️';
+      case 'word-master':
+        return '📚';
+      case 'grammar-guru':
+        return '📖';
+      
+      // Live voice achievements
+      case 'perfect-conversation':
+        return '💬';
+      case 'marathon-talker':
+        return '🏃‍♂️';
+      
+      // Volume/Frequency achievements
+      case 'audio-starter':
+        return '🎙️';
+      case 'audio-enthusiast':
+        return '🎧';
+      case 'audio-master':
+        return '🎵';
+      case 'audio-legend':
+        return '🏆';
+      case 'text-writer':
+        return '✏️';
+      case 'text-warrior':
+        return '⚔️';
+      case 'text-champion':
+        return '🏅';
+      case 'text-legend':
+        return '📚';
+      case 'live-beginner':
+        return '💬';
+      case 'live-conversationalist':
+        return '🗨️';
+      case 'live-master':
+        return '🎭';
+      case 'voice-30min':
+        return '⏱️';
+      case 'voice-2hours':
+        return '🕐';
+      case 'voice-5hours':
+        return '🕕';
+      
+      // Quality/Performance achievements
+      case 'accuracy-streak-5':
+      case 'grammar-streak-5':
+        return '🎯';
+      case 'perfection-streak-10':
+        return '⭐';
+      case 'near-perfect-audio':
+        return '🎯';
+      case 'native-like-pronunciation':
+        return '👑';
+      case 'grammar-perfectionist':
+        return '📖';
+      
+      // Behavioral achievements
+      case 'early-bird':
+        return '🌅';
+      case 'night-owl':
+        return '🦉';
+      case 'lunch-learner':
+        return '🍽️';
+      case 'monday-motivation':
+        return '💪';
+      case 'friday-finisher':
+        return '🎉';
+      case 'weekend-warrior':
+        return '🏖️';
+      
+      // Content achievements
+      case 'polite-learner':
+        return '🙏';
+      case 'curious-mind':
+        return '❓';
+      case 'vocabulary-builder':
+        return '📖';
+      case 'topic-explorer':
+        return '🗺️';
+      case 'sentence-architect':
+        return '🏗️';
+      
+      // Challenge achievements
+      case 'marathon-session-30':
+        return '🏃‍♂️';
+      case 'marathon-session-60':
+        return '🏃‍♀️';
+      case 'essay-writer':
+        return '📄';
+      
+      // Special achievements
+      case 'visual-learner':
+        return '📸';
+      case 'cultural-bridge':
+        return '🇧🇷';
+      case 'emotion-express':
+        return '😊';
+      
+      // Level-specific achievements (legacy)
+      case 'novice-writer':
+      case 'novice-speaker':
+        return '🌱';
+      case 'intermediate-grammar':
+      case 'intermediate-speech':
+        return '📈';
+      case 'advanced-writer':
+      case 'advanced-speaker':
+        return '👑';
+      
+      // Streak achievements
+      case 'streak-milestone':
+        return '🔥';
+      
+      // Surprise achievements
+      case 'lucky-star':
+        return '⭐';
+      case 'golden-hour':
+      case 'golden-moment':
+        return '🌟';
+      case 'magic-practice':
+        return '✨';
+      case 'rainbow-bonus':
+        return '🌈';
+      case 'serendipity':
+        return '🍀';
+      case 'cosmic-alignment':
+        return '🌌';
+      
+      // Default
+      default:
+        return '🏆';
     }
   };
 
@@ -601,7 +839,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       <div className="relative flex items-center space-x-2">
         <motion.button
           onClick={handleStatsClick}
-          className={`flex items-center space-x-2 px-3 py-2 rounded-full border transition-all duration-300 hover:scale-105 ${
+          className={`flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full border transition-all duration-300 hover:scale-105 ${
             isAnimating 
               ? 'bg-primary/20 border-primary/50 shadow-lg shadow-primary/25' 
               : 'bg-white/10 border-white/20 hover:bg-white/15'
@@ -616,12 +854,12 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
           } : {}}
           transition={{ duration: 0.6 }}
         >
-          {/* Progress Ring no lugar do logo XP */}
+          {/* Progress Ring - Menor no mobile */}
           <div className="relative">
             <ProgressRing 
               level={currentLevel} 
               progress={Math.max(0, Math.min(100, levelProgress))} 
-              size={40} 
+              size={32} // Menor no mobile (era 40)
             />
             
             {/* Achievement notification badge */}
@@ -629,7 +867,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-1 -right-1 w-3 h-3 bg-red-400 rounded-full border border-white/20"
+                className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-red-400 rounded-full border border-white/20"
               >
                 <motion.div
                   animate={{ scale: [1, 1.2, 1] }}
@@ -640,10 +878,10 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
             )}
           </div>
 
-          {/* Session XP */}
+          {/* Session XP - Menor no mobile */}
           <div className="flex flex-col items-center">
             <motion.span 
-              className={`text-sm font-semibold transition-colors ${
+              className={`text-xs sm:text-sm font-semibold transition-colors ${
                 isAnimating ? 'text-primary' : 'text-white/80'
               }`}
               key={displaySessionXP}
@@ -653,22 +891,22 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
             >
               +{displaySessionXP}
             </motion.span>
-            <span className="text-[10px] text-white/50 leading-none">today</span>
+            <span className="text-[9px] sm:text-[10px] text-white/50 leading-none">today</span>
           </div>
 
           {/* Divisor */}
-          <div className="w-px h-4 bg-white/20"></div>
+          <div className="w-px h-3 sm:h-4 bg-white/20"></div>
 
-          {/* Total XP */}
+          {/* Total XP - Menor no mobile */}
           <div className="flex flex-col items-center">
             <motion.span 
-              className="text-sm font-semibold text-white/80"
+              className="text-xs sm:text-sm font-semibold text-white/80"
               animate={isAnimating ? { color: ["#FFFFFF", "#A3FF3C", "#FFFFFF"] } : {}}
               transition={{ duration: 1 }}
             >
               {(displayTotalXP || 0).toLocaleString()}
             </motion.span>
-            <span className="text-[10px] text-white/50 leading-none">total</span>
+            <span className="text-[9px] sm:text-[10px] text-white/50 leading-none">total</span>
           </div>
         </motion.button>
 
@@ -682,7 +920,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
               exit={{ opacity: 0 }}
               transition={{ duration: 1.5, ease: "easeOut" }}
             >
-              <div className="bg-primary text-black px-3 py-1 rounded-full text-xs font-bold shadow-lg border border-primary/50">
+              <div className="bg-primary text-black px-2 sm:px-3 py-1 rounded-full text-xs font-bold shadow-lg border border-primary/50">
                 +{floatingXP} XP
               </div>
             </motion.div>

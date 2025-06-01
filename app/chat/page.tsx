@@ -13,6 +13,7 @@ import EnhancedXPCounter from '@/components/ui/EnhancedXPCounter';
 import AchievementNotification from '@/components/achievements/AchievementNotification';
 import { ConversationContextManager } from '@/lib/conversation-context';
 import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
+import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { ClientAudioConverter } from '@/lib/audio-converter-client';
 
@@ -32,6 +33,10 @@ interface Message {
   timestamp: Date;
   messageType?: 'text' | 'audio' | 'image';
   technicalFeedback?: string;
+  xpAwarded?: number;
+  nextChallenge?: string;
+  tips?: string;
+  encouragement?: string;
 }
 
 async function getAssistantResponse(
@@ -401,7 +406,42 @@ export default function ChatPage() {
         );
 
         if (supabaseService.isAvailable() && user?.entra_id) {
-          // ✅ UPDATED: Save with improved XP data
+          // 🏆 NOVO: Calcular achievements universais para áudio
+          let audioAchievements: Achievement[] = [];
+          let achievementBonusXP = 0;
+
+          try {
+            // Obter streak atual
+            const userStats = await supabaseService.getUserStats(user.entra_id);
+            const streakDays = userStats?.streak_days || 0;
+
+            // Preparar dados para o sistema universal
+            const practiceData: PracticeData = {
+              type: 'audio_message',
+              text: transcription,
+              duration: duration,
+              accuracy: scores.accuracyScore,
+              pronunciation: scores.pronunciationScore,
+              userLevel: (user.user_level || 'Intermediate') as 'Novice' | 'Intermediate' | 'Advanced',
+              streakDays
+            };
+
+            // Calcular achievements universais
+            const achievementResult = calculateUniversalAchievements(practiceData);
+            audioAchievements = achievementResult.achievements;
+            achievementBonusXP = achievementResult.totalBonusXP;
+
+            console.log('🏆 Audio achievements calculated:', {
+              achievementsEarned: audioAchievements.length,
+              bonusXP: achievementBonusXP,
+              achievements: audioAchievements.map(a => a.title)
+            });
+
+          } catch (error) {
+            console.error('❌ Error calculating audio achievements:', error);
+          }
+
+          // ✅ UPDATED: Save with improved XP data + universal achievements
           await supabaseService.saveAudioPractice({
             user_id: user.entra_id,
             transcription: transcription,
@@ -409,27 +449,28 @@ export default function ChatPage() {
             fluency_score: scores.fluencyScore,
             completeness_score: scores.completenessScore,
             pronunciation_score: scores.pronunciationScore,
-            xp_awarded: xpResult.totalXP,
+            xp_awarded: xpResult.totalXP + achievementBonusXP, // XP total incluindo achievements universais
             practice_type: 'audio_message',
             audio_duration: duration,
             feedback: `${assistantResponse.feedback}\n\n${xpResult.feedback}`,
             technicalFeedback: assistantResponse.technicalFeedback,
             // ✅ NEW: Save improved XP system data
-            achievement_ids: xpResult.achievements.map(a => a.id),
+            achievement_ids: [...xpResult.achievements.map(a => a.id), ...audioAchievements.map(a => a.id)], // Combinar achievements
             surprise_bonus: xpResult.surpriseBonus?.amount || 0,
             base_xp: xpResult.baseXP,
-            bonus_xp: xpResult.bonusXP
+            bonus_xp: xpResult.bonusXP + achievementBonusXP // Combinar bônus
           });
 
-          // ✅ NEW: Save achievements if any were earned
-          if (xpResult.achievements.length > 0) {
-            await supabaseService.saveAchievements(user.entra_id, xpResult.achievements);
-            handleNewAchievements(xpResult.achievements);
+          // ✅ NEW: Save achievements if any were earned (combinar ambos os sistemas)
+          const allAchievements = [...xpResult.achievements, ...audioAchievements];
+          if (allAchievements.length > 0) {
+            await supabaseService.saveAchievements(user.entra_id, allAchievements);
+            handleNewAchievements(allAchievements);
           }
           
-          setSessionXP(prev => prev + xpResult.totalXP);
+          setSessionXP(prev => prev + xpResult.totalXP + achievementBonusXP);
           setTotalXP(prev => {
-            const newTotal = prev + xpResult.totalXP;
+            const newTotal = prev + xpResult.totalXP + achievementBonusXP;
             // Update level based on new total XP
             const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
             setCurrentLevel(newLevel);
@@ -449,12 +490,14 @@ export default function ChatPage() {
           pronunciationValue: pronunciationResult.status === 'fulfilled' ? pronunciationResult.value : null
         });
         
+        const errorMessage = user?.user_level === 'Novice'
+          ? "I apologize, I had technical issues with your audio. Please try recording again!"
+          : "I apologize, I had technical issues with your audio. Please try again!";
+        
         const errorResponse: Message = {
           id: generateMessageId('assistant-error'),
           role: 'assistant',
-          content: user?.user_level === 'Novice'
-            ? "Desculpe, tive problemas técnicos com seu áudio. Sorry, I had technical issues with your audio. Please try again!"
-            : "I'm sorry, I had trouble processing your audio. Please try speaking more clearly and ensure you're in a quiet environment.",
+          content: errorMessage,
           timestamp: new Date(),
           messageType: 'text'
         };
@@ -464,12 +507,14 @@ export default function ChatPage() {
     } catch (error) {
       console.error('Error processing audio:', error);
       
+      const errorMessage = user?.user_level === 'Novice'
+        ? "I apologize, I'm having technical difficulties!"
+        : "I apologize, I'm having technical difficulties!";
+      
       const errorResponse: Message = {
         id: generateMessageId('assistant-error'),
         role: 'assistant',
-        content: user?.user_level === 'Novice'
-          ? "Desculpe, tive dificuldades técnicas. Sorry, I'm having technical difficulties!"
-          : "Sorry, I'm having technical difficulties. Please try again in a moment.",
+        content: errorMessage,
         timestamp: new Date(),
         messageType: 'text'
       };
@@ -791,6 +836,17 @@ export default function ChatPage() {
     loadUserStats();
   }, [user, messages.length, isMounted, conversationContext, loadUserStats]);
 
+  // Load user stats on mount
+  useEffect(() => {
+    if (user?.entra_id && supabaseService.isAvailable()) {
+      loadUserStats();
+      
+      // 🔍 DEBUG: Verificar estrutura das tabelas
+      console.log('🔍 Running table structure debug...');
+      supabaseService.debugTableStructures();
+    }
+  }, [user?.entra_id, loadUserStats]);
+
   // Handle image capture from camera
   const handleImageCapture = useCallback(async (imageData: string) => {
     if (!user?.entra_id) return;
@@ -1011,12 +1067,14 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           console.error('Error processing image with assistant:', error);
           
           // Fallback response
+          const errorMessage = user.user_level === 'Novice'
+            ? "I apologize, I had trouble analyzing your photo. Please try taking another picture!"
+            : "I apologize, I had trouble analyzing your photo. Please try again!";
+          
           const fallbackResponse: Message = {
             id: generateMessageId('assistant-image-error'),
             role: 'assistant',
-            content: user.user_level === 'Novice'
-              ? "Desculpe, tive problemas para analisar sua foto. Sorry, I had trouble analyzing your photo. Please try again!"
-              : "I'm sorry, I had trouble analyzing your photo. Please try taking another picture with better lighting.",
+            content: errorMessage,
             timestamp: new Date(),
             messageType: 'text'
           };
@@ -1228,104 +1286,173 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
   // Text message handler
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || isProcessingMessage || !user?.entra_id) return;
 
+    const userText = message.trim();
+    setMessage('');
+    setIsProcessingMessage(true);
+
+    // Add user message to chat
     const userMessage: Message = {
       id: generateMessageId('user'),
       role: 'user',
-      content: message.trim(),
+      content: userText,
       timestamp: new Date(),
       messageType: 'text'
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const userText = message.trim();
-    setMessage('');
-    setIsProcessingMessage(true);
-        
-    conversationContext.addMessage('user', userText, 'text');
-        
+
     try {
-        const contextPrompt = conversationContext.generateContextForAssistant();
-        
+      // Get conversation context
+      const context = conversationContext.generateContextForAssistant();
+      
+      // Call assistant API
       const response = await fetch('/api/assistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           transcription: userText,
           pronunciationData: null,
-          userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
-          userName: user?.name?.split(' ')[0] || 'Student',
+          userLevel: user.user_level || 'Intermediate',
+          userName: user.name?.split(' ')[0] || 'Student',
           messageType: 'text',
-          conversationContext: contextPrompt
-        })
+          conversationContext: context
+        }),
       });
 
-      if (!response.ok) throw new Error(`Assistant API error: ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
-      if (!data.success) throw new Error(data.error || 'Assistant API failed');
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to get assistant response');
+      }
 
       const assistantResult = data.result;
+
+      // 🏆 NOVO: Calcular achievements universais para texto
+      let textAchievements: Achievement[] = [];
+      let achievementBonusXP = 0;
+
+      if (user?.entra_id && supabaseService.isAvailable()) {
+        try {
+          // Obter streak atual
+          const userStats = await supabaseService.getUserStats(user.entra_id);
+          const streakDays = userStats?.streak_days || 0;
+
+          // Preparar dados para o sistema universal
+          const practiceData: PracticeData = {
+            type: 'text_message',
+            text: userText,
+            grammar: assistantResult.grammarScore || undefined,
+            wordCount: userText.split(' ').filter(word => word.trim()).length,
+            userLevel: (user.user_level || 'Intermediate') as 'Novice' | 'Intermediate' | 'Advanced',
+            streakDays
+          };
+
+          // Calcular achievements universais
+          const achievementResult = calculateUniversalAchievements(practiceData);
+          textAchievements = achievementResult.achievements;
+          achievementBonusXP = achievementResult.totalBonusXP;
+
+          console.log('🏆 Text achievements calculated:', {
+            achievementsEarned: textAchievements.length,
+            bonusXP: achievementBonusXP,
+            achievements: textAchievements.map(a => a.title)
+          });
+
+        } catch (error) {
+          console.error('❌ Error calculating text achievements:', error);
+        }
+      }
+
+      // Split response into multiple messages
       const aiMessages = splitIntoMultipleMessages(assistantResult.feedback);
 
-        await sendSequentialMessages(
-          aiMessages,
-          (msg) => setMessages(prev => [...prev, msg]),
-          generateMessageId,
+      // Send messages sequentially with XP info in first message
+      await sendSequentialMessages(
+        aiMessages,
+        (msg) => {
+          // Add XP info to first message
+          if (msg.id.includes('part-0')) {
+            msg.xpAwarded = assistantResult.xpAwarded + achievementBonusXP;
+            msg.nextChallenge = assistantResult.nextChallenge;
+            msg.tips = assistantResult.tips;
+            msg.encouragement = assistantResult.encouragement;
+          }
+          setMessages(prev => [...prev, msg]);
+        },
+        generateMessageId,
         1200,
         assistantResult.technicalFeedback
-        );
+      );
 
-        aiMessages.forEach(msg => 
-          conversationContext.addMessage('assistant', msg, 'text')
-        );
+      // Update conversation context
+      aiMessages.forEach(msg => 
+        conversationContext.addMessage('assistant', msg, 'text')
+      );
 
-        if (supabaseService.isAvailable() && user?.entra_id) {
+      if (supabaseService.isAvailable() && user?.entra_id) {
         const wordCount = userText.split(' ').filter(word => word.trim()).length;
           
-          await supabaseService.saveAudioPractice({
-            user_id: user.entra_id,
-            transcription: userText,
-            accuracy_score: null,
-            fluency_score: null,
-            completeness_score: null,
-            pronunciation_score: null,
-            xp_awarded: assistantResult.xpAwarded,
-            practice_type: 'text_message',
-            audio_duration: 0,
-            feedback: assistantResult.feedback,
-            grammar_score: assistantResult.grammarScore || null,
-            grammar_errors: assistantResult.grammarErrors || null,
-            text_complexity: assistantResult.textComplexity || null,
-            word_count: wordCount,
-          });
+        await supabaseService.saveAudioPractice({
+          user_id: user.entra_id,
+          transcription: userText,
+          accuracy_score: null,
+          fluency_score: null,
+          completeness_score: null,
+          pronunciation_score: null,
+          xp_awarded: assistantResult.xpAwarded + achievementBonusXP, // XP total incluindo achievements
+          practice_type: 'text_message',
+          audio_duration: 0,
+          feedback: assistantResult.feedback,
+          grammar_score: assistantResult.grammarScore || null,
+          grammar_errors: assistantResult.grammarErrors || null,
+          text_complexity: assistantResult.textComplexity || null,
+          word_count: wordCount,
+          // 🏆 NOVO: Salvar dados de achievements
+          achievement_ids: textAchievements.map(a => a.id),
+          surprise_bonus: 0, // Texto não tem surprise bonus por enquanto
+          base_xp: assistantResult.xpAwarded,
+          bonus_xp: achievementBonusXP
+        });
+
+        // 🏆 NOVO: Salvar achievements se houver
+        if (textAchievements.length > 0) {
+          await supabaseService.saveAchievements(user.entra_id, textAchievements);
+          handleNewAchievements(textAchievements);
+        }
           
-        setSessionXP(prev => prev + assistantResult.xpAwarded);
+        setSessionXP(prev => prev + assistantResult.xpAwarded + achievementBonusXP);
         setTotalXP(prev => {
-          const newTotal = prev + assistantResult.xpAwarded;
+          const newTotal = prev + assistantResult.xpAwarded + achievementBonusXP;
           // Update level based on new total XP
           const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
           setCurrentLevel(newLevel);
           return newTotal;
         });
           
-          setTimeout(() => loadUserStats(), 1000);
+        setTimeout(() => loadUserStats(), 1000);
       }
+
     } catch (error) {
       console.error('❌ Error processing text message:', error);
       
-      const fallbackResponse = user?.user_level === 'Novice' 
-        ? `Desculpe, ${user?.name?.split(' ')[0] || 'there'}! I had a small technical issue, but I can see you're practicing English! Keep writing - it really helps improve your skills! 😊`
-        : `I apologize for the technical hiccup, ${user?.name?.split(' ')[0] || 'there'}! Your English practice is valuable regardless. What would you like to talk about next?`;
+      const fallbackMessage = user?.user_level === 'Novice'
+        ? `I apologize, ${user?.name?.split(' ')[0] || 'there'}! I had a small technical issue, but I can see you're practicing English! Keep writing - it really helps improve your skills! 😊`
+        : `Thank you for your message, ${user?.name?.split(' ')[0] || 'there'}! I had a technical issue, but I appreciate your English practice. Please try again!`;
         
       const aiResponse: Message = {
         id: generateMessageId('assistant-fallback'),
-          role: 'assistant',
-        content: fallbackResponse,
-          timestamp: new Date(),
-          messageType: 'text'
-        };
-        
+        role: 'assistant',
+        content: fallbackMessage,
+        timestamp: new Date(),
+        messageType: 'text'
+      };
+      
       setMessages(prev => [...prev, aiResponse]);
     } finally {
       setIsProcessingMessage(false);

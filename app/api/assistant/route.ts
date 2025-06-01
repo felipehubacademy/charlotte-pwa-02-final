@@ -151,7 +151,7 @@ async function generateContextualFeedback(
 ): Promise<string> {
   
   const levelInstructions = {
-    'Novice': 'Use simple English. Include Portuguese explanations when helpful. Be very encouraging about grammar mistakes.',
+    'Novice': 'Use simple, clear English only. Be very encouraging about grammar mistakes. Speak slowly and use basic vocabulary to help beginners understand.',
     'Intermediate': 'Provide clear feedback. Balance grammar correction with conversational response. Focus on practical improvements.',
     'Advanced': 'Give sophisticated feedback. Integrate grammar analysis naturally into professional conversation.'
   };
@@ -231,7 +231,7 @@ async function handleTextMessageSimple(
   console.log('⚠️ Using simple text fallback with context...');
 
   const levelInstructions = {
-    'Novice': 'Use simple, encouraging English. Be very supportive and include basic vocabulary tips. Can include occasional Portuguese words if truly helpful.',
+    'Novice': 'Use simple, encouraging English only. Be very supportive and include basic vocabulary tips. Focus on building confidence with clear, slow speech.',
     'Intermediate': 'Provide clear, business-focused English responses. Give grammar and vocabulary suggestions when relevant.',
     'Advanced': 'Use sophisticated language and provide advanced English learning insights. Focus on professional communication.'
   };
@@ -331,7 +331,7 @@ async function handleAudioMessage(
   conversationContext?: string
 ) {
   const levelInstructions = {
-    'Novice': 'Use simple, encouraging English. Be very supportive like a friendly coach. Can include occasional Portuguese words if truly helpful.',
+    'Novice': 'Use simple, encouraging English only. Be very supportive like a friendly coach. Speak clearly and slowly to help beginners understand.',
     'Intermediate': 'Provide clear, practical feedback like a professional coach. Focus on business English and communication effectiveness.',
     'Advanced': 'Give sophisticated feedback like an expert coach. Focus on nuanced pronunciation and professional communication.'
   };
@@ -632,8 +632,8 @@ async function handleImageMessage(
     console.log('📸 Starting image analysis for vocabulary learning...');
 
     const levelInstructions = {
-      'Novice': 'Respond in simple English with Portuguese translations. Be very encouraging and use basic vocabulary.',
-      'Intermediate': 'Provide clear explanations in English. Include Portuguese translations when helpful.',
+      'Novice': 'Respond in simple, clear English only. Be very encouraging and use basic vocabulary. Focus on building confidence.',
+      'Intermediate': 'Provide clear explanations in English. Focus on practical communication skills.',
       'Advanced': 'Use sophisticated English. Focus on advanced vocabulary and nuanced definitions.'
     };
 
@@ -714,7 +714,7 @@ Your response should help the student learn new vocabulary through visual associ
     // Fallback response
     const fallbackResponse: AssistantResponse = {
       feedback: userLevel === 'Novice' 
-        ? 'Desculpe, tive problemas para analisar sua imagem. Sorry, I had trouble analyzing your image. Please try again!'
+        ? 'I apologize, but I had trouble analyzing your image. Please try taking another photo with better lighting and I\'ll help you learn new vocabulary!'
         : 'I apologize, but I had trouble analyzing your image. Please try taking another photo with better lighting.',
       xpAwarded: 8, // 🎯 REBALANCEADO: Era 1 XP, agora 8 XP mínimo
       nextChallenge: '',

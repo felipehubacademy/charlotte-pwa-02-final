@@ -188,8 +188,12 @@ class SupabaseService {
           message: practiceError.message,
           details: practiceError.details,
           hint: practiceError.hint,
-          code: practiceError.code
+          code: practiceError.code,
+          stack: practiceError.stack
         });
+        
+        // Log adicional para debug
+        console.error('❌ Raw practice error object:', JSON.stringify(practiceError, null, 2));
         
         // 🔄 Tentar novamente apenas com campos básicos se houver erro
         console.log('🔄 Retrying with basic fields only...');
@@ -205,12 +209,19 @@ class SupabaseService {
         const { data: retryPractice, error: retryError } = await this.supabase
           .from('user_practices')
           .insert(basicData)
-        .select()
-        .single();
+          .select()
+          .single();
 
         if (retryError) {
-          console.error('❌ Retry also failed:', retryError);
-        return null;
+          console.error('❌ Retry also failed:', {
+            error: retryError,
+            message: retryError.message,
+            details: retryError.details,
+            hint: retryError.hint,
+            code: retryError.code
+          });
+          console.error('❌ Raw retry error object:', JSON.stringify(retryError, null, 2));
+          return null;
         } else {
           console.log('✅ Retry successful with basic data');
           practice = retryPractice;
@@ -735,6 +746,123 @@ class SupabaseService {
     }
   }
 
+  // 🔍 NOVO: Método de debug completo para verificar estrutura das tabelas
+  async debugTableStructures() {
+    if (!this.supabase) {
+      console.error('❌ Supabase not available for debug');
+      return;
+    }
+
+    console.log('🔍 Starting comprehensive table structure debug...');
+
+    // 1. Testar user_practices
+    try {
+      console.log('\n📋 Testing user_practices table...');
+      const { data: practicesData, error: practicesError } = await this.supabase
+        .from('user_practices')
+        .select('*')
+        .limit(1);
+
+      if (practicesError) {
+        console.error('❌ user_practices error:', practicesError);
+      } else {
+        console.log('✅ user_practices accessible');
+        if (practicesData && practicesData.length > 0) {
+          console.log('📋 user_practices columns:', Object.keys(practicesData[0]));
+        } else {
+          console.log('📋 user_practices table empty');
+        }
+      }
+    } catch (error) {
+      console.error('❌ user_practices exception:', error);
+    }
+
+    // 2. Testar user_achievements
+    try {
+      console.log('\n🏆 Testing user_achievements table...');
+      const { data: achievementsData, error: achievementsError } = await this.supabase
+        .from('user_achievements')
+        .select('*')
+        .limit(1);
+
+      if (achievementsError) {
+        console.error('❌ user_achievements error:', achievementsError);
+      } else {
+        console.log('✅ user_achievements accessible');
+        if (achievementsData && achievementsData.length > 0) {
+          console.log('📋 user_achievements columns:', Object.keys(achievementsData[0]));
+        } else {
+          console.log('📋 user_achievements table empty');
+        }
+      }
+    } catch (error) {
+      console.error('❌ user_achievements exception:', error);
+    }
+
+    // 3. Testar user_sessions
+    try {
+      console.log('\n📅 Testing user_sessions table...');
+      const { data: sessionsData, error: sessionsError } = await this.supabase
+        .from('user_sessions')
+        .select('*')
+        .limit(1);
+
+      if (sessionsError) {
+        console.error('❌ user_sessions error:', sessionsError);
+      } else {
+        console.log('✅ user_sessions accessible');
+        if (sessionsData && sessionsData.length > 0) {
+          console.log('📋 user_sessions columns:', Object.keys(sessionsData[0]));
+        } else {
+          console.log('📋 user_sessions table empty');
+        }
+      }
+    } catch (error) {
+      console.error('❌ user_sessions exception:', error);
+    }
+
+    // 4. Testar inserção simples em user_practices
+    try {
+      console.log('\n🧪 Testing simple insert into user_practices...');
+      const testData = {
+        user_id: 'test-user-debug',
+        transcription: 'test transcription',
+        xp_awarded: 10,
+        practice_type: 'text_message',
+        audio_duration: 0
+      };
+
+      const { data: insertData, error: insertError } = await this.supabase
+        .from('user_practices')
+        .insert(testData)
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('❌ Test insert failed:', {
+          error: insertError,
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code
+        });
+      } else {
+        console.log('✅ Test insert successful:', insertData?.id);
+        
+        // Limpar o teste
+        await this.supabase
+          .from('user_practices')
+          .delete()
+          .eq('id', insertData.id);
+        console.log('🗑️ Test record cleaned up');
+      }
+    } catch (error) {
+      console.error('❌ Test insert exception:', error);
+    }
+
+    console.log('\n🔍 Table structure debug completed');
+  }
+
   // 🏆 ACHIEVEMENT SYSTEM METHODS
 
   /**
@@ -765,14 +893,30 @@ class SupabaseService {
         .insert(achievementRecords);
 
       if (error) {
-        console.error('❌ Error saving achievements:', error);
+        console.error('❌ Error saving achievements:', {
+          error: error,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+          stack: error.stack
+        });
+        console.error('❌ Raw achievements error object:', JSON.stringify(error, null, 2));
+        console.error('❌ Achievement records that failed:', JSON.stringify(achievementRecords, null, 2));
         return false;
       }
 
       console.log('✅ Achievements saved successfully');
       return true;
     } catch (error) {
-      console.error('❌ Exception saving achievements:', error);
+      console.error('❌ Exception saving achievements:', {
+        error: error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        userId: userId,
+        achievementsCount: achievements.length
+      });
+      console.error('❌ Raw exception object:', JSON.stringify(error, null, 2));
       return false;
     }
   }

@@ -127,7 +127,7 @@ export function createFallbackResponse(
   message += `${emoji} Pronunciation Score: ${pronunciationScore}/100\n\n`;
   
   if (userLevel === 'Novice') {
-    message += "Bom trabalho! Keep practicing your English pronunciation!\n\n";
+    message += "Great work! Keep practicing your English pronunciation!\n\n";
   } else {
     message += "Great job! Your pronunciation is improving with each practice!\n\n";
   }
@@ -146,7 +146,7 @@ export function createTextFallbackResponse(
   const userFirstName = userName || 'there';
   
   if (userLevel === 'Novice') {
-    return `Muito bem, ${userFirstName}! I can see you're practicing your English writing. Keep it up - every message helps you improve! What would you like to talk about next? 😊`;
+    return `Great job practicing your English writing, ${userFirstName}! 😊 I can see you're working hard to improve. Keep it up - every message helps you get better! What would you like to talk about next?`;
   } else if (userLevel === 'Intermediate') {
     return `That's a good point, ${userFirstName}! Your English communication skills are developing well. I appreciate you sharing that with me. What aspects of English would you like to focus on today?`;
   } else {
