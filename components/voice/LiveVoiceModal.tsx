@@ -52,6 +52,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
   const [totalConversationTime, setTotalConversationTime] = useState(0);
   const [lastXPUpdate, setLastXPUpdate] = useState<Date | null>(null);
+  const [xpAlreadyAwarded, setXpAlreadyAwarded] = useState(false); // 🔧 NEW: Prevent multiple XP awards
 
   // Hook VAD para análise de áudio real
   const { volume, audioLevels: vadAudioLevels, start: startVAD, stop: stopVAD } = useVoiceActivityDetection();
@@ -71,6 +72,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     const now = new Date();
     setConversationStartTime(now);
     setLastXPUpdate(now);
+    setXpAlreadyAwarded(false); // 🔧 Reset XP flag for new conversation
     console.log('🎤 Started conversation tracking at:', now.toISOString());
   }, []);
 
@@ -111,7 +113,13 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   }, []);
 
   const stopConversationTracking = useCallback(async () => {
-    if (!conversationStartTime || !user?.entra_id) return;
+    if (!conversationStartTime || !user?.entra_id || xpAlreadyAwarded) {
+      console.log('🎤 Skipping XP award - already awarded or no conversation data');
+      return;
+    }
+
+    // 🔧 Mark XP as awarded to prevent multiple calls
+    setXpAlreadyAwarded(true);
 
     try {
       const endTime = new Date();
@@ -151,7 +159,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     } catch (error) {
       console.error('❌ Error saving live voice practice:', error);
     }
-  }, [conversationStartTime, user?.entra_id, userLevel, onXPGained, calculateFinalXP]);
+  }, [conversationStartTime, user?.entra_id, userLevel, onXPGained, calculateFinalXP, xpAlreadyAwarded]);
 
   // 🎤 XP incremental a cada minuto de conversa - REMOVIDO PARA EVITAR BUG
   const updateIncrementalXP = useCallback(async () => {
@@ -162,8 +170,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
   // 🧹 Limpeza de recursos
   const cleanup = useCallback(() => {
-    // 🎤 Parar tracking e calcular XP final antes da limpeza
-    if (conversationStartTime && user?.entra_id) {
+    // 🎤 Parar tracking e calcular XP final antes da limpeza (apenas se ainda não foi feito)
+    if (conversationStartTime && user?.entra_id && !xpAlreadyAwarded) {
       stopConversationTracking();
     }
     
@@ -220,7 +228,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     setConversationStartTime(null);
     setTotalConversationTime(0);
     setLastXPUpdate(null);
-  }, []); // 🔧 FIXO: Sem dependências para evitar loops
+    setXpAlreadyAwarded(false); // 🔧 Reset XP flag
+  }, [conversationStartTime, user?.entra_id, xpAlreadyAwarded, stopConversationTracking]);
 
   // 🎤 Efeito para XP incremental
   useEffect(() => {
@@ -618,17 +627,17 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           className="relative w-full h-full grid grid-rows-[auto_auto_1fr_auto] bg-gradient-to-br from-charcoal via-charcoal-light to-charcoal overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header Principal - Igual ao da página de chat */}
+          {/* Header com Charlotte info, XP e controles */}
           <motion.header
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe z-30"
+            className="relative z-30 bg-secondary/95 backdrop-blur-md border-b border-white/10"
           >
             <div className="flex items-center justify-between px-4 py-3">
               {/* Charlotte Info */}
               <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="flex-shrink-0">
+                <div className="relative z-40 flex-shrink-0">
                   <CharlotteAvatar 
                     size="md"
                     showStatus={true}

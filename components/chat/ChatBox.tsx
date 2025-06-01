@@ -473,7 +473,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   return (
     <div className={`flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 chat-scroll ${
-      isIOSPWA ? 'pt-20 sm:pt-24 pb-36 sm:pb-40' : 'pb-28 sm:pb-32'
+      isIOSPWA ? 'pb-40 sm:pb-44' : 'pb-32 sm:pb-36'
     }`}>
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
         {/* Messages */}
@@ -519,6 +519,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           </motion.div>
         )}
 
+        {/* Extra padding for mobile to prevent cutoff */}
+        <div className="h-8 sm:h-4" />
         <div ref={messagesEndRef} />
       </div>
     </div>

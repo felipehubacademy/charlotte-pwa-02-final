@@ -16,7 +16,6 @@ import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/li
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { ClientAudioConverter } from '@/lib/audio-converter-client';
-import ShareInstallButton from '@/components/ShareInstallButton';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -470,15 +469,8 @@ export default function ChatPage() {
           }
           
           setSessionXP(prev => prev + xpResult.totalXP + achievementBonusXP);
-          setTotalXP(prev => {
-            const newTotal = prev + xpResult.totalXP + achievementBonusXP;
-            // Update level based on new total XP
-            const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
-            setCurrentLevel(newLevel);
-            return newTotal;
-          });
+          setTotalXP(prev => prev + xpResult.totalXP + achievementBonusXP);
           
-          setTimeout(() => loadUserStats(), 1000);
         }
         
       } else {
@@ -858,6 +850,15 @@ export default function ChatPage() {
     }
   }, [user?.entra_id, loadUserStats]);
 
+  // ✅ Update level when totalXP changes
+  useEffect(() => {
+    const newLevel = Math.floor(Math.sqrt(totalXP / 50)) + 1;
+    if (newLevel !== currentLevel) {
+      setCurrentLevel(newLevel);
+      console.log('📈 Level updated:', { oldLevel: currentLevel, newLevel, totalXP });
+    }
+  }, [totalXP, currentLevel]);
+
   // Handle image capture from camera
   const handleImageCapture = useCallback(async (imageData: string) => {
     if (!user?.entra_id) return;
@@ -1047,7 +1048,6 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
             setSessionXP(prev => prev + totalXPAwarded);
             setTotalXP(prev => prev + totalXPAwarded);
             
-            setTimeout(() => loadUserStats(), 1000);
           }
 
         } catch (error) {
@@ -1414,15 +1414,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         }
           
         setSessionXP(prev => prev + assistantResult.xpAwarded + achievementBonusXP);
-        setTotalXP(prev => {
-          const newTotal = prev + assistantResult.xpAwarded + achievementBonusXP;
-          // Update level based on new total XP
-          const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
-          setCurrentLevel(newLevel);
-          return newTotal;
-        });
+        setTotalXP(prev => prev + assistantResult.xpAwarded + achievementBonusXP);
           
-        setTimeout(() => loadUserStats(), 1000);
       }
 
     } catch (error) {
@@ -1455,14 +1448,16 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
   return (
     <div className="h-screen bg-secondary flex flex-col overflow-hidden">
-      <header className={`flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
+      {/* Fixed Header */}
+      <header className={`fixed top-0 left-0 right-0 z-50 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-fixed-header' 
+          ? 'pt-safe' 
           : 'pt-safe'
       }`}>
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
+        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
+          {/* Left side - Charlotte info */}
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
             <CharlotteAvatar 
               size="md"
               showStatus={true}
@@ -1470,31 +1465,19 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               animate={true}
             />
             <div className="min-w-0 flex-1">
-              <h1 className="text-white font-semibold text-base">Charlotte</h1>
+              <h1 className="text-white font-semibold text-sm sm:text-base">Charlotte</h1>
               <p className="text-green-400 text-xs font-medium">online</p>
             </div>
           </div>
           
-          <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">
-            <div className="flex-shrink-0">
-              <EnhancedXPCounter 
-                sessionXP={sessionXP}
-                totalXP={totalXP}
-                currentLevel={currentLevel}
-                achievements={achievements}
-                userId={user?.entra_id}
-                userLevel={user?.user_level}
-                onXPGained={(amount) => console.log('XP animation completed:', amount)}
-              />
-            </div>
-            
-            <ShareInstallButton variant="icon" className="hidden sm:block" />
-            
-            <div className="flex flex-col items-center text-center min-w-[70px] sm:min-w-[80px]">
-              <p className="text-white text-xs sm:text-sm font-medium truncate max-w-16 sm:max-w-20 leading-tight">
+          {/* Right side - User info and controls */}
+          <div className="flex items-center space-x-2 flex-shrink-0">
+            {/* User info */}
+            <div className="flex flex-col items-center text-center min-w-[60px] sm:min-w-[70px]">
+              <p className="text-white text-xs font-medium truncate max-w-14 sm:max-w-16 leading-tight">
                 {user?.name?.split(' ')[0]}
               </p>
-              <span className="inline-block text-black text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5 bg-primary rounded-full font-semibold mt-0.5 sm:mt-1">
+              <span className="inline-block text-black text-[9px] sm:text-xs px-1 sm:px-1.5 py-0.5 bg-primary rounded-full font-semibold mt-0.5">
                 {user?.user_level}
               </span>
             </div>
@@ -1503,19 +1486,22 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               onClick={logout}
               className="p-1.5 sm:p-2 text-white/70 hover:text-white active:bg-white/10 rounded-full transition-colors flex-shrink-0"
             >
-              <LogOut size={16} className="sm:w-[18px] sm:h-[18px]" />
+              <LogOut size={14} className="sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
       </header>
 
-      <ChatBox
-        messages={messages}
-        transcript={transcript}
-        finalTranscript={finalTranscript}
-        isProcessingMessage={isProcessingMessage}
-        userLevel={user?.user_level || 'Novice'}
-      />
+      {/* Content with proper top padding */}
+      <div className="flex-1 flex flex-col pt-[60px] sm:pt-[70px]">
+        <ChatBox
+          messages={messages}
+          transcript={transcript}
+          finalTranscript={finalTranscript}
+          isProcessingMessage={isProcessingMessage}
+          userLevel={user?.user_level || 'Novice'}
+        />
+      </div>
 
       {/* Interface de input SIMPLIFICADA */}
       <div className={`flex-shrink-0 bg-secondary ${
@@ -1707,6 +1693,20 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         </div>
       </div>
 
+      {/* Floating XP Counter */}
+      <div className="fixed bottom-24 sm:bottom-28 right-4 z-40">
+        <EnhancedXPCounter 
+          sessionXP={sessionXP}
+          totalXP={totalXP}
+          currentLevel={currentLevel}
+          achievements={achievements}
+          userId={user?.entra_id}
+          userLevel={user?.user_level}
+          onXPGained={(amount) => console.log('XP animation completed:', amount)}
+          isFloating={true}
+        />
+      </div>
+
       <LiveVoiceModal
         isOpen={isLiveVoiceOpen}
         onClose={() => setIsLiveVoiceOpen(false)}
@@ -1719,7 +1719,14 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onXPGained={(amount) => {
           console.log('Live Voice XP gained:', amount);
           setSessionXP(prev => prev + amount);
-          setTotalXP(prev => prev + amount);
+          setTotalXP(prev => {
+            const newTotal = prev + amount;
+            const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
+            const oldLevel = currentLevel;
+            setCurrentLevel(newLevel);
+            
+            return newTotal;
+          });
         }}
       />
       

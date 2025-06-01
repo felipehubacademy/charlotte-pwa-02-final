@@ -15,6 +15,7 @@ interface EnhancedXPCounterProps {
   onAchievementsDismissed?: () => void;
   userId?: string;
   userLevel?: 'Novice' | 'Intermediate' | 'Advanced';
+  isFloating?: boolean;
 }
 
 type TabType = 'stats' | 'achievements' | 'leaderboard';
@@ -166,9 +167,11 @@ const EnhancedStatsModal: React.FC<{
   const effectiveTotalXP = realData.realTotalXP || totalXP;
   const effectiveSessionXP = realData.realSessionXP || sessionXP;
 
-  const xpForNextLevel = ((currentLevel + 1) ** 2 * 50) - effectiveTotalXP;
   const xpForCurrentLevel = (currentLevel ** 2 * 50);
-  const levelProgress = ((effectiveTotalXP - xpForCurrentLevel) / (xpForNextLevel + (effectiveTotalXP - xpForCurrentLevel))) * 100;
+  const xpForNextLevel = ((currentLevel + 1) ** 2 * 50);
+  const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
+  const xpProgressInCurrentLevel = Math.max(0, totalXP - xpForCurrentLevel);
+  const levelProgress = xpNeededForNextLevel > 0 ? (xpProgressInCurrentLevel / xpNeededForNextLevel) * 100 : 0;
 
   const tabs = [
     { id: 'stats' as TabType, label: 'Stats', icon: TrendingUp },
@@ -564,7 +567,8 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   onStatsClick,
   onAchievementsDismissed,
   userId,
-  userLevel = 'Intermediate'
+  userLevel = 'Intermediate',
+  isFloating = false
 }) => {
   const [displaySessionXP, setDisplaySessionXP] = useState(sessionXP || 0);
   const [displayTotalXP, setDisplayTotalXP] = useState(totalXP || 0);
@@ -774,9 +778,11 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   };
 
   // Calculate level progress
-  const xpForNextLevel = ((currentLevel + 1) ** 2 * 50) - totalXP;
   const xpForCurrentLevel = (currentLevel ** 2 * 50);
-  const levelProgress = ((totalXP - xpForCurrentLevel) / (xpForNextLevel + (totalXP - xpForCurrentLevel))) * 100;
+  const xpForNextLevel = ((currentLevel + 1) ** 2 * 50);
+  const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
+  const xpProgressInCurrentLevel = Math.max(0, totalXP - xpForCurrentLevel);
+  const levelProgress = xpNeededForNextLevel > 0 ? (xpProgressInCurrentLevel / xpNeededForNextLevel) * 100 : 0;
 
   // Check for unread achievements
   const hasUnreadAchievements = realAchievements.length > 0 || achievements.length > 0;
@@ -851,10 +857,16 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       <div className="relative flex items-center space-x-2">
         <motion.button
           onClick={handleStatsClick}
-          className={`flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full border transition-all duration-300 hover:scale-105 ${
+          className={`${
+            isFloating 
+              ? 'flex flex-col items-center space-y-1.5 px-3 py-3.5 rounded-[36px] min-w-[75px] shadow-2xl' 
+              : 'flex items-center space-x-1.5 sm:space-x-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full'
+          } border transition-all duration-300 hover:scale-105 ${
             isAnimating 
               ? 'bg-primary/20 border-primary/50 shadow-lg shadow-primary/25' 
-              : 'bg-white/10 border-white/20 hover:bg-white/15'
+              : isFloating
+                ? 'bg-charcoal/90 backdrop-blur-xl border-white/30 hover:bg-charcoal shadow-2xl shadow-black/50'
+                : 'bg-charcoal/80 backdrop-blur-md border-white/20 hover:bg-charcoal/90 shadow-2xl'
           }`}
           animate={isAnimating ? {
             scale: [1, 1.05, 1],
@@ -866,12 +878,12 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
           } : {}}
           transition={{ duration: 0.6 }}
         >
-          {/* Progress Ring - Menor no mobile */}
+          {/* Progress Ring */}
           <div className="relative">
             <ProgressRing 
               level={currentLevel} 
               progress={Math.max(0, Math.min(100, levelProgress))} 
-              size={32} // Menor no mobile (era 40)
+              size={isFloating ? 40 : 32}
             />
             
             {/* Achievement notification badge */}
@@ -890,11 +902,11 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
             )}
           </div>
 
-          {/* Session XP - Menor no mobile */}
+          {/* Session XP */}
           <div className="flex flex-col items-center">
             <motion.span 
-              className={`text-xs sm:text-sm font-semibold transition-colors ${
-                isAnimating ? 'text-primary' : 'text-white/80'
+              className={`${isFloating ? 'text-sm' : 'text-xs'} font-semibold transition-colors ${
+                isAnimating ? 'text-primary' : 'text-white/90'
               }`}
               key={displaySessionXP}
               initial={{ scale: 1 }}
@@ -903,22 +915,24 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
             >
               +{displaySessionXP}
             </motion.span>
-            <span className="text-[9px] sm:text-[10px] text-white/50 leading-none">today</span>
+            <span className={`${isFloating ? 'text-xs' : 'text-[10px]'} text-white/60 leading-none`}>today</span>
           </div>
 
-          {/* Divisor */}
-          <div className="w-px h-3 sm:h-4 bg-white/20"></div>
+          {/* Divisor - only show in horizontal layout */}
+          {!isFloating && (
+            <div className="w-px h-3 sm:h-4 bg-white/20"></div>
+          )}
 
-          {/* Total XP - Menor no mobile */}
+          {/* Total XP */}
           <div className="flex flex-col items-center">
             <motion.span 
-              className="text-xs sm:text-sm font-semibold text-white/80"
+              className={`${isFloating ? 'text-sm' : 'text-xs'} font-semibold text-white/90`}
               animate={isAnimating ? { color: ["#FFFFFF", "#A3FF3C", "#FFFFFF"] } : {}}
               transition={{ duration: 1 }}
             >
               {(displayTotalXP || 0).toLocaleString()}
             </motion.span>
-            <span className="text-[9px] sm:text-[10px] text-white/50 leading-none">total</span>
+            <span className={`${isFloating ? 'text-xs' : 'text-[10px]'} text-white/60 leading-none`}>total</span>
           </div>
         </motion.button>
 
