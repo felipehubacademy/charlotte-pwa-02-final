@@ -35,10 +35,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
         <div className="text-center space-y-4">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary/30 border-t-primary mx-auto"></div>
-            <div className="absolute inset-0 rounded-full h-12 w-12 border-2 border-primary/10 animate-ping"></div>
-          </div>
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary/30 border-t-primary mx-auto"></div>
           <p className="text-white/60 text-sm font-medium">Initializing Charlotte...</p>
         </div>
       </div>

@@ -67,8 +67,8 @@ export function detectUniversalAchievements(practiceData: PracticeData): Achieve
   // 🎊 ACHIEVEMENTS ESPECIAIS
   achievements.push(...getSpecialAchievements(practiceData));
 
-  // 🎲 SURPRISE ACHIEVEMENTS (1% chance)
-  if (Math.random() < 0.01) {
+  // 🎲 SURPRISE ACHIEVEMENTS (0.5% chance - reduced from 1%)
+  if (Math.random() < 0.005) {
     achievements.push(getSurpriseAchievement());
   }
 
@@ -226,22 +226,26 @@ function getBehaviorAchievements(practiceData: PracticeData): Achievement[] {
   const hour = new Date().getHours();
   const day = new Date().getDay(); // 0 = Sunday, 1 = Monday, etc.
 
-  // Time-based achievements
-  if (hour >= 5 && hour <= 7) {
-    achievements.push(createAchievement('early-bird', 'Early Bird', 'Practicing English in the morning!', 5, 'common', '🌅'));
-  } else if (hour >= 22 || hour <= 2) {
-    achievements.push(createAchievement('night-owl', 'Night Owl', 'Practicing English late at night!', 5, 'common', '🦉'));
-  } else if (hour >= 12 && hour <= 14) {
-    achievements.push(createAchievement('lunch-learner', 'Lunch Learner', 'Practicing during lunch break!', 5, 'common', '🍽️'));
+  // Time-based achievements (20% chance to avoid spam)
+  if (Math.random() < 0.2) {
+    if (hour >= 5 && hour <= 7) {
+      achievements.push(createAchievement('early-bird', 'Early Bird', 'Practicing English in the morning!', 5, 'common', '🌅'));
+    } else if (hour >= 22 || hour <= 2) {
+      achievements.push(createAchievement('night-owl', 'Night Owl', 'Practicing English late at night!', 5, 'common', '🦉'));
+    } else if (hour >= 12 && hour <= 14) {
+      achievements.push(createAchievement('lunch-learner', 'Lunch Learner', 'Practicing during lunch break!', 5, 'common', '🍽️'));
+    }
   }
 
-  // Day-based achievements
-  if (day === 1) { // Monday
-    achievements.push(createAchievement('monday-motivation', 'Monday Motivation', 'Starting the week with English!', 8, 'common', '💪'));
-  } else if (day === 5) { // Friday
-    achievements.push(createAchievement('friday-finisher', 'Friday Finisher', 'Ending the week strong!', 8, 'common', '🎉'));
-  } else if (day === 0 || day === 6) { // Weekend
-    achievements.push(createAchievement('weekend-warrior', 'Weekend Warrior', 'Practicing on the weekend!', 10, 'common', '🏖️'));
+  // Day-based achievements (15% chance to avoid spam)
+  if (Math.random() < 0.15) {
+    if (day === 1) { // Monday
+      achievements.push(createAchievement('monday-motivation', 'Monday Motivation', 'Starting the week with English!', 8, 'common', '💪'));
+    } else if (day === 5) { // Friday
+      achievements.push(createAchievement('friday-finisher', 'Friday Finisher', 'Ending the week strong!', 8, 'common', '🎉'));
+    } else if (day === 0 || day === 6) { // Weekend
+      achievements.push(createAchievement('weekend-warrior', 'Weekend Warrior', 'Practicing on the weekend!', 10, 'common', '🏖️'));
+    }
   }
 
   return achievements;
@@ -254,16 +258,18 @@ function getContentAchievements(practiceData: PracticeData): Achievement[] {
   const achievements: Achievement[] = [];
   const { text, wordCount, uniqueWordsUsed, topicsDiscussed } = practiceData;
 
-  // Content-based achievements
-  if (text.toLowerCase().includes('thank you') || text.toLowerCase().includes('thanks')) {
-    achievements.push(createAchievement('polite-learner', 'Polite Learner', 'Using polite expressions!', 3, 'common', '🙏'));
+  // Content-based achievements (30% chance to avoid spam)
+  if (Math.random() < 0.3) {
+    if (text.toLowerCase().includes('thank you') || text.toLowerCase().includes('thanks')) {
+      achievements.push(createAchievement('polite-learner', 'Polite Learner', 'Using polite expressions!', 3, 'common', '🙏'));
+    }
+
+    if (text.toLowerCase().includes('question') || text.includes('?')) {
+      achievements.push(createAchievement('curious-mind', 'Curious Mind', 'Asking great questions!', 3, 'common', '❓'));
+    }
   }
 
-  if (text.toLowerCase().includes('question') || text.includes('?')) {
-    achievements.push(createAchievement('curious-mind', 'Curious Mind', 'Asking great questions!', 3, 'common', '❓'));
-  }
-
-  // Vocabulary achievements
+  // Vocabulary achievements (keep these as they're milestone-based)
   if (wordCount && wordCount > 50) {
     achievements.push(createAchievement('word-master', 'Word Master', 'Used 50+ words in one message', 8, 'common', '📚'));
   }
@@ -277,8 +283,8 @@ function getContentAchievements(practiceData: PracticeData): Achievement[] {
     achievements.push(createAchievement('topic-explorer', 'Topic Explorer', 'Discussed 5+ different topics', 20, 'rare', '🗺️'));
   }
 
-  // Complex sentences
-  if (text.split(' ').length > 20) {
+  // Complex sentences (25% chance to avoid spam)
+  if (Math.random() < 0.25 && text.split(' ').length > 20) {
     achievements.push(createAchievement('sentence-architect', 'Sentence Architect', 'Crafted a 20+ word sentence', 10, 'common', '🏗️'));
   }
 

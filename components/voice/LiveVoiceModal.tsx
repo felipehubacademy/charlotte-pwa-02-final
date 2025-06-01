@@ -153,43 +153,12 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     }
   }, [conversationStartTime, user?.entra_id, userLevel, onXPGained, calculateFinalXP]);
 
-  // 🎤 XP incremental a cada minuto de conversa
+  // 🎤 XP incremental a cada minuto de conversa - REMOVIDO PARA EVITAR BUG
   const updateIncrementalXP = useCallback(async () => {
-    if (!conversationStartTime || !lastXPUpdate || !user?.entra_id) return;
-
-    const now = new Date();
-    const timeSinceLastUpdate = Math.floor((now.getTime() - lastXPUpdate.getTime()) / 1000);
-    
-    // 🔧 CORRIGIDO: Dar XP incremental apenas a cada 2 minutos (120 segundos)
-    // E apenas se a conversa estiver realmente ativa
-    if (timeSinceLastUpdate >= 120 && (isListening || isSpeaking)) {
-      try {
-        // 🔧 CORRIGIDO: XP menor e mais controlado para incrementos
-        const incrementalXP = userLevel === 'Novice' ? 8 : userLevel === 'Intermediate' ? 5 : 3;
-        
-        if (supabaseService.isAvailable()) {
-          await supabaseService.saveAudioPractice({
-            user_id: user.entra_id,
-            transcription: `Live voice conversation segment (2 minutes)`,
-            accuracy_score: null,
-            fluency_score: null,
-            completeness_score: null,
-            pronunciation_score: null,
-            feedback: `Conversation in progress... (+${incrementalXP} XP)`,
-            xp_awarded: incrementalXP,
-            practice_type: 'live_voice',
-            audio_duration: 120
-          });
-
-          console.log('✅ Incremental XP awarded (CONTROLLED):', incrementalXP);
-          onXPGained?.(incrementalXP);
-          setLastXPUpdate(now);
-        }
-      } catch (error) {
-        console.error('❌ Error updating incremental XP:', error);
-      }
-    }
-  }, [conversationStartTime, lastXPUpdate, user?.entra_id, userLevel, onXPGained, isListening, isSpeaking]);
+    // DESABILITADO: Estava causando centenas de milhares de XP
+    // Agora só damos XP no final da conversa
+    return;
+  }, []);
 
   // 🧹 Limpeza de recursos
   const cleanup = useCallback(() => {
@@ -343,6 +312,51 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     }
   };
 
+  // 🔊 Função para tocar som de conexão
+  const playConnectionSound = useCallback(() => {
+    try {
+      // Criar contexto de áudio se não existir
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Criar um som de "ding" suave e agradável
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      // Conectar oscillator -> gain -> destination
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Configurar o som - duas notas para um "ding" mais musical
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // Nota principal
+      oscillator.frequency.setValueAtTime(1200, audioContext.currentTime + 0.1); // Harmônico
+      
+      // Envelope de volume para um som suave
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.1, audioContext.currentTime + 0.05); // Fade in rápido
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4); // Fade out suave
+      
+      // Tocar o som
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.4);
+      
+      console.log('🔊 Connection sound played');
+      
+      // Cleanup
+      setTimeout(() => {
+        try {
+          audioContext.close();
+        } catch (e) {
+          // Ignorar erros de cleanup
+        }
+      }, 500);
+      
+    } catch (error) {
+      console.warn('⚠️ Could not play connection sound:', error);
+      // Falhar silenciosamente - som é opcional
+    }
+  }, []);
+
   // 🔗 Inicializar OpenAI Realtime API
   const initializeRealtimeAPI = useCallback(async () => {
     try {
@@ -366,6 +380,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         setIsListening(true);
         // 🎤 Iniciar tracking de conversa quando conectar
         startConversationTracking();
+        // 🔊 Tocar som de conexão
+        playConnectionSound();
       });
 
       service.on('user_speech_started', () => {
@@ -544,7 +560,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       
       setErrorMessage(errorMessage);
     }
-  }, [userLevel, userName, startConversationTracking, stopConversationTracking]); // 🔧 FIXO: Dependências estáveis
+  }, [userLevel, userName, startConversationTracking, stopConversationTracking, playConnectionSound]); // 🔧 FIXO: Dependências estáveis
 
   // 📊 Análise de áudio para visualização
   const startAudioAnalysis = useCallback(() => {
@@ -612,12 +628,14 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             <div className="flex items-center justify-between px-4 py-3">
               {/* Charlotte Info */}
               <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <CharlotteAvatar 
-                  size="md"
-                  showStatus={true}
-                  isOnline={connectionStatus === 'connected'}
-                  animate={true}
-                />
+                <div className="flex-shrink-0">
+                  <CharlotteAvatar 
+                    size="md"
+                    showStatus={true}
+                    isOnline={connectionStatus === 'connected'}
+                    animate={true}
+                  />
+                </div>
                 <div className="min-w-0 flex-1">
                   <h1 className="text-white font-semibold text-base">Charlotte</h1>
                   <p className={`text-xs font-medium ${
@@ -637,7 +655,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                     {connectionStatus === 'error' && 'error'}
                   </p>
                 </div>
-          </div>
+              </div>
           
               {/* User Info + XP Counter + Close */}
               <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">

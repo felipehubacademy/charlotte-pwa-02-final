@@ -1510,6 +1510,41 @@ class SupabaseService {
       };
     }
   }
+
+  /**
+   * Forçar atualização do cache do leaderboard
+   */
+  async forceRefreshLeaderboard() {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for forceRefreshLeaderboard');
+      return false;
+    }
+
+    try {
+      console.log('🔄 Force refreshing leaderboard cache...');
+      
+      // Limpar cache existente
+      console.log('🗑️ Clearing existing cache...');
+      await this.supabase
+        .from('user_leaderboard_cache')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+
+      // Repopular com dados corretos
+      const success = await this.populateLeaderboardCache();
+      
+      if (success) {
+        console.log('✅ Leaderboard cache refreshed successfully');
+      } else {
+        console.error('❌ Failed to refresh leaderboard cache');
+      }
+      
+      return success;
+    } catch (error) {
+      console.error('❌ Exception force refreshing leaderboard:', error);
+      return false;
+    }
+  }
 }
 
 export const supabaseService = new SupabaseService();

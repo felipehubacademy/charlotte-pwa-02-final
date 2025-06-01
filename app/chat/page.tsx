@@ -845,6 +845,16 @@ export default function ChatPage() {
       // 🔍 DEBUG: Verificar estrutura das tabelas
       console.log('🔍 Running table structure debug...');
       supabaseService.debugTableStructures();
+      
+      // 🔧 FORCE: Atualizar cache do leaderboard para corrigir nomes
+      console.log('🔄 Force refreshing leaderboard cache...');
+      supabaseService.forceRefreshLeaderboard().then((success) => {
+        if (success) {
+          console.log('✅ Leaderboard cache refreshed successfully');
+        } else {
+          console.log('❌ Failed to refresh leaderboard cache');
+        }
+      });
     }
   }, [user?.entra_id, loadUserStats]);
 
@@ -880,13 +890,11 @@ export default function ChatPage() {
           audioUrl: thumbnailData // Using audioUrl field to store image data
         };
 
-        // Add question message (separate balloon)
+        // Add question message (separate balloon) - ALWAYS IN ENGLISH
         const questionMessage: Message = {
           id: generateMessageId('user-question'),
           role: 'user',
-          content: user.user_level === 'Novice' 
-            ? 'O que você vê nesta foto?' 
-            : 'What do you see in this photo?',
+          content: 'What do you see in this photo?', // Always English
           messageType: 'text',
           timestamp: new Date()
         };
@@ -895,37 +903,15 @@ export default function ChatPage() {
         setIsProcessingMessage(true);
 
         try {
-          // Create optimized prompt for vocabulary learning with XP system
-          const vocabularyPrompt = user.user_level === 'Novice' 
-            ? `Olhe esta imagem e me ajude a aprender vocabulário em inglês. 
-
-Identifique o objeto principal e me ensine:
-- O nome em inglês
-- A tradução em português  
-- Uma frase de exemplo
-
-Seja natural e conversacional, como se estivesse ensinando um amigo. Depois me peça para praticar usando esta palavra em uma frase.
-
-IMPORTANTE: Termine sua resposta com: VOCABULARY_WORD:[palavra_em_inglês]`
-            : user.user_level === 'Intermediate'
-            ? `Look at this image and help me learn English vocabulary.
+          // Create optimized prompt for vocabulary learning with XP system - ALWAYS IN ENGLISH
+          const vocabularyPrompt = `Look at this image and help me learn English vocabulary.
 
 Identify the main object and teach me:
-- The English name
-- Portuguese translation
-- An example sentence
-
-Be natural and conversational, as if teaching a friend. Then ask me to practice using this word in a sentence.
-
-IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`
-            : `Look at this image and help me expand my English vocabulary.
-
-Identify the main object and provide:
 - The English name
 - A clear definition in English
 - An example sentence showing proper usage
 
-Be natural and conversational. Then challenge me to use this word in a creative sentence.
+Be natural and conversational, as if teaching a friend. Then ask me to practice using this word in a sentence.
 
 IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
@@ -1490,15 +1476,17 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           </div>
           
           <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">
-            <EnhancedXPCounter 
-              sessionXP={sessionXP}
-              totalXP={totalXP}
-              currentLevel={currentLevel}
-              achievements={achievements}
-              userId={user?.entra_id}
-              userLevel={user?.user_level}
-              onXPGained={(amount) => console.log('XP animation completed:', amount)}
-            />
+            <div className="flex-shrink-0">
+              <EnhancedXPCounter 
+                sessionXP={sessionXP}
+                totalXP={totalXP}
+                currentLevel={currentLevel}
+                achievements={achievements}
+                userId={user?.entra_id}
+                userLevel={user?.user_level}
+                onXPGained={(amount) => console.log('XP animation completed:', amount)}
+              />
+            </div>
             
             <ShareInstallButton variant="icon" className="hidden sm:block" />
             

@@ -472,10 +472,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
 
   return (
-    <div className={`flex-1 overflow-y-auto px-4 py-6 chat-scroll ${
-      isIOSPWA ? 'pt-24 pb-32' : ''
+    <div className={`flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 chat-scroll ${
+      isIOSPWA ? 'pt-20 sm:pt-24 pb-36 sm:pb-40' : 'pb-28 sm:pb-32'
     }`}>
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
         {/* Messages */}
         <AnimatePresence>
           {messages.map((message) => (
