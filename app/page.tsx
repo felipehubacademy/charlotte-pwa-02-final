@@ -11,8 +11,10 @@ export default function LoginPage() {
   const { isAuthenticated, isLoading, login } = useAuth();
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     const checkMobile = () => {
       setIsMobile(window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
     };
@@ -28,8 +30,8 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state OR not mounted yet
+  if (isLoading || !isMounted) {
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -62,12 +64,12 @@ export default function LoginPage() {
           <div className="flex-shrink-0 pt-safe py-2"></div>
 
           {/* Mobile Main Content */}
-          <div className="flex-1 flex flex-col justify-center px-6 pb-8">
+          <div className="flex-1 flex flex-col justify-center px-6 py-12">
             <motion.div 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-center space-y-8"
+              className="text-center space-y-6"
             >
               {/* Avatar */}
               <div className="flex justify-center">
@@ -80,17 +82,19 @@ export default function LoginPage() {
               </div>
 
               {/* Hero Text */}
-              <div className="space-y-3">
-                <h1 className="text-5xl font-bold text-white">
-                  <span className="text-primary">Charlotte</span>
-                </h1>
+              <div className="space-y-1">
+                <div className="space-y-0">
+                  <h1 className="text-4xl font-bold text-white">
+                    <span className="text-primary">Charlotte</span>
+                  </h1>
+                  
+                  <p className="text-white/50 text-sm font-medium -mt-1">
+                    by Hub Academy
+                  </p>
+                </div>
                 
-                <p className="text-white/50 text-sm font-medium">
-                  by Hub Academy
-                </p>
-                
-                <div className="pt-2 space-y-1">
-                  <p className="text-xl text-white/90 font-medium leading-relaxed">
+                <div className="pt-4 space-y-1">
+                  <p className="text-lg text-white/90 font-medium leading-relaxed">
                     Practice Business English
                   </p>
                   <p className="text-base text-white/60 leading-relaxed">
@@ -122,7 +126,7 @@ export default function LoginPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="flex justify-center space-x-8 pt-6"
+                className="flex justify-center space-x-8 pt-4"
               >
                 <div className="flex flex-col items-center space-y-2">
                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
@@ -143,6 +147,20 @@ export default function LoginPage() {
                   <span className="text-xs text-white/60">Photos</span>
                 </div>
               </motion.div>
+
+              {/* Hub Academy Logo - Mobile */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 1.0 }}
+                className="flex justify-center pt-4"
+              >
+                <img 
+                  src="/logos/hub-white.png" 
+                  alt="Hub Academy" 
+                  className="h-8 w-auto opacity-40"
+                />
+              </motion.div>
             </motion.div>
           </div>
 
@@ -153,7 +171,7 @@ export default function LoginPage() {
     );
   }
 
-  // Desktop Layout (Secondary) - More detailed
+  // Desktop Layout (Secondary)
   return (
     <div className="h-screen bg-secondary overflow-hidden">
       {/* Background Elements */}
@@ -183,13 +201,13 @@ export default function LoginPage() {
 
         {/* Desktop Main Content */}
         <div className="flex-1 flex items-center justify-center px-6">
-          <div className="max-w-4xl mx-auto grid md:grid-cols-2 gap-12 items-center">
+          <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-12 items-center">
             {/* Left Column - Content */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="space-y-8"
+              className="space-y-8 md:col-span-1"
             >
               <div className="space-y-6">
                 <div className="inline-flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-2 text-sm text-primary">
@@ -197,15 +215,17 @@ export default function LoginPage() {
                   <span>Powered by Advanced AI</span>
                 </div>
 
-                <h1 className="text-5xl font-bold text-white leading-tight">
-                  <span className="text-primary">Charlotte</span>
-                </h1>
+                <div className="space-y-0">
+                  <h1 className="text-5xl font-bold text-white leading-tight">
+                    <span className="text-primary">Charlotte</span>
+                  </h1>
 
-                <p className="text-white/50 text-lg font-medium">
-                  by Hub Academy
-                </p>
+                  <p className="text-white/50 text-lg font-medium -mt-2">
+                    by Hub Academy
+                  </p>
+                </div>
 
-                <div className="space-y-2">
+                <div className="pt-2 space-y-2">
                   <p className="text-xl text-white/90 font-medium leading-relaxed">
                     Practice Business English
                   </p>
@@ -231,12 +251,12 @@ export default function LoginPage() {
               </button>
             </motion.div>
 
-            {/* Right Column - Avatar */}
+            {/* Center Column - Avatar */}
             <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
-              className="flex justify-center"
+              className="flex justify-center md:col-span-1"
             >
               <div className="relative">
                 <div className="w-80 h-80 bg-primary/10 rounded-full flex items-center justify-center">
@@ -256,6 +276,20 @@ export default function LoginPage() {
                   <Mic className="w-8 h-8 text-primary" />
                 </div>
               </div>
+            </motion.div>
+
+            {/* Right Column - Hub Logo */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="flex justify-center items-center md:col-span-1"
+            >
+              <img 
+                src="/logos/hub-white.png" 
+                alt="Hub Academy" 
+                className="h-16 w-auto opacity-50"
+              />
             </motion.div>
           </div>
         </div>

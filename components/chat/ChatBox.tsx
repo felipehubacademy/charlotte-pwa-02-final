@@ -395,54 +395,67 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
 
   return (
-    <div className={`flex-1 overflow-y-auto px-4 py-6 chat-scroll ${
+    <div className={`flex-1 overflow-y-auto chat-scroll relative ${
       isIOSPWA ? 'pt-24 pb-48' : ''
     }`}>
-      <div className="max-w-2xl mx-auto">
-        {/* Messages */}
-        <AnimatePresence>
-          {messages.map((message) => (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              userLevel={userLevel}
-            />
-          ))}
-        </AnimatePresence>
+      {/* Background Elements - igual à home page */}
+      <div className="absolute inset-0">
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/3 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/2 rounded-full blur-2xl"></div>
+        <div className="absolute top-1/2 left-0 w-32 h-32 bg-primary/4 rounded-full blur-xl"></div>
+      </div>
 
-        {/* Loading indicators */}
-        <AnimatePresence>
-          {isProcessingMessage && (
-            <>
-              {/* Para mensagens de áudio, sempre mostrar typing indicator */}
-              {messages[messages.length - 1]?.audioUrl || messages[messages.length - 1]?.audioBlob ? (
-                <TypingIndicator />
-              ) : (
-                <TypingIndicator />
-              )}
-            </>
+      {/* Grid Pattern - mais sutil que a home page */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(163,255,60,0.015)_1px,transparent_1px),linear-gradient(90deg,rgba(163,255,60,0.015)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
+
+      {/* Content with proper z-index */}
+      <div className="relative z-10 px-4 py-6">
+        <div className="max-w-2xl mx-auto">
+          {/* Messages */}
+          <AnimatePresence>
+            {messages.map((message) => (
+              <MessageBubble
+                key={message.id}
+                message={message}
+                userLevel={userLevel}
+              />
+            ))}
+          </AnimatePresence>
+
+          {/* Loading indicators */}
+          <AnimatePresence>
+            {isProcessingMessage && (
+              <>
+                {/* Para mensagens de áudio, sempre mostrar typing indicator */}
+                {messages[messages.length - 1]?.audioUrl || messages[messages.length - 1]?.audioBlob ? (
+                  <TypingIndicator />
+                ) : (
+                  <TypingIndicator />
+                )}
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* Voice transcript display */}
+          {(transcript || finalTranscript) && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="bg-primary/10 backdrop-blur-sm rounded-xl p-3 mb-4 border border-primary/20"
+            >
+              <div className="flex items-center space-x-2 mb-2">
+                <Mic size={14} className="text-primary" />
+                <span className="text-xs text-primary font-medium">Listening...</span>
+              </div>
+              <p className="text-sm text-white">
+                <span className="text-white/50">{transcript}</span>
+                <span className="text-white font-medium">{finalTranscript}</span>
+              </p>
+            </motion.div>
           )}
-        </AnimatePresence>
 
-        {/* Voice transcript display */}
-        {(transcript || finalTranscript) && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="bg-primary/10 backdrop-blur-sm rounded-xl p-3 mb-4 border border-primary/20"
-          >
-            <div className="flex items-center space-x-2 mb-2">
-              <Mic size={14} className="text-primary" />
-              <span className="text-xs text-primary font-medium">Listening...</span>
-            </div>
-            <p className="text-sm text-white">
-              <span className="text-white/50">{transcript}</span>
-              <span className="text-white font-medium">{finalTranscript}</span>
-            </p>
-          </motion.div>
-        )}
-
-        <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} />
+        </div>
       </div>
     </div>
   );
