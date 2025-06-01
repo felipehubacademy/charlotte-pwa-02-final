@@ -6,7 +6,7 @@ import { X, Mic, MicOff, Volume2, VolumeX, Settings, LogOut } from 'lucide-react
 import { OpenAIRealtimeService, RealtimeConfig } from '../../lib/openai-realtime';
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
 import RealtimeOrb from './RealtimeOrb';
-import XPCounter from '../ui/XPCounter';
+import EnhancedXPCounter from '../ui/EnhancedXPCounter';
 import CharlotteAvatar from '../ui/CharlotteAvatar';
 import { supabaseService } from '../../lib/supabase-service';
 
@@ -666,18 +666,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 </div>
               </div>
           
-              {/* User Info + XP Counter + Close */}
-              <div className="flex items-center justify-between space-x-2 sm:space-x-3 flex-shrink-0">
-                {/* XP Counter */}
-                {sessionXP !== undefined && totalXP !== undefined && (
-                  <XPCounter 
-                    sessionXP={sessionXP}
-                    totalXP={totalXP}
-                    userId={user?.entra_id}
-                    onXPGained={onXPGained}
-                  />
-                )}
-                
+              {/* User Info + Close */}
+              <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
                 {/* User Info */}
                 {user && (
                   <div className="flex flex-col items-center text-center min-w-[70px] sm:min-w-[80px]">
@@ -836,6 +826,22 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             </div>
           </motion.div>
         </motion.div>
+
+        {/* Floating XP Counter */}
+        {sessionXP !== undefined && totalXP !== undefined && (
+          <div className="fixed bottom-24 sm:bottom-28 right-4 z-50">
+            <EnhancedXPCounter 
+              sessionXP={sessionXP}
+              totalXP={totalXP}
+              currentLevel={Math.floor(Math.sqrt(totalXP / 50)) + 1}
+              achievements={[]}
+              userId={user?.entra_id}
+              userLevel={user?.user_level as 'Novice' | 'Intermediate' | 'Advanced'}
+              onXPGained={onXPGained}
+              isFloating={true}
+            />
+          </div>
+        )}
       </motion.div>
     </AnimatePresence>
   );
