@@ -157,13 +157,9 @@ const StatsModal: React.FC<{
 
   return (
     <AnimatePresence>
-      {/* 🌈 OVERLAY COMPLETO COM BLUR */}
+      {/* 🌈 OVERLAY TOTALMENTE TRANSPARENTE */}
       <div 
-        className="fixed inset-0 z-50 bg-black/60"
-        style={{
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-        }}
+        className="fixed inset-0 z-40"
         onClick={onClose}
       >
         {/* ✅ CONTAINER RESPONSIVO - HORIZONTAL NO DESKTOP */}
@@ -173,10 +169,10 @@ const StatsModal: React.FC<{
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-secondary/95 backdrop-blur-md rounded-2xl p-6 w-full border border-white/10 shadow-2xl
+            className="bg-secondary backdrop-blur-md rounded-2xl p-6 w-full border border-white/10 shadow-2xl
                        max-w-md lg:max-w-4xl 
                        max-h-[85vh] overflow-hidden
-                       lg:flex lg:gap-6"
+                       lg:flex lg:gap-6 relative z-40"
           >
             {/* HEADER - Responsivo */}
             <div className="lg:hidden flex items-center justify-between mb-6">
@@ -275,24 +271,22 @@ const StatsModal: React.FC<{
 
             {/* 🖥️ DESKTOP LAYOUT - COLUNA DIREITA | 📱 MOBILE - SEÇÃO INFERIOR */}
             <div className="lg:flex-1 lg:pl-6 lg:border-l lg:border-white/10">
-              {/* Recent Activity - BARRA DE ROLAGEM SUTIL */}
-              <div className="bg-white/5 rounded-xl p-4 border border-white/10 mb-6 h-full lg:h-auto">
-                <h3 className="text-white font-semibold mb-3 flex items-center">
+              {/* Recent Activity - ALTURA COM MIN/MAX E OVERFLOW HIDDEN */}
+              <div className="bg-white/5 rounded-xl p-4 border border-white/10 mb-6 lg:min-h-[332px] lg:max-h-[432px] overflow-hidden flex flex-col">
+                <h3 className="text-white font-semibold mb-3 flex items-center flex-shrink-0">
                   <Clock size={16} className="text-primary mr-2" />
                   Recent Activity
                 </h3>
                 
                 {realData.loading ? (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="flex items-center justify-center py-8 flex-1">
                     <div className="animate-spin rounded-full h-8 w-8 border-2 border-primary border-t-transparent"></div>
                     <span className="ml-3 text-white/60">Loading your progress...</span>
                   </div>
                 ) : null}
                 
-                {/* ✅ SCROLLABLE AREA COM ESTILO CUSTOMIZADO */}
-                <div className="space-y-3 overflow-y-auto scrollbar-custom
-                               max-h-32 lg:max-h-80
-                               pr-2">
+                {/* ✅ SCROLLABLE AREA COM OVERFLOW CORRETO */}
+                <div className="space-y-3 overflow-y-auto scrollbar-custom flex-1 pr-2">
                   {realData.recentActivity.length > 0 ? (
                     realData.recentActivity.map((activity, index) => (
                       <div key={index} className="flex justify-between items-center py-3 px-2 
@@ -333,9 +327,6 @@ const StatsModal: React.FC<{
               </div>
             </div>
 
-
-
-
           </motion.div>
         </div>
       </div>
@@ -344,17 +335,17 @@ const StatsModal: React.FC<{
 };
 
 const XPCounter: React.FC<XPCounterProps> = ({ sessionXP, totalXP, onXPGained, userId }) => {
-  const [displaySessionXP, setDisplaySessionXP] = useState(sessionXP);
-  const [displayTotalXP, setDisplayTotalXP] = useState(totalXP);
+  const [displaySessionXP, setDisplaySessionXP] = useState(sessionXP || 0);
+  const [displayTotalXP, setDisplayTotalXP] = useState(totalXP || 0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [floatingXP, setFloatingXP] = useState<number | null>(null);
   const [showStatsModal, setShowStatsModal] = useState(false);
 
   // 🎯 Animar aumento do XP session
   useEffect(() => {
-    if (sessionXP > displaySessionXP) {
+    if ((sessionXP || 0) > displaySessionXP) {
       setIsAnimating(true);
-      const difference = sessionXP - displaySessionXP;
+      const difference = (sessionXP || 0) - displaySessionXP;
       
       setFloatingXP(difference);
       
@@ -386,8 +377,8 @@ const XPCounter: React.FC<XPCounterProps> = ({ sessionXP, totalXP, onXPGained, u
 
   // 📈 Animar aumento do XP total
   useEffect(() => {
-    if (totalXP > displayTotalXP) {
-      const difference = totalXP - displayTotalXP;
+    if ((totalXP || 0) > displayTotalXP) {
+      const difference = (totalXP || 0) - displayTotalXP;
       const duration = 1500;
       const startTime = Date.now();
       const startValue = displayTotalXP;
@@ -472,7 +463,7 @@ const XPCounter: React.FC<XPCounterProps> = ({ sessionXP, totalXP, onXPGained, u
               animate={isAnimating ? { color: ["#FFFFFF", "#A3FF3C", "#FFFFFF"] } : {}}
               transition={{ duration: 1 }}
             >
-              {displayTotalXP.toLocaleString()}
+              {(displayTotalXP || 0).toLocaleString()}
             </motion.span>
             <span className="text-[10px] text-white/50 leading-none">total</span>
           </div>
