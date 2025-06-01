@@ -243,31 +243,43 @@ const EnhancedStatsModal: React.FC<{
               {/* Recent Activity abaixo no mobile */}
               <div className="bg-white/5 rounded-xl p-4 border border-white/10">
                 <h3 className="text-white/80 text-sm font-medium mb-3">Recent Activity</h3>
-                <div className="max-h-48 overflow-y-auto scrollbar-custom space-y-2">
+                <div className="space-y-2">
                   {realData.recentActivity.length > 0 ? (
-                    realData.recentActivity.map((activity, index) => (
-                      <div key={index} className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
-                        <div className="flex-1">
-                          <p className="text-white/90 text-sm font-medium">{activity.type}</p>
-                          <p className="text-white/50 text-xs">
-                            {activity.timestamp.toLocaleDateString([], { 
-                              month: 'short', 
-                              day: 'numeric' 
-                            })} at {activity.timestamp.toLocaleTimeString([], { 
-                              hour: '2-digit', 
-                              minute: '2-digit' 
-                            })}
+                    <>
+                      {/* Mostrar apenas 2 atividades no mobile */}
+                      {realData.recentActivity.slice(0, 2).map((activity, index) => (
+                        <div key={index} className="flex items-center justify-between py-2 border-b border-white/5 last:border-b-0">
+                          <div className="flex-1">
+                            <p className="text-white/90 text-sm font-medium">{activity.type}</p>
+                            <p className="text-white/50 text-xs">
+                              {activity.timestamp.toLocaleDateString([], { 
+                                month: 'short', 
+                                day: 'numeric' 
+                              })} at {activity.timestamp.toLocaleTimeString([], { 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </p>
+                          </div>
+                          <span className="text-primary text-sm font-bold ml-3 flex-shrink-0 
+                                           bg-primary/10 px-2 py-1 rounded-md">
+                            +{activity.xp}
+                          </span>
+                        </div>
+                      ))}
+                      
+                      {/* Mostrar indicador se há mais atividades */}
+                      {realData.recentActivity.length > 2 && (
+                        <div className="text-center pt-2">
+                          <p className="text-white/40 text-xs">
+                            +{realData.recentActivity.length - 2} more activities
                           </p>
                         </div>
-                        <span className="text-primary text-sm font-bold ml-3 flex-shrink-0 
-                                         bg-primary/10 px-2 py-1 rounded-md">
-                          +{activity.xp}
-                        </span>
-                      </div>
-                    ))
+                      )}
+                    </>
                   ) : (
-                    <div className="text-center py-6">
-                      <div className="text-3xl mb-2">🚀</div>
+                    <div className="text-center py-4">
+                      <div className="text-2xl mb-1">🚀</div>
                       <p className="text-white/50 text-sm">No recent activity</p>
                       <p className="text-white/30 text-xs mt-1">Start practicing!</p>
                     </div>

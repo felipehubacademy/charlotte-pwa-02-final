@@ -40,18 +40,24 @@ export default function PWAInstaller() {
       setIsInstalled(true);
     }
 
+    // Verificar URL parameters para forçar instalação
+    const urlParams = new URLSearchParams(window.location.search);
+    const forceInstall = urlParams.get('install') === 'true';
+    const installPrompt = urlParams.get('prompt') === 'pwa';
+
     // Listener para prompt de instalação
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
       
-      // Mostrar banner após 3 segundos se não estiver instalado
+      // Mostrar banner imediatamente se forçado via URL, senão após 3 segundos
+      const delay = forceInstall || installPrompt ? 0 : 3000;
       setTimeout(() => {
         if (!isInstalled) {
           setShowBanner(true);
         }
-      }, 3000);
+      }, delay);
       
       console.log('📱 [PWA] Install prompt available');
     };

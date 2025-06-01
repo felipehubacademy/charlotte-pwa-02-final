@@ -3,7 +3,7 @@
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { LogOut, Send, Mic, Camera, Play, Pause, X, RotateCcw, Check } from 'lucide-react';
+import { LogOut, Send, Mic, Camera, Play, Pause, X, RotateCcw, Check, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import ChatBox from '@/components/chat/ChatBox';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { transcribeAudio } from '@/lib/transcribe';
@@ -16,6 +16,7 @@ import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/li
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { ClientAudioConverter } from '@/lib/audio-converter-client';
+import ShareInstallButton from '@/components/ShareInstallButton';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -1498,6 +1499,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               userLevel={user?.user_level}
               onXPGained={(amount) => console.log('XP animation completed:', amount)}
             />
+            
+            <ShareInstallButton variant="icon" className="hidden sm:block" />
             
             <div className="flex flex-col items-center text-center min-w-[70px] sm:min-w-[80px]">
               <p className="text-white text-xs sm:text-sm font-medium truncate max-w-16 sm:max-w-20 leading-tight">
