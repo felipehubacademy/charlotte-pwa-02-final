@@ -34,18 +34,33 @@ export default function PWAInstaller() {
     // Detectar iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     setIsIOS(iOS);
+    console.log('📱 [PWA] iOS detected:', iOS);
+    console.log('📱 [PWA] User Agent:', navigator.userAgent);
 
     // Detectar se já está instalado
-    if (window.matchMedia('(display-mode: standalone)').matches) {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+    if (isStandalone) {
       setIsInstalled(true);
     }
+    console.log('📱 [PWA] Is installed (standalone):', isStandalone);
 
     // Verificar URL parameters para forçar instalação
     const urlParams = new URLSearchParams(window.location.search);
     const forceInstall = urlParams.get('install') === 'true';
     const installPrompt = urlParams.get('prompt') === 'pwa';
 
-    // Listener para prompt de instalação
+    // Para iOS, mostrar banner automaticamente (não há beforeinstallprompt)
+    if (iOS && !isStandalone) {
+      const delay = forceInstall || installPrompt ? 0 : 3000;
+      console.log('📱 [PWA] iOS banner will show in', delay, 'ms');
+      setTimeout(() => {
+        // Temporariamente ignorar sessionStorage para debug
+        console.log('📱 [PWA] Showing iOS banner (debug mode)');
+        setShowBanner(true);
+      }, delay);
+    }
+
+    // Listener para prompt de instalação (Android/Chrome)
     const handleBeforeInstallPrompt = (e: BeforeInstallPromptEvent) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -137,10 +152,11 @@ export default function PWAInstaller() {
 
   // Não mostrar se já foi dispensado nesta sessão
   useEffect(() => {
-    const dismissed = sessionStorage.getItem('pwa-banner-dismissed');
-    if (dismissed) {
-      setShowBanner(false);
-    }
+    // Temporariamente comentado para debug
+    // const dismissed = sessionStorage.getItem('pwa-banner-dismissed');
+    // if (dismissed) {
+    //   setShowBanner(false);
+    // }
   }, []);
 
   // Banner de instalação para Android/Chrome
