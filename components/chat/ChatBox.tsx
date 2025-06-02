@@ -326,7 +326,7 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
             )}
             
             {/* Transcription button for audio messages (Intermediate/Advanced) */}
-            {(message.audioUrl || message.audioBlob) && (userLevel === 'Intermediate' || userLevel === 'Advanced') && (
+            {(message.audioUrl || message.audioBlob) && (userLevel === 'Inter' || userLevel === 'Advanced') && (
               <button
                 onClick={handleTranscription}
                 className="text-xs text-primary hover:text-primary-dark flex items-center space-x-1"
@@ -474,12 +474,14 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   return (
     <div 
-      className="px-3 sm:px-4 py-2 sm:py-4 flex-1" 
+      className="px-3 sm:px-4 py-2 sm:py-4 flex-1 scrollbar-custom" 
       style={{ 
         paddingTop: isMobile 
           ? 'calc(3.5rem + env(safe-area-inset-top) + 0.75rem)' // Mobile: só um pouquinho mais
           : 'calc(3.5rem + env(safe-area-inset-top) + 0.5rem)', // Desktop: ajuste mínimo
-        paddingBottom: 'calc(100px + env(safe-area-inset-bottom))', // Espaço para footer
+        paddingBottom: isMobile 
+          ? 'calc(100px + env(safe-area-inset-bottom))' // Mobile: espaço para footer
+          : 'calc(120px + env(safe-area-inset-bottom))', // Desktop: mais espaço para subir o conteúdo
         WebkitOverflowScrolling: 'touch',
         // Mobile: overflow hidden quando não há mensagens, auto quando há
         overflowY: isMobile 

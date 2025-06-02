@@ -272,8 +272,19 @@ export default function ChatPage() {
   // Handle achievement notifications
   const handleNewAchievements = useCallback((newAchievements: Achievement[]) => {
     if (newAchievements.length > 0) {
-      setNewAchievements(newAchievements);
-      setAchievements(prev => [...prev, ...newAchievements]);
+      // ✅ FIX: Evitar achievements duplicados baseado no ID
+      setNewAchievements(prev => {
+        const existingIds = new Set(prev.map(a => a.id));
+        const uniqueNewAchievements = newAchievements.filter(a => !existingIds.has(a.id));
+        
+        if (uniqueNewAchievements.length > 0) {
+          console.log('🏆 Adding unique achievements:', uniqueNewAchievements.map(a => a.title));
+          setAchievements(prevAch => [...prevAch, ...uniqueNewAchievements]);
+          return [...prev, ...uniqueNewAchievements];
+        }
+        
+        return prev;
+      });
     }
   }, []);
 
@@ -1534,15 +1545,19 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       {/* ✅ FIXED: Footer now truly fixed at bottom, independent of ChatBox and keyboard */}
       <div className={`fixed-footer bg-secondary border-t border-white/5 ${
         typeof window !== 'undefined' && 
-        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+        ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+         window.innerWidth <= 768) ||
+        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
           ? 'pb-safe' 
           : 'pb-safe'
       }`}>
-        <div className={`max-w-3xl mx-auto px-4 ${
+        <div className={`max-w-3xl mx-auto px-4 ${ 
           typeof window !== 'undefined' && 
-          ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-            ? 'py-2' 
-            : 'py-6'
+          ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768) ||
+          ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
+            ? 'pt-2' 
+            : 'pt-6'
         }`}>
           <div className="flex items-end space-x-3">
             
@@ -1556,7 +1571,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                   onKeyDown={handleKeyPress}
                   placeholder="Ask anything..."
                   rows={1}
-                  className="flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 pr-2 focus:outline-none resize-none text-sm overflow-hidden select-none"
+                  className={`flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 focus:outline-none resize-none text-sm overflow-hidden select-none ${
+                    message.trim() ? 'pr-14' : 'pr-3'
+                  }`}
                   style={{ 
                     minHeight: '44px',
                     maxHeight: '120px'

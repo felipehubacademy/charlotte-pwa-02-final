@@ -5,7 +5,7 @@ import { leaderboardService, LeaderboardData, LeaderboardEntry } from '@/lib/lea
 import { supabaseService } from '@/lib/supabase-service';
 
 interface LevelLeaderboardProps {
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced';
+  userLevel: 'Novice' | 'Inter' | 'Advanced';
   userId?: string;
   className?: string;
 }

@@ -1,25 +1,11 @@
 // lib/supabase-service.ts - VERSÃO FINAL CORRETA - APENAS COLUNAS QUE EXISTEM
 
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabase } from './supabase'; // ✅ Usar o mesmo singleton
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-// ✅ Singleton para evitar múltiplas instâncias do Supabase
-let supabaseInstance: SupabaseClient | null = null;
-
+// ✅ CORRIGIDO: Usar o mesmo singleton do lib/supabase.ts
 function getSupabaseClient(): SupabaseClient | null {
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Supabase credentials not found. Service will be disabled.');
-    return null;
-  }
-
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, supabaseAnonKey);
-    console.log('✅ Supabase client created (singleton)');
-  }
-
-  return supabaseInstance;
+  return getSupabase();
 }
 
 // ✅ Interface atualizada para incluir dados de gramática e sistema XP melhorado
@@ -244,30 +230,33 @@ class SupabaseService {
 
       // 🏆 NEW: Verificar e conceder achievements automaticamente
       try {
-        const { AchievementVerificationService } = await import('./achievement-verification-service');
-        
-        const newAchievements = await AchievementVerificationService.verifyAndAwardAchievements(
-          data.user_id,
-          {
-            practice_type: data.practice_type,
-            accuracy_score: data.accuracy_score || undefined,
-            grammar_score: data.grammar_score || undefined,
-            pronunciation_score: data.pronunciation_score || undefined,
-            xp_awarded: data.xp_awarded,
-            duration: data.audio_duration
-          }
-        );
+        // ✅ DISABLED: Sistema antigo de achievements que está causando erro 401
+        // const { AchievementVerificationService } = await import('./achievement-verification-service');
+        // 
+        // const newAchievements = await AchievementVerificationService.verifyAndAwardAchievements(
+        //   data.user_id,
+        //   {
+        //     practice_type: data.practice_type,
+        //     accuracy_score: data.accuracy_score || undefined,
+        //     grammar_score: data.grammar_score || undefined,
+        //     pronunciation_score: data.pronunciation_score || undefined,
+        //     xp_awarded: data.xp_awarded,
+        //     duration: data.audio_duration
+        //   }
+        // );
 
-        if (newAchievements.length > 0) {
-          console.log('🏆 New achievements awarded:', newAchievements.map(a => a.name));
-          
-          // Adicionar XP dos achievements ao progresso do usuário
-          const achievementXP = newAchievements.reduce((sum, a) => sum + a.xp_reward, 0);
-          if (achievementXP > 0) {
-            await this.updateUserProgress(data.user_id, achievementXP, 'achievement_bonus');
-            console.log('✨ Achievement bonus XP awarded:', achievementXP);
-          }
-        }
+        // if (newAchievements.length > 0) {
+        //   console.log('🏆 New achievements awarded:', newAchievements.map(a => a.name));
+        //   
+        //   // Adicionar XP dos achievements ao progresso do usuário
+        //   const achievementXP = newAchievements.reduce((sum, a) => sum + a.xp_reward, 0);
+        //   if (achievementXP > 0) {
+        //     await this.updateUserProgress(data.user_id, achievementXP, 'achievement_bonus');
+        //     console.log('✨ Achievement bonus XP awarded:', achievementXP);
+        //   }
+        // }
+        
+        console.log('🏆 Achievement verification temporarily disabled to fix errors');
       } catch (achievementError) {
         console.warn('⚠️ Achievement verification failed, continuing without achievements:', achievementError);
       }
@@ -783,11 +772,8 @@ class SupabaseService {
       return;
     }
 
-    console.log('🔍 Starting comprehensive table structure debug...');
-
     // 1. Testar user_practices
     try {
-      console.log('\n📋 Testing user_practices table...');
       const { data: practicesData, error: practicesError } = await this.supabase
         .from('user_practices')
         .select('*')
@@ -796,11 +782,8 @@ class SupabaseService {
       if (practicesError) {
         console.error('❌ user_practices error:', practicesError);
       } else {
-        console.log('✅ user_practices accessible');
         if (practicesData && practicesData.length > 0) {
           console.log('📋 user_practices columns:', Object.keys(practicesData[0]));
-        } else {
-          console.log('📋 user_practices table empty');
         }
       }
     } catch (error) {
@@ -809,7 +792,6 @@ class SupabaseService {
 
     // 2. Testar user_achievements
     try {
-      console.log('\n🏆 Testing user_achievements table...');
       const { data: achievementsData, error: achievementsError } = await this.supabase
         .from('user_achievements')
         .select('*')
@@ -818,11 +800,8 @@ class SupabaseService {
       if (achievementsError) {
         console.error('❌ user_achievements error:', achievementsError);
       } else {
-        console.log('✅ user_achievements accessible');
         if (achievementsData && achievementsData.length > 0) {
           console.log('📋 user_achievements columns:', Object.keys(achievementsData[0]));
-        } else {
-          console.log('📋 user_achievements table empty');
         }
       }
     } catch (error) {
@@ -831,7 +810,6 @@ class SupabaseService {
 
     // 3. Testar user_sessions
     try {
-      console.log('\n📅 Testing user_sessions table...');
       const { data: sessionsData, error: sessionsError } = await this.supabase
         .from('user_sessions')
         .select('*')
@@ -840,11 +818,8 @@ class SupabaseService {
       if (sessionsError) {
         console.error('❌ user_sessions error:', sessionsError);
       } else {
-        console.log('✅ user_sessions accessible');
         if (sessionsData && sessionsData.length > 0) {
           console.log('📋 user_sessions columns:', Object.keys(sessionsData[0]));
-        } else {
-          console.log('📋 user_sessions table empty');
         }
       }
     } catch (error) {
@@ -853,7 +828,6 @@ class SupabaseService {
 
     // 4. Testar inserção simples em user_practices
     try {
-      console.log('\n🧪 Testing simple insert into user_practices...');
       const testData = {
         user_id: 'test-user-debug',
         transcription: 'test transcription',
@@ -877,26 +851,21 @@ class SupabaseService {
           code: insertError.code
         });
       } else {
-        console.log('✅ Test insert successful:', insertData?.id);
-        
         // Limpar o teste
         await this.supabase
           .from('user_practices')
           .delete()
           .eq('id', insertData.id);
-        console.log('🗑️ Test record cleaned up');
       }
     } catch (error) {
       console.error('❌ Test insert exception:', error);
     }
-
-    console.log('\n🔍 Table structure debug completed');
   }
 
   // 🏆 ACHIEVEMENT SYSTEM METHODS
 
   /**
-   * Salvar conquistas do usuário
+   * Salvar conquistas do usuário - VERSÃO COMPLETA
    */
   async saveAchievements(userId: string, achievements: any[]) {
     if (!this.supabase) {
@@ -905,49 +874,113 @@ class SupabaseService {
     }
 
     try {
-      console.log('🏆 Saving achievements for user:', userId, achievements.length);
+      console.log('💾 Salvando achievements para usuário:', userId);
+      console.log('🏆 Achievements a salvar (RAW):', achievements);
+      
+      // ✅ DEBUGGING: Log each achievement structure
+      achievements.forEach((ach, index) => {
+        console.log(`🔍 Achievement ${index + 1}:`, {
+          id: ach.id,
+          title: ach.title,
+          name: ach.name,
+          achievement_name: ach.achievement_name,
+          description: ach.description,
+          achievement_description: ach.achievement_description,
+          type: ach.type,
+          icon: ach.icon,
+          badge_icon: ach.badge_icon,
+          xpBonus: ach.xpBonus,
+          xp_bonus: ach.xp_bonus,
+          xp_reward: ach.xp_reward
+        });
+      });
 
-      const achievementRecords = achievements.map(achievement => ({
-        user_id: userId,
-        achievement_id: achievement.id,
-        achievement_type: achievement.type,
-        title: achievement.title,
-        description: achievement.description,
-        xp_bonus: achievement.xpBonus,
-        rarity: achievement.rarity,
-        earned_at: achievement.earnedAt.toISOString()
-      }));
+      // Primeiro, verificar se o usuário existe na tabela users
+      const { data: existingUser, error: userError } = await this.supabase
+        .from('users')
+        .select('id')
+        .eq('id', userId)
+        .single();
 
-      const { error } = await this.supabase
+      if (userError && userError.code === 'PGRST116') {
+        // Usuário não existe, criar
+        console.log('👤 Criando usuário:', userId);
+        const { error: createUserError } = await this.supabase
+          .from('users')
+          .insert([{ id: userId }]);
+        
+        if (createUserError) {
+          console.error('❌ Erro ao criar usuário:', createUserError);
+          throw createUserError;
+        }
+      }
+
+      // ✅ CORRIGIDO: Preparar dados para inserção com mapeamento mais robusto
+      const achievementData = achievements.map((achievement, index) => {
+        // Determinar título com fallbacks mais robustos
+        const title = achievement.title || 
+                     achievement.name || 
+                     achievement.achievement_name || 
+                     `Achievement ${index + 1}`;
+        
+        // Determinar descrição com fallbacks mais robustos
+        const description = achievement.description || 
+                           achievement.achievement_description || 
+                           'New achievement unlocked!';
+        
+        // Determinar ícone com fallbacks
+        const icon = achievement.badge_icon || 
+                    achievement.icon || 
+                    '🏆';
+        
+        // Determinar XP com fallbacks
+        const xpBonus = achievement.xp_reward || 
+                       achievement.xp_bonus || 
+                       achievement.xpBonus || 
+                       0;
+        
+        const mappedData = {
+          user_id: userId,
+          achievement_id: null, // Deixar NULL para achievements dinâmicos
+          earned_at: new Date().toISOString(),
+          achievement_type: achievement.type || 'general',
+          achievement_code: achievement.id || achievement.code || null,
+          achievement_name: title, // ✅ Campo que existe na tabela
+          achievement_description: description, // ✅ Campo que existe na tabela
+          category: achievement.category || 'general',
+          badge_icon: icon,
+          badge_color: achievement.badge_color || '#A3FF3C',
+          xp_bonus: xpBonus,
+          rarity: achievement.rarity || 'common',
+          type: achievement.type || 'general'
+        };
+        
+        console.log(`📝 Mapped achievement ${index + 1}:`, mappedData);
+        return mappedData;
+      });
+
+      console.log('📝 Dados finais preparados para inserção:', achievementData);
+
+      const { data, error } = await this.supabase
         .from('user_achievements')
-        .insert(achievementRecords);
+        .insert(achievementData)
+        .select();
 
       if (error) {
-        console.error('❌ Error saving achievements:', {
-          error: error,
+        console.error('❌ Erro detalhado ao salvar achievements:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
-          code: error.code,
-          stack: error.stack
+          code: error.code
         });
-        console.error('❌ Raw achievements error object:', JSON.stringify(error, null, 2));
-        console.error('❌ Achievement records that failed:', JSON.stringify(achievementRecords, null, 2));
-        return false;
+        throw error;
       }
 
-      console.log('✅ Achievements saved successfully');
-      return true;
+      console.log('✅ Achievements salvos com sucesso:', data);
+      return data;
     } catch (error) {
-      console.error('❌ Exception saving achievements:', {
-        error: error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        userId: userId,
-        achievementsCount: achievements.length
-      });
-      console.error('❌ Raw exception object:', JSON.stringify(error, null, 2));
-      return false;
+      console.error('💥 Erro geral ao salvar achievements:', error);
+      throw error;
     }
   }
 
@@ -1249,7 +1282,7 @@ class SupabaseService {
         const user = users?.find(u => u.entra_id === progress.user_id);
         return {
           ...progress,
-          realUserLevel: user?.user_level || 'Intermediate',
+          realUserLevel: user?.user_level || 'Inter',
           realName: user?.name || progress.user_id
         };
       });
@@ -1259,7 +1292,7 @@ class SupabaseService {
       // Agrupar por nível real da tabela users
       const usersByLevel = {
         'Novice': [] as any[],
-        'Intermediate': [] as any[],
+        'Inter': [] as any[],
         'Advanced': [] as any[]
       };
 
@@ -1287,16 +1320,17 @@ class SupabaseService {
         levelUsers
           .sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0))
           .forEach((userProgress, index) => {
-            // ✅ Usar nome real do Entra ID
+            // ✅ CORRIGIDO: Usar nome real do Entra ID com tratamento seguro
             const displayName = this.formatDisplayNameForCache(userProgress.realName || userProgress.user_id);
             const avatarColor = this.generateAvatarColorForCache(userProgress.realName || userProgress.user_id);
             
+            // ✅ CORRIGIDO: Garantir que todos os campos obrigatórios estão preenchidos
             leaderboardEntries.push({
-              user_id: userProgress.user_id,
-              user_level: level,
-              display_name: displayName,
-              avatar_color: avatarColor,
-              level_number: Math.floor(Math.sqrt((userProgress.total_xp || 0) / 50)) + 1,
+              user_id: userProgress.user_id || '',
+              user_level: level || 'Inter',
+              display_name: displayName || 'Anonymous',
+              avatar_color: avatarColor || '#A3FF3C',
+              level_number: Math.max(1, Math.floor(Math.sqrt((userProgress.total_xp || 0) / 50)) + 1),
               total_xp: userProgress.total_xp || 0,
               current_streak: userProgress.streak_days || 0,
               position: index + 1
@@ -1317,13 +1351,24 @@ class SupabaseService {
         .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
 
       console.log('💾 Inserting new leaderboard data...');
-      // Inserir novos dados
+      console.log('📝 Sample entry:', leaderboardEntries[0]);
+      
+      // ✅ CORRIGIDO: Usar UPSERT em vez de INSERT para evitar erro 409
       const { error: insertError } = await this.supabase
         .from('user_leaderboard_cache')
-        .insert(leaderboardEntries);
+        .upsert(leaderboardEntries, { 
+          onConflict: 'user_id,user_level',
+          ignoreDuplicates: false 
+        });
 
       if (insertError) {
-        console.error('❌ Error inserting leaderboard cache:', insertError);
+        console.error('❌ Error inserting leaderboard cache:', {
+          message: insertError.message,
+          details: insertError.details,
+          hint: insertError.hint,
+          code: insertError.code
+        });
+        console.error('❌ Sample data that failed:', leaderboardEntries[0]);
         return false;
       }
 
@@ -1331,7 +1376,7 @@ class SupabaseService {
         totalEntries: leaderboardEntries.length,
         byLevel: {
           Novice: usersByLevel.Novice.length,
-          Intermediate: usersByLevel.Intermediate.length,
+          Inter: usersByLevel.Inter.length,
           Advanced: usersByLevel.Advanced.length
         }
       });
@@ -1454,7 +1499,7 @@ class SupabaseService {
       }
 
       // 5. Testar busca por nível
-      for (const level of ['Novice', 'Intermediate', 'Advanced']) {
+      for (const level of ['Novice', 'Inter', 'Advanced']) {
         const { data: levelData, error: levelError } = await this.supabase
           .from('user_leaderboard_cache')
           .select('*')

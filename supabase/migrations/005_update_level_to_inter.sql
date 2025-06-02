@@ -1,29 +1,37 @@
--- migrations/002_fix_leaderboard_tables.sql
--- Correção e inicialização do sistema de leaderboard
+-- migrations/005_update_level_to_inter.sql
+-- Atualizar todas as referências de 'Intermediate' para 'Inter' para consistência com grupos do Entra ID
 
--- Verificar e recriar tabela user_leaderboard_cache se necessário
-DROP TABLE IF EXISTS user_leaderboard_cache CASCADE;
+-- 1. Atualizar tabela users
+UPDATE users 
+SET user_level = 'Inter' 
+WHERE user_level = 'Intermediate';
 
-CREATE TABLE user_leaderboard_cache (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id TEXT NOT NULL,
-  user_level TEXT NOT NULL DEFAULT 'Intermediate',
-  display_name TEXT NOT NULL DEFAULT 'Anonymous',
-  avatar_color TEXT NOT NULL DEFAULT '#A3FF3C',
-  level_number INTEGER NOT NULL DEFAULT 1,
-  total_xp INTEGER NOT NULL DEFAULT 0,
-  current_streak INTEGER NOT NULL DEFAULT 0,
-  position INTEGER NOT NULL DEFAULT 1,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_id, user_level)
-);
+-- 2. Atualizar tabela user_leaderboard_cache
+UPDATE user_leaderboard_cache 
+SET user_level = 'Inter' 
+WHERE user_level = 'Intermediate';
 
--- Índices para performance
-CREATE INDEX idx_leaderboard_level_position ON user_leaderboard_cache(user_level, position);
-CREATE INDEX idx_leaderboard_user ON user_leaderboard_cache(user_id);
-CREATE INDEX idx_leaderboard_updated ON user_leaderboard_cache(updated_at DESC);
+-- 3. Atualizar constraint da tabela users se existir
+DO $$
+BEGIN
+  -- Remover constraint antiga se existir
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE table_name = 'users' AND constraint_name LIKE '%user_level%'
+  ) THEN
+    ALTER TABLE users DROP CONSTRAINT IF EXISTS users_user_level_check;
+  END IF;
+  
+  -- Adicionar nova constraint
+  ALTER TABLE users ADD CONSTRAINT users_user_level_check 
+    CHECK (user_level IN ('Novice', 'Inter', 'Advanced'));
+END $$;
 
--- Função melhorada para popular leaderboard
+-- 4. Atualizar valor padrão da tabela user_leaderboard_cache
+ALTER TABLE user_leaderboard_cache 
+ALTER COLUMN user_level SET DEFAULT 'Inter';
+
+-- 5. Atualizar função populate_leaderboard_cache para usar 'Inter'
 CREATE OR REPLACE FUNCTION populate_leaderboard_cache()
 RETURNS INTEGER AS $$
 DECLARE
@@ -35,15 +43,15 @@ BEGIN
   -- Limpar cache existente
   DELETE FROM user_leaderboard_cache;
   
-  -- Popular para cada nível
-  FOR level_name IN SELECT unnest(ARRAY['Novice', 'Intermediate', 'Advanced']) LOOP
+  -- Popular para cada nível (usando 'Inter' em vez de 'Intermediate')
+  FOR level_name IN SELECT unnest(ARRAY['Novice', 'Inter', 'Advanced']) LOOP
     position_counter := 1;
     
     -- Buscar usuários deste nível ordenados por XP
     FOR user_record IN 
       SELECT 
         user_id,
-        'Intermediate' as user_level, -- Fixo por enquanto
+        'Inter' as user_level, -- Atualizado para 'Inter'
         user_id as user_name, -- Usar user_id como fallback
         COALESCE(total_xp, 0) as total_xp,
         COALESCE(streak_days, 0) as streak_days
@@ -89,18 +97,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Popular o cache inicialmente
-SELECT populate_leaderboard_cache();
-
--- Função para atualizar leaderboard automaticamente (melhorada)
+-- 6. Atualizar função update_leaderboard_cache para usar 'Inter'
 CREATE OR REPLACE FUNCTION update_leaderboard_cache()
 RETURNS TRIGGER AS $$
 DECLARE
   user_level_val TEXT;
   new_position INTEGER;
 BEGIN
-  -- Determinar nível do usuário
-  user_level_val := COALESCE(NEW.user_level, 'Intermediate');
+  -- Determinar nível do usuário (usando 'Inter' como padrão)
+  user_level_val := COALESCE(NEW.user_level, 'Inter');
   
   -- Calcular nova posição
   SELECT COUNT(*) + 1 INTO new_position
@@ -154,21 +159,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Recriar trigger
-DROP TRIGGER IF EXISTS trigger_update_leaderboard ON user_progress;
-CREATE TRIGGER trigger_update_leaderboard
-  AFTER INSERT OR UPDATE OF total_xp, streak_days ON user_progress
-  FOR EACH ROW
-  EXECUTE FUNCTION update_leaderboard_cache();
-
--- Comentários
-COMMENT ON TABLE user_leaderboard_cache IS 'Cache do leaderboard separado por nível de usuário - CORRIGIDO';
-COMMENT ON FUNCTION populate_leaderboard_cache() IS 'Popula o cache do leaderboard com todos os usuários';
-COMMENT ON FUNCTION update_leaderboard_cache() IS 'Atualiza automaticamente o cache do leaderboard quando dados mudam';
+-- 7. Repopular o cache com os novos dados
+SELECT populate_leaderboard_cache();
 
 -- Log da migração
 DO $$
 BEGIN
-  RAISE NOTICE 'Leaderboard tables fixed and populated successfully';
-  RAISE NOTICE 'Total entries in cache: %', (SELECT COUNT(*) FROM user_leaderboard_cache);
+  RAISE NOTICE 'Successfully updated all level references from Intermediate to Inter';
+  RAISE NOTICE 'Updated tables: users, user_leaderboard_cache';
+  RAISE NOTICE 'Updated functions: populate_leaderboard_cache, update_leaderboard_cache';
+  RAISE NOTICE 'Cache repopulated with new level structure';
 END $$; 

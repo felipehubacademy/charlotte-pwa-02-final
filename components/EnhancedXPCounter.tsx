@@ -14,7 +14,7 @@ interface EnhancedXPCounterProps {
   onStatsClick?: () => void;
   onAchievementsDismissed?: () => void;
   userId?: string;
-  userLevel?: 'Novice' | 'Inter' | 'Advanced';
+  userLevel?: 'Novice' | 'Intermediate' | 'Advanced';
   isFloating?: boolean;
 }
 
@@ -31,9 +31,9 @@ const EnhancedStatsModal: React.FC<{
   realAchievements: Achievement[];
   onAchievementsDismissed?: () => void;
   userId?: string;
-  userLevel?: 'Novice' | 'Inter' | 'Advanced';
+  userLevel?: 'Novice' | 'Intermediate' | 'Advanced';
 }> = ({ 
-  isOpen, onClose, sessionXP, totalXP, currentLevel, achievements, realAchievements, onAchievementsDismissed, userId, userLevel = 'Inter'
+  isOpen, onClose, sessionXP, totalXP, currentLevel, achievements, realAchievements, onAchievementsDismissed, userId, userLevel = 'Intermediate'
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('stats');
   const [realData, setRealData] = useState({
@@ -389,15 +389,17 @@ const EnhancedStatsModal: React.FC<{
 
             <div className="max-h-96 overflow-y-auto scrollbar-custom space-y-3">
               {effectiveAchievements.length > 0 ? (
-                effectiveAchievements.map((achievement, index) => (
+                effectiveAchievements.map((achievement: any, index) => (
                   <div key={achievement.id || `achievement-${index}`} className="bg-white/5 rounded-xl p-4 border border-white/10">
                     <div className="flex items-start space-x-3">
-                      <div className="text-2xl">{achievement.icon}</div>
+                      <div className="text-2xl">{achievement.badge_icon || achievement.icon || '🏆'}</div>
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
-                          <h4 className="text-white font-bold text-sm">{achievement.title}</h4>
+                          <h4 className="text-white font-bold text-sm">
+                            {achievement.achievement_name || achievement.title || achievement.name || 'New Achievement'}
+                          </h4>
                           <div className="flex items-center space-x-2">
-                            <span className="text-primary text-xs font-bold">+{achievement.xpBonus} XP</span>
+                            <span className="text-primary text-xs font-bold">+{achievement.xp_bonus || achievement.xpBonus || 0} XP</span>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${
                               achievement.rarity === 'common' ? 'bg-green-500/20 text-green-400' :
                               achievement.rarity === 'rare' ? 'bg-blue-500/20 text-blue-400' :
@@ -408,9 +410,11 @@ const EnhancedStatsModal: React.FC<{
                             </span>
                           </div>
                         </div>
-                        <p className="text-white/70 text-xs">{achievement.description}</p>
+                        <p className="text-white/70 text-xs">
+                          {achievement.achievement_description || achievement.description || 'Achievement unlocked!'}
+                        </p>
                         <p className="text-white/50 text-xs mt-1">
-                          Earned {achievement.earnedAt.toLocaleDateString()} at {achievement.earnedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          Earned {(achievement.earned_at ? new Date(achievement.earned_at) : achievement.earnedAt || new Date()).toLocaleDateString()} at {(achievement.earned_at ? new Date(achievement.earned_at) : achievement.earnedAt || new Date()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
@@ -567,7 +571,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   onStatsClick,
   onAchievementsDismissed,
   userId,
-  userLevel = 'Inter',
+  userLevel = 'Intermediate',
   isFloating = false
 }) => {
   const [displaySessionXP, setDisplaySessionXP] = useState(sessionXP || 0);
@@ -605,52 +609,18 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       console.log('📋 Raw achievements from Supabase:', userAchievements);
       
       if (userAchievements && userAchievements.length > 0) {
-        // ✅ CORRIGIDO: Converter dados do Supabase para formato Achievement com mapeamento robusto
-        const formattedAchievements = userAchievements.map((ach: any, index: number) => {
-          // ✅ NOVO: Gerar título baseado no achievement_type e category se não existir
-          const title = ach.achievement_name || 
-                       ach.title || 
-                       ach.name || 
-                       generateAchievementTitle(ach.achievement_type, ach.category, ach.rarity);
-          
-          // ✅ NOVO: Gerar descrição baseada no achievement_type e category se não existir
-          const description = ach.achievement_description || 
-                             ach.description || 
-                             generateAchievementDescription(ach.achievement_type, ach.category, ach.rarity);
-          
-          // Determinar ícone com fallbacks
-          const icon = ach.badge_icon || 
-                      ach.icon || 
-                      getAchievementIcon(ach.achievement_type || 'general');
-          
-          // Determinar XP com fallbacks
-          const xpBonus = ach.xp_bonus || 
-                         ach.xpBonus || 
-                         ach.xp_reward || 
-                         0;
-          
-          console.log(`🔍 Processing achievement ${index + 1}:`, {
-            raw: ach,
-            mapped: {
-              title,
-              description,
-              icon,
-              xpBonus
-            }
-          });
-          
-          return {
-            id: ach.achievement_id || ach.id || `ach-${index}`,
-            title: title,
-            description: description,
-            type: ach.achievement_type || 'general',
-            rarity: ach.rarity || 'common',
-            xpBonus: xpBonus,
-            icon: icon,
-            earnedAt: new Date(ach.earned_at),
-            category: ach.category || 'general'
-          };
-        });
+        // Converter dados do Supabase para formato Achievement
+        const formattedAchievements = userAchievements.map((ach: any) => ({
+          id: ach.achievement_id || ach.id,
+          title: ach.achievement_name || ach.title || 'Unknown Achievement',
+          description: ach.achievement_description || ach.description || 'Achievement earned!',
+          type: ach.type || ach.achievement_type || 'general',
+          rarity: ach.rarity || 'common',
+          xpBonus: ach.xp_bonus || 0,
+          icon: ach.badge_icon || getAchievementIcon(ach.type || ach.achievement_type || 'general'),
+          earnedAt: new Date(ach.earned_at),
+          category: ach.category || 'general'
+        }));
         
         setRealAchievements(formattedAchievements);
         console.log('✅ Real achievements loaded and formatted:', formattedAchievements.length);
@@ -663,112 +633,6 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       console.error('❌ Error loading real achievements:', error);
       setRealAchievements([]);
     }
-  };
-
-  // ✅ NOVO: Função para gerar títulos baseados no tipo e categoria
-  const generateAchievementTitle = (type: string, category: string, rarity: string): string => {
-    const typeMap: { [key: string]: string } = {
-      'perfect-practice': 'Perfect Practice!',
-      'perfect-audio': 'Perfect Audio!',
-      'perfect-text': 'Perfect Grammar!',
-      'eloquent-speaker': 'Eloquent Speaker',
-      'detailed-writer': 'Detailed Writer',
-      'pronunciation-master': 'Pronunciation Master',
-      'grammar-guru': 'Grammar Guru',
-      'audio-starter': 'Audio Starter',
-      'audio-enthusiast': 'Audio Enthusiast',
-      'audio-master': 'Audio Master',
-      'audio-legend': 'Audio Legend',
-      'text-writer': 'Text Writer',
-      'text-warrior': 'Text Warrior',
-      'text-champion': 'Text Champion',
-      'text-legend': 'Text Legend',
-      'streak-milestone': 'Streak Master',
-      'early-bird': 'Early Bird',
-      'night-owl': 'Night Owl',
-      'weekend-warrior': 'Weekend Warrior',
-      'general': 'Achievement Unlocked'
-    };
-
-    const categoryMap: { [key: string]: string } = {
-      'milestone': 'Milestone Achievement',
-      'performance': 'Performance Achievement',
-      'consistency': 'Consistency Achievement',
-      'volume': 'Volume Achievement',
-      'quality': 'Quality Achievement',
-      'behavioral': 'Behavioral Achievement',
-      'special': 'Special Achievement'
-    };
-
-    const rarityPrefix: { [key: string]: string } = {
-      'legendary': '👑 Legendary',
-      'epic': '⭐ Epic',
-      'rare': '💎 Rare',
-      'uncommon': '🔥 Uncommon',
-      'common': '🏆 '
-    };
-
-    // Tentar mapear por tipo primeiro
-    if (type && typeMap[type]) {
-      return `${rarityPrefix[rarity] || '🏆 '}${typeMap[type]}`;
-    }
-
-    // Senão, usar categoria
-    if (category && categoryMap[category]) {
-      return `${rarityPrefix[rarity] || '🏆 '}${categoryMap[category]}`;
-    }
-
-    // Fallback final
-    return `${rarityPrefix[rarity] || '🏆 '}Achievement Unlocked`;
-  };
-
-  // ✅ NOVO: Função para gerar descrições baseadas no tipo e categoria
-  const generateAchievementDescription = (type: string, category: string, rarity: string): string => {
-    const typeDescriptions: { [key: string]: string } = {
-      'perfect-practice': 'Achieved excellent performance in practice',
-      'perfect-audio': 'Delivered perfect audio pronunciation',
-      'perfect-text': 'Wrote with perfect grammar',
-      'eloquent-speaker': 'Spoke with eloquence and clarity',
-      'detailed-writer': 'Wrote detailed and comprehensive messages',
-      'pronunciation-master': 'Mastered pronunciation skills',
-      'grammar-guru': 'Demonstrated excellent grammar knowledge',
-      'audio-starter': 'Started your audio practice journey',
-      'audio-enthusiast': 'Showed enthusiasm in audio practice',
-      'audio-master': 'Mastered audio communication',
-      'audio-legend': 'Became a legend in audio practice',
-      'text-writer': 'Began your text writing journey',
-      'text-warrior': 'Fought through text challenges',
-      'text-champion': 'Became a champion in text communication',
-      'text-legend': 'Achieved legendary status in writing',
-      'streak-milestone': 'Maintained consistent practice streak',
-      'early-bird': 'Practiced early in the morning',
-      'night-owl': 'Practiced late at night',
-      'weekend-warrior': 'Practiced during weekends',
-      'general': 'Completed a significant milestone'
-    };
-
-    const categoryDescriptions: { [key: string]: string } = {
-      'milestone': 'Reached an important milestone in your learning journey',
-      'performance': 'Demonstrated exceptional performance',
-      'consistency': 'Showed remarkable consistency in practice',
-      'volume': 'Completed a significant volume of practice',
-      'quality': 'Achieved high quality in your work',
-      'behavioral': 'Developed positive learning behaviors',
-      'special': 'Earned a special recognition'
-    };
-
-    // Tentar mapear por tipo primeiro
-    if (type && typeDescriptions[type]) {
-      return typeDescriptions[type];
-    }
-
-    // Senão, usar categoria
-    if (category && categoryDescriptions[category]) {
-      return categoryDescriptions[category];
-    }
-
-    // Fallback final
-    return 'You have unlocked a new achievement!';
   };
 
   // Helper function to get achievement icon based on type

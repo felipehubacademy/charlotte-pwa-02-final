@@ -58,9 +58,9 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
         : 'top-[calc(env(safe-area-inset-top)+80px)]' // Normal: safe area + header height
     }`}>
       <AnimatePresence>
-        {visibleAchievements.map((achievement) => (
+        {visibleAchievements.map((achievement, index) => (
           <motion.div
-            key={achievement.id}
+            key={`${achievement.id}-${index}-${Date.now()}`}
             initial={{ x: 350, opacity: 0, scale: 0.8 }}
             animate={{ x: 0, opacity: 1, scale: 1 }}
             exit={{ x: 350, opacity: 0, scale: 0.8 }}

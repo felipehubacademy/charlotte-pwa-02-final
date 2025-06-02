@@ -187,7 +187,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const getUserLevel = async (account: AccountInfo): Promise<'Novice' | 'Intermediate' | 'Advanced'> => {
+  const getUserLevel = async (account: AccountInfo): Promise<'Novice' | 'Inter' | 'Advanced'> => {
     try {
       console.log('🔍 Getting user level from Entra ID groups...');
       
@@ -216,15 +216,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const groups = groupsData.value || [];
       const groupNames = groups.map((group: any) => group.displayName).filter(Boolean);
       console.log('👥 Group names:', groupNames);
+      console.log('🔍 Checking for Charlotte groups: Novice, Inter, Advanced, Teacher');
+      
+      // Log which Charlotte groups the user has
+      const charlotteGroups = groupNames.filter((name: string) => 
+        ['novice', 'inter', 'advanced', 'teacher'].some(group => 
+          name.toLowerCase().includes(group)
+        )
+      );
+      console.log('🎯 Charlotte-related groups:', charlotteGroups);
       
       if (groupNames.some((name: string) => name.toLowerCase().includes('novice'))) {
         console.log('🎯 User level: Novice');
-      return 'Novice';
-      } else if (groupNames.some((name: string) => name.toLowerCase().includes('intermediate'))) {
-        console.log('🎯 User level: Intermediate');
-        return 'Intermediate';
+        return 'Novice';
+      } else if (groupNames.some((name: string) => name.toLowerCase().includes('inter'))) {
+        console.log('🎯 User level: Inter');
+        return 'Inter';
       } else {
-        console.log('🎯 User level: Advanced (Teacher or default)');
+        console.log('🎯 User level: Advanced (Teacher or Advanced group)');
         return 'Advanced';
       }
     } catch (error) {

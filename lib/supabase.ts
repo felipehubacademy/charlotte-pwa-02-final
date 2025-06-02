@@ -5,7 +5,7 @@ export interface User {
   entra_id: string;
   email: string;
   name: string;
-  user_level: 'Novice' | 'Intermediate' | 'Advanced';
+  user_level: 'Novice' | 'Inter' | 'Advanced';
   timezone: string;
   preferred_reminder_time: string;
   reminder_frequency: 'disabled' | 'light' | 'normal' | 'frequent';
