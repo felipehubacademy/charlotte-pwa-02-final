@@ -467,20 +467,14 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   React.useEffect(scrollToBottom, [messages, isProcessingMessage]);
 
-  // Detectar se é iOS PWA
-  const isIOSPWA = typeof window !== 'undefined' && 
-    ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
-
   return (
     <div 
-      className="px-3 sm:px-4 py-2 sm:py-4 chat-scroll" 
+      className="px-3 sm:px-4 py-2 sm:py-4 flex-1" 
       style={{ 
-        WebkitOverflowScrolling: 'touch',
-        overscrollBehavior: 'none',
         paddingTop: 'calc(3.5rem + env(safe-area-inset-top))', // Espaço para header
         paddingBottom: 'calc(100px + env(safe-area-inset-bottom))', // Espaço para footer
-        maxHeight: 'calc(100vh - 3.5rem - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
-        overflowY: messages.length > 3 ? 'auto' : 'visible'
+        overflowY: messages.length > 2 ? 'auto' : 'hidden',
+        WebkitOverflowScrolling: 'touch'
       }}
     >
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
