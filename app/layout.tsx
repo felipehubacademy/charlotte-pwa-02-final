@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'Charlotte',
   },
   icons: {
@@ -33,7 +33,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   userScalable: false,
-  themeColor: '#3b82f6',
+  themeColor: '#16153A',
   interactiveWidget: 'resizes-content',
 };
 
@@ -51,10 +51,11 @@ export default function RootLayout({
         />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
         <meta name="apple-mobile-web-app-title" content="Charlotte" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="format-detection" content="telephone=no" />
+        <meta name="theme-color" content="#16153A" />
       </head>
       <body className={`${inter.className} bg-secondary text-white antialiased`} suppressHydrationWarning>
         <PWAInstaller />

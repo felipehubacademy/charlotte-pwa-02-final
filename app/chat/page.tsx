@@ -1518,7 +1518,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       <header className={`flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-fixed-header' 
+          ? 'ios-pwa-fixed-header' 
           : 'pt-safe'
       }`}>
         <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
@@ -1560,7 +1560,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       <div className={
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'pt-[80px] pb-[120px] flex-1 flex flex-col' // iOS PWA: padding for fixed header/footer
+          ? 'ios-pwa-content' // iOS PWA: use fixed positioning with proper padding
           : 'pt-[60px] sm:pt-[70px] flex-1 flex flex-col' // Normal: padding for header
       }>
         <ChatBox
@@ -1572,11 +1572,11 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         />
       </div>
 
-      {/* ✅ RESTORE: Simple footer structure from backup */}
+      {/* ✅ UPDATED: Footer with iOS PWA specific classes */}
       <div className={`flex-shrink-0 bg-secondary ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-fixed-footer' 
+          ? 'ios-pwa-fixed-footer' 
           : 'pb-safe'
       }`}>
         <div className={`max-w-3xl mx-auto px-4 ${
