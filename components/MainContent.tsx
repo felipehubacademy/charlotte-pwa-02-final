@@ -43,14 +43,14 @@ export default function MainContent({
           paddingTop: hasHeader 
             ? `calc(3.5rem + env(safe-area-inset-top))` 
             : 'env(safe-area-inset-top)',
-          paddingBottom: 'calc(120px + env(safe-area-inset-bottom))',
+          paddingBottom: 'calc(100px + env(safe-area-inset-bottom))',
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)',
           WebkitOverflowScrolling: 'touch',
           transform: 'translateZ(0)',
           willChange: 'scroll-position',
-          height: 'var(--app-height, 100dvh)',
-          maxHeight: 'var(--app-height, 100dvh)'
+          height: '100vh',
+          maxHeight: '100vh'
         }}
       >
         {children}
@@ -61,17 +61,13 @@ export default function MainContent({
   // Layout normal para outros casos
   return (
     <main 
-      className={`flex-1 flex flex-col ${className}`}
+      className={`flex-1 overflow-hidden ${className}`}
       style={{
         paddingTop: hasHeader 
           ? `calc(3.5rem + env(safe-area-inset-top))` 
           : 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
         paddingLeft: 'env(safe-area-inset-left)',
-        paddingRight: 'env(safe-area-inset-right)',
-        minHeight: hasHeader 
-          ? `calc(100vh - 3.5rem - env(safe-area-inset-top))` 
-          : `calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))`
+        paddingRight: 'env(safe-area-inset-right)'
       }}
     >
       {children}
