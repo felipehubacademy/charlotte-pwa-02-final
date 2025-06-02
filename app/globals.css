@@ -61,7 +61,7 @@ body {
 
 /* ✅ CRITICAL: Standalone mode detection and fixes */
 @media (display-mode: standalone) {
-  /* Force all headers to stay fixed on iPhone PWA */
+  /* MINIMAL: Only fix header positioning */
   header,
   .ios-pwa-fixed-header,
   [data-header="true"] {
@@ -69,69 +69,24 @@ body {
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
-    z-index: 9999 !important;
-    transform: translateZ(0) !important;
-    will-change: transform !important;
-    backface-visibility: hidden !important;
+    z-index: 50 !important;
     padding-top: env(safe-area-inset-top) !important;
     padding-left: env(safe-area-inset-left) !important;
     padding-right: env(safe-area-inset-right) !important;
-    /* FORCE: Prevent any movement */
-    margin: 0 !important;
-    transform-origin: top left !important;
-    /* FORCE: Hardware acceleration */
-    -webkit-transform: translateZ(0) !important;
-    -webkit-backface-visibility: hidden !important;
-    -webkit-perspective: 1000 !important;
   }
   
-  /* LESS AGGRESSIVE: Only set height constraints, not position fixed */
+  /* MINIMAL: Only set height constraints when needed */
   html {
-    height: var(--app-height, 100dvh) !important;
-    min-height: var(--app-height, 100dvh) !important;
-    max-height: var(--app-height, 100dvh) !important;
+    height: var(--app-height, 100dvh);
   }
   
   body {
-    height: var(--app-height, 100dvh) !important;
-    min-height: var(--app-height, 100dvh) !important;
-    max-height: var(--app-height, 100dvh) !important;
+    height: var(--app-height, 100dvh);
   }
 }
 
 /* ✅ NEW: Aggressive iOS PWA fixes with keyboard state detection */
-body.keyboard-open {
-  /* Quando teclado está aberto, mantém altura original */
-  height: var(--app-height, 100dvh) !important;
-  min-height: var(--app-height, 100dvh) !important;
-  max-height: var(--app-height, 100dvh) !important;
-  overflow: hidden !important;
-}
-
-body.keyboard-closed {
-  /* Quando teclado está fechado, usa altura normal */
-  height: var(--app-height, 100dvh) !important;
-  min-height: var(--app-height, 100dvh) !important;
-  max-height: var(--app-height, 100dvh) !important;
-  overflow: hidden !important;
-}
-
-/* ✅ KEYBOARD STATE: Maintain fixed header even when keyboard is open */
-body.keyboard-open header,
-body.keyboard-open .ios-pwa-fixed-header,
-body.keyboard-open [data-header="true"] {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 9999 !important;
-  transform: translateZ(0) !important;
-  will-change: transform !important;
-  backface-visibility: hidden !important;
-  /* FORCE: Stay in place */
-  margin-top: 0 !important;
-  transform: translate3d(0, 0, 0) !important;
-}
+/* REMOVED: keyboard state rules that were interfering with interactions */
 
 /* ✅ CRITICAL: iOS PWA Fixed Header Solution with keyboard detection */
 .ios-pwa-fixed-header {

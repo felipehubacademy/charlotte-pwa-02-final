@@ -19,55 +19,28 @@ export default function ChatHeader({ userName, userLevel, onLogout }: ChatHeader
                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     
     const isPWA = (window.navigator as any).standalone === true || 
-                  window.matchMedia('(display-mode: standalone)').matches ||
-                  window.matchMedia('(display-mode: fullscreen)').matches ||
-                  window.matchMedia('(display-mode: minimal-ui)').matches;
+                  window.matchMedia('(display-mode: standalone)').matches;
 
     setIsIOSPWA(isIOS && isPWA);
     
     console.log('🔍 ChatHeader Debug:', {
       isIOS,
       isPWA,
-      isIOSPWA: isIOS && isPWA,
-      userAgent: navigator.userAgent,
-      standalone: (window.navigator as any).standalone
+      isIOSPWA: isIOS && isPWA
     });
   }, []);
 
-  // Estilos inline ultra-agressivos para iPhone PWA
-  const headerStyle: React.CSSProperties = isIOSPWA ? {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 9999,
-    transform: 'translateZ(0)',
-    willChange: 'transform',
-    backfaceVisibility: 'hidden',
-    WebkitTransform: 'translateZ(0)',
-    WebkitBackfaceVisibility: 'hidden',
-    WebkitPerspective: 1000,
-    margin: 0,
-    marginTop: 0,
-    paddingTop: 'env(safe-area-inset-top)',
-    paddingLeft: 'env(safe-area-inset-left)',
-    paddingRight: 'env(safe-area-inset-right)',
-  } : {
-    paddingTop: 'env(safe-area-inset-top)',
-    paddingLeft: 'env(safe-area-inset-left)',
-    paddingRight: 'env(safe-area-inset-right)',
-    transform: 'translateZ(0)',
-    willChange: 'transform',
-    backfaceVisibility: 'hidden'
-  };
-
   return (
     <header 
-      className={`fixed top-0 left-0 right-0 z-[9999] bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
+      className={`fixed top-0 left-0 right-0 z-50 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
         isIOSPWA ? 'ios-pwa-fixed-header' : ''
       }`}
       data-header="true"
-      style={headerStyle}
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)'
+      }}
     >
       <div className="h-14 px-3 sm:px-4 flex items-center justify-between">
         {/* Left side - Charlotte info */}
