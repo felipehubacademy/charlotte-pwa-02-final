@@ -3,7 +3,7 @@
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { LogOut, Send, Mic, Camera, Play, Pause, X, RotateCcw, Check, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Send, Mic, Camera, Play, Pause, X } from 'lucide-react';
 import ChatBox from '@/components/chat/ChatBox';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { transcribeAudio } from '@/lib/transcribe';
@@ -14,12 +14,8 @@ import AchievementNotification from '@/components/achievements/AchievementNotifi
 import { ConversationContextManager } from '@/lib/conversation-context';
 import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
-import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
-import { ClientAudioConverter } from '@/lib/audio-converter-client';
-import Header from '@/components/Header';
 import MainContent from '@/components/MainContent';
 import ChatHeader from '@/components/ChatHeader';
-import IOSPWADebug from '@/components/IOSPWADebug';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -136,9 +132,6 @@ async function sendSequentialMessages(
 export default function ChatPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
-  
-  // ✅ REMOVE: Complex hook, use simple detection like backup
-  // const { keyboardState, isIOSPWAMode } = useIOSKeyboardFix();
   
   // ✅ SIMPLIFIED: Just detect iOS PWA mode without complex keyboard handling
   const [isIOSPWAMode, setIsIOSPWAMode] = useState(false);
@@ -1779,8 +1772,6 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         achievements={newAchievements}
         onDismiss={handleAchievementsDismissed}
       />
-
-      <IOSPWADebug />
     </div>
   );
 }
