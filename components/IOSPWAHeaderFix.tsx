@@ -3,10 +3,10 @@
 import { useEffect, useRef } from 'react';
 
 export default function IOSPWAHeaderFix() {
-  const initialViewportHeight = useRef<number>(0);
-  const headerRef = useRef<HTMLElement | null>(null);
-  const isFixingRef = useRef<boolean>(false);
-  const mutationObserverRef = useRef<MutationObserver | null>(null);
+  const originalHeaderRef = useRef<HTMLElement | null>(null);
+  const clonedHeaderRef = useRef<HTMLElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const isRecreatingRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Ensure we're on the client side
@@ -19,194 +19,164 @@ export default function IOSPWAHeaderFix() {
       
       if (!isIOS || !isPWA) return;
 
-      console.log('[IOSPWAHeaderFix] 🚀 NUCLEAR SOLUTION - Preventing header movement entirely');
+      console.log('[IOSPWAHeaderFix] 🚀 ULTIMATE SOLUTION - Recreating header every frame');
 
-      // Store initial viewport height
-      initialViewportHeight.current = window.innerHeight;
-
-      const lockHeaderPosition = () => {
-        if (typeof window === 'undefined') return;
-        
-        const header = document.querySelector('[data-header="true"]') as HTMLElement;
-        if (!header) return;
-
-        headerRef.current = header;
-
-        try {
-          // NUCLEAR: Create a style lock that cannot be overridden
-          const styleId = 'nuclear-header-lock';
-          let styleElement = document.getElementById(styleId) as HTMLStyleElement;
-          
-          if (!styleElement) {
-            styleElement = document.createElement('style');
-            styleElement.id = styleId;
-            document.head.appendChild(styleElement);
-          }
-
-          // NUCLEAR CSS: Override everything with maximum specificity
-          styleElement.textContent = `
-            [data-header="true"] {
-              position: fixed !important;
-              top: 0px !important;
-              left: 0px !important;
-              right: 0px !important;
-              z-index: 9999 !important;
-              transform: translateZ(0) translateY(0px) !important;
-              -webkit-transform: translateZ(0) translateY(0px) !important;
-              margin: 0px !important;
-              width: 100% !important;
-              max-width: 100vw !important;
-            }
-            
-            /* NUCLEAR: Override any possible iOS interference */
-            html[data-ios-pwa] [data-header="true"],
-            body[data-ios-pwa] [data-header="true"],
-            .ios-pwa [data-header="true"] {
-              position: fixed !important;
-              top: 0px !important;
-              transform: translateZ(0) translateY(0px) !important;
-              -webkit-transform: translateZ(0) translateY(0px) !important;
-            }
-          `;
-
-          // NUCLEAR: Force inline styles that override everything
-          header.style.cssText = `
+      const createHeaderContainer = () => {
+        // Create a container that iOS cannot touch
+        if (!containerRef.current) {
+          const container = document.createElement('div');
+          container.id = 'ultimate-header-container';
+          container.style.cssText = `
             position: fixed !important;
             top: 0px !important;
             left: 0px !important;
             right: 0px !important;
-            z-index: 9999 !important;
-            transform: translateZ(0) translateY(0px) !important;
-            -webkit-transform: translateZ(0) translateY(0px) !important;
-            -webkit-backface-visibility: hidden !important;
-            backface-visibility: hidden !important;
-            will-change: transform !important;
+            z-index: 10000 !important;
+            pointer-events: none !important;
             width: 100% !important;
-            max-width: 100vw !important;
-            margin: 0px !important;
-            padding-top: env(safe-area-inset-top, 0px) !important;
+            height: auto !important;
+          `;
+          document.body.appendChild(container);
+          containerRef.current = container;
+        }
+        return containerRef.current;
+      };
+
+      const recreateHeader = () => {
+        if (isRecreatingRef.current) return;
+        isRecreatingRef.current = true;
+
+        try {
+          // Find the original header
+          const originalHeader = document.querySelector('[data-header="true"]') as HTMLElement;
+          if (!originalHeader) {
+            isRecreatingRef.current = false;
+            return;
+          }
+
+          originalHeaderRef.current = originalHeader;
+
+          // Hide the original header completely
+          originalHeader.style.cssText = `
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
           `;
 
-          // NUCLEAR: Lock individual properties
-          header.style.setProperty('position', 'fixed', 'important');
-          header.style.setProperty('top', '0px', 'important');
-          header.style.setProperty('transform', 'translateZ(0) translateY(0px)', 'important');
-          header.style.setProperty('-webkit-transform', 'translateZ(0) translateY(0px)', 'important');
+          // Create container
+          const container = createHeaderContainer();
 
-          // NUCLEAR: Add data attributes for CSS targeting
-          document.documentElement.setAttribute('data-ios-pwa', 'true');
-          document.body.setAttribute('data-ios-pwa', 'true');
-          header.setAttribute('data-nuclear-locked', 'true');
+          // Remove any existing cloned header
+          if (clonedHeaderRef.current) {
+            clonedHeaderRef.current.remove();
+          }
 
-          console.log('[IOSPWAHeaderFix] 🔒 NUCLEAR LOCK applied to header');
+          // Clone the original header
+          const clonedHeader = originalHeader.cloneNode(true) as HTMLElement;
+          clonedHeaderRef.current = clonedHeader;
+
+          // Force the cloned header to be at the top
+          clonedHeader.style.cssText = `
+            position: relative !important;
+            top: 0px !important;
+            left: 0px !important;
+            right: 0px !important;
+            z-index: 10000 !important;
+            pointer-events: auto !important;
+            width: 100% !important;
+            margin: 0px !important;
+            padding-top: env(safe-area-inset-top, 0px) !important;
+            transform: none !important;
+            -webkit-transform: none !important;
+            background: var(--secondary, #16153A) !important;
+          `;
+
+          // Add the cloned header to our container
+          container.appendChild(clonedHeader);
+
+          console.log('[IOSPWAHeaderFix] ✅ Header recreated and positioned at top');
         } catch (error) {
-          console.error('[IOSPWAHeaderFix] Error applying nuclear lock:', error);
+          console.error('[IOSPWAHeaderFix] Error recreating header:', error);
+        } finally {
+          isRecreatingRef.current = false;
         }
       };
 
-      // NUCLEAR: Watch for ANY changes to the header and block them
-      const createMutationObserver = () => {
-        if (mutationObserverRef.current) {
-          mutationObserverRef.current.disconnect();
-        }
+      // Initial recreation
+      setTimeout(recreateHeader, 100);
 
-        mutationObserverRef.current = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
-            if (mutation.type === 'attributes' && mutation.target === headerRef.current) {
-              if (mutation.attributeName === 'style') {
-                console.log('[IOSPWAHeaderFix] 🚫 BLOCKED: iOS tried to change header style');
-                lockHeaderPosition();
-              }
-            }
-          });
-        });
+      // ULTIMATE: Recreate header every frame when keyboard events happen
+      let isKeyboardOpen = false;
+      
+      const handleKeyboardEvents = () => {
+        const currentHeight = window.innerHeight;
+        const wasKeyboardOpen = isKeyboardOpen;
+        isKeyboardOpen = currentHeight < window.screen.height * 0.75;
 
-        if (headerRef.current) {
-          mutationObserverRef.current.observe(headerRef.current, {
-            attributes: true,
-            attributeFilter: ['style', 'class'],
-            subtree: false
-          });
+        if (isKeyboardOpen !== wasKeyboardOpen) {
+          console.log(`[IOSPWAHeaderFix] Keyboard ${isKeyboardOpen ? 'opened' : 'closed'} - recreating header`);
+          recreateHeader();
+          
+          // Recreate multiple times to ensure it sticks
+          setTimeout(recreateHeader, 10);
+          setTimeout(recreateHeader, 50);
+          setTimeout(recreateHeader, 100);
         }
       };
 
-      // Apply nuclear lock immediately and repeatedly
-      lockHeaderPosition();
-      setTimeout(lockHeaderPosition, 10);
-      setTimeout(lockHeaderPosition, 50);
-      setTimeout(lockHeaderPosition, 100);
-      setTimeout(() => {
-        lockHeaderPosition();
-        createMutationObserver();
-      }, 200);
+      // Monitor all possible events
+      window.addEventListener('resize', handleKeyboardEvents);
+      window.addEventListener('orientationchange', recreateHeader);
+      document.addEventListener('focusin', handleKeyboardEvents);
+      document.addEventListener('focusout', handleKeyboardEvents);
 
-      // NUCLEAR: Intercept viewport changes and re-lock immediately
-      const handleViewportChange = () => {
-        // Triple lock with multiple frames
-        requestAnimationFrame(() => {
-          lockHeaderPosition();
-          requestAnimationFrame(() => {
-            lockHeaderPosition();
-            requestAnimationFrame(() => {
-              lockHeaderPosition();
-            });
-          });
-        });
-      };
-
-      // Listen to ALL possible events
-      window.addEventListener('resize', handleViewportChange, { passive: false });
-      window.addEventListener('orientationchange', handleViewportChange, { passive: false });
-      window.addEventListener('scroll', handleViewportChange, { passive: false });
-      document.addEventListener('focusin', handleViewportChange, { passive: false });
-      document.addEventListener('focusout', handleViewportChange, { passive: false });
-
-      // Visual Viewport API
       if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', handleViewportChange);
-        window.visualViewport.addEventListener('scroll', handleViewportChange);
+        window.visualViewport.addEventListener('resize', handleKeyboardEvents);
       }
 
-      // NUCLEAR: Ultra-fast polling with immediate re-lock
-      const nuclearPollingInterval = setInterval(() => {
-        if (headerRef.current && !isFixingRef.current) {
-          const rect = headerRef.current.getBoundingClientRect();
-          if (Math.abs(rect.top) > 1) {
-            console.log(`[IOSPWAHeaderFix] 💥 NUCLEAR RESPONSE: Header at ${rect.top}px - RE-LOCKING`);
-            isFixingRef.current = true;
-            lockHeaderPosition();
-            // Triple re-lock
-            setTimeout(lockHeaderPosition, 1);
-            setTimeout(lockHeaderPosition, 5);
-            setTimeout(() => {
-              lockHeaderPosition();
-              isFixingRef.current = false;
-            }, 10);
+      // ULTIMATE: Continuous recreation during keyboard usage
+      const ultimateInterval = setInterval(() => {
+        if (isKeyboardOpen && !isRecreatingRef.current) {
+          recreateHeader();
+        }
+      }, 100);
+
+      // Monitor if our cloned header gets moved and recreate immediately
+      const monitorInterval = setInterval(() => {
+        if (clonedHeaderRef.current && containerRef.current) {
+          const containerRect = containerRef.current.getBoundingClientRect();
+          if (containerRect.top !== 0) {
+            console.log(`[IOSPWAHeaderFix] 🚨 Container moved to ${containerRect.top}px - RECREATING`);
+            recreateHeader();
           }
         }
-      }, 8); // Check every 8ms (120fps)
+      }, 50);
 
       // Cleanup
       return () => {
-        clearInterval(nuclearPollingInterval);
-        if (mutationObserverRef.current) {
-          mutationObserverRef.current.disconnect();
-        }
-        window.removeEventListener('resize', handleViewportChange);
-        window.removeEventListener('orientationchange', handleViewportChange);
-        window.removeEventListener('scroll', handleViewportChange);
-        document.removeEventListener('focusin', handleViewportChange);
-        document.removeEventListener('focusout', handleViewportChange);
+        clearInterval(ultimateInterval);
+        clearInterval(monitorInterval);
+        
+        window.removeEventListener('resize', handleKeyboardEvents);
+        window.removeEventListener('orientationchange', recreateHeader);
+        document.addEventListener('focusin', handleKeyboardEvents);
+        document.removeEventListener('focusout', handleKeyboardEvents);
         
         if (window.visualViewport) {
-          window.visualViewport.removeEventListener('resize', handleViewportChange);
-          window.visualViewport.removeEventListener('scroll', handleViewportChange);
+          window.visualViewport.removeEventListener('resize', handleKeyboardEvents);
         }
 
-        // Remove nuclear styles
-        const styleElement = document.getElementById('nuclear-header-lock');
-        if (styleElement) {
-          styleElement.remove();
+        // Restore original header
+        if (originalHeaderRef.current) {
+          originalHeaderRef.current.style.cssText = '';
+        }
+
+        // Remove our container
+        if (containerRef.current) {
+          containerRef.current.remove();
         }
       };
     } catch (error) {
