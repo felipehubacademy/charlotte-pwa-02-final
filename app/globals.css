@@ -343,6 +343,10 @@ input, textarea, select {
     "content" 
     "footer";
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
 /* ✅ Support for VirtualKeyboard API when available */
@@ -381,6 +385,7 @@ input, textarea, select {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
   position: relative;
+  min-height: 0;
 }
 
 .chat-footer {
@@ -390,6 +395,8 @@ input, textarea, select {
   z-index: 50;
   background: var(--secondary);
   transform: translateY(calc(-1 * env(keyboard-inset-height, 0px)));
+  min-height: 80px;
+  padding: 1rem 0;
 }
 
 /* ✅ Floating XP Counter with keyboard awareness */
@@ -403,7 +410,8 @@ input, textarea, select {
 }
 
 .ios-pwa .floating-xp-counter {
-  bottom: calc(env(safe-area-inset-bottom) + 160px);
+  bottom: calc(env(safe-area-inset-bottom) + 120px);
+  right: calc(env(safe-area-inset-right) + 1rem);
 }
 
 /* ✅ Prevent viewport jumping on input focus */
@@ -424,5 +432,67 @@ input, textarea, select {
 }
 
 .ios-pwa .achievement-notifications {
-  top: calc(env(safe-area-inset-top) + 90px);
+  top: calc(env(safe-area-inset-top) + 70px);
+  right: calc(env(safe-area-inset-right) + 1rem);
+}
+
+/* ✅ iOS specific fixes for all modes (not just PWA) */
+@supports (-webkit-touch-callout: none) {
+  /* This targets iOS devices */
+  .chat-footer {
+    /* ✅ Ensure footer is always above safe area on iOS */
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  /* ✅ Fix for iOS Safari viewport issues */
+  .h-screen {
+    height: 100vh;
+    height: -webkit-fill-available;
+  }
+  
+  /* ✅ Ensure footer container has proper minimum height on iOS */
+  .chat-footer > div {
+    min-height: 80px;
+  }
+}
+
+/* ✅ Additional fallback for older iOS versions */
+@media screen and (max-device-width: 768px) and (-webkit-min-device-pixel-ratio: 1) {
+  .chat-footer {
+    padding-bottom: max(1rem, 20px); /* Fallback safe area */
+  }
+}
+
+/* ✅ XP Counter Modal iOS Fixes */
+@supports (-webkit-touch-callout: none) {
+  /* This targets iOS devices */
+  
+  /* Fix modal positioning on iOS */
+  .fixed.inset-0 {
+    /* Ensure modal respects safe areas */
+    top: env(safe-area-inset-top);
+    bottom: env(safe-area-inset-bottom);
+    left: env(safe-area-inset-left);
+    right: env(safe-area-inset-right);
+  }
+  
+  /* Specific fix for XP Counter modal container */
+  .min-h-screen {
+    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
+
+/* ✅ iOS PWA specific modal fixes */
+.ios-pwa .fixed.inset-0 {
+  /* In PWA mode, safe areas are already handled by container */
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+
+.ios-pwa .min-h-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
