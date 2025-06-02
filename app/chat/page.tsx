@@ -16,7 +16,6 @@ import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/li
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { ClientAudioConverter } from '@/lib/audio-converter-client';
-import { useIOSKeyboardFix } from '@/hooks/useIOSKeyboardFix';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -134,7 +133,7 @@ export default function ChatPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   
-  // ✅ ADICIONAR: Hook para iOS keyboard fix - SIMPLIFIED
+  // ✅ REMOVE: Complex hook, use simple detection like backup
   // const { keyboardState, isIOSPWAMode } = useIOSKeyboardFix();
   
   // ✅ SIMPLIFIED: Just detect iOS PWA mode without complex keyboard handling
@@ -1515,13 +1514,12 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
   };
 
   return (
-    <div className={`h-screen bg-secondary flex flex-col overflow-hidden ${
-      isIOSPWAMode ? 'chat-page-container' : ''
-    }`}>
-      
-      {/* ✅ Header com CSS Grid */}
-      <header className={`${
-        isIOSPWAMode ? 'chat-header' : 'fixed top-0 left-0 right-0 z-50 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe'
+    <div className="h-screen bg-secondary flex flex-col overflow-hidden">
+      <header className={`flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
+        typeof window !== 'undefined' && 
+        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+          ? 'ios-fixed-header' 
+          : 'pt-safe'
       }`}>
         <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
           {/* Left side - Charlotte info */}
@@ -1559,25 +1557,26 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         </div>
       </header>
 
-      {/* ✅ Content com CSS Grid */}
-      <div className={`flex-1 flex flex-col ${
-        isIOSPWAMode ? 'chat-content' : 'pt-[60px] sm:pt-[70px]'
-      }`}>
-        <ChatBox
-          messages={messages}
-          transcript={transcript}
-          finalTranscript={finalTranscript}
-          isProcessingMessage={isProcessingMessage}
-          userLevel={user?.user_level || 'Novice'}
-        />
-      </div>
+      <ChatBox
+        messages={messages}
+        transcript={transcript}
+        finalTranscript={finalTranscript}
+        isProcessingMessage={isProcessingMessage}
+        userLevel={user?.user_level || 'Novice'}
+      />
 
-      {/* ✅ Footer com CSS Grid */}
+      {/* ✅ RESTORE: Simple footer structure from backup */}
       <div className={`flex-shrink-0 bg-secondary ${
-        isIOSPWAMode ? 'chat-footer' : 'pb-safe'
+        typeof window !== 'undefined' && 
+        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+          ? 'ios-fixed-footer' 
+          : 'pb-safe'
       }`}>
         <div className={`max-w-3xl mx-auto px-4 ${
-          isIOSPWAMode ? 'py-4' : 'py-6'
+          typeof window !== 'undefined' && 
+          ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+            ? 'py-4' 
+            : 'py-6'
         }`}>
           <div className="flex items-end space-x-3">
             
