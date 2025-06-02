@@ -242,6 +242,36 @@ class SupabaseService {
       // Atualizar progresso do usuário COM CÁLCULO DE STREAK
       await this.updateUserProgress(data.user_id, data.xp_awarded, data.practice_type);
 
+      // 🏆 NEW: Verificar e conceder achievements automaticamente
+      try {
+        const { AchievementVerificationService } = await import('./achievement-verification-service');
+        
+        const newAchievements = await AchievementVerificationService.verifyAndAwardAchievements(
+          data.user_id,
+          {
+            practice_type: data.practice_type,
+            accuracy_score: data.accuracy_score || undefined,
+            grammar_score: data.grammar_score || undefined,
+            pronunciation_score: data.pronunciation_score || undefined,
+            xp_awarded: data.xp_awarded,
+            duration: data.audio_duration
+          }
+        );
+
+        if (newAchievements.length > 0) {
+          console.log('🏆 New achievements awarded:', newAchievements.map(a => a.name));
+          
+          // Adicionar XP dos achievements ao progresso do usuário
+          const achievementXP = newAchievements.reduce((sum, a) => sum + a.xp_reward, 0);
+          if (achievementXP > 0) {
+            await this.updateUserProgress(data.user_id, achievementXP, 'achievement_bonus');
+            console.log('✨ Achievement bonus XP awarded:', achievementXP);
+          }
+        }
+      } catch (achievementError) {
+        console.warn('⚠️ Achievement verification failed, continuing without achievements:', achievementError);
+      }
+
       return practice;
     } catch (error) {
       console.error('❌ Exception in saveAudioPractice:', {
@@ -1542,6 +1572,144 @@ class SupabaseService {
       return success;
     } catch (error) {
       console.error('❌ Exception force refreshing leaderboard:', error);
+      return false;
+    }
+  }
+
+  // 🔓 PUBLIC METHODS FOR ACHIEVEMENT VERIFICATION
+  
+  /**
+   * Get achievements from database
+   */
+  async getAchievements(isActive: boolean = true) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getAchievements');
+      return [];
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('achievements')
+        .select('*')
+        .eq('is_active', isActive)
+        .order('sort_order');
+
+      if (error) {
+        console.error('❌ Error fetching achievements:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('❌ Exception fetching achievements:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user's earned achievement codes
+   */
+  async getUserAchievementCodes(userId: string) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getUserAchievementCodes');
+      return [];
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('user_achievements')
+        .select('achievement_code')
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('❌ Error fetching user achievement codes:', error);
+        return [];
+      }
+
+      return data?.map(ua => ua.achievement_code) || [];
+    } catch (error) {
+      console.error('❌ Exception fetching user achievement codes:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user practices for stats calculation
+   */
+  async getUserPracticesForStats(userId: string) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getUserPracticesForStats');
+      return [];
+    }
+
+    try {
+      const { data, error } = await this.supabase
+        .from('user_practices')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('❌ Error fetching user practices for stats:', error);
+        return [];
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error('❌ Exception fetching user practices for stats:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get user vocabulary count
+   */
+  async getUserVocabularyCount(userId: string) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for getUserVocabularyCount');
+      return 0;
+    }
+
+    try {
+      const { count, error } = await this.supabase
+        .from('user_vocabulary')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+
+      if (error) {
+        console.error('❌ Error fetching user vocabulary count:', error);
+        return 0;
+      }
+
+      return count || 0;
+    } catch (error) {
+      console.error('❌ Exception fetching user vocabulary count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Save new achievements to database
+   */
+  async saveNewAchievements(userId: string, achievements: any[]) {
+    if (!this.supabase) {
+      console.warn('⚠️ Supabase not available for saveNewAchievements');
+      return false;
+    }
+
+    try {
+      const { error } = await this.supabase
+        .from('user_achievements')
+        .insert(achievements);
+
+      if (error) {
+        console.error('❌ Error saving new achievements:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Exception saving new achievements:', error);
       return false;
     }
   }
