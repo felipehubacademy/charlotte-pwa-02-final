@@ -1551,13 +1551,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           ? 'pb-safe' 
           : 'pb-safe'
       }`}>
-        <div className={`max-w-3xl mx-auto px-4 ${ 
+        <div className={`max-w-3xl mx-auto ${ 
           typeof window !== 'undefined' && 
           ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
            window.innerWidth <= 768) ||
           ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
-            ? 'py-2' 
-            : 'pt-6'
+            ? 'px-3' // Mobile: removido py-1, apenas padding horizontal
+            : 'px-4 pt-6'
         }`}>
           <div className="flex items-end space-x-3">
             
@@ -1571,11 +1571,21 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                   onKeyDown={handleKeyPress}
                   placeholder="Ask anything..."
                   rows={1}
-                  className={`flex-1 bg-transparent text-white placeholder-white/50 px-4 py-3 focus:outline-none resize-none text-sm overflow-hidden select-none ${
-                    message.trim() ? 'pr-14' : 'pr-3'
-                  }`}
+                  className={`flex-1 bg-transparent text-white placeholder-white/50 focus:outline-none resize-none text-sm overflow-hidden select-none ${
+                    typeof window !== 'undefined' && 
+                    ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                     window.innerWidth <= 768) ||
+                    ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
+                      ? 'px-3 py-1.5' // Mobile: padding muito mais compacto
+                      : 'px-4 py-3'   // Desktop: padding normal
+                  } ${message.trim() ? 'pr-14' : 'pr-3'}`}
                   style={{ 
-                    minHeight: '44px',
+                    minHeight: typeof window !== 'undefined' && 
+                      ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                       window.innerWidth <= 768) ||
+                      ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
+                        ? '38px' // Mobile: altura mínima menor
+                        : '44px', // Desktop: altura normal
                     maxHeight: '120px'
                   }}
                 />

@@ -1029,12 +1029,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     const deltaX = clientX - dragStart.x;
     const deltaY = clientY - dragStart.y;
     
-    // Constrain to viewport bounds
-    const maxX = window.innerWidth - 100; // Account for counter width
-    const maxY = window.innerHeight - 200; // Account for counter height + safe areas
-    
-    const newX = Math.max(-50, Math.min(maxX, initialPosition.x + deltaX));
-    const newY = Math.max(50, Math.min(maxY, initialPosition.y + deltaY));
+    // 🔥 FUCK IT: Movimento LIVRE em toda a tela
+    const newX = initialPosition.x + deltaX;
+    const newY = initialPosition.y + deltaY;
     
     setDragPosition({ x: newX, y: newY });
   };
@@ -1068,6 +1065,39 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       };
     }
   }, [isDragging, isMobile, dragStart, initialPosition]);
+
+  // ✅ NEW: Set initial position for floating counter
+  useEffect(() => {
+    if (isMobile && isFloating && typeof window !== 'undefined') {
+      // 🔥 SIMPLE: Posição inicial simples no centro-direita
+      const initialX = window.innerWidth - 100; // 100px da direita
+      const initialY = window.innerHeight / 2; // Centro vertical
+      
+      setInitialPosition({ x: initialX, y: initialY });
+      setDragPosition({ x: initialX, y: initialY });
+    }
+  }, [isMobile, isFloating]);
+
+  // ✅ NEW: Handle window resize to maintain position
+  useEffect(() => {
+    if (!isMobile || !isFloating) return;
+    
+    const handleResize = () => {
+      // 🔥 SIMPLE: Apenas reposicionar se estiver fora da tela
+      setDragPosition(prev => ({
+        x: Math.min(prev.x, window.innerWidth - 50),
+        y: Math.min(prev.y, window.innerHeight - 50)
+      }));
+    };
+    
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [isMobile, isFloating]);
 
   return (
     <>

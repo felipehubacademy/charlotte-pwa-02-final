@@ -587,10 +587,12 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   const [initialPosition, setInitialPosition] = useState({ x: 0, y: 0 });
   const [dragPosition, setDragPosition] = useState(() => {
     if (typeof window !== 'undefined' && isMobile && isFloating) {
-      // 📱 POSIÇÃO INICIAL: Lado direito da tela, centro vertical
+      // 📱 POSIÇÃO INICIAL SEGURA: Lado direito com margens
+      const counterWidth = 90;
+      const counterHeight = 80;
       return { 
-        x: window.innerWidth - 100, // Lado direito fixo
-        y: window.innerHeight / 2 - 100 // Centro vertical
+        x: window.innerWidth - counterWidth - 20, // Margem segura da borda direita
+        y: Math.max(100, window.innerHeight / 2 - counterHeight / 2) // Centro vertical seguro
       };
     }
     return { x: 0, y: 0 };
@@ -884,10 +886,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     
     setIsDragging(true);
     
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
-    setDragStart({ x: clientX, y: clientY });
+    setDragStart({ x: 0, y: clientY }); // X não importa mais, apenas Y
     setInitialPosition(dragPosition);
   };
 
@@ -896,23 +897,24 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     
     e.preventDefault();
     
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    
-    const deltaX = clientX - dragStart.x;
     const deltaY = clientY - dragStart.y;
     
-    // 📱 MOBILE: Restringir movimento apenas VERTICAL
-    // Manter posição X fixa (lado direito da tela)
-    const fixedX = window.innerWidth - 100; // Posição fixa no lado direito
+    // 📱 MOVIMENTO APENAS VERTICAL - LIMITES RÍGIDOS
+    const counterWidth = 90; // Largura do counter
+    const counterHeight = 80; // Altura do counter
     
-    // Permitir movimento vertical dentro dos limites seguros
-    const minY = 80; // Espaço para header
-    const maxY = window.innerHeight - 250; // Espaço para footer + safe area
+    // Posição X sempre fixa no lado direito (com margem segura)
+    const fixedX = window.innerWidth - counterWidth - 20; // 20px de margem da borda
     
+    // Limites Y seguros (dentro da área visível)
+    const minY = 100; // Margem do header
+    const maxY = window.innerHeight - counterHeight - 150; // Margem do footer
+    
+    // Calcular nova posição Y baseada no movimento inicial
     const newY = Math.max(minY, Math.min(maxY, initialPosition.y + deltaY));
     
-    // Usar posição X fixa e apenas Y variável
+    // SEMPRE usar posição X fixa, apenas Y varia
     setDragPosition({ x: fixedX, y: newY });
   };
 
@@ -951,9 +953,12 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     if (!isMobile || !isFloating) return;
     
     const handleResize = () => {
+      const counterWidth = 90;
+      const counterHeight = 80;
+      
       setDragPosition(prev => ({
-        x: window.innerWidth - 100, // Manter lado direito fixo
-        y: Math.max(80, Math.min(window.innerHeight - 250, prev.y)) // Ajustar Y se necessário
+        x: window.innerWidth - counterWidth - 20, // Sempre margem segura da borda
+        y: Math.max(100, Math.min(window.innerHeight - counterHeight - 150, prev.y)) // Y dentro dos limites
       }));
     };
     

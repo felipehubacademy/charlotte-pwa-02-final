@@ -403,7 +403,35 @@ input, textarea, select {
 /* ✅ MOBILE: Force internal elements to have bottom spacing on mobile */
 @media (max-width: 768px) {
   .fixed-footer > div {
-    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0)) !important; /* 16px + safe area */
+    padding-bottom: env(safe-area-inset-bottom, 0) !important; /* Apenas safe area, sem padding extra */
+  }
+  
+  /* 🔥 FORCE: Sobrescrever QUALQUER padding no footer mobile */
+  .fixed-footer {
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .fixed-footer > div {
+    padding-top: 0 !important;
+    padding-bottom: env(safe-area-inset-bottom, 0) !important;
+    margin: 0 !important;
+  }
+  
+  /* 🔥 FORCE: Remover padding de qualquer elemento dentro do footer */
+  .fixed-footer * {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  
+  /* 🔥 FORCE: Apenas manter padding horizontal necessário */
+  .fixed-footer .max-w-3xl {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
   }
 }
 
