@@ -1511,7 +1511,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
   };
 
   return (
-    <div className="h-screen bg-secondary flex flex-col">
+    <div className="h-screen bg-secondary flex flex-col overflow-hidden">
       <ChatHeader 
         userName={user?.name}
         userLevel={user?.user_level}
@@ -1538,7 +1538,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         <div className={`max-w-3xl mx-auto px-4 ${
           typeof window !== 'undefined' && 
           ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-            ? 'py-4' 
+            ? 'py-2' 
             : 'py-6'
         }`}>
           <div className="flex items-end space-x-3">
