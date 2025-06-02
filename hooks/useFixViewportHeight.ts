@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 export function useFixViewportHeight() {
   const initialHeightRef = useRef<number>(0);
@@ -22,18 +22,47 @@ export function useFixViewportHeight() {
     
     initialHeightRef.current = window.innerHeight;
 
-    // APENAS define a altura customizada - nada mais
-    const setHeight = () => {
-      document.documentElement.style.setProperty('--app-height', `${initialHeightRef.current}px`);
-    };
+    const applyIOSPWAFixes = useCallback(() => {
+      if (!isPWA) return;
 
-    setHeight();
+      try {
+        // Use window.innerHeight for iOS PWA instead of document height
+        const windowHeight = window.innerHeight;
+        const documentHeight = document.documentElement.clientHeight;
+        
+        // For iOS PWA, we want to use the full window height
+        const targetHeight = windowHeight;
+        
+        // Set CSS custom property
+        document.documentElement.style.setProperty('--app-height', `${targetHeight}px`);
+        
+        // Force body height to match window height
+        document.body.style.height = `${targetHeight}px`;
+        document.body.style.minHeight = `${targetHeight}px`;
+        document.body.style.maxHeight = `${targetHeight}px`;
+        
+        // Ensure html height is also set
+        document.documentElement.style.height = `${targetHeight}px`;
+        document.documentElement.style.minHeight = `${targetHeight}px`;
+        document.documentElement.style.maxHeight = `${targetHeight}px`;
+        
+        // Force overflow hidden to prevent scrolling issues
+        document.body.style.overflow = 'hidden';
+        document.documentElement.style.overflow = 'hidden';
+        
+        console.log(`[iOS PWA Fix] Applied height: ${targetHeight}px (window: ${windowHeight}px, doc: ${documentHeight}px)`);
+      } catch (error) {
+        console.error('[iOS PWA Fix] Error applying fixes:', error);
+      }
+    }, [isPWA]);
+
+    applyIOSPWAFixes();
 
     // Listener apenas para resize
-    window.addEventListener('resize', setHeight);
+    window.addEventListener('resize', applyIOSPWAFixes);
 
     return () => {
-      window.removeEventListener('resize', setHeight);
+      window.removeEventListener('resize', applyIOSPWAFixes);
     };
   }, []);
 } 

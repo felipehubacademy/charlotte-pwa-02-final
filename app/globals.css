@@ -82,13 +82,11 @@ body {
   
   body {
     height: var(--app-height, 100dvh);
+    overflow: hidden;
   }
 }
 
-/* ✅ NEW: Aggressive iOS PWA fixes with keyboard state detection */
-/* REMOVED: keyboard state rules that were interfering with interactions */
-
-/* ✅ CRITICAL: iOS PWA Fixed Header Solution with keyboard detection */
+/* ✅ SIMPLIFIED: iOS PWA Fixed Header Solution */
 .ios-pwa-fixed-header {
   position: fixed !important;
   top: 0 !important;
@@ -96,15 +94,13 @@ body {
   right: 0 !important;
   z-index: 9999 !important;
   transform: translateZ(0) !important;
-  will-change: transform !important;
-  backface-visibility: hidden !important;
   /* ✅ KEY: Add safe area padding for notch */
   padding-top: env(safe-area-inset-top) !important;
   padding-left: env(safe-area-inset-left) !important;
   padding-right: env(safe-area-inset-right) !important;
 }
 
-/* ✅ CRITICAL: iOS PWA Fixed Footer Solution with smart keyboard handling */
+/* ✅ SIMPLIFIED: iOS PWA Fixed Footer Solution */
 .ios-pwa-fixed-footer {
   position: fixed !important;
   bottom: 0 !important;
@@ -114,14 +110,10 @@ body {
   /* ✅ KEY: Add safe area padding for home indicator */
   padding-left: env(safe-area-inset-left) !important;
   padding-right: env(safe-area-inset-right) !important;
-}
-
-/* ✅ NEW: Smart safe area bottom handling - only when keyboard is NOT visible */
-:root:not(:has(input:focus-visible, textarea:focus-visible, [contenteditable]:focus-visible)) .ios-pwa-fixed-footer {
   padding-bottom: env(safe-area-inset-bottom) !important;
 }
 
-/* ✅ CRITICAL: Content area for iOS PWA with dynamic height */
+/* ✅ SIMPLIFIED: Content area for iOS PWA */
 .ios-pwa-content {
   position: fixed !important;
   top: 0 !important;
@@ -135,11 +127,6 @@ body {
   padding-right: env(safe-area-inset-right) !important;
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
-}
-
-/* ✅ NEW: Smart content padding - adjust when keyboard is visible */
-:root:has(input:focus-visible, textarea:focus-visible, [contenteditable]:focus-visible) .ios-pwa-content {
-  padding-bottom: 120px !important; /* Remove safe area when keyboard is visible */
 }
 
 /* Safe Area Utilities */
@@ -204,7 +191,7 @@ body {
   }
 }
 
-/* ✅ CRITICAL: Older iOS support (iOS 11.0 - 11.2) */
+/* ✅ SIMPLIFIED: Older iOS support (iOS 11.0 - 11.2) */
 @supports (padding-top: constant(safe-area-inset-top)) {
   html {
     --safe-area-inset-top: constant(safe-area-inset-top);
@@ -223,9 +210,6 @@ body {
   .ios-pwa-fixed-footer {
     padding-left: constant(safe-area-inset-left) !important;
     padding-right: constant(safe-area-inset-right) !important;
-  }
-  
-  :root:not(:has(input:focus-visible, textarea:focus-visible, [contenteditable]:focus-visible)) .ios-pwa-fixed-footer {
     padding-bottom: constant(safe-area-inset-bottom) !important;
   }
   
@@ -234,23 +218,6 @@ body {
     padding-bottom: calc(120px + constant(safe-area-inset-bottom)) !important;
     padding-left: constant(safe-area-inset-left) !important;
     padding-right: constant(safe-area-inset-right) !important;
-  }
-  
-  :root:has(input:focus-visible, textarea:focus-visible, [contenteditable]:focus-visible) .ios-pwa-content {
-    padding-bottom: 120px !important;
-  }
-}
-
-/* ✅ NEW: Fallback for browsers without :has() support */
-@supports not (selector(:has(*))) {
-  .ios-pwa-fixed-footer {
-    padding-bottom: env(safe-area-inset-bottom) !important;
-  }
-  
-  @supports (padding-top: constant(safe-area-inset-top)) {
-    .ios-pwa-fixed-footer {
-      padding-bottom: constant(safe-area-inset-bottom) !important;
-    }
   }
 }
 

@@ -4,42 +4,51 @@ import { useEffect } from 'react';
 
 export default function IOSPWAHeaderFix() {
   useEffect(() => {
-    // Detecta iPhone PWA
-    const isIPhone = /iPhone/.test(navigator.userAgent);
-    const isPWA = (window.navigator as any).standalone === true || 
-                  window.matchMedia('(display-mode: standalone)').matches;
-
-    if (!isIPhone || !isPWA) {
-      console.log('❌ Not iPhone PWA, skipping header fix');
-      return;
-    }
-
-    console.log('🍎 iPhone PWA detected - applying minimal header fixes');
+    // Only run on iOS PWA
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
     
-    // USA window.innerHeight que é mais preciso para PWA
-    const initialHeight = window.innerHeight;
-    document.documentElement.style.setProperty('--app-height', `${initialHeight}px`);
-    
-    console.log('✅ Set initial height:', initialHeight, 'window height:', window.innerHeight);
+    if (!isIOS || !isPWA) return;
 
-    // Listener para ajustar quando necessário
+    console.log('[IOSPWAHeaderFix] Initializing for iOS PWA');
+
+    const applyHeaderFix = () => {
+      const header = document.querySelector('[data-header="true"]') as HTMLElement;
+      if (!header) return;
+
+      // Apply minimal but effective fixes
+      header.style.position = 'fixed';
+      header.style.top = '0px';
+      header.style.left = '0px';
+      header.style.right = '0px';
+      header.style.zIndex = '9999';
+      header.style.transform = 'translateZ(0)';
+      header.style.webkitTransform = 'translateZ(0)';
+      header.style.webkitBackfaceVisibility = 'hidden';
+      header.style.backfaceVisibility = 'hidden';
+    };
+
+    // Apply fix immediately
+    applyHeaderFix();
+
+    // Apply fix after a short delay to ensure DOM is ready
+    const timeoutId = setTimeout(applyHeaderFix, 100);
+
+    // Listen for resize events (keyboard open/close)
     const handleResize = () => {
-      // Só atualiza se a diferença for significativa (não é teclado)
-      const currentHeight = window.innerHeight;
-      const diff = Math.abs(initialHeight - currentHeight);
-      
-      if (diff < 100) { // Se diferença pequena, mantém altura original
-        document.documentElement.style.setProperty('--app-height', `${initialHeight}px`);
-      }
+      requestAnimationFrame(applyHeaderFix);
     };
 
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
 
+    // Cleanup
     return () => {
+      clearTimeout(timeoutId);
       window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
     };
-
   }, []);
 
-  return null; // Este componente não renderiza nada
+  return null;
 } 

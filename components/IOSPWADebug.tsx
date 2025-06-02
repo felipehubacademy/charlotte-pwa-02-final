@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 
 interface DebugInfo {
   isIOS: boolean;
   isPWA: boolean;
-  userAgent: string;
-  standalone: boolean;
+  isStandalone: boolean;
   displayMode: string;
   windowHeight: number;
   documentHeight: number;
@@ -18,51 +17,109 @@ interface DebugInfo {
   headerPosition: string;
   headerTop: string;
   headerZIndex: string;
+  userAgent: string;
+  bodyClasses: string;
+  heightDifference: number;
 }
 
 export default function IOSPWADebug() {
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
+  const [debugInfo, setDebugInfo] = useState({
+    isIOS: false,
+    isPWA: false,
+    isStandalone: false,
+    displayMode: '',
+    windowHeight: 0,
+    documentHeight: 0,
+    bodyHeight: 0,
+    appHeight: '',
+    keyboardHeight: '',
+    safeAreaTop: '',
+    safeAreaBottom: '',
+    headerPosition: '',
+    headerTop: '',
+    headerZIndex: '',
+    userAgent: '',
+    bodyClasses: '',
+    heightDifference: 0,
+  });
   const [isVisible, setIsVisible] = useState(false);
 
+  const updateDebugInfo = useCallback(() => {
+    const windowHeight = window.innerHeight;
+    const documentHeight = document.documentElement.clientHeight;
+    const heightDifference = windowHeight - documentHeight;
+    
+    setDebugInfo({
+      isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+      isPWA: window.matchMedia('(display-mode: standalone)').matches,
+      isStandalone: (window.navigator as any).standalone === true,
+      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+      windowHeight,
+      documentHeight,
+      bodyHeight: document.body.clientHeight,
+      appHeight: getComputedStyle(document.documentElement).getPropertyValue('--app-height') || 'not set',
+      keyboardHeight: getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height') || 'not set',
+      safeAreaTop: getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0px',
+      safeAreaBottom: getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0px',
+      headerPosition: '',
+      headerTop: '',
+      headerZIndex: '',
+      userAgent: navigator.userAgent,
+      bodyClasses: document.body.className,
+      heightDifference,
+    });
+
+    // Get header info
+    const header = document.querySelector('[data-header="true"]') as HTMLElement;
+    if (header) {
+      const styles = getComputedStyle(header);
+      setDebugInfo(prev => ({
+        ...prev,
+        headerPosition: styles.position,
+        headerTop: styles.top,
+        headerZIndex: styles.zIndex,
+      }));
+    }
+  }, []);
+
+  // Manual fix function
+  const applyManualFix = useCallback(() => {
+    const windowHeight = window.innerHeight;
+    
+    // Set CSS custom property
+    document.documentElement.style.setProperty('--app-height', `${windowHeight}px`);
+    
+    // Force body height to match window height
+    document.body.style.height = `${windowHeight}px`;
+    document.body.style.minHeight = `${windowHeight}px`;
+    document.body.style.maxHeight = `${windowHeight}px`;
+    
+    // Ensure html height is also set
+    document.documentElement.style.height = `${windowHeight}px`;
+    document.documentElement.style.minHeight = `${windowHeight}px`;
+    document.documentElement.style.maxHeight = `${windowHeight}px`;
+    
+    // Force overflow hidden
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    
+    // Force header to stay fixed
+    const header = document.querySelector('[data-header="true"]') as HTMLElement;
+    if (header) {
+      header.style.position = 'fixed';
+      header.style.top = '0px';
+      header.style.left = '0px';
+      header.style.right = '0px';
+      header.style.zIndex = '9999';
+      header.style.transform = 'translateZ(0)';
+      header.style.webkitTransform = 'translateZ(0)';
+    }
+    
+    updateDebugInfo();
+    console.log(`[Manual Fix] Applied window height: ${windowHeight}px`);
+  }, [updateDebugInfo]);
+
   useEffect(() => {
-    const updateDebugInfo = () => {
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
-                    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      
-      const isPWA = (window.navigator as any).standalone === true || 
-                    window.matchMedia('(display-mode: standalone)').matches ||
-                    window.matchMedia('(display-mode: fullscreen)').matches ||
-                    window.matchMedia('(display-mode: minimal-ui)').matches;
-
-      const getComputedStyleValue = (property: string): string => {
-        return window.getComputedStyle(document.documentElement).getPropertyValue(property) || 'not set';
-      };
-
-      // Get header info
-      const header = document.querySelector('header, [data-header="true"]') as HTMLElement;
-      const headerPosition = header ? window.getComputedStyle(header).position : 'not found';
-      const headerTop = header ? window.getComputedStyle(header).top : 'not found';
-      const headerZIndex = header ? window.getComputedStyle(header).zIndex : 'not found';
-
-      setDebugInfo({
-        isIOS,
-        isPWA,
-        userAgent: navigator.userAgent,
-        standalone: (window.navigator as any).standalone === true,
-        displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
-        windowHeight: window.innerHeight,
-        documentHeight: document.documentElement.clientHeight,
-        bodyHeight: document.body.clientHeight,
-        appHeight: getComputedStyleValue('--app-height'),
-        keyboardHeight: getComputedStyleValue('--keyboard-height'),
-        safeAreaTop: getComputedStyleValue('--safe-area-inset-top'),
-        safeAreaBottom: getComputedStyleValue('--safe-area-inset-bottom'),
-        headerPosition,
-        headerTop,
-        headerZIndex
-      });
-    };
-
     updateDebugInfo();
 
     // Atualiza a cada segundo
@@ -83,7 +140,7 @@ export default function IOSPWADebug() {
         window.visualViewport.removeEventListener('resize', updateDebugInfo);
       }
     };
-  }, []);
+  }, [updateDebugInfo]);
 
   if (!debugInfo) return null;
 
@@ -111,19 +168,16 @@ export default function IOSPWADebug() {
             </button>
           </div>
           
-          <div className="space-y-1">
-            <div className={`${debugInfo.isIOS ? 'text-green-400' : 'text-red-400'}`}>
-              iOS: {debugInfo.isIOS ? '✅' : '❌'}
-            </div>
-            <div className={`${debugInfo.isPWA ? 'text-green-400' : 'text-red-400'}`}>
-              PWA: {debugInfo.isPWA ? '✅' : '❌'}
-            </div>
-            <div className={`${debugInfo.standalone ? 'text-green-400' : 'text-red-400'}`}>
-              Standalone: {debugInfo.standalone ? '✅' : '❌'}
-            </div>
+          <div className="space-y-1 text-xs">
+            <div>iOS: {debugInfo.isIOS ? '✅' : '❌'}</div>
+            <div>PWA: {debugInfo.isPWA ? '✅' : '❌'}</div>
+            <div>Standalone: {debugInfo.isStandalone ? '✅' : '❌'}</div>
             <div>Display Mode: {debugInfo.displayMode}</div>
             <div>Window Height: {debugInfo.windowHeight}px</div>
             <div>Document Height: {debugInfo.documentHeight}px</div>
+            <div className={debugInfo.heightDifference !== 0 ? 'text-yellow-400 font-bold' : ''}>
+              Height Difference: {debugInfo.heightDifference}px
+            </div>
             <div>Body Height: {debugInfo.bodyHeight}px</div>
             <div>App Height: {debugInfo.appHeight}</div>
             <div>Keyboard Height: {debugInfo.keyboardHeight}</div>
@@ -132,15 +186,22 @@ export default function IOSPWADebug() {
             <div>Header Position: {debugInfo.headerPosition}</div>
             <div>Header Top: {debugInfo.headerTop}</div>
             <div>Header Z-Index: {debugInfo.headerZIndex}</div>
-            <div className="mt-2 pt-2 border-t border-gray-600">
-              <div className="text-gray-400 text-[10px] break-all">
-                UA: {debugInfo.userAgent}
-              </div>
-            </div>
-            <div className="mt-2 pt-2 border-t border-gray-600">
-              <div className="text-yellow-400 text-[10px]">
-                Body Classes: {document.body.className}
-              </div>
+            <div className="text-xs break-all">UA: {debugInfo.userAgent}</div>
+            <div className="text-xs break-all">Body Classes: {debugInfo.bodyClasses}</div>
+            
+            <div className="pt-2 space-y-1">
+              <button 
+                onClick={applyManualFix}
+                className="w-full px-2 py-1 bg-blue-600 text-white rounded text-xs hover:bg-blue-700"
+              >
+                🔧 Apply Manual Fix
+              </button>
+              <button 
+                onClick={updateDebugInfo}
+                className="w-full px-2 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+              >
+                🔄 Refresh Info
+              </button>
             </div>
           </div>
         </div>
