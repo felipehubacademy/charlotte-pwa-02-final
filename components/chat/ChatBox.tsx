@@ -467,14 +467,22 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   React.useEffect(scrollToBottom, [messages, isProcessingMessage]);
 
+  // Detectar mobile
+  const isMobile = typeof window !== 'undefined' && 
+    (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+     window.innerWidth <= 768);
+
   return (
     <div 
       className="px-3 sm:px-4 py-2 sm:py-4 flex-1" 
       style={{ 
         paddingTop: 'calc(3.5rem + env(safe-area-inset-top))', // Espaço para header
         paddingBottom: 'calc(100px + env(safe-area-inset-bottom))', // Espaço para footer
-        overflowY: messages.length > 2 ? 'auto' : 'hidden',
-        WebkitOverflowScrolling: 'touch'
+        WebkitOverflowScrolling: 'touch',
+        // Mobile: overflow hidden quando não há mensagens, auto quando há
+        overflowY: isMobile 
+          ? (messages.length === 0 ? 'hidden' : 'auto')
+          : (messages.length > 2 ? 'auto' : 'hidden')
       }}
     >
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">

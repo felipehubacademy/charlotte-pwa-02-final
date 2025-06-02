@@ -317,13 +317,24 @@ input, textarea, select {
 /* Smooth scrolling for chat */
 .chat-scroll {
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  overscroll-behavior: none;
 }
 
 .chat-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* Mobile-specific chat container */
+.mobile-chat-container {
+  overflow: hidden !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+}
+
+.mobile-chat-container > div:nth-child(2) {
+  /* ChatBox específico para mobile */
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: none !important;
 }
 
 /* Prevent text selection on touch devices */

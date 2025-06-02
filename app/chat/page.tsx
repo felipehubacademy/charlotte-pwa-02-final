@@ -1510,7 +1510,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
   };
 
   return (
-    <div className="h-screen bg-secondary flex flex-col relative">
+    <div className={`h-screen bg-secondary flex flex-col relative ${
+      typeof window !== 'undefined' && 
+      (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+       window.innerWidth <= 768) 
+        ? 'mobile-chat-container' 
+        : ''
+    }`}>
       <ChatHeader 
         userName={user?.name}
         userLevel={user?.user_level}
