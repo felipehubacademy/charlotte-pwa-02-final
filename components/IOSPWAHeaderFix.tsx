@@ -3,8 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 export default function IOSPWAHeaderFix() {
-  const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
-  const originalHeaderRef = useRef<HTMLElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Ensure we're on the client side
@@ -17,120 +16,76 @@ export default function IOSPWAHeaderFix() {
       
       if (!isIOS || !isPWA) return;
 
-      console.log('[IOSPWAHeaderFix] 🔥 FINAL ATTEMPT - Sticky viewport header');
+      console.log('[IOSPWAHeaderFix] 🎯 SIMPLE SOLUTION - Fixed overlay header');
 
-      const createStickyHeader = () => {
-        // Find original header
-        const originalHeader = document.querySelector('[data-header="true"]') as HTMLElement;
-        if (!originalHeader) return;
-
-        originalHeaderRef.current = originalHeader;
-
-        // Hide original completely
-        originalHeader.style.display = 'none';
-
-        // Remove existing sticky header
-        if (stickyHeaderRef.current) {
-          stickyHeaderRef.current.remove();
+      const createSimpleOverlay = () => {
+        // Remove existing overlay
+        if (overlayRef.current) {
+          overlayRef.current.remove();
         }
 
-        // Create sticky header that iOS cannot touch
-        const stickyHeader = document.createElement('div');
-        stickyHeader.id = 'ios-sticky-header';
-        stickyHeaderRef.current = stickyHeader;
+        // Create simple overlay
+        const overlay = document.createElement('div');
+        overlay.id = 'simple-header-overlay';
+        overlayRef.current = overlay;
 
-        // Copy content from original
-        stickyHeader.innerHTML = originalHeader.innerHTML;
-
-        // FINAL ATTEMPT: Use all possible CSS tricks
-        stickyHeader.style.cssText = `
-          position: -webkit-sticky !important;
-          position: sticky !important;
+        // Simple fixed overlay that iOS hopefully can't touch
+        overlay.style.cssText = `
+          position: fixed !important;
           top: 0 !important;
           left: 0 !important;
           right: 0 !important;
-          width: 100vw !important;
-          height: auto !important;
+          width: 100% !important;
+          height: 80px !important;
           z-index: 999999 !important;
-          background: var(--secondary, #16153A) !important;
-          transform: translate3d(0, 0, 0) !important;
-          -webkit-transform: translate3d(0, 0, 0) !important;
-          will-change: transform !important;
-          backface-visibility: hidden !important;
-          -webkit-backface-visibility: hidden !important;
-          contain: layout style paint !important;
-          isolation: isolate !important;
-          margin: 0 !important;
-          padding: env(safe-area-inset-top, 0) 1rem 1rem 1rem !important;
-          box-sizing: border-box !important;
+          background: #16153A !important;
           display: flex !important;
           align-items: center !important;
           justify-content: space-between !important;
-          min-height: 60px !important;
+          padding: 0 1rem !important;
+          box-sizing: border-box !important;
+          pointer-events: auto !important;
+          border-bottom: 1px solid rgba(255,255,255,0.1) !important;
         `;
 
-        // Insert at the very beginning of body
-        document.body.insertBefore(stickyHeader, document.body.firstChild);
+        // Add simple content
+        overlay.innerHTML = `
+          <div style="display: flex; align-items: center; color: white;">
+            <div style="width: 40px; height: 40px; border-radius: 50%; background: #A3FF3C; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
+              <span style="color: black; font-weight: bold;">C</span>
+            </div>
+            <div>
+              <div style="font-weight: bold; font-size: 16px;">Charlotte</div>
+              <div style="font-size: 12px; color: #A3FF3C;">online</div>
+            </div>
+          </div>
+          <div style="color: white; font-size: 24px; cursor: pointer;" onclick="window.history.back()">×</div>
+        `;
 
-        // Force body to have padding-top to account for header
-        document.body.style.paddingTop = '80px';
+        // Add to body
+        document.body.appendChild(overlay);
 
-        console.log('[IOSPWAHeaderFix] ✅ Sticky header created');
+        console.log('[IOSPWAHeaderFix] ✅ Simple overlay created');
       };
 
-      // Create immediately
-      createStickyHeader();
+      // Create once and leave it alone
+      createSimpleOverlay();
 
-      // Recreate on any viewport change
-      const handleViewportChange = () => {
-        setTimeout(createStickyHeader, 10);
-      };
-
-      window.addEventListener('resize', handleViewportChange);
-      window.addEventListener('orientationchange', handleViewportChange);
-      document.addEventListener('focusin', handleViewportChange);
-      document.addEventListener('focusout', handleViewportChange);
-
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', handleViewportChange);
-      }
-
-      // Monitor and recreate if moved
-      const monitorInterval = setInterval(() => {
-        if (stickyHeaderRef.current) {
-          const rect = stickyHeaderRef.current.getBoundingClientRect();
-          if (rect.top < -50 || rect.top > 100) {
-            console.log(`[IOSPWAHeaderFix] 🚨 Sticky header moved to ${rect.top}px - RECREATING`);
-            createStickyHeader();
-          }
+      // Only recreate if it gets completely removed
+      const checkInterval = setInterval(() => {
+        if (!document.getElementById('simple-header-overlay')) {
+          console.log('[IOSPWAHeaderFix] 🔄 Overlay removed, recreating');
+          createSimpleOverlay();
         }
-      }, 100);
+      }, 5000); // Check every 5 seconds, not constantly
 
       // Cleanup
       return () => {
-        clearInterval(monitorInterval);
+        clearInterval(checkInterval);
         
-        window.removeEventListener('resize', handleViewportChange);
-        window.removeEventListener('orientationchange', handleViewportChange);
-        document.removeEventListener('focusin', handleViewportChange);
-        document.removeEventListener('focusout', handleViewportChange);
-        
-        if (window.visualViewport) {
-          window.visualViewport.removeEventListener('resize', handleViewportChange);
+        if (overlayRef.current) {
+          overlayRef.current.remove();
         }
-
-        // Restore original
-        if (originalHeaderRef.current) {
-          originalHeaderRef.current.style.display = '';
-        }
-
-        // Remove sticky header
-        if (stickyHeaderRef.current) {
-          stickyHeaderRef.current.remove();
-        }
-
-        // Remove body padding
-        document.body.style.paddingTop = '';
       };
     } catch (error) {
       console.error('[IOSPWAHeaderFix] Error:', error);
