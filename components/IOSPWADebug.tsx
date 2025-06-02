@@ -45,81 +45,98 @@ export default function IOSPWADebug() {
   const [isVisible, setIsVisible] = useState(false);
 
   const updateDebugInfo = useCallback(() => {
-    const windowHeight = window.innerHeight;
-    const documentHeight = document.documentElement.clientHeight;
-    const heightDifference = windowHeight - documentHeight;
-    
-    setDebugInfo({
-      isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
-      isPWA: window.matchMedia('(display-mode: standalone)').matches,
-      isStandalone: (window.navigator as any).standalone === true,
-      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
-      windowHeight,
-      documentHeight,
-      bodyHeight: document.body.clientHeight,
-      appHeight: getComputedStyle(document.documentElement).getPropertyValue('--app-height') || 'not set',
-      keyboardHeight: getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height') || 'not set',
-      safeAreaTop: getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0px',
-      safeAreaBottom: getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0px',
-      headerPosition: '',
-      headerTop: '',
-      headerZIndex: '',
-      userAgent: navigator.userAgent,
-      bodyClasses: document.body.className,
-      heightDifference,
-    });
+    // Ensure we're on the client side
+    if (typeof window === 'undefined') return;
 
-    // Get header info
-    const header = document.querySelector('[data-header="true"]') as HTMLElement;
-    if (header) {
-      const styles = getComputedStyle(header);
-      setDebugInfo(prev => ({
-        ...prev,
-        headerPosition: styles.position,
-        headerTop: styles.top,
-        headerZIndex: styles.zIndex,
-      }));
+    try {
+      const windowHeight = window.innerHeight;
+      const documentHeight = document.documentElement.clientHeight;
+      const heightDifference = windowHeight - documentHeight;
+      
+      setDebugInfo({
+        isIOS: /iPad|iPhone|iPod/.test(navigator.userAgent),
+        isPWA: window.matchMedia('(display-mode: standalone)').matches,
+        isStandalone: (window.navigator as any).standalone === true,
+        displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+        windowHeight,
+        documentHeight,
+        bodyHeight: document.body.clientHeight,
+        appHeight: getComputedStyle(document.documentElement).getPropertyValue('--app-height') || 'not set',
+        keyboardHeight: getComputedStyle(document.documentElement).getPropertyValue('--keyboard-height') || 'not set',
+        safeAreaTop: getComputedStyle(document.documentElement).getPropertyValue('--sat') || '0px',
+        safeAreaBottom: getComputedStyle(document.documentElement).getPropertyValue('--sab') || '0px',
+        headerPosition: '',
+        headerTop: '',
+        headerZIndex: '',
+        userAgent: navigator.userAgent,
+        bodyClasses: document.body.className,
+        heightDifference,
+      });
+
+      // Get header info
+      const header = document.querySelector('[data-header="true"]') as HTMLElement;
+      if (header) {
+        const styles = getComputedStyle(header);
+        setDebugInfo(prev => ({
+          ...prev,
+          headerPosition: styles.position,
+          headerTop: styles.top,
+          headerZIndex: styles.zIndex,
+        }));
+      }
+    } catch (error) {
+      console.error('[IOSPWADebug] Error updating debug info:', error);
     }
   }, []);
 
   // Manual fix function
   const applyManualFix = useCallback(() => {
-    const windowHeight = window.innerHeight;
-    
-    // Set CSS custom property
-    document.documentElement.style.setProperty('--app-height', `${windowHeight}px`);
-    
-    // Force body height to match window height
-    document.body.style.height = `${windowHeight}px`;
-    document.body.style.minHeight = `${windowHeight}px`;
-    document.body.style.maxHeight = `${windowHeight}px`;
-    
-    // Ensure html height is also set
-    document.documentElement.style.height = `${windowHeight}px`;
-    document.documentElement.style.minHeight = `${windowHeight}px`;
-    document.documentElement.style.maxHeight = `${windowHeight}px`;
-    
-    // Force overflow hidden
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    
-    // Force header to stay fixed
-    const header = document.querySelector('[data-header="true"]') as HTMLElement;
-    if (header) {
-      header.style.position = 'fixed';
-      header.style.top = '0px';
-      header.style.left = '0px';
-      header.style.right = '0px';
-      header.style.zIndex = '9999';
-      header.style.transform = 'translateZ(0)';
-      header.style.webkitTransform = 'translateZ(0)';
+    // Ensure we're on the client side
+    if (typeof window === 'undefined') return;
+
+    try {
+      const windowHeight = window.innerHeight;
+      
+      // Set CSS custom property
+      document.documentElement.style.setProperty('--app-height', `${windowHeight}px`);
+      
+      // Force body height to match window height
+      document.body.style.height = `${windowHeight}px`;
+      document.body.style.minHeight = `${windowHeight}px`;
+      document.body.style.maxHeight = `${windowHeight}px`;
+      
+      // Ensure html height is also set
+      document.documentElement.style.height = `${windowHeight}px`;
+      document.documentElement.style.minHeight = `${windowHeight}px`;
+      document.documentElement.style.maxHeight = `${windowHeight}px`;
+      
+      // Force overflow hidden
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      
+      // Force header to stay fixed
+      const header = document.querySelector('[data-header="true"]') as HTMLElement;
+      if (header) {
+        header.style.position = 'fixed';
+        header.style.top = '0px';
+        header.style.left = '0px';
+        header.style.right = '0px';
+        header.style.zIndex = '9999';
+        header.style.transform = 'translateZ(0)';
+        header.style.webkitTransform = 'translateZ(0)';
+      }
+      
+      updateDebugInfo();
+      console.log(`[Manual Fix] Applied window height: ${windowHeight}px`);
+    } catch (error) {
+      console.error('[IOSPWADebug] Error applying manual fix:', error);
     }
-    
-    updateDebugInfo();
-    console.log(`[Manual Fix] Applied window height: ${windowHeight}px`);
   }, [updateDebugInfo]);
 
   useEffect(() => {
+    // Ensure we're on the client side
+    if (typeof window === 'undefined') return;
+
     updateDebugInfo();
 
     // Atualiza a cada segundo
