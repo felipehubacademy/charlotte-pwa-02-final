@@ -5,6 +5,7 @@ import { AuthProvider } from '@/components/auth/AuthProvider';
 import { Toaster } from 'react-hot-toast';
 import { Suspense } from 'react';
 import PWAInstaller from '@/components/PWAInstaller';
+import ClientLayout from './ClientLayout';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -59,37 +60,39 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-secondary text-white antialiased`} suppressHydrationWarning>
         <PWAInstaller />
-        <AuthProvider>
-          <Suspense fallback={
-            <div className="min-h-screen bg-secondary flex items-center justify-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
-            </div>
-          }>
-            {children}
-          </Suspense>
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              style: {
-                background: '#212121',
-                color: '#FFFFFF',
-                border: '1px solid rgba(163, 255, 60, 0.2)',
-              },
-              success: {
-                iconTheme: {
-                  primary: '#A3FF3C',
-                  secondary: '#000000',
+        <ClientLayout>
+          <AuthProvider>
+            <Suspense fallback={
+              <div className="min-h-screen bg-secondary flex items-center justify-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
+              </div>
+            }>
+              {children}
+            </Suspense>
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  background: '#212121',
+                  color: '#FFFFFF',
+                  border: '1px solid rgba(163, 255, 60, 0.2)',
                 },
-              },
-              error: {
-                iconTheme: {
-                  primary: '#FF3B30',
-                  secondary: '#FFFFFF',
+                success: {
+                  iconTheme: {
+                    primary: '#A3FF3C',
+                    secondary: '#000000',
+                  },
                 },
-              },
-            }}
-          />
-        </AuthProvider>
+                error: {
+                  iconTheme: {
+                    primary: '#FF3B30',
+                    secondary: '#FFFFFF',
+                  },
+                },
+              }}
+            />
+          </AuthProvider>
+        </ClientLayout>
       </body>
     </html>
   );

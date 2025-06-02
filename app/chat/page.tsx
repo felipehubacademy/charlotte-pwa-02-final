@@ -16,6 +16,9 @@ import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/li
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { ClientAudioConverter } from '@/lib/audio-converter-client';
+import Header from '@/components/Header';
+import MainContent from '@/components/MainContent';
+import ChatHeader from '@/components/ChatHeader';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -1515,54 +1518,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
   return (
     <div className="h-screen bg-secondary flex flex-col overflow-hidden">
-      <header className={`flex-shrink-0 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
-        typeof window !== 'undefined' && 
-        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-pwa-fixed-header' 
-          : 'pt-safe'
-      }`}>
-        <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
-          {/* Left side - Charlotte info */}
-          <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
-            <CharlotteAvatar 
-              size="md"
-              showStatus={true}
-              isOnline={true}
-              animate={true}
-            />
-            <div className="min-w-0 flex-1">
-              <h1 className="text-white font-semibold text-sm sm:text-base">Charlotte</h1>
-              <p className="text-green-400 text-xs font-medium">online</p>
-            </div>
-          </div>
-          
-          {/* Right side - User info and controls */}
-          <div className="flex items-center space-x-2 flex-shrink-0">
-            <div className="flex flex-col items-center text-center min-w-[60px] sm:min-w-[70px]">
-              <p className="text-white text-xs font-medium truncate max-w-14 sm:max-w-16 leading-tight">
-                {user?.name?.split(' ')[0]}
-              </p>
-              <span className="inline-block text-black text-[9px] sm:text-xs px-1 sm:px-1.5 py-0.5 bg-primary rounded-full font-semibold mt-0.5">
-                {user?.user_level}
-              </span>
-            </div>
-            
-            <button 
-              onClick={logout}
-              className="p-1.5 sm:p-2 text-white/70 hover:text-white active:bg-white/10 rounded-full transition-colors flex-shrink-0"
-            >
-              <LogOut size={14} className="sm:w-4 sm:h-4" />
-            </button>
-          </div>
-        </div>
-      </header>
+      <ChatHeader 
+        userName={user?.name}
+        userLevel={user?.user_level}
+        onLogout={logout}
+      />
 
-      <div className={
-        typeof window !== 'undefined' && 
-        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-pwa-content' // iOS PWA: use fixed positioning with proper padding
-          : 'pt-[60px] sm:pt-[70px] flex-1 flex flex-col' // Normal: padding for header
-      }>
+      <MainContent>
         <ChatBox
           messages={messages}
           transcript={transcript}
@@ -1570,7 +1532,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           isProcessingMessage={isProcessingMessage}
           userLevel={user?.user_level || 'Novice'}
         />
-      </div>
+      </MainContent>
 
       {/* ✅ UPDATED: Footer with iOS PWA specific classes */}
       <div className={`flex-shrink-0 bg-secondary ${
