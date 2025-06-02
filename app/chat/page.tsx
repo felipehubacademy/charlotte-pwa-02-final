@@ -1517,13 +1517,15 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onLogout={logout}
       />
 
-      <ChatBox
-        messages={messages}
-        transcript={transcript}
-        finalTranscript={finalTranscript}
-        isProcessingMessage={isProcessingMessage}
-        userLevel={user?.user_level || 'Novice'}
-      />
+      <div className="flex-1 overflow-y-auto">
+        <ChatBox
+          messages={messages}
+          transcript={transcript}
+          finalTranscript={finalTranscript}
+          isProcessingMessage={isProcessingMessage}
+          userLevel={user?.user_level || 'Novice'}
+        />
+      </div>
 
       {/* ✅ FIXED: Footer now truly fixed at bottom, independent of ChatBox and keyboard */}
       <div className={`fixed-footer bg-secondary border-t border-white/5 ${
