@@ -1511,7 +1511,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
   };
 
   return (
-    <div className="h-screen bg-secondary flex flex-col overflow-hidden">
+    <div className="h-screen bg-secondary flex flex-col overflow-hidden relative">
       <ChatHeader 
         userName={user?.name}
         userLevel={user?.user_level}
@@ -1528,8 +1528,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         />
       </MainContent>
 
-      {/* ✅ UPDATED: Footer with iOS PWA specific classes */}
-      <div className={`flex-shrink-0 bg-secondary ${
+      {/* ✅ FIXED: Footer now fixed at bottom, independent of ChatBox */}
+      <div className={`fixed bottom-0 left-0 right-0 bg-secondary border-t border-white/5 ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
           ? 'pb-safe' 

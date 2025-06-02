@@ -472,9 +472,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
 
   return (
-    <div className={`flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 chat-scroll ${
-      isIOSPWA ? 'pb-4 sm:pb-6' : 'pb-32 sm:pb-36'
-    }`} style={{ 
+    <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 chat-scroll" style={{ 
       WebkitOverflowScrolling: 'touch',
       overscrollBehavior: 'none'
     }}>

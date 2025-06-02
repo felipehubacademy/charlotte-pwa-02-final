@@ -43,6 +43,7 @@ export default function MainContent({
           paddingTop: hasHeader 
             ? `calc(3.5rem + env(safe-area-inset-top))` 
             : 'env(safe-area-inset-top)',
+          paddingBottom: 'calc(80px + env(safe-area-inset-bottom))', // Espaço para footer fixo
           paddingLeft: 'env(safe-area-inset-left)',
           paddingRight: 'env(safe-area-inset-right)'
         }}
@@ -60,6 +61,7 @@ export default function MainContent({
         paddingTop: hasHeader 
           ? `calc(3.5rem + env(safe-area-inset-top))` 
           : 'env(safe-area-inset-top)',
+        paddingBottom: 'calc(120px + env(safe-area-inset-bottom))', // Espaço para footer fixo
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)'
       }}
