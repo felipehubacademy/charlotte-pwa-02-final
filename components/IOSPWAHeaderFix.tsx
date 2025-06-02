@@ -5,6 +5,7 @@ import { useEffect, useRef } from 'react';
 export default function IOSPWAHeaderFix() {
   const initialViewportHeight = useRef<number>(0);
   const headerRef = useRef<HTMLElement | null>(null);
+  const isFixingRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Ensure we're on the client side
@@ -17,18 +18,19 @@ export default function IOSPWAHeaderFix() {
       
       if (!isIOS || !isPWA) return;
 
-      console.log('[IOSPWAHeaderFix] Initializing AGGRESSIVE header fix for iOS PWA');
+      console.log('[IOSPWAHeaderFix] Initializing ULTRA AGGRESSIVE header fix for iOS PWA');
 
       // Store initial viewport height
       initialViewportHeight.current = window.innerHeight;
 
       const forceHeaderPosition = () => {
-        if (typeof window === 'undefined') return;
+        if (typeof window === 'undefined' || isFixingRef.current) return;
         
         const header = document.querySelector('[data-header="true"]') as HTMLElement;
         if (!header) return;
 
         headerRef.current = header;
+        isFixingRef.current = true;
 
         try {
           // ULTRA AGGRESSIVE: Force position with !important via style attribute
@@ -38,50 +40,54 @@ export default function IOSPWAHeaderFix() {
             left: 0px !important;
             right: 0px !important;
             z-index: 9999 !important;
-            transform: translateZ(0) !important;
-            -webkit-transform: translateZ(0) !important;
+            transform: translateZ(0) translateY(0px) !important;
+            -webkit-transform: translateZ(0) translateY(0px) !important;
             -webkit-backface-visibility: hidden !important;
             backface-visibility: hidden !important;
             will-change: transform !important;
             width: 100% !important;
             max-width: 100vw !important;
+            margin: 0px !important;
+            padding-top: env(safe-area-inset-top, 0px) !important;
           `;
 
-          // Force the header to stay at the top of the VISUAL viewport
-          if (window.visualViewport) {
-            header.style.top = `${window.visualViewport.offsetTop}px !important`;
-          }
+          // FORCE: Override any transform that might move it
+          header.style.setProperty('transform', 'translateZ(0) translateY(0px)', 'important');
+          header.style.setProperty('-webkit-transform', 'translateZ(0) translateY(0px)', 'important');
+          header.style.setProperty('top', '0px', 'important');
 
-          console.log('[IOSPWAHeaderFix] Applied AGGRESSIVE header positioning');
+          console.log('[IOSPWAHeaderFix] Applied ULTRA AGGRESSIVE header positioning');
         } catch (error) {
           console.error('[IOSPWAHeaderFix] Error applying header fix:', error);
+        } finally {
+          isFixingRef.current = false;
         }
       };
 
-      // Apply fix immediately
+      // Apply fix immediately and repeatedly
       forceHeaderPosition();
-
-      // Apply fix after DOM is ready
+      setTimeout(forceHeaderPosition, 10);
       setTimeout(forceHeaderPosition, 50);
       setTimeout(forceHeaderPosition, 100);
       setTimeout(forceHeaderPosition, 200);
 
-      // AGGRESSIVE: Monitor viewport changes
+      // ULTRA AGGRESSIVE: Monitor viewport changes with immediate response
       const handleViewportChange = () => {
+        // Use multiple requestAnimationFrame for immediate response
         requestAnimationFrame(() => {
           forceHeaderPosition();
-          
-          // Double-check after a short delay
-          setTimeout(forceHeaderPosition, 10);
+          requestAnimationFrame(() => {
+            forceHeaderPosition();
+          });
         });
       };
 
       // Listen to ALL possible events that could move the header
-      window.addEventListener('resize', handleViewportChange);
-      window.addEventListener('orientationchange', handleViewportChange);
-      window.addEventListener('scroll', handleViewportChange);
-      document.addEventListener('focusin', handleViewportChange);
-      document.addEventListener('focusout', handleViewportChange);
+      window.addEventListener('resize', handleViewportChange, { passive: false });
+      window.addEventListener('orientationchange', handleViewportChange, { passive: false });
+      window.addEventListener('scroll', handleViewportChange, { passive: false });
+      document.addEventListener('focusin', handleViewportChange, { passive: false });
+      document.addEventListener('focusout', handleViewportChange, { passive: false });
 
       // Visual Viewport API for more precise control
       if (window.visualViewport) {
@@ -89,21 +95,35 @@ export default function IOSPWAHeaderFix() {
         window.visualViewport.addEventListener('scroll', handleViewportChange);
       }
 
-      // ULTRA AGGRESSIVE: Polling to ensure header stays in place
-      const pollingInterval = setInterval(() => {
-        if (headerRef.current) {
+      // HYPER AGGRESSIVE: Faster polling to catch and fix movement immediately
+      const fastPollingInterval = setInterval(() => {
+        if (headerRef.current && !isFixingRef.current) {
           const rect = headerRef.current.getBoundingClientRect();
-          // If header moved from top, force it back
-          if (rect.top !== 0) {
-            console.log(`[IOSPWAHeaderFix] Header moved to ${rect.top}px, forcing back to top`);
+          // If header moved from top, force it back IMMEDIATELY
+          if (Math.abs(rect.top) > 1) { // Allow 1px tolerance
+            console.log(`[IOSPWAHeaderFix] 🚨 Header moved to ${rect.top}px, FORCING back to top IMMEDIATELY`);
+            forceHeaderPosition();
+            // Double-fix after a tiny delay
+            setTimeout(forceHeaderPosition, 5);
+          }
+        }
+      }, 16); // Check every 16ms (60fps)
+
+      // Secondary polling as backup
+      const backupPollingInterval = setInterval(() => {
+        if (headerRef.current && !isFixingRef.current) {
+          const rect = headerRef.current.getBoundingClientRect();
+          if (Math.abs(rect.top) > 1) {
+            console.log(`[IOSPWAHeaderFix] 🔄 Backup fix: Header at ${rect.top}px`);
             forceHeaderPosition();
           }
         }
-      }, 100); // Check every 100ms
+      }, 100);
 
       // Cleanup
       return () => {
-        clearInterval(pollingInterval);
+        clearInterval(fastPollingInterval);
+        clearInterval(backupPollingInterval);
         window.removeEventListener('resize', handleViewportChange);
         window.removeEventListener('orientationchange', handleViewportChange);
         window.removeEventListener('scroll', handleViewportChange);
