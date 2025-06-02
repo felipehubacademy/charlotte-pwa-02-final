@@ -476,7 +476,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     <div 
       className="px-3 sm:px-4 py-2 sm:py-4 flex-1" 
       style={{ 
-        paddingTop: 'calc(3.5rem + env(safe-area-inset-top))', // Espaço para header
+        paddingTop: isMobile 
+          ? 'calc(3.5rem + env(safe-area-inset-top) + 0.75rem)' // Mobile: só um pouquinho mais
+          : 'calc(3.5rem + env(safe-area-inset-top) + 0.5rem)', // Desktop: ajuste mínimo
         paddingBottom: 'calc(100px + env(safe-area-inset-bottom))', // Espaço para footer
         WebkitOverflowScrolling: 'touch',
         // Mobile: overflow hidden quando não há mensagens, auto quando há
