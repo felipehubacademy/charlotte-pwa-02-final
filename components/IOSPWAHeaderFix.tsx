@@ -3,10 +3,8 @@
 import { useEffect, useRef } from 'react';
 
 export default function IOSPWAHeaderFix() {
+  const stickyHeaderRef = useRef<HTMLDivElement | null>(null);
   const originalHeaderRef = useRef<HTMLElement | null>(null);
-  const clonedHeaderRef = useRef<HTMLElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const isRecreatingRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Ensure we're on the client side
@@ -19,165 +17,120 @@ export default function IOSPWAHeaderFix() {
       
       if (!isIOS || !isPWA) return;
 
-      console.log('[IOSPWAHeaderFix] 🚀 ULTIMATE SOLUTION - Recreating header every frame');
+      console.log('[IOSPWAHeaderFix] 🔥 FINAL ATTEMPT - Sticky viewport header');
 
-      const createHeaderContainer = () => {
-        // Create a container that iOS cannot touch
-        if (!containerRef.current) {
-          const container = document.createElement('div');
-          container.id = 'ultimate-header-container';
-          container.style.cssText = `
-            position: fixed !important;
-            top: 0px !important;
-            left: 0px !important;
-            right: 0px !important;
-            z-index: 10000 !important;
-            pointer-events: none !important;
-            width: 100% !important;
-            height: auto !important;
-          `;
-          document.body.appendChild(container);
-          containerRef.current = container;
+      const createStickyHeader = () => {
+        // Find original header
+        const originalHeader = document.querySelector('[data-header="true"]') as HTMLElement;
+        if (!originalHeader) return;
+
+        originalHeaderRef.current = originalHeader;
+
+        // Hide original completely
+        originalHeader.style.display = 'none';
+
+        // Remove existing sticky header
+        if (stickyHeaderRef.current) {
+          stickyHeaderRef.current.remove();
         }
-        return containerRef.current;
+
+        // Create sticky header that iOS cannot touch
+        const stickyHeader = document.createElement('div');
+        stickyHeader.id = 'ios-sticky-header';
+        stickyHeaderRef.current = stickyHeader;
+
+        // Copy content from original
+        stickyHeader.innerHTML = originalHeader.innerHTML;
+
+        // FINAL ATTEMPT: Use all possible CSS tricks
+        stickyHeader.style.cssText = `
+          position: -webkit-sticky !important;
+          position: sticky !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          width: 100vw !important;
+          height: auto !important;
+          z-index: 999999 !important;
+          background: var(--secondary, #16153A) !important;
+          transform: translate3d(0, 0, 0) !important;
+          -webkit-transform: translate3d(0, 0, 0) !important;
+          will-change: transform !important;
+          backface-visibility: hidden !important;
+          -webkit-backface-visibility: hidden !important;
+          contain: layout style paint !important;
+          isolation: isolate !important;
+          margin: 0 !important;
+          padding: env(safe-area-inset-top, 0) 1rem 1rem 1rem !important;
+          box-sizing: border-box !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: space-between !important;
+          min-height: 60px !important;
+        `;
+
+        // Insert at the very beginning of body
+        document.body.insertBefore(stickyHeader, document.body.firstChild);
+
+        // Force body to have padding-top to account for header
+        document.body.style.paddingTop = '80px';
+
+        console.log('[IOSPWAHeaderFix] ✅ Sticky header created');
       };
 
-      const recreateHeader = () => {
-        if (isRecreatingRef.current) return;
-        isRecreatingRef.current = true;
+      // Create immediately
+      createStickyHeader();
 
-        try {
-          // Find the original header
-          const originalHeader = document.querySelector('[data-header="true"]') as HTMLElement;
-          if (!originalHeader) {
-            isRecreatingRef.current = false;
-            return;
-          }
-
-          originalHeaderRef.current = originalHeader;
-
-          // Hide the original header completely
-          originalHeader.style.cssText = `
-            position: absolute !important;
-            top: -9999px !important;
-            left: -9999px !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-          `;
-
-          // Create container
-          const container = createHeaderContainer();
-
-          // Remove any existing cloned header
-          if (clonedHeaderRef.current) {
-            clonedHeaderRef.current.remove();
-          }
-
-          // Clone the original header
-          const clonedHeader = originalHeader.cloneNode(true) as HTMLElement;
-          clonedHeaderRef.current = clonedHeader;
-
-          // Force the cloned header to be at the top
-          clonedHeader.style.cssText = `
-            position: relative !important;
-            top: 0px !important;
-            left: 0px !important;
-            right: 0px !important;
-            z-index: 10000 !important;
-            pointer-events: auto !important;
-            width: 100% !important;
-            margin: 0px !important;
-            padding-top: env(safe-area-inset-top, 0px) !important;
-            transform: none !important;
-            -webkit-transform: none !important;
-            background: var(--secondary, #16153A) !important;
-          `;
-
-          // Add the cloned header to our container
-          container.appendChild(clonedHeader);
-
-          console.log('[IOSPWAHeaderFix] ✅ Header recreated and positioned at top');
-        } catch (error) {
-          console.error('[IOSPWAHeaderFix] Error recreating header:', error);
-        } finally {
-          isRecreatingRef.current = false;
-        }
+      // Recreate on any viewport change
+      const handleViewportChange = () => {
+        setTimeout(createStickyHeader, 10);
       };
 
-      // Initial recreation
-      setTimeout(recreateHeader, 100);
-
-      // ULTIMATE: Recreate header every frame when keyboard events happen
-      let isKeyboardOpen = false;
-      
-      const handleKeyboardEvents = () => {
-        const currentHeight = window.innerHeight;
-        const wasKeyboardOpen = isKeyboardOpen;
-        isKeyboardOpen = currentHeight < window.screen.height * 0.75;
-
-        if (isKeyboardOpen !== wasKeyboardOpen) {
-          console.log(`[IOSPWAHeaderFix] Keyboard ${isKeyboardOpen ? 'opened' : 'closed'} - recreating header`);
-          recreateHeader();
-          
-          // Recreate multiple times to ensure it sticks
-          setTimeout(recreateHeader, 10);
-          setTimeout(recreateHeader, 50);
-          setTimeout(recreateHeader, 100);
-        }
-      };
-
-      // Monitor all possible events
-      window.addEventListener('resize', handleKeyboardEvents);
-      window.addEventListener('orientationchange', recreateHeader);
-      document.addEventListener('focusin', handleKeyboardEvents);
-      document.addEventListener('focusout', handleKeyboardEvents);
+      window.addEventListener('resize', handleViewportChange);
+      window.addEventListener('orientationchange', handleViewportChange);
+      document.addEventListener('focusin', handleViewportChange);
+      document.addEventListener('focusout', handleViewportChange);
 
       if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', handleKeyboardEvents);
+        window.visualViewport.addEventListener('resize', handleViewportChange);
       }
 
-      // ULTIMATE: Continuous recreation during keyboard usage
-      const ultimateInterval = setInterval(() => {
-        if (isKeyboardOpen && !isRecreatingRef.current) {
-          recreateHeader();
+      // Monitor and recreate if moved
+      const monitorInterval = setInterval(() => {
+        if (stickyHeaderRef.current) {
+          const rect = stickyHeaderRef.current.getBoundingClientRect();
+          if (rect.top < -50 || rect.top > 100) {
+            console.log(`[IOSPWAHeaderFix] 🚨 Sticky header moved to ${rect.top}px - RECREATING`);
+            createStickyHeader();
+          }
         }
       }, 100);
 
-      // Monitor if our cloned header gets moved and recreate immediately
-      const monitorInterval = setInterval(() => {
-        if (clonedHeaderRef.current && containerRef.current) {
-          const containerRect = containerRef.current.getBoundingClientRect();
-          if (containerRect.top !== 0) {
-            console.log(`[IOSPWAHeaderFix] 🚨 Container moved to ${containerRect.top}px - RECREATING`);
-            recreateHeader();
-          }
-        }
-      }, 50);
-
       // Cleanup
       return () => {
-        clearInterval(ultimateInterval);
         clearInterval(monitorInterval);
         
-        window.removeEventListener('resize', handleKeyboardEvents);
-        window.removeEventListener('orientationchange', recreateHeader);
-        document.addEventListener('focusin', handleKeyboardEvents);
-        document.removeEventListener('focusout', handleKeyboardEvents);
+        window.removeEventListener('resize', handleViewportChange);
+        window.removeEventListener('orientationchange', handleViewportChange);
+        document.removeEventListener('focusin', handleViewportChange);
+        document.removeEventListener('focusout', handleViewportChange);
         
         if (window.visualViewport) {
-          window.visualViewport.removeEventListener('resize', handleKeyboardEvents);
+          window.visualViewport.removeEventListener('resize', handleViewportChange);
         }
 
-        // Restore original header
+        // Restore original
         if (originalHeaderRef.current) {
-          originalHeaderRef.current.style.cssText = '';
+          originalHeaderRef.current.style.display = '';
         }
 
-        // Remove our container
-        if (containerRef.current) {
-          containerRef.current.remove();
+        // Remove sticky header
+        if (stickyHeaderRef.current) {
+          stickyHeaderRef.current.remove();
         }
+
+        // Remove body padding
+        document.body.style.paddingTop = '';
       };
     } catch (error) {
       console.error('[IOSPWAHeaderFix] Error:', error);
