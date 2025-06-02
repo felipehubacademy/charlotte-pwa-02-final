@@ -581,11 +581,20 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [realAchievements, setRealAchievements] = useState<Achievement[]>([]);
   
-  // 📱 NEW: Drag functionality for mobile
-  const [dragPosition, setDragPosition] = useState({ x: 0, y: 0 });
+  // 📱 Mobile drag state
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialPosition, setInitialPosition] = useState({ x: 0, y: 0 });
+  const [dragPosition, setDragPosition] = useState(() => {
+    if (typeof window !== 'undefined' && isMobile && isFloating) {
+      // 📱 POSIÇÃO INICIAL: Lado direito da tela, centro vertical
+      return { 
+        x: window.innerWidth - 100, // Lado direito fixo
+        y: window.innerHeight / 2 - 100 // Centro vertical
+      };
+    }
+    return { x: 0, y: 0 };
+  });
 
   // Detect if mobile device
   const isMobile = typeof window !== 'undefined' && 
@@ -893,14 +902,18 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     const deltaX = clientX - dragStart.x;
     const deltaY = clientY - dragStart.y;
     
-    // Constrain to viewport bounds
-    const maxX = window.innerWidth - 100; // Account for counter width
-    const maxY = window.innerHeight - 200; // Account for counter height + safe areas
+    // 📱 MOBILE: Restringir movimento apenas VERTICAL
+    // Manter posição X fixa (lado direito da tela)
+    const fixedX = window.innerWidth - 100; // Posição fixa no lado direito
     
-    const newX = Math.max(-50, Math.min(maxX, initialPosition.x + deltaX));
-    const newY = Math.max(50, Math.min(maxY, initialPosition.y + deltaY));
+    // Permitir movimento vertical dentro dos limites seguros
+    const minY = 80; // Espaço para header
+    const maxY = window.innerHeight - 250; // Espaço para footer + safe area
     
-    setDragPosition({ x: newX, y: newY });
+    const newY = Math.max(minY, Math.min(maxY, initialPosition.y + deltaY));
+    
+    // Usar posição X fixa e apenas Y variável
+    setDragPosition({ x: fixedX, y: newY });
   };
 
   const handleDragEnd = () => {
@@ -932,6 +945,26 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       };
     }
   }, [isDragging, isMobile, dragStart, initialPosition]);
+
+  // 📱 Reposicionar quando a tela for redimensionada
+  useEffect(() => {
+    if (!isMobile || !isFloating) return;
+    
+    const handleResize = () => {
+      setDragPosition(prev => ({
+        x: window.innerWidth - 100, // Manter lado direito fixo
+        y: Math.max(80, Math.min(window.innerHeight - 250, prev.y)) // Ajustar Y se necessário
+      }));
+    };
+    
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleResize);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+    };
+  }, [isMobile, isFloating]);
 
   return (
     <>
