@@ -32,7 +32,7 @@ export default function ChatHeader({ userName, userLevel, onLogout }: ChatHeader
 
   return (
     <header 
-      className={`fixed top-0 left-0 right-0 z-50 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
+      className={`fixed top-0 left-0 right-0 z-40 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
         isIOSPWA ? 'ios-pwa-fixed-header' : ''
       }`}
       data-header="true"
