@@ -78,8 +78,7 @@ body.ios-pwa {
 
 /* Chat container with proper spacing for fixed elements */
 .ios-pwa .chat-container {
-  height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); /* Dynamic viewport */
+  height: 100vh; /* Fixed viewport height - keyboard won't affect this */
   padding-top: 80px; /* Header height */
   padding-bottom: 120px; /* Footer height */
   overflow-y: auto;
@@ -87,17 +86,21 @@ body.ios-pwa {
   overscroll-behavior: none;
 }
 
-/* Prevent keyboard from affecting layout */
+/* Prevent keyboard from affecting layout - FIXED APPROACH */
 .ios-pwa .keyboard-safe {
-  height: 100vh;
-  height: 100dvh;
+  height: 100vh; /* Fixed height - keyboard cannot change this */
   overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 }
 
-/* Input container that stays at bottom */
+/* Input container that stays at bottom and overlays */
 .ios-pwa .input-container {
   position: fixed;
-  bottom: env(safe-area-inset-bottom);
+  bottom: 0; /* Always at bottom, no safe area adjustment */
   left: 0;
   right: 0;
   z-index: 60;
@@ -316,4 +319,110 @@ input, textarea, select {
 /* iOS PWA specific achievement positioning */
 .ios-pwa .achievement-notifications {
   top: calc(env(safe-area-inset-top) + 90px); /* Extra space for iOS */
+}
+
+/* ✅ CRITICAL iOS PWA Keyboard Fixes */
+.ios-pwa {
+  position: fixed !important;
+  width: 100% !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  top: 0 !important;
+  left: 0 !important;
+  overflow: hidden !important;
+}
+
+/* ✅ Main chat container with CSS Grid for keyboard awareness */
+.chat-page-container {
+  display: grid !important;
+  height: 100vh;
+  height: 100dvh;
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas: 
+    "header"
+    "content" 
+    "footer";
+  overflow: hidden;
+}
+
+/* ✅ Support for VirtualKeyboard API when available */
+@supports (height: env(keyboard-inset-height)) {
+  .chat-page-container {
+    grid-template-rows: auto 1fr auto env(keyboard-inset-height, 0px);
+    grid-template-areas: 
+      "header"
+      "content" 
+      "footer"
+      "keyboard";
+  }
+  
+  .keyboard-spacer {
+    grid-area: keyboard;
+    height: env(keyboard-inset-height, 0px);
+    background: var(--secondary);
+  }
+}
+
+.chat-header {
+  grid-area: header;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(22, 21, 58, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chat-content {
+  grid-area: content;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+  position: relative;
+}
+
+.chat-footer {
+  grid-area: footer;
+  position: sticky;
+  bottom: 0;
+  z-index: 50;
+  background: var(--secondary);
+  transform: translateY(calc(-1 * env(keyboard-inset-height, 0px)));
+}
+
+/* ✅ Floating XP Counter with keyboard awareness */
+.floating-xp-counter {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom) + 140px);
+  right: 1rem;
+  z-index: 70;
+  transform: translateY(calc(-1 * env(keyboard-inset-height, 0px)));
+  transition: transform 0.3s ease;
+}
+
+.ios-pwa .floating-xp-counter {
+  bottom: calc(env(safe-area-inset-bottom) + 160px);
+}
+
+/* ✅ Prevent viewport jumping on input focus */
+.ios-pwa input,
+.ios-pwa textarea {
+  font-size: 16px;
+  -webkit-appearance: none;
+}
+
+/* ✅ Achievement notifications with keyboard awareness */
+.achievement-notifications {
+  position: fixed;
+  right: 1rem;
+  z-index: 9998;
+  top: calc(env(safe-area-inset-top) + 80px);
+  transform: translateY(calc(-1 * env(keyboard-inset-height, 0px)));
+  transition: transform 0.3s ease;
+}
+
+.ios-pwa .achievement-notifications {
+  top: calc(env(safe-area-inset-top) + 90px);
 }

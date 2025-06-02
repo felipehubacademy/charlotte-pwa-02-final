@@ -34,6 +34,7 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   userScalable: false,
   themeColor: '#3b82f6',
+  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({
@@ -44,10 +45,16 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta 
+          name="viewport" 
+          content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content"
+        />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="Charlotte" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="format-detection" content="telephone=no" />
       </head>
       <body className={`${inter.className} bg-secondary text-white antialiased`} suppressHydrationWarning>
         <PWAInstaller />

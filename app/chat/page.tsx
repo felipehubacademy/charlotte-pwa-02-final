@@ -16,6 +16,7 @@ import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/li
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { ClientAudioConverter } from '@/lib/audio-converter-client';
+import { useIOSKeyboardFix } from '@/hooks/useIOSKeyboardFix';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -132,6 +133,10 @@ async function sendSequentialMessages(
 export default function ChatPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  
+  // ✅ ADICIONAR: Hook para iOS keyboard fix
+  const { keyboardState, isIOSPWAMode } = useIOSKeyboardFix();
+
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [transcript, setTranscript] = useState('');
@@ -859,6 +864,53 @@ export default function ChatPage() {
     }
   }, [totalXP, currentLevel]);
 
+  // ✅ ADICIONAR: Effect para configurar iOS PWA
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    if (isIOSPWAMode) {
+      // Add CSS classes for iOS PWA mode
+      document.body.classList.add('ios-pwa');
+      
+      // Enable VirtualKeyboard API
+      if ('virtualKeyboard' in navigator) {
+        (navigator as any).virtualKeyboard.overlaysContent = true;
+      }
+      
+      // Prevent zoom on input focus
+      const viewport = document.querySelector('meta[name="viewport"]');
+      if (viewport) {
+        viewport.setAttribute(
+          'content', 
+          'width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, interactive-widget=resizes-content'
+        );
+      }
+    }
+    
+    return () => {
+      if (isIOSPWAMode) {
+        document.body.classList.remove('ios-pwa');
+      }
+    };
+  }, [isIOSPWAMode]);
+
+  // ✅ DEBUGGING: iOS PWA Keyboard State
+  useEffect(() => {
+    if (isIOSPWAMode) {
+      console.log('🔍 iOS PWA Mode Active');
+      console.log('📱 VirtualKeyboard API:', 'virtualKeyboard' in navigator);
+      console.log('👀 Visual Viewport API:', !!window.visualViewport);
+      console.log('⌨️ Keyboard State:', keyboardState);
+      
+      const handleScroll = () => {
+        console.log('📜 Scroll Y:', window.scrollY);
+      };
+      
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
+  }, [isIOSPWAMode, keyboardState]);
+
   // Handle image capture from camera
   const handleImageCapture = useCallback(async (imageData: string) => {
     if (!user?.entra_id) return;
@@ -1447,13 +1499,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
   };
 
   return (
-    <div className="h-screen bg-secondary flex flex-col overflow-hidden">
-      {/* Fixed Header */}
-      <header className={`fixed top-0 left-0 right-0 z-50 bg-secondary/95 backdrop-blur-md border-b border-white/10 ${
-        typeof window !== 'undefined' && 
-        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'pt-safe' 
-          : 'pt-safe'
+    <div className={`h-screen bg-secondary flex flex-col overflow-hidden ${
+      isIOSPWAMode ? 'chat-page-container' : ''
+    }`}>
+      
+      {/* ✅ Header com CSS Grid */}
+      <header className={`${
+        isIOSPWAMode ? 'chat-header' : 'fixed top-0 left-0 right-0 z-50 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe'
       }`}>
         <div className="flex items-center justify-between px-3 sm:px-4 py-2 sm:py-3">
           {/* Left side - Charlotte info */}
@@ -1472,7 +1524,6 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           
           {/* Right side - User info and controls */}
           <div className="flex items-center space-x-2 flex-shrink-0">
-            {/* User info */}
             <div className="flex flex-col items-center text-center min-w-[60px] sm:min-w-[70px]">
               <p className="text-white text-xs font-medium truncate max-w-14 sm:max-w-16 leading-tight">
                 {user?.name?.split(' ')[0]}
@@ -1492,8 +1543,10 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         </div>
       </header>
 
-      {/* Content with proper top padding */}
-      <div className="flex-1 flex flex-col pt-[60px] sm:pt-[70px]">
+      {/* ✅ Content com CSS Grid */}
+      <div className={`flex-1 flex flex-col ${
+        isIOSPWAMode ? 'chat-content' : 'pt-[60px] sm:pt-[70px]'
+      }`}>
         <ChatBox
           messages={messages}
           transcript={transcript}
@@ -1503,12 +1556,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         />
       </div>
 
-      {/* Interface de input SIMPLIFICADA */}
+      {/* ✅ Footer com CSS Grid */}
       <div className={`flex-shrink-0 bg-secondary ${
-        typeof window !== 'undefined' && 
-        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-fixed-footer pb-safe' 
-          : 'pb-safe'
+        isIOSPWAMode ? 'chat-footer' : 'pb-safe'
       }`}>
         <div className="max-w-3xl mx-auto px-4 py-6">
           <div className="flex items-end space-x-3">
@@ -1692,6 +1742,17 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           </div>
         </div>
       </div>
+
+      {/* ✅ Keyboard Spacer para VirtualKeyboard API */}
+      {isIOSPWAMode && (
+        <div 
+          className="keyboard-spacer bg-secondary"
+          style={{ 
+            height: keyboardState.height > 0 ? `${keyboardState.height}px` : '0px',
+            transition: 'height 0.3s ease'
+          }}
+        />
+      )}
 
       {/* Floating XP Counter */}
       {sessionXP !== undefined && totalXP !== undefined && (

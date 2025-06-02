@@ -632,12 +632,12 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="relative z-30 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe"
+            className="relative z-50 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe"
           >
             <div className="flex items-center justify-between px-4 py-3">
               {/* Charlotte Info */}
               <div className="flex items-center space-x-3 flex-1 min-w-0">
-                <div className="relative z-40 flex-shrink-0">
+                <div className="relative z-50 flex-shrink-0">
                   <CharlotteAvatar 
                     size="md"
                     showStatus={true}
