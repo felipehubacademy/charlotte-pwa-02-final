@@ -473,15 +473,16 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   return (
     <div 
-      className="flex-1 px-3 sm:px-4 py-2 sm:py-4 chat-scroll overflow-y-auto" 
+      className="flex-1 px-3 sm:px-4 py-2 sm:py-4 chat-scroll" 
       style={{ 
         WebkitOverflowScrolling: 'touch',
         overscrollBehavior: 'none',
         paddingTop: 'calc(3.5rem + env(safe-area-inset-top))', // Espaço para header
-        paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' // Espaço para footer
+        paddingBottom: 'calc(100px + env(safe-area-inset-bottom))', // Espaço para footer
+        overflowY: (messages.length > 3 || isProcessingMessage || transcript || finalTranscript) ? 'auto' : 'hidden' // Scroll apenas quando necessário
       }}
     >
-      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
+      <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4 min-h-full flex flex-col justify-end">
         {/* Messages */}
         <AnimatePresence>
           {messages.map((message) => (
