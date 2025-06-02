@@ -43,6 +43,7 @@ export default function IOSPWADebug() {
     heightDifference: 0,
   });
   const [isVisible, setIsVisible] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
 
   const updateDebugInfo = useCallback(() => {
     // Ensure we're on the client side
@@ -160,6 +161,22 @@ export default function IOSPWADebug() {
     };
   }, [updateDebugInfo]);
 
+  // Intercept console.log to show in UI
+  useEffect(() => {
+    const originalLog = console.log;
+    console.log = (...args) => {
+      originalLog(...args);
+      const message = args.join(' ');
+      if (message.includes('[IOSPWAHeaderFix]')) {
+        setLogs(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${message}`]);
+      }
+    };
+
+    return () => {
+      console.log = originalLog;
+    };
+  }, []);
+
   if (!debugInfo) return null;
 
   return (
@@ -206,6 +223,28 @@ export default function IOSPWADebug() {
             <div>Header Z-Index: {debugInfo.headerZIndex}</div>
             <div className="text-xs break-all">UA: {debugInfo.userAgent}</div>
             <div className="text-xs break-all">Body Classes: {debugInfo.bodyClasses}</div>
+            
+            {/* LOGS SECTION */}
+            <div className="pt-2 border-t border-gray-600">
+              <div className="text-yellow-400 font-bold text-xs mb-1">📋 Header Fix Logs:</div>
+              <div className="max-h-32 overflow-y-auto bg-black/50 p-2 rounded text-xs">
+                {logs.length === 0 ? (
+                  <div className="text-gray-400">Aguardando logs...</div>
+                ) : (
+                  logs.map((log, index) => (
+                    <div key={index} className="mb-1 text-green-400 break-all">
+                      {log}
+                    </div>
+                  ))
+                )}
+              </div>
+              <button 
+                onClick={() => setLogs([])}
+                className="w-full mt-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700"
+              >
+                🗑️ Clear Logs
+              </button>
+            </div>
             
             <div className="pt-2 space-y-1">
               <button 
