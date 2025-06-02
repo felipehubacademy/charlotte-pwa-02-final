@@ -601,9 +601,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
           return {
             id: ach.achievement_id || ach.id || `achievement-${Date.now()}`,
             type: ach.achievement_type || ach.type || 'general',
-            title: ach.title || 'Achievement',
-            description: ach.description || 'You earned an achievement!',
-            icon: getAchievementIcon(ach.achievement_type || ach.type || 'general'),
+            title: ach.achievement_name || ach.title || 'Achievement',
+            description: ach.achievement_description || ach.description || 'You earned an achievement!',
+            icon: ach.badge_icon || getAchievementIcon(ach.achievement_type || ach.type || 'general'),
             rarity: ach.rarity || 'common',
             xpBonus: ach.xp_bonus || 0,
             earnedAt: new Date(ach.earned_at || ach.created_at || Date.now())
