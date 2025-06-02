@@ -531,7 +531,7 @@ export class AzureSpeechOfficialService {
     // ✅ FEEDBACK BASEADO NO NÍVEL DO USUÁRIO
     if (userLevel === 'Advanced' && accuracy >= 85) {
       feedback.push('🚀 Advanced level: Focus on subtle pronunciation nuances and natural rhythm.');
-    } else if (userLevel === 'Intermediate' && accuracy >= 75) {
+    } else if (userLevel === 'Inter' && accuracy >= 75) {
       feedback.push('📈 Great progress! You\'re ready for more challenging pronunciation exercises.');
     } else if (userLevel === 'Novice' && accuracy >= 60) {
       feedback.push('🌱 Good foundation! Keep practicing basic pronunciation patterns.');
@@ -597,7 +597,7 @@ export class AzureSpeechOfficialService {
 export async function assessPronunciationOfficial(
   audioBlob: Blob,
   referenceText?: string,
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate'
+  userLevel: 'Novice' | 'Inter' | 'Advanced' = 'Inter'
 ): Promise<AudioProcessingResult> {
   console.log('🎯 OFFICIAL Azure Speech SDK Pronunciation API - Starting...');
   console.log('📁 Processing audio with OFFICIAL Microsoft implementation:', {

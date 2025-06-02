@@ -14,7 +14,7 @@ interface EnhancedXPCounterProps {
   onStatsClick?: () => void;
   onAchievementsDismissed?: () => void;
   userId?: string;
-  userLevel?: 'Novice' | 'Intermediate' | 'Advanced';
+  userLevel?: 'Novice' | 'Inter' | 'Advanced';
   isFloating?: boolean;
 }
 
@@ -31,9 +31,9 @@ const EnhancedStatsModal: React.FC<{
   realAchievements: Achievement[];
   onAchievementsDismissed?: () => void;
   userId?: string;
-  userLevel?: 'Novice' | 'Intermediate' | 'Advanced';
+  userLevel?: 'Novice' | 'Inter' | 'Advanced';
 }> = ({ 
-  isOpen, onClose, sessionXP, totalXP, currentLevel, achievements, realAchievements, onAchievementsDismissed, userId, userLevel = 'Intermediate'
+  isOpen, onClose, sessionXP, totalXP, currentLevel, achievements, realAchievements, onAchievementsDismissed, userId, userLevel = 'Inter'
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('stats');
   const [realData, setRealData] = useState({
@@ -571,7 +571,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   onStatsClick,
   onAchievementsDismissed,
   userId,
-  userLevel = 'Intermediate',
+  userLevel = 'Inter',
   isFloating = false
 }) => {
   const [displaySessionXP, setDisplaySessionXP] = useState(sessionXP || 0);

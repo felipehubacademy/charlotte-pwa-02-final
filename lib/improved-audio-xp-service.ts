@@ -44,7 +44,7 @@ export interface ImprovedXPResult {
  */
 const XP_RANGES = {
   'Novice': { min: 8, max: 25 },
-  'Intermediate': { min: 5, max: 20 },
+  'Inter': { min: 5, max: 20 },
   'Advanced': { min: 3, max: 15 }
 } as const;
 
@@ -269,7 +269,7 @@ function generateMotivationalFeedback(
 export async function calculateImprovedXP(
   assessmentResult: AudioAssessmentResult,
   audioDuration: number,
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced' = 'Intermediate',
+  userLevel: 'Novice' | 'Inter' | 'Advanced' = 'Inter',
   userId?: string,
   currentTotalXP: number = 0,
   streakDays: number = 0

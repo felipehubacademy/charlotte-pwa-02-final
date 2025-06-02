@@ -22,7 +22,7 @@ export interface PracticeData {
   pronunciation?: number; // Para áudio
   grammar?: number; // Para texto
   wordCount?: number; // Para texto
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced';
+  userLevel: 'Novice' | 'Inter' | 'Advanced';
   streakDays: number;
   // 🆕 NOVOS CAMPOS PARA ACHIEVEMENTS AVANÇADOS
   totalAudioCount?: number;

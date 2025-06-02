@@ -13,7 +13,7 @@ import { supabaseService } from '../../lib/supabase-service';
 interface LiveVoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced';
+  userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName?: string;
   user?: {
     name?: string;
@@ -83,7 +83,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     // 🎯 TAXAS REBALANCEADAS - Máximo 40 XP total
     const baseXPPerMinute = {
       'Novice': 8,        // 8 XP por minuto
-      'Intermediate': 5,  // 5 XP por minuto  
+      'Inter': 5,  // 5 XP por minuto  
       'Advanced': 3       // 3 XP por minuto
     };
     
@@ -525,11 +525,11 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           // Mensagem de erro baseada no nível do usuário
           const errorMessages = {
             'Novice': 'Oops! Charlotte está indisponível no momento. Tente novamente mais tarde. (Charlotte is unavailable right now. Please try again later.)',
-            'Intermediate': 'Sorry! The voice chat service is temporarily unavailable. Please try again in a few minutes.',
+            'Inter': 'Sorry! The voice chat service is temporarily unavailable. Please try again in a few minutes.',
             'Advanced': 'The real-time conversation service is currently experiencing technical difficulties. Please attempt to reconnect shortly.'
           };
           
-          errorMessage = errorMessages[userLevel] || errorMessages['Intermediate'];
+          errorMessage = errorMessages[userLevel] || errorMessages['Inter'];
         }
         
         setErrorMessage(errorMessage);
@@ -836,7 +836,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               currentLevel={Math.floor(Math.sqrt(totalXP / 50)) + 1}
               achievements={[]}
               userId={user?.entra_id}
-              userLevel={user?.user_level as 'Novice' | 'Intermediate' | 'Advanced'}
+              userLevel={user?.user_level as 'Novice' | 'Inter' | 'Advanced'}
               onXPGained={onXPGained}
               isFloating={true}
             />

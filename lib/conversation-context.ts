@@ -13,7 +13,7 @@ export interface ConversationState {
   messages: ConversationMessage[];
   currentTopics: string[];
   userPreferences: {
-    level: 'Novice' | 'Intermediate' | 'Advanced';
+    level: 'Novice' | 'Inter' | 'Advanced';
     name: string;
     language: 'en' | 'pt' | 'mixed';
   };
@@ -36,7 +36,7 @@ export class ConversationContextManager {
   private readonly MAX_CONTEXT_MESSAGES = 10;
   private readonly GREETING_COOLDOWN = 30 * 60 * 1000; // 30 minutos
 
-  constructor(userLevel: 'Novice' | 'Intermediate' | 'Advanced', userName: string) {
+  constructor(userLevel: 'Novice' | 'Inter' | 'Advanced', userName: string) {
     this.context = {
       messages: [],
       currentTopics: [],

@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
     const assessmentPromise = assessPronunciationOfficial(
       audioBlob,
       referenceText?.trim() || undefined,
-      'Intermediate'
+      'Inter'
     );
     
     // Timeout de 45 segundos para Vercel (máximo permitido)

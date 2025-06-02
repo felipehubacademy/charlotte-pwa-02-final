@@ -5,7 +5,7 @@ export interface RealtimeConfig {
   model?: string;
   voice?: 'alloy' | 'ash' | 'ballad' | 'coral' | 'echo' | 'sage' | 'shimmer' | 'verse';
   instructions?: string;
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced';
+  userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName?: string;
 }
 
@@ -303,7 +303,7 @@ CONVERSATION STYLE:
 - Keep conversations natural and relaxed
 - Show genuine interest in what the student is saying`,
 
-      'Intermediate': `CRITICAL: You must speak only in English. Never use Portuguese.
+      'Inter': `CRITICAL: You must speak only in English. Never use Portuguese.
 
 You are Charlotte, an English tutor for intermediate Brazilian learners who have a good foundation in English.
 
@@ -372,7 +372,7 @@ CONVERSATION STYLE:
             word: { type: 'string', description: 'The English word to define' },
             level: { 
               type: 'string', 
-              enum: ['Novice', 'Intermediate', 'Advanced'],
+              enum: ['Novice', 'Inter', 'Advanced'],
               description: 'Learner level for appropriate explanation'
             }
           },

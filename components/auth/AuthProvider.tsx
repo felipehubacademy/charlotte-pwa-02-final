@@ -116,8 +116,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: account.name
       });
 
-      const userLevel = await getUserLevel(account);
-      console.log('User level determined:', userLevel);
+      // ✅ NOVO: Verificar acesso antes de sincronizar
+      let userLevel: 'Novice' | 'Inter' | 'Advanced';
+      try {
+        userLevel = await getUserLevel(account);
+        console.log('User level determined:', userLevel);
+      } catch (error: any) {
+        if (error.message?.includes('ACCESS_DENIED')) {
+          console.log('🚫 Access denied - user not in Charlotte groups');
+          toast.error('Access denied. You need to be in a Charlotte group to use this app.');
+          await logout(); // Fazer logout automaticamente
+          return;
+        }
+        throw error; // Re-throw outros erros
+      }
       
       const userData = {
         entra_id: account.localAccountId,
@@ -165,7 +177,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fullError: error
       });
       
-      // Criar usuário fallback em caso de erro
+      // ✅ NOVO: Não criar fallback para usuários sem acesso
+      if (error?.message?.includes('ACCESS_DENIED')) {
+        console.log('🚫 Not creating fallback user - access denied');
+        return;
+      }
+      
+      // Criar usuário fallback em caso de erro técnico
       const fallbackUser: User = {
         id: `fallback-${account.localAccountId}`,
         entra_id: account.localAccountId,
@@ -226,6 +244,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       console.log('🎯 Charlotte-related groups:', charlotteGroups);
       
+      // ✅ NOVO: Verificar se usuário tem acesso ao Charlotte
+      const hasCharlotteAccess = charlotteGroups.length > 0;
+      
+      if (!hasCharlotteAccess) {
+        console.log('❌ User has no Charlotte groups - ACCESS DENIED');
+        throw new Error('ACCESS_DENIED: User is not in any Charlotte groups');
+      }
+      
       if (groupNames.some((name: string) => name.toLowerCase().includes('novice'))) {
         console.log('🎯 User level: Novice');
         return 'Novice';
@@ -236,8 +262,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('🎯 User level: Advanced (Teacher or Advanced group)');
         return 'Advanced';
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error getting user level:', error);
+      
+      // ✅ NOVO: Se erro é ACCESS_DENIED, propagar
+      if (error.message?.includes('ACCESS_DENIED')) {
+        throw error;
+      }
+      
       console.log('🎯 Defaulting to Advanced level');
       return 'Advanced';
     }

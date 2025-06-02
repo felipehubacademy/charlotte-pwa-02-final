@@ -53,7 +53,7 @@ async function getAssistantResponse(
       body: JSON.stringify({
         transcription: userMessage,
         pronunciationData: pronunciationData || null,
-        userLevel: userLevel as 'Novice' | 'Intermediate' | 'Advanced',
+        userLevel: userLevel as 'Novice' | 'Inter' | 'Advanced',
         userName: userName,
         messageType: messageType,
         conversationContext: conversationContext
@@ -73,12 +73,12 @@ async function getAssistantResponse(
     
     const fallbackResponses = {
       'Novice': `Great job practicing, ${userName}! 😊 Keep writing in English - you're doing well!`,
-      'Intermediate': `That's a good example, ${userName}! 👍 How would you use this in a business context?`,
+      'Inter': `That's a good example, ${userName}! 👍 How would you use this in a business context?`,
       'Advanced': `Excellent language use, ${userName}! 🌟 Can you elaborate on that point further?`
     };
 
     return {
-      feedback: fallbackResponses[userLevel as keyof typeof fallbackResponses] || fallbackResponses['Intermediate']
+      feedback: fallbackResponses[userLevel as keyof typeof fallbackResponses] || fallbackResponses['Inter']
     };
   }
 }
@@ -171,7 +171,7 @@ export default function ChatPage() {
 
   const [conversationContext] = useState(() => 
     new ConversationContextManager(
-      user?.user_level || 'Intermediate',
+      user?.user_level || 'Inter',
       user?.name?.split(' ')[0] || 'Student'
     )
   );
@@ -375,7 +375,7 @@ export default function ChatPage() {
         const xpResult = await improvedAudioXPService.calculateImprovedXP(
           assessmentResult,
           duration,
-          user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+          user?.user_level as 'Novice' | 'Inter' | 'Advanced' || 'Inter',
           user?.entra_id || '',
           totalXP
         );
@@ -398,7 +398,7 @@ export default function ChatPage() {
         
         const assistantResponse = await getAssistantResponse(
           transcription,
-          user?.user_level || 'Intermediate',
+          user?.user_level || 'Inter',
           user?.name?.split(' ')[0] || 'Student',
           'audio',
           {
@@ -443,7 +443,7 @@ export default function ChatPage() {
               duration: duration,
               accuracy: scores.accuracyScore,
               pronunciation: scores.pronunciationScore,
-              userLevel: (user.user_level || 'Intermediate') as 'Novice' | 'Intermediate' | 'Advanced',
+              userLevel: (user.user_level || 'Inter') as 'Novice' | 'Inter' | 'Advanced',
               streakDays
             };
 
@@ -997,7 +997,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
             body: JSON.stringify({
               transcription: vocabularyPrompt,
               pronunciationData: null,
-              userLevel: user?.user_level as 'Novice' | 'Intermediate' | 'Advanced' || 'Intermediate',
+              userLevel: user?.user_level as 'Novice' | 'Inter' | 'Advanced' || 'Inter',
               userName: user?.name?.split(' ')[0] || 'Student',
               messageType: 'image',
               imageData: imageData, // Send full image data to assistant
@@ -1375,7 +1375,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         body: JSON.stringify({
           transcription: userText,
           pronunciationData: null,
-          userLevel: user.user_level || 'Intermediate',
+          userLevel: user.user_level || 'Inter',
           userName: user.name?.split(' ')[0] || 'Student',
           messageType: 'text',
           conversationContext: context
@@ -1410,7 +1410,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
             text: userText,
             grammar: assistantResult.grammarScore || undefined,
             wordCount: userText.split(' ').filter(word => word.trim()).length,
-            userLevel: (user.user_level || 'Intermediate') as 'Novice' | 'Intermediate' | 'Advanced',
+            userLevel: (user.user_level || 'Inter') as 'Novice' | 'Inter' | 'Advanced',
             streakDays
           };
 
@@ -1753,7 +1753,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
             achievements={achievements}
             onAchievementsDismissed={() => handleAchievementsDismissed('')}
             userId={user?.entra_id}
-            userLevel={user?.user_level as 'Novice' | 'Intermediate' | 'Advanced'}
+            userLevel={user?.user_level as 'Novice' | 'Inter' | 'Advanced'}
             onXPGained={(amount) => {
               console.log('XP animation completed:', amount);
             }}
