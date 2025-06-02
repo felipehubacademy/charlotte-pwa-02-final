@@ -6,6 +6,7 @@ export default function IOSPWAHeaderFix() {
   const initialViewportHeight = useRef<number>(0);
   const headerRef = useRef<HTMLElement | null>(null);
   const isFixingRef = useRef<boolean>(false);
+  const mutationObserverRef = useRef<MutationObserver | null>(null);
 
   useEffect(() => {
     // Ensure we're on the client side
@@ -18,22 +19,57 @@ export default function IOSPWAHeaderFix() {
       
       if (!isIOS || !isPWA) return;
 
-      console.log('[IOSPWAHeaderFix] Initializing ULTRA AGGRESSIVE header fix for iOS PWA');
+      console.log('[IOSPWAHeaderFix] 🚀 NUCLEAR SOLUTION - Preventing header movement entirely');
 
       // Store initial viewport height
       initialViewportHeight.current = window.innerHeight;
 
-      const forceHeaderPosition = () => {
-        if (typeof window === 'undefined' || isFixingRef.current) return;
+      const lockHeaderPosition = () => {
+        if (typeof window === 'undefined') return;
         
         const header = document.querySelector('[data-header="true"]') as HTMLElement;
         if (!header) return;
 
         headerRef.current = header;
-        isFixingRef.current = true;
 
         try {
-          // ULTRA AGGRESSIVE: Force position with !important via style attribute
+          // NUCLEAR: Create a style lock that cannot be overridden
+          const styleId = 'nuclear-header-lock';
+          let styleElement = document.getElementById(styleId) as HTMLStyleElement;
+          
+          if (!styleElement) {
+            styleElement = document.createElement('style');
+            styleElement.id = styleId;
+            document.head.appendChild(styleElement);
+          }
+
+          // NUCLEAR CSS: Override everything with maximum specificity
+          styleElement.textContent = `
+            [data-header="true"] {
+              position: fixed !important;
+              top: 0px !important;
+              left: 0px !important;
+              right: 0px !important;
+              z-index: 9999 !important;
+              transform: translateZ(0) translateY(0px) !important;
+              -webkit-transform: translateZ(0) translateY(0px) !important;
+              margin: 0px !important;
+              width: 100% !important;
+              max-width: 100vw !important;
+            }
+            
+            /* NUCLEAR: Override any possible iOS interference */
+            html[data-ios-pwa] [data-header="true"],
+            body[data-ios-pwa] [data-header="true"],
+            .ios-pwa [data-header="true"] {
+              position: fixed !important;
+              top: 0px !important;
+              transform: translateZ(0) translateY(0px) !important;
+              -webkit-transform: translateZ(0) translateY(0px) !important;
+            }
+          `;
+
+          // NUCLEAR: Force inline styles that override everything
           header.style.cssText = `
             position: fixed !important;
             top: 0px !important;
@@ -51,79 +87,111 @@ export default function IOSPWAHeaderFix() {
             padding-top: env(safe-area-inset-top, 0px) !important;
           `;
 
-          // FORCE: Override any transform that might move it
+          // NUCLEAR: Lock individual properties
+          header.style.setProperty('position', 'fixed', 'important');
+          header.style.setProperty('top', '0px', 'important');
           header.style.setProperty('transform', 'translateZ(0) translateY(0px)', 'important');
           header.style.setProperty('-webkit-transform', 'translateZ(0) translateY(0px)', 'important');
-          header.style.setProperty('top', '0px', 'important');
 
-          console.log('[IOSPWAHeaderFix] Applied ULTRA AGGRESSIVE header positioning');
+          // NUCLEAR: Add data attributes for CSS targeting
+          document.documentElement.setAttribute('data-ios-pwa', 'true');
+          document.body.setAttribute('data-ios-pwa', 'true');
+          header.setAttribute('data-nuclear-locked', 'true');
+
+          console.log('[IOSPWAHeaderFix] 🔒 NUCLEAR LOCK applied to header');
         } catch (error) {
-          console.error('[IOSPWAHeaderFix] Error applying header fix:', error);
-        } finally {
-          isFixingRef.current = false;
+          console.error('[IOSPWAHeaderFix] Error applying nuclear lock:', error);
         }
       };
 
-      // Apply fix immediately and repeatedly
-      forceHeaderPosition();
-      setTimeout(forceHeaderPosition, 10);
-      setTimeout(forceHeaderPosition, 50);
-      setTimeout(forceHeaderPosition, 100);
-      setTimeout(forceHeaderPosition, 200);
+      // NUCLEAR: Watch for ANY changes to the header and block them
+      const createMutationObserver = () => {
+        if (mutationObserverRef.current) {
+          mutationObserverRef.current.disconnect();
+        }
 
-      // ULTRA AGGRESSIVE: Monitor viewport changes with immediate response
+        mutationObserverRef.current = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes' && mutation.target === headerRef.current) {
+              if (mutation.attributeName === 'style') {
+                console.log('[IOSPWAHeaderFix] 🚫 BLOCKED: iOS tried to change header style');
+                lockHeaderPosition();
+              }
+            }
+          });
+        });
+
+        if (headerRef.current) {
+          mutationObserverRef.current.observe(headerRef.current, {
+            attributes: true,
+            attributeFilter: ['style', 'class'],
+            subtree: false
+          });
+        }
+      };
+
+      // Apply nuclear lock immediately and repeatedly
+      lockHeaderPosition();
+      setTimeout(lockHeaderPosition, 10);
+      setTimeout(lockHeaderPosition, 50);
+      setTimeout(lockHeaderPosition, 100);
+      setTimeout(() => {
+        lockHeaderPosition();
+        createMutationObserver();
+      }, 200);
+
+      // NUCLEAR: Intercept viewport changes and re-lock immediately
       const handleViewportChange = () => {
-        // Use multiple requestAnimationFrame for immediate response
+        // Triple lock with multiple frames
         requestAnimationFrame(() => {
-          forceHeaderPosition();
+          lockHeaderPosition();
           requestAnimationFrame(() => {
-            forceHeaderPosition();
+            lockHeaderPosition();
+            requestAnimationFrame(() => {
+              lockHeaderPosition();
+            });
           });
         });
       };
 
-      // Listen to ALL possible events that could move the header
+      // Listen to ALL possible events
       window.addEventListener('resize', handleViewportChange, { passive: false });
       window.addEventListener('orientationchange', handleViewportChange, { passive: false });
       window.addEventListener('scroll', handleViewportChange, { passive: false });
       document.addEventListener('focusin', handleViewportChange, { passive: false });
       document.addEventListener('focusout', handleViewportChange, { passive: false });
 
-      // Visual Viewport API for more precise control
+      // Visual Viewport API
       if (window.visualViewport) {
         window.visualViewport.addEventListener('resize', handleViewportChange);
         window.visualViewport.addEventListener('scroll', handleViewportChange);
       }
 
-      // HYPER AGGRESSIVE: Faster polling to catch and fix movement immediately
-      const fastPollingInterval = setInterval(() => {
-        if (headerRef.current && !isFixingRef.current) {
-          const rect = headerRef.current.getBoundingClientRect();
-          // If header moved from top, force it back IMMEDIATELY
-          if (Math.abs(rect.top) > 1) { // Allow 1px tolerance
-            console.log(`[IOSPWAHeaderFix] 🚨 Header moved to ${rect.top}px, FORCING back to top IMMEDIATELY`);
-            forceHeaderPosition();
-            // Double-fix after a tiny delay
-            setTimeout(forceHeaderPosition, 5);
-          }
-        }
-      }, 16); // Check every 16ms (60fps)
-
-      // Secondary polling as backup
-      const backupPollingInterval = setInterval(() => {
+      // NUCLEAR: Ultra-fast polling with immediate re-lock
+      const nuclearPollingInterval = setInterval(() => {
         if (headerRef.current && !isFixingRef.current) {
           const rect = headerRef.current.getBoundingClientRect();
           if (Math.abs(rect.top) > 1) {
-            console.log(`[IOSPWAHeaderFix] 🔄 Backup fix: Header at ${rect.top}px`);
-            forceHeaderPosition();
+            console.log(`[IOSPWAHeaderFix] 💥 NUCLEAR RESPONSE: Header at ${rect.top}px - RE-LOCKING`);
+            isFixingRef.current = true;
+            lockHeaderPosition();
+            // Triple re-lock
+            setTimeout(lockHeaderPosition, 1);
+            setTimeout(lockHeaderPosition, 5);
+            setTimeout(() => {
+              lockHeaderPosition();
+              isFixingRef.current = false;
+            }, 10);
           }
         }
-      }, 100);
+      }, 8); // Check every 8ms (120fps)
 
       // Cleanup
       return () => {
-        clearInterval(fastPollingInterval);
-        clearInterval(backupPollingInterval);
+        clearInterval(nuclearPollingInterval);
+        if (mutationObserverRef.current) {
+          mutationObserverRef.current.disconnect();
+        }
         window.removeEventListener('resize', handleViewportChange);
         window.removeEventListener('orientationchange', handleViewportChange);
         window.removeEventListener('scroll', handleViewportChange);
@@ -133,6 +201,12 @@ export default function IOSPWAHeaderFix() {
         if (window.visualViewport) {
           window.visualViewport.removeEventListener('resize', handleViewportChange);
           window.visualViewport.removeEventListener('scroll', handleViewportChange);
+        }
+
+        // Remove nuclear styles
+        const styleElement = document.getElementById('nuclear-header-lock');
+        if (styleElement) {
+          styleElement.remove();
         }
       };
     } catch (error) {
