@@ -14,7 +14,6 @@ import AchievementNotification from '@/components/achievements/AchievementNotifi
 import { ConversationContextManager } from '@/lib/conversation-context';
 import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
-import MainContent from '@/components/MainContent';
 import ChatHeader from '@/components/ChatHeader';
 
 const isMobileDevice = () => {
@@ -1518,15 +1517,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onLogout={logout}
       />
 
-      <MainContent>
-        <ChatBox
-          messages={messages}
-          transcript={transcript}
-          finalTranscript={finalTranscript}
-          isProcessingMessage={isProcessingMessage}
-          userLevel={user?.user_level || 'Novice'}
-        />
-      </MainContent>
+      <ChatBox
+        messages={messages}
+        transcript={transcript}
+        finalTranscript={finalTranscript}
+        isProcessingMessage={isProcessingMessage}
+        userLevel={user?.user_level || 'Novice'}
+      />
 
       {/* ✅ FIXED: Footer now truly fixed at bottom, independent of ChatBox and keyboard */}
       <div className={`fixed-footer bg-secondary border-t border-white/5 ${

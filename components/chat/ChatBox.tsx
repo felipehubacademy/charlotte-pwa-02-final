@@ -472,12 +472,15 @@ const ChatBox: React.FC<ChatBoxProps> = ({
     ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
 
   return (
-    <div className="h-full overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 chat-scroll" style={{ 
-      WebkitOverflowScrolling: 'touch',
-      overscrollBehavior: 'none',
-      height: '100%',
-      maxHeight: '100%'
-    }}>
+    <div 
+      className="flex-1 px-3 sm:px-4 py-2 sm:py-4 chat-scroll overflow-y-auto" 
+      style={{ 
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehavior: 'none',
+        paddingTop: 'calc(3.5rem + env(safe-area-inset-top))', // Espaço para header
+        paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' // Espaço para footer
+      }}
+    >
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
         {/* Messages */}
         <AnimatePresence>
@@ -522,8 +525,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           </motion.div>
         )}
 
-        {/* Extra padding for mobile to prevent cutoff */}
-        <div className="h-8 sm:h-4" />
+        {/* Scroll anchor */}
         <div ref={messagesEndRef} />
       </div>
     </div>
