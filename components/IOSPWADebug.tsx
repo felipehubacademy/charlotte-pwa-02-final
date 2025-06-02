@@ -77,10 +77,11 @@ export default function IOSPWADebug() {
       const header = document.querySelector('[data-header="true"]') as HTMLElement;
       if (header) {
         const styles = getComputedStyle(header);
+        const rect = header.getBoundingClientRect();
         setDebugInfo(prev => ({
           ...prev,
           headerPosition: styles.position,
-          headerTop: styles.top,
+          headerTop: `${styles.top} (actual: ${rect.top.toFixed(1)}px)`,
           headerZIndex: styles.zIndex,
         }));
       }
