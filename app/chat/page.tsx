@@ -1557,13 +1557,20 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         </div>
       </header>
 
-      <ChatBox
-        messages={messages}
-        transcript={transcript}
-        finalTranscript={finalTranscript}
-        isProcessingMessage={isProcessingMessage}
-        userLevel={user?.user_level || 'Novice'}
-      />
+      <div className={
+        typeof window !== 'undefined' && 
+        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
+          ? 'pt-[80px] pb-[120px] flex-1 flex flex-col' // iOS PWA: padding for fixed header/footer
+          : 'pt-[60px] sm:pt-[70px] flex-1 flex flex-col' // Normal: padding for header
+      }>
+        <ChatBox
+          messages={messages}
+          transcript={transcript}
+          finalTranscript={finalTranscript}
+          isProcessingMessage={isProcessingMessage}
+          userLevel={user?.user_level || 'Novice'}
+        />
+      </div>
 
       {/* ✅ RESTORE: Simple footer structure from backup */}
       <div className={`flex-shrink-0 bg-secondary ${
