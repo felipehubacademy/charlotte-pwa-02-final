@@ -478,7 +478,9 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         WebkitOverflowScrolling: 'touch',
         overscrollBehavior: 'none',
         paddingTop: 'calc(3.5rem + env(safe-area-inset-top))', // Espaço para header
-        paddingBottom: 'calc(100px + env(safe-area-inset-bottom))' // Espaço para footer
+        paddingBottom: 'calc(100px + env(safe-area-inset-bottom))', // Espaço para footer
+        maxHeight: 'calc(100vh - 3.5rem - 100px - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+        overflowY: messages.length > 3 ? 'auto' : 'visible'
       }}
     >
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
