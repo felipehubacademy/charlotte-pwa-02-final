@@ -321,7 +321,7 @@ input, textarea, select {
   top: calc(env(safe-area-inset-top) + 90px); /* Extra space for iOS */
 }
 
-/* ✅ CRITICAL iOS PWA Keyboard Fixes */
+/* ✅ CRITICAL iOS PWA Keyboard Fixes - ENHANCED VERSION */
 .ios-pwa {
   position: fixed !important;
   width: 100% !important;
@@ -330,27 +330,43 @@ input, textarea, select {
   top: 0 !important;
   left: 0 !important;
   overflow: hidden !important;
+  /* ✅ FORCE: Prevent any viewport changes */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+/* ✅ AGGRESSIVE: Force fixed height container */
+.ios-pwa * {
+  /* Prevent any element from causing viewport changes */
+  -webkit-overflow-scrolling: touch;
 }
 
 /* ✅ Main chat container with CSS Grid for keyboard awareness */
 .chat-page-container {
   display: grid !important;
-  height: 100vh;
-  height: 100dvh;
+  height: 100vh !important;
+  height: 100dvh !important;
   grid-template-rows: auto 1fr auto;
   grid-template-areas: 
     "header"
     "content" 
     "footer";
-  overflow: hidden;
+  overflow: hidden !important;
+  /* ✅ FIX: Add safe area padding for iOS */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  /* ✅ FORCE: Prevent viewport changes */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
 }
 
-/* ✅ Support for VirtualKeyboard API when available */
-@supports (height: env(keyboard-inset-height)) {
+/* ✅ DISABLE VirtualKeyboard API support temporarily */
+/* @supports (height: env(keyboard-inset-height)) {
   .chat-page-container {
     grid-template-rows: auto 1fr auto env(keyboard-inset-height, 0px);
     grid-template-areas: 
@@ -365,7 +381,7 @@ input, textarea, select {
     height: env(keyboard-inset-height, 0px);
     background: var(--secondary);
   }
-}
+} */
 
 .chat-header {
   grid-area: header;
@@ -376,6 +392,8 @@ input, textarea, select {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  /* ✅ FIX: Remove extra padding since container handles safe area */
+  flex-shrink: 0;
 }
 
 .chat-content {
@@ -385,7 +403,8 @@ input, textarea, select {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: none;
   position: relative;
-  min-height: 0;
+  /* ✅ FIX: Ensure content doesn't overlap with safe areas */
+  min-height: 0; /* Allow grid item to shrink */
 }
 
 .chat-footer {
@@ -394,44 +413,54 @@ input, textarea, select {
   bottom: 0;
   z-index: 50;
   background: var(--secondary);
-  transform: translateY(calc(-1 * env(keyboard-inset-height, 0px)));
+  /* ✅ DISABLE: Remove keyboard transform for now */
+  /* transform: translateY(calc(-1 * env(keyboard-inset-height, 0px))); */
+  /* ✅ FIX: Ensure footer has minimum height and proper padding */
   min-height: 80px;
   padding: 1rem 0;
+  flex-shrink: 0;
 }
 
-/* ✅ Floating XP Counter with keyboard awareness */
+/* ✅ Floating XP Counter with keyboard awareness - SIMPLIFIED */
 .floating-xp-counter {
   position: fixed;
   bottom: calc(env(safe-area-inset-bottom) + 140px);
   right: 1rem;
   z-index: 70;
-  transform: translateY(calc(-1 * env(keyboard-inset-height, 0px)));
+  /* ✅ DISABLE: Remove keyboard transform for now */
+  /* transform: translateY(calc(-1 * env(keyboard-inset-height, 0px))); */
   transition: transform 0.3s ease;
 }
 
 .ios-pwa .floating-xp-counter {
+  /* ✅ FIX: Adjust for iOS PWA with proper safe area calculation */
   bottom: calc(env(safe-area-inset-bottom) + 120px);
   right: calc(env(safe-area-inset-right) + 1rem);
 }
 
-/* ✅ Prevent viewport jumping on input focus */
+/* ✅ CRITICAL: Prevent input focus from changing viewport */
 .ios-pwa input,
 .ios-pwa textarea {
-  font-size: 16px;
-  -webkit-appearance: none;
+  font-size: 16px !important;
+  -webkit-appearance: none !important;
+  /* ✅ FORCE: Prevent zoom and viewport changes */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
-/* ✅ Achievement notifications with keyboard awareness */
+/* ✅ Achievement notifications with keyboard awareness - SIMPLIFIED */
 .achievement-notifications {
   position: fixed;
   right: 1rem;
   z-index: 9998;
   top: calc(env(safe-area-inset-top) + 80px);
-  transform: translateY(calc(-1 * env(keyboard-inset-height, 0px)));
+  /* ✅ DISABLE: Remove keyboard transform for now */
+  /* transform: translateY(calc(-1 * env(keyboard-inset-height, 0px))); */
   transition: transform 0.3s ease;
 }
 
 .ios-pwa .achievement-notifications {
+  /* ✅ FIX: Adjust for iOS PWA with proper safe area calculation */
   top: calc(env(safe-area-inset-top) + 70px);
   right: calc(env(safe-area-inset-right) + 1rem);
 }
@@ -463,36 +492,70 @@ input, textarea, select {
   }
 }
 
-/* ✅ XP Counter Modal iOS Fixes */
+/* ✅ XP Counter Modal iOS Fixes - ENHANCED */
 @supports (-webkit-touch-callout: none) {
   /* This targets iOS devices */
   
-  /* Fix modal positioning on iOS */
+  /* Fix modal positioning on iOS - MORE AGGRESSIVE */
   .fixed.inset-0 {
-    /* Ensure modal respects safe areas */
-    top: env(safe-area-inset-top);
-    bottom: env(safe-area-inset-bottom);
-    left: env(safe-area-inset-left);
-    right: env(safe-area-inset-right);
+    /* Ensure modal respects safe areas but stays within viewport */
+    top: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    /* Force proper positioning */
+    position: fixed !important;
+    z-index: 9999 !important;
   }
   
   /* Specific fix for XP Counter modal container */
   .min-h-screen {
-    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    /* Force proper centering */
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 1rem !important;
+  }
+  
+  /* Force modal content to stay within bounds */
+  .min-h-screen > div {
+    max-width: calc(100vw - 2rem) !important;
+    max-height: calc(100vh - 2rem) !important;
+    max-height: calc(100dvh - 2rem) !important;
+    width: 100% !important;
+    margin: 0 auto !important;
   }
 }
 
-/* ✅ iOS PWA specific modal fixes */
+/* ✅ iOS PWA specific modal fixes - OVERRIDE */
 .ios-pwa .fixed.inset-0 {
-  /* In PWA mode, safe areas are already handled by container */
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  /* In PWA mode, ensure modal is properly positioned */
+  top: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  position: fixed !important;
+  z-index: 9999 !important;
 }
 
 .ios-pwa .min-h-screen {
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left) !important;
+}
+
+/* ✅ CRITICAL: Force XP modal to be properly sized and centered */
+.ios-pwa .min-h-screen > div,
+.ios-pwa .min-h-screen .bg-secondary {
+  max-width: calc(100vw - env(safe-area-inset-left) - env(safe-area-inset-right) - 2rem) !important;
+  max-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem) !important;
+  max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem) !important;
+  width: 100% !important;
+  margin: 0 auto !important;
+  transform: none !important;
 }
