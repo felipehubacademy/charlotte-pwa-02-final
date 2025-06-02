@@ -22,7 +22,6 @@ const CharlotteAvatar: React.FC<CharlotteAvatarProps> = ({
   onClick
 }) => {
   const [imageError, setImageError] = useState(false);
-  const [imageLoaded, setImageLoaded] = useState(false);
 
   // Definir tamanhos
   const sizeClasses = {
@@ -64,43 +63,34 @@ const CharlotteAvatar: React.FC<CharlotteAvatarProps> = ({
   const AvatarContent = () => (
     <div className={`${sizeClasses[size]} relative ${className}`}>
       {/* Container do Avatar */}
-      <div className="relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-primary/20 to-primary-dark/20 shadow-lg border-2 border-white/20">
-        {/* Sempre mostrar a imagem, fallback apenas se houver erro */}
-        <Image
-          src="/images/charlotte-avatar.png"
-          alt="Charlotte Avatar"
-          width={pixelSizes[size]}
-          height={pixelSizes[size]}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
-            imageLoaded && !imageError ? 'opacity-100' : 'opacity-0'
-          }`}
-          onLoad={() => {
-            setImageLoaded(true);
-            console.log('✅ Charlotte avatar loaded successfully');
-          }}
-          onError={() => {
-            setImageError(true);
-            console.error('❌ Failed to load Charlotte avatar');
-          }}
-          priority={size === 'lg' || size === 'xl' || size === 'xxl'}
-        />
-        
-        {/* Fallback apenas se a imagem falhar completamente */}
-        {imageError && (
-          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary-dark">
+      <div className="relative w-full h-full rounded-full overflow-hidden bg-gradient-to-br from-primary/10 to-primary-dark/10 shadow-lg border-2 border-white/20">
+        {/* SEMPRE mostrar a imagem - fallback apenas se erro */}
+        {!imageError ? (
+          <Image
+            src="/images/charlotte-avatar.png"
+            alt="Charlotte Avatar"
+            width={pixelSizes[size]}
+            height={pixelSizes[size]}
+            className="w-full h-full object-cover"
+            onError={() => {
+              console.error('❌ Charlotte avatar failed to load');
+              setImageError(true);
+            }}
+            onLoad={() => {
+              console.log('✅ Charlotte avatar loaded successfully');
+            }}
+            priority={true}
+            unoptimized={true}
+          />
+        ) : (
+          /* Fallback apenas se a imagem falhar */
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary to-primary-dark">
             <span 
               className="text-black font-bold"
               style={{ fontSize: `${pixelSizes[size] * 0.4}px` }}
             >
               C
             </span>
-          </div>
-        )}
-        
-        {/* Loading state */}
-        {!imageLoaded && !imageError && (
-          <div className="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary-dark/30">
-            <div className="animate-spin rounded-full h-1/2 w-1/2 border-2 border-primary border-t-transparent"></div>
           </div>
         )}
       </div>

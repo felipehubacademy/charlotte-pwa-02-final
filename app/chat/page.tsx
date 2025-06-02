@@ -1528,8 +1528,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         />
       </MainContent>
 
-      {/* ✅ FIXED: Footer now fixed at bottom, independent of ChatBox */}
-      <div className={`fixed bottom-0 left-0 right-0 bg-secondary border-t border-white/5 ${
+      {/* ✅ FIXED: Footer now truly fixed at bottom, independent of ChatBox and keyboard */}
+      <div className={`fixed-footer bg-secondary border-t border-white/5 ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
           ? 'pb-safe' 

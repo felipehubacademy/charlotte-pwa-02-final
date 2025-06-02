@@ -350,3 +350,29 @@ input, textarea, select {
   z-index: 9998; /* Above everything except camera (9999) */
   top: calc(env(safe-area-inset-top) + 80px); /* Safe area + header height */
 }
+
+/* ✅ FORCE: Footer always fixed at bottom */
+.fixed-footer {
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 40 !important;
+}
+
+/* ✅ PREVENT: Footer from moving with virtual keyboard */
+@supports (env(keyboard-inset-height)) {
+  .fixed-footer {
+    bottom: env(keyboard-inset-height, 0) !important;
+  }
+}
+
+/* ✅ iOS PWA: Prevent footer movement */
+@media (display-mode: standalone) {
+  .fixed-footer {
+    position: fixed !important;
+    bottom: env(safe-area-inset-bottom, 0) !important;
+    transform: translateZ(0) !important;
+    will-change: transform !important;
+  }
+}
