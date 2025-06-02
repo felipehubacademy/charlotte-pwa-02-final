@@ -1511,7 +1511,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
   };
 
   return (
-    <div className="min-h-screen bg-secondary flex flex-col">
+    <div className="h-screen bg-secondary flex flex-col">
       <ChatHeader 
         userName={user?.name}
         userLevel={user?.user_level}

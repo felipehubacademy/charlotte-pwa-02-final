@@ -624,7 +624,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full h-full grid grid-rows-[auto_auto_1fr_auto] bg-gradient-to-br from-charcoal via-charcoal-light to-charcoal overflow-hidden"
+          className="relative w-full h-full flex flex-col bg-gradient-to-br from-charcoal via-charcoal-light to-charcoal overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header com Charlotte info, XP e controles */}
@@ -729,7 +729,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           </motion.div>
 
           {/* Main content */}
-          <div className="relative z-10 flex flex-col items-center justify-center px-8">
+          <div className="relative flex-1 flex flex-col items-center justify-center px-8">
             {/* Orb melhorado */}
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
@@ -789,7 +789,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.8 }}
-            className="z-20 pb-safe"
+            className="flex-shrink-0 pb-safe"
           >
             <div className="flex justify-center items-center space-x-4 px-8 py-6">
               {/* Mute button */}
