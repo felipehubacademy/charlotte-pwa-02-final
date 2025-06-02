@@ -19,6 +19,7 @@ import { ClientAudioConverter } from '@/lib/audio-converter-client';
 import Header from '@/components/Header';
 import MainContent from '@/components/MainContent';
 import ChatHeader from '@/components/ChatHeader';
+import IOSPWADebug from '@/components/IOSPWADebug';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -1778,6 +1779,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         achievements={newAchievements}
         onDismiss={handleAchievementsDismissed}
       />
+
+      <IOSPWADebug />
     </div>
   );
 }
