@@ -473,12 +473,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   return (
     <div className={`flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 chat-scroll ${
-      isIOSPWA ? 'pb-20 sm:pb-24' : 'pb-32 sm:pb-36'
+      isIOSPWA ? 'pb-16 sm:pb-20' : 'pb-32 sm:pb-36'
     }`} style={{ 
       WebkitOverflowScrolling: 'touch',
-      overscrollBehavior: 'none',
-      height: '100%',
-      maxHeight: '100%'
+      overscrollBehavior: 'none'
     }}>
       <div className="max-w-2xl mx-auto space-y-3 sm:space-y-4">
         {/* Messages */}

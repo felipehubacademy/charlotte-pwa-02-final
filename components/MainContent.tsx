@@ -38,19 +38,13 @@ export default function MainContent({
     // iOS PWA: Layout fixo e agressivo
     return (
       <main 
-        className={`fixed top-0 left-0 right-0 bottom-0 overflow-y-auto ${className}`}
+        className={`flex-1 overflow-hidden ${className}`}
         style={{
           paddingTop: hasHeader 
             ? `calc(3.5rem + env(safe-area-inset-top))` 
             : 'env(safe-area-inset-top)',
-          paddingBottom: 'calc(100px + env(safe-area-inset-bottom))',
           paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)',
-          WebkitOverflowScrolling: 'touch',
-          transform: 'translateZ(0)',
-          willChange: 'scroll-position',
-          height: '100vh',
-          maxHeight: '100vh'
+          paddingRight: 'env(safe-area-inset-right)'
         }}
       >
         {children}

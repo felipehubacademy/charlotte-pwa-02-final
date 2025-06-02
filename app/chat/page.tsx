@@ -1511,7 +1511,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
   };
 
   return (
-    <div className="h-screen bg-secondary flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-secondary flex flex-col">
       <ChatHeader 
         userName={user?.name}
         userLevel={user?.user_level}
@@ -1532,7 +1532,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       <div className={`flex-shrink-0 bg-secondary ${
         typeof window !== 'undefined' && 
         ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches)
-          ? 'ios-pwa-fixed-footer' 
+          ? 'pb-safe' 
           : 'pb-safe'
       }`}>
         <div className={`max-w-3xl mx-auto px-4 ${
