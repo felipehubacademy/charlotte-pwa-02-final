@@ -267,7 +267,7 @@ export default function ChatPage() {
     }
   }, []);
 
-  const dismissAchievementNotification = useCallback((achievementId: string) => {
+  const handleAchievementsDismissed = useCallback((achievementId: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== achievementId));
   }, []);
 
@@ -1694,18 +1694,23 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       </div>
 
       {/* Floating XP Counter */}
-      <div className="fixed bottom-24 sm:bottom-28 right-4 z-40">
-        <EnhancedXPCounter 
-          sessionXP={sessionXP}
-          totalXP={totalXP}
-          currentLevel={currentLevel}
-          achievements={achievements}
-          userId={user?.entra_id}
-          userLevel={user?.user_level}
-          onXPGained={(amount) => console.log('XP animation completed:', amount)}
-          isFloating={true}
-        />
-      </div>
+      {sessionXP !== undefined && totalXP !== undefined && (
+        <div className="floating-xp-counter">
+          <EnhancedXPCounter 
+            sessionXP={sessionXP}
+            totalXP={totalXP}
+            currentLevel={Math.floor(Math.sqrt(totalXP / 50)) + 1}
+            achievements={achievements}
+            onAchievementsDismissed={() => handleAchievementsDismissed('')}
+            userId={user?.entra_id}
+            userLevel={user?.user_level as 'Novice' | 'Intermediate' | 'Advanced'}
+            onXPGained={(amount) => {
+              console.log('XP animation completed:', amount);
+            }}
+            isFloating={true}
+          />
+        </div>
+      )}
 
       <LiveVoiceModal
         isOpen={isLiveVoiceOpen}
@@ -1718,15 +1723,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onLogout={logout}
         onXPGained={(amount) => {
           console.log('Live Voice XP gained:', amount);
-          setSessionXP(prev => prev + amount);
-          setTotalXP(prev => {
-            const newTotal = prev + amount;
-            const newLevel = Math.floor(Math.sqrt(newTotal / 50)) + 1;
-            const oldLevel = currentLevel;
-            setCurrentLevel(newLevel);
-            
-            return newTotal;
-          });
+          // Don't update state here to avoid loops - XP is already updated by the component
         }}
       />
       
@@ -1743,7 +1740,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       {/* ✅ NEW: Achievement Notifications */}
       <AchievementNotification
         achievements={newAchievements}
-        onDismiss={dismissAchievementNotification}
+        onDismiss={handleAchievementsDismissed}
       />
     </div>
   );

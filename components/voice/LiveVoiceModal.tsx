@@ -632,7 +632,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             initial={{ y: -20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.1 }}
-            className="relative z-30 bg-secondary/95 backdrop-blur-md border-b border-white/10"
+            className="relative z-30 bg-secondary/95 backdrop-blur-md border-b border-white/10 pt-safe"
           >
             <div className="flex items-center justify-between px-4 py-3">
               {/* Charlotte Info */}
@@ -829,7 +829,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
         {/* Floating XP Counter */}
         {sessionXP !== undefined && totalXP !== undefined && (
-          <div className="fixed bottom-24 sm:bottom-28 right-4 z-50">
+          <div className="floating-xp-counter">
             <EnhancedXPCounter 
               sessionXP={sessionXP}
               totalXP={totalXP}

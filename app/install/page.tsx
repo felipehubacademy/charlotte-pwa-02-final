@@ -52,16 +52,16 @@ export default function InstallPage() {
             <Download className="w-8 h-8 text-green-600" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            ✅ Charlotte Already Installed!
+            ✅ Charlotte Já Instalado!
           </h1>
           <p className="text-gray-600 mb-6">
-            The Charlotte app is already installed on your device.
+            O app Charlotte já está instalado no seu dispositivo.
           </p>
           <button
             onClick={() => window.location.href = '/chat'}
             className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
           >
-            Open Charlotte App
+            Abrir App Charlotte
           </button>
         </div>
       </div>
@@ -77,10 +77,10 @@ export default function InstallPage() {
             <Download className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Install Charlotte App
+            Instalar App Charlotte
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Get the full Charlotte experience with offline access, faster loading, and native app features.
+            Tenha a experiência completa do Charlotte com acesso offline, carregamento mais rápido e recursos nativos do app.
           </p>
         </div>
 
@@ -92,16 +92,16 @@ export default function InstallPage() {
                 <Download className="w-8 h-8 text-blue-600" />
               </div>
               <h2 className="text-2xl font-bold text-gray-900 mb-4">
-                🚀 Quick Install Available!
+                🚀 Instalação Rápida Disponível!
               </h2>
               <p className="text-gray-600 mb-6">
-                Your browser supports one-click installation. Click below to install Charlotte instantly.
+                Seu navegador suporta instalação com um clique. Clique abaixo para instalar o Charlotte instantaneamente.
               </p>
               <button
                 onClick={handleInstallClick}
                 className="bg-blue-600 text-white py-4 px-8 rounded-lg font-semibold text-lg hover:bg-blue-700 transition-colors shadow-lg"
               >
-                Install Charlotte Now
+                Instalar Charlotte Agora
               </button>
             </div>
           </div>
@@ -119,24 +119,24 @@ export default function InstallPage() {
             <div className="space-y-3 text-sm text-gray-600">
               <div className="flex items-start">
                 <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
-                <span>Open this page in <strong>Safari</strong></span>
+                <span>Abra esta página no <strong>Safari</strong></span>
               </div>
               <div className="flex items-start">
                 <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
-                <span>Tap the <strong>Share</strong> button (⬆️) at the bottom</span>
+                <span>Toque no botão <strong>Compartilhar</strong> (⬆️) na parte inferior</span>
               </div>
               <div className="flex items-start">
                 <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
-                <span>Select <strong>"Add to Home Screen"</strong></span>
+                <span>Selecione <strong>"Adicionar à Tela de Início"</strong></span>
               </div>
               <div className="flex items-start">
                 <span className="bg-blue-100 text-blue-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
-                <span>Tap <strong>"Add"</strong> to confirm</span>
+                <span>Toque em <strong>"Adicionar"</strong> para confirmar</span>
               </div>
             </div>
             {platform === 'ios' && (
               <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-green-800 text-sm font-medium">✅ You're on iOS! Follow the steps above.</p>
+                <p className="text-green-800 text-sm font-medium">✅ Você está no iOS! Siga os passos acima.</p>
               </div>
             )}
           </div>
@@ -150,24 +150,24 @@ export default function InstallPage() {
             <div className="space-y-3 text-sm text-gray-600">
               <div className="flex items-start">
                 <span className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
-                <span>Open this page in <strong>Chrome</strong></span>
+                <span>Abra esta página no <strong>Chrome</strong></span>
               </div>
               <div className="flex items-start">
                 <span className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
-                <span>Look for the <strong>"Install"</strong> banner at the bottom</span>
+                <span>Procure pelo banner <strong>"Instalar"</strong> na parte inferior</span>
               </div>
               <div className="flex items-start">
                 <span className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
-                <span>Or tap menu (⋮) → <strong>"Add to Home screen"</strong></span>
+                <span>Ou toque no menu (⋮) → <strong>"Adicionar à tela inicial"</strong></span>
               </div>
               <div className="flex items-start">
                 <span className="bg-green-100 text-green-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
-                <span>Confirm installation</span>
+                <span>Confirme a instalação</span>
               </div>
             </div>
             {platform === 'android' && (
               <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-green-800 text-sm font-medium">✅ You're on Android! Look for the install banner.</p>
+                <p className="text-green-800 text-sm font-medium">✅ Você está no Android! Procure pelo banner de instalação.</p>
               </div>
             )}
           </div>
@@ -181,24 +181,24 @@ export default function InstallPage() {
             <div className="space-y-3 text-sm text-gray-600">
               <div className="flex items-start">
                 <span className="bg-purple-100 text-purple-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">1</span>
-                <span>Look for the <strong>install icon</strong> in the address bar</span>
+                <span>Procure pelo <strong>ícone de instalação</strong> na barra de endereços</span>
               </div>
               <div className="flex items-start">
                 <span className="bg-purple-100 text-purple-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">2</span>
-                <span>Or use menu → <strong>"Install Charlotte"</strong></span>
+                <span>Ou use o menu → <strong>"Instalar Charlotte"</strong></span>
               </div>
               <div className="flex items-start">
                 <span className="bg-purple-100 text-purple-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">3</span>
-                <span>Click <strong>"Install"</strong> to confirm</span>
+                <span>Clique em <strong>"Instalar"</strong> para confirmar</span>
               </div>
               <div className="flex items-start">
                 <span className="bg-purple-100 text-purple-800 rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold mr-3 mt-0.5">4</span>
-                <span>Charlotte will appear in your apps</span>
+                <span>Charlotte aparecerá nos seus aplicativos</span>
               </div>
             </div>
             {platform === 'desktop' && (
               <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
-                <p className="text-green-800 text-sm font-medium">✅ You're on desktop! Look for the install icon.</p>
+                <p className="text-green-800 text-sm font-medium">✅ Você está no desktop! Procure pelo ícone de instalação.</p>
               </div>
             )}
           </div>
@@ -207,29 +207,29 @@ export default function InstallPage() {
         {/* Benefits */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mt-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-            Why Install Charlotte?
+            Por que Instalar o Charlotte?
           </h2>
           <div className="grid md:grid-cols-3 gap-6">
             <div className="text-center">
               <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <Download className="w-6 h-6 text-blue-600" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Offline Access</h3>
-              <p className="text-gray-600 text-sm">Practice English even without internet connection</p>
+              <h3 className="font-semibold text-gray-900 mb-2">Acesso Offline</h3>
+              <p className="text-gray-600 text-sm">Pratique inglês mesmo sem conexão com a internet</p>
             </div>
             <div className="text-center">
               <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <Smartphone className="w-6 h-6 text-green-600" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Native Experience</h3>
-              <p className="text-gray-600 text-sm">Faster loading and app-like interface</p>
+              <h3 className="font-semibold text-gray-900 mb-2">Experiência Nativa</h3>
+              <p className="text-gray-600 text-sm">Carregamento mais rápido e interface como um app</p>
             </div>
             <div className="text-center">
               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-4">
                 <Monitor className="w-6 h-6 text-purple-600" />
               </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Easy Access</h3>
-              <p className="text-gray-600 text-sm">Launch directly from your home screen</p>
+              <h3 className="font-semibold text-gray-900 mb-2">Acesso Fácil</h3>
+              <p className="text-gray-600 text-sm">Abra diretamente da sua tela inicial</p>
             </div>
           </div>
         </div>
@@ -240,10 +240,10 @@ export default function InstallPage() {
             onClick={() => window.location.href = '/chat'}
             className="bg-gray-600 text-white py-3 px-8 rounded-lg font-semibold hover:bg-gray-700 transition-colors"
           >
-            Continue in Browser
+            Continuar no Navegador
           </button>
           <p className="text-gray-500 text-sm mt-2">
-            You can always install later from the app
+            Você sempre pode instalar depois pelo app
           </p>
         </div>
       </div>

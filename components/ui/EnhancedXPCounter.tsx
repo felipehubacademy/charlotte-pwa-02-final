@@ -819,13 +819,13 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       
       requestAnimationFrame(animate);
     }
-  }, [sessionXP, displaySessionXP, onXPGained]);
+  }, [sessionXP]); // Only depend on sessionXP, not displaySessionXP
 
-  // 📈 Animar aumento do XP total
+  // Animate total XP changes
   useEffect(() => {
-    if ((totalXP || 0) > displayTotalXP) {
-      const difference = (totalXP || 0) - displayTotalXP;
-      const duration = 1500;
+    if (totalXP !== displayTotalXP && totalXP > 0) {
+      const difference = totalXP - displayTotalXP;
+      const duration = Math.min(Math.abs(difference) * 10, 2000); // Max 2 seconds
       const startTime = Date.now();
       const startValue = displayTotalXP;
       
@@ -845,7 +845,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
       
       requestAnimationFrame(animate);
     }
-  }, [totalXP, displayTotalXP]);
+  }, [totalXP]); // Only depend on totalXP, not displayTotalXP
 
   const handleStatsClick = () => {
     setShowStatsModal(true);

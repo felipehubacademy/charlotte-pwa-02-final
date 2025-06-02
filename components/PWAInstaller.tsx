@@ -169,8 +169,8 @@ export default function PWAInstaller() {
               <Download className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm">Install Charlotte App</h3>
-              <p className="text-xs text-blue-100">Get the full experience with offline access!</p>
+              <h3 className="font-semibold text-sm">Instalar App Charlotte</h3>
+              <p className="text-xs text-blue-100">Tenha a experiência completa com acesso offline!</p>
             </div>
           </div>
           <div className="flex items-center space-x-2">
@@ -178,7 +178,7 @@ export default function PWAInstaller() {
               onClick={handleInstallClick}
               className="bg-white text-blue-600 px-3 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50 transition-colors"
             >
-              Install
+              Instalar
             </button>
             <button
               onClick={dismissBanner}
@@ -202,9 +202,9 @@ export default function PWAInstaller() {
               <Smartphone className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-semibold text-sm">Install Charlotte App</h3>
+              <h3 className="font-semibold text-sm">Instalar App Charlotte</h3>
               <p className="text-xs text-gray-300 mt-1">
-                Tap <span className="inline-block w-4 h-4 bg-blue-500 rounded text-center text-xs leading-4">⬆️</span> Share button, then "Add to Home Screen"
+                Toque no botão <span className="inline-block w-4 h-4 bg-blue-500 rounded text-center text-xs leading-4">⬆️</span> Compartilhar, depois "Adicionar à Tela de Início"
               </p>
             </div>
           </div>

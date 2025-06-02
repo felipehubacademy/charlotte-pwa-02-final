@@ -14,17 +14,17 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
   const [visibleAchievements, setVisibleAchievements] = useState<Achievement[]>([]);
 
   useEffect(() => {
-    // Mostrar achievements um por vez com delay
+    // Mostrar achievements um por vez com delay maior
     achievements.forEach((achievement, index) => {
       setTimeout(() => {
         setVisibleAchievements(prev => [...prev, achievement]);
         
-        // Auto-dismiss após 2.5s
+        // Auto-dismiss após 4s (mais tempo para ler)
         setTimeout(() => {
           setVisibleAchievements(prev => prev.filter(a => a.id !== achievement.id));
           onDismiss(achievement.id);
-        }, 2500);
-      }, index * 500); // 500ms delay entre achievements
+        }, 4000); // Aumentado de 2.5s para 4s
+      }, 800 + (index * 1000)); // 800ms delay inicial + 1s entre achievements
     });
   }, [achievements, onDismiss]);
 
@@ -47,20 +47,28 @@ const AchievementNotification: React.FC<AchievementNotificationProps> = ({
     return rarity === 'epic' || rarity === 'legendary';
   };
 
+  // Detectar se é iOS PWA para ajustar posicionamento
+  const isIOSPWA = typeof window !== 'undefined' && 
+    ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches);
+
   return (
-    <div className="fixed top-20 right-4 z-40 space-y-2">
+    <div className={`achievement-notifications space-y-3 ${
+      isIOSPWA 
+        ? 'top-[calc(env(safe-area-inset-top)+90px)]' // iOS PWA: safe area + header height + extra
+        : 'top-[calc(env(safe-area-inset-top)+80px)]' // Normal: safe area + header height
+    }`}>
       <AnimatePresence>
         {visibleAchievements.map((achievement) => (
           <motion.div
             key={achievement.id}
-            initial={{ x: 300, opacity: 0, scale: 0.8 }}
+            initial={{ x: 350, opacity: 0, scale: 0.8 }}
             animate={{ x: 0, opacity: 1, scale: 1 }}
-            exit={{ x: 300, opacity: 0, scale: 0.8 }}
+            exit={{ x: 350, opacity: 0, scale: 0.8 }}
             transition={{ 
               type: "spring", 
-              stiffness: 300, 
-              damping: 30,
-              duration: 0.5 
+              stiffness: 200, // Reduzido para animação mais suave
+              damping: 25,
+              duration: 0.8 // Aumentado para animação mais lenta
             }}
             className={`
               max-w-sm bg-gradient-to-r ${getRarityColors(achievement.rarity)}

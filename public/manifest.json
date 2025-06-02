@@ -1,14 +1,14 @@
 {
-  "name": "Charlotte - English Learning Assistant",
+  "name": "Charlotte - Assistente de Inglês",
   "short_name": "Charlotte",
-  "description": "AI-powered English learning assistant with live voice conversations and personalized lessons",
+  "description": "Assistente de inglês com IA para conversas de voz ao vivo e lições personalizadas",
   "start_url": "/chat",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#3b82f6",
   "orientation": "portrait-primary",
   "scope": "/",
-  "lang": "en",
+  "lang": "pt-BR",
   "dir": "ltr",
   "categories": ["education", "productivity", "lifestyle"],
   "screenshots": [
@@ -17,14 +17,14 @@
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Charlotte chat interface on desktop"
+      "label": "Interface de chat do Charlotte no desktop"
     },
     {
       "src": "/images/screenshot-narrow.png",
       "sizes": "390x844",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Charlotte mobile interface"
+      "label": "Interface mobile do Charlotte"
     }
   ],
   "icons": [
@@ -85,9 +85,9 @@
   ],
   "shortcuts": [
     {
-      "name": "Start Chat",
+      "name": "Iniciar Chat",
       "short_name": "Chat",
-      "description": "Start a new conversation with Charlotte",
+      "description": "Iniciar uma nova conversa com Charlotte",
       "url": "/chat",
       "icons": [
         {
@@ -98,9 +98,9 @@
       ]
     },
     {
-      "name": "Live Voice Mode",
-      "short_name": "Voice",
-      "description": "Practice speaking with Charlotte",
+      "name": "Modo Voz ao Vivo",
+      "short_name": "Voz",
+      "description": "Pratique conversação com Charlotte",
       "url": "/chat?mode=voice",
       "icons": [
         {
