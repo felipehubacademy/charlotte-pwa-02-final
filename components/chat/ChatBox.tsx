@@ -480,7 +480,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           ? 'calc(3.5rem + env(safe-area-inset-top) + 0.75rem)' // Mobile: só um pouquinho mais
           : 'calc(3.5rem + env(safe-area-inset-top) + 0.5rem)', // Desktop: ajuste mínimo
         paddingBottom: isMobile 
-          ? 'calc(10px + env(safe-area-inset-bottom))' // Mobile: reduzido drasticamente para 10px
+          ? 'calc(80px + env(safe-area-inset-bottom))' // Mobile: valor equilibrado
           : 'calc(120px + env(safe-area-inset-bottom))', // Desktop: mais espaço para subir o conteúdo
         WebkitOverflowScrolling: 'touch',
         // Mobile: overflow hidden quando não há mensagens, auto quando há

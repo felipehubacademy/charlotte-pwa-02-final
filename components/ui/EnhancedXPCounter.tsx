@@ -1029,9 +1029,14 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     const deltaX = clientX - dragStart.x;
     const deltaY = clientY - dragStart.y;
     
-    // 🔧 SAFE: Movimento com limites básicos de segurança
-    const newX = Math.max(0, Math.min(window.innerWidth - 100, initialPosition.x + deltaX));
-    const newY = Math.max(0, Math.min(window.innerHeight - 100, initialPosition.y + deltaY));
+    // 🔧 SAFE: Movimento com limites seguros para evitar sumir
+    const minX = 10; // Margem mínima da esquerda
+    const maxX = window.innerWidth - 100; // Margem da direita
+    const minY = 80; // Abaixo do header
+    const maxY = window.innerHeight - 200; // Acima do footer
+    
+    const newX = Math.max(minX, Math.min(maxX, initialPosition.x + deltaX));
+    const newY = Math.max(minY, Math.min(maxY, initialPosition.y + deltaY));
     
     setDragPosition({ x: newX, y: newY });
   };
@@ -1102,7 +1107,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
           left: 0,
           transform: `translate(${dragPosition.x || window.innerWidth - 90}px, ${dragPosition.y || 150}px)`,
           transition: isDragging ? 'none' : 'transform 0.2s ease',
-          zIndex: 9999,
+          zIndex: showStatsModal ? 40 : 70,
           pointerEvents: 'auto'
         } : {}}
       >

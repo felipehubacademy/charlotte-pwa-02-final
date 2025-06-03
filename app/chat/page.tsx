@@ -1551,14 +1551,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           ? 'pb-safe' 
           : 'pb-safe'
       }`}>
-        <div className={`max-w-3xl mx-auto ${ 
-          typeof window !== 'undefined' && 
-          ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-           window.innerWidth <= 768) ||
-          ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
-            ? 'px-3' // Mobile: removido py-1, apenas padding horizontal
-            : 'px-4 pt-6'
-        }`}>
+        <div className="max-w-3xl mx-auto">
           <div className="flex items-end space-x-3">
             
             {/* Interface normal */}
@@ -1576,15 +1569,15 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                     ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                      window.innerWidth <= 768) ||
                     ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
-                      ? 'px-3 py-1.5' // Mobile: padding muito mais compacto
-                      : 'px-4 py-3'   // Desktop: padding normal
+                      ? 'px-4 py-3' // Mobile: altura restaurada
+                      : 'px-4 py-3'   // Desktop: altura normal
                   } ${message.trim() ? 'pr-14' : 'pr-3'}`}
                   style={{ 
                     minHeight: typeof window !== 'undefined' && 
                       ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
                        window.innerWidth <= 768) ||
                       ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
-                        ? '38px' // Mobile: altura mínima menor
+                        ? '44px' // Mobile: altura adequada restaurada
                         : '44px', // Desktop: altura normal
                     maxHeight: '120px'
                   }}
