@@ -414,7 +414,7 @@ input, textarea, select {
 @media (min-width: 769px) {
   .fixed-footer > div {
     padding-top: 1.5rem !important; /* AUMENTADO - mais espaço do topo */
-    padding-bottom: calc(0.25rem + env(safe-area-inset-bottom, 0)) !important; /* DIMINUÍDO - menos espaço embaixo */
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0)) !important; /* AUMENTADO - mais espaço embaixo no desktop */
   }
 }
 
