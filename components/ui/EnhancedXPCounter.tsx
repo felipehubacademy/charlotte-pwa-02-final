@@ -66,6 +66,7 @@ const EnhancedStatsModal: React.FC<{
 
     try {
       console.log('🔄 Loading user data...');
+      console.log('📊 Props received in modal:', { sessionXP, totalXP, userId });
 
       const [userStats, todayXP, practiceHistory] = await Promise.all([
         supabaseService.getUserStats(userId),
@@ -82,6 +83,14 @@ const EnhancedStatsModal: React.FC<{
         practice.created_at.startsWith(today)
       );
       
+      console.log('🔍 TODAY PRACTICES DEBUG:', {
+        today,
+        allPractices: practiceHistory.length,
+        todayPractices: todayPractices.length,
+        todayPracticesXP: todayPractices.map(p => ({ xp: p.xp_awarded, time: p.created_at })),
+        calculatedTodayXP: todayPractices.reduce((sum, p) => sum + (p.xp_awarded || 0), 0)
+      });
+
       const recentActivity = todayPractices.map((practice: any) => {
         let typeName = 'Practice';
         switch (practice.practice_type) {
@@ -111,9 +120,13 @@ const EnhancedStatsModal: React.FC<{
 
       const streakDays = calculateStreak(practiceHistory);
 
+      // 🔧 CALCULAR XP DE HOJE CORRETAMENTE
+      const calculatedTodayXP = todayPractices.reduce((sum, practice) => sum + (practice.xp_awarded || 0), 0);
+      const finalSessionXP = Math.max(sessionXP || 0, todayXP || 0, calculatedTodayXP);
+
       setRealData({
         realTotalXP: totalXP,
-        realSessionXP: Math.max(sessionXP || 0, todayXP || 0),
+        realSessionXP: finalSessionXP, // 🔧 USAR O VALOR CALCULADO
         streak: userStats?.streak_days || streakDays,
         recentActivity,
         loading: false,
@@ -122,16 +135,17 @@ const EnhancedStatsModal: React.FC<{
 
       console.log('✅ Modal data loaded (CONSISTENT):', {
         realTotalXP: totalXP,
-        realSessionXP: Math.max(sessionXP || 0, todayXP || 0),
+        realSessionXP: finalSessionXP,
         bankTotalXP: userStats?.total_xp || 0,
         bankSessionXP: todayXP,
+        calculatedTodayXP,
+        finalUsedValue: finalSessionXP,
         streak: userStats?.streak_days || streakDays,
         todayPracticesCount: todayPractices.length,
         allPracticesCount: practiceHistory.length,
         // 🔍 DEBUG: Verificar se sessionXP está chegando corretamente
         propsSessionXP: sessionXP,
         propsTotalXP: totalXP,
-        calculatedTodayXP: todayXP,
         todayPracticesDetails: todayPractices.map(p => ({
           xp: p.xp_awarded,
           type: p.practice_type,
@@ -462,7 +476,7 @@ const EnhancedStatsModal: React.FC<{
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-        <div className="min-h-screen flex items-start justify-center p-4 pt-4 sm:pt-8 md:pt-12 lg:items-center lg:pt-4">
+        <div className="min-h-screen flex items-start justify-center p-4 pt-16 sm:pt-12 md:pt-8 lg:items-center lg:pt-4">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -470,7 +484,7 @@ const EnhancedStatsModal: React.FC<{
             onClick={(e) => e.stopPropagation()}
             className="bg-secondary backdrop-blur-md rounded-2xl p-4 sm:p-6 w-full border border-white/10 shadow-2xl
                        max-w-md lg:max-w-4xl 
-                       max-h-[90vh] sm:max-h-[85vh] lg:max-h-[85vh] overflow-hidden
+                       max-h-[85vh] sm:max-h-[85vh] lg:max-h-[85vh] overflow-hidden
                        lg:flex lg:gap-6 relative z-50"
           >
             {/* Header - Responsivo */}
