@@ -113,7 +113,7 @@ const EnhancedStatsModal: React.FC<{
 
       setRealData({
         realTotalXP: totalXP,
-        realSessionXP: sessionXP,
+        realSessionXP: Math.max(sessionXP || 0, todayXP || 0),
         streak: userStats?.streak_days || streakDays,
         recentActivity,
         loading: false,
@@ -122,12 +122,21 @@ const EnhancedStatsModal: React.FC<{
 
       console.log('✅ Modal data loaded (CONSISTENT):', {
         realTotalXP: totalXP,
-        realSessionXP: sessionXP,
+        realSessionXP: Math.max(sessionXP || 0, todayXP || 0),
         bankTotalXP: userStats?.total_xp || 0,
         bankSessionXP: todayXP,
         streak: userStats?.streak_days || streakDays,
         todayPracticesCount: todayPractices.length,
-        allPracticesCount: practiceHistory.length
+        allPracticesCount: practiceHistory.length,
+        // 🔍 DEBUG: Verificar se sessionXP está chegando corretamente
+        propsSessionXP: sessionXP,
+        propsTotalXP: totalXP,
+        calculatedTodayXP: todayXP,
+        todayPracticesDetails: todayPractices.map(p => ({
+          xp: p.xp_awarded,
+          type: p.practice_type,
+          time: p.created_at
+        }))
       });
 
     } catch (error) {
@@ -453,7 +462,7 @@ const EnhancedStatsModal: React.FC<{
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-        <div className="min-h-screen flex items-start justify-center p-4 pt-8 sm:pt-16 lg:items-center lg:pt-4">
+        <div className="min-h-screen flex items-start justify-center p-4 pt-4 sm:pt-8 md:pt-12 lg:items-center lg:pt-4">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -461,7 +470,7 @@ const EnhancedStatsModal: React.FC<{
             onClick={(e) => e.stopPropagation()}
             className="bg-secondary backdrop-blur-md rounded-2xl p-4 sm:p-6 w-full border border-white/10 shadow-2xl
                        max-w-md lg:max-w-4xl 
-                       max-h-[85vh] sm:max-h-[80vh] lg:max-h-[85vh] overflow-hidden
+                       max-h-[90vh] sm:max-h-[85vh] lg:max-h-[85vh] overflow-hidden
                        lg:flex lg:gap-6 relative z-50"
           >
             {/* Header - Responsivo */}
