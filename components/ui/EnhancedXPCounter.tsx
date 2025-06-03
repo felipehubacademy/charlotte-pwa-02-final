@@ -70,14 +70,19 @@ const EnhancedStatsModal: React.FC<{
       const [userStats, todayXP, practiceHistory] = await Promise.all([
         supabaseService.getUserStats(userId),
         supabaseService.getTodaySessionXP(userId),
-        supabaseService.getUserPracticeHistory(userId, 8)
+        supabaseService.getUserPracticeHistory(userId, 20)
       ]);
 
       console.log('📊 User stats loaded');
       console.log('🗓️ Today XP loaded');
       console.log('📝 Practice history loaded');
       
-      const recentActivity = practiceHistory.map((practice: any) => {
+      const today = new Date().toISOString().split('T')[0];
+      const todayPractices = practiceHistory.filter((practice: any) => 
+        practice.created_at.startsWith(today)
+      );
+      
+      const recentActivity = todayPractices.map((practice: any) => {
         let typeName = 'Practice';
         switch (practice.practice_type) {
           case 'text_message':
@@ -90,6 +95,7 @@ const EnhancedStatsModal: React.FC<{
             typeName = 'Live Conversation';
             break;
           case 'image_recognition':
+          case 'camera_object':
             typeName = 'Object Recognition';
             break;
           default:
@@ -106,19 +112,22 @@ const EnhancedStatsModal: React.FC<{
       const streakDays = calculateStreak(practiceHistory);
 
       setRealData({
-        realTotalXP: userStats?.total_xp || 0,
-        realSessionXP: todayXP,
+        realTotalXP: totalXP,
+        realSessionXP: sessionXP,
         streak: userStats?.streak_days || streakDays,
         recentActivity,
         loading: false,
         error: null
       });
 
-      console.log('✅ Modal data loaded:', {
-        realTotalXP: userStats?.total_xp || 0,
-        realSessionXP: todayXP,
+      console.log('✅ Modal data loaded (CONSISTENT):', {
+        realTotalXP: totalXP,
+        realSessionXP: sessionXP,
+        bankTotalXP: userStats?.total_xp || 0,
+        bankSessionXP: todayXP,
         streak: userStats?.streak_days || streakDays,
-        propsIgnored: { sessionXP, totalXP }
+        todayPracticesCount: todayPractices.length,
+        allPracticesCount: practiceHistory.length
       });
 
     } catch (error) {
@@ -236,10 +245,10 @@ const EnhancedStatsModal: React.FC<{
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
                   <div className="flex items-center space-x-2 mb-2">
                     <Clock size={16} className="text-primary" />
-                    <span className="text-white/80 text-xs font-medium">Activity</span>
+                    <span className="text-white/80 text-xs font-medium">Today</span>
                   </div>
                   <span className="text-white text-xl font-bold block mb-1">{realData.recentActivity.length}</span>
-                  <p className="text-white/60 text-xs">recent</p>
+                  <p className="text-white/60 text-xs">practices</p>
                 </div>
               </div>
 
@@ -325,10 +334,10 @@ const EnhancedStatsModal: React.FC<{
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
                   <div className="flex items-center space-x-2 mb-2">
                     <Clock size={16} className="text-primary" />
-                    <span className="text-white/80 text-xs font-medium">Activity</span>
+                    <span className="text-white/80 text-xs font-medium">Today</span>
                   </div>
                   <span className="text-white text-xl font-bold block mb-1">{realData.recentActivity.length}</span>
-                  <p className="text-white/60 text-xs">recent</p>
+                  <p className="text-white/60 text-xs">practices</p>
                 </div>
               </div>
 
@@ -444,7 +453,7 @@ const EnhancedStatsModal: React.FC<{
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
-        <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="min-h-screen flex items-start justify-center p-4 pt-8 sm:pt-16 lg:items-center lg:pt-4">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -452,7 +461,7 @@ const EnhancedStatsModal: React.FC<{
             onClick={(e) => e.stopPropagation()}
             className="bg-secondary backdrop-blur-md rounded-2xl p-4 sm:p-6 w-full border border-white/10 shadow-2xl
                        max-w-md lg:max-w-4xl 
-                       max-h-[80vh] sm:max-h-[85vh] overflow-hidden
+                       max-h-[85vh] sm:max-h-[80vh] lg:max-h-[85vh] overflow-hidden
                        lg:flex lg:gap-6 relative z-50"
           >
             {/* Header - Responsivo */}

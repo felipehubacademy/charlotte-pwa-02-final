@@ -70,14 +70,19 @@ const EnhancedStatsModal: React.FC<{
       const [userStats, todayXP, practiceHistory] = await Promise.all([
         supabaseService.getUserStats(userId),
         supabaseService.getTodaySessionXP(userId),
-        supabaseService.getUserPracticeHistory(userId, 8)
+        supabaseService.getUserPracticeHistory(userId, 20)
       ]);
 
       console.log('📊 User stats loaded');
       console.log('🗓️ Today XP loaded');
       console.log('📝 Practice history loaded');
       
-      const recentActivity = practiceHistory.map((practice: any) => {
+      const today = new Date().toISOString().split('T')[0];
+      const todayPractices = practiceHistory.filter((practice: any) => 
+        practice.created_at.startsWith(today)
+      );
+      
+      const recentActivity = todayPractices.map((practice: any) => {
         let typeName = 'Practice';
         switch (practice.practice_type) {
           case 'text_message':
@@ -90,6 +95,7 @@ const EnhancedStatsModal: React.FC<{
             typeName = 'Live Conversation';
             break;
           case 'image_recognition':
+          case 'camera_object':
             typeName = 'Object Recognition';
             break;
           default:
@@ -106,19 +112,22 @@ const EnhancedStatsModal: React.FC<{
       const streakDays = calculateStreak(practiceHistory);
 
       setRealData({
-        realTotalXP: userStats?.total_xp || 0,
-        realSessionXP: todayXP,
+        realTotalXP: totalXP,
+        realSessionXP: sessionXP,
         streak: userStats?.streak_days || streakDays,
         recentActivity,
         loading: false,
         error: null
       });
 
-      console.log('✅ Modal data loaded:', {
-        realTotalXP: userStats?.total_xp || 0,
-        realSessionXP: todayXP,
+      console.log('✅ Modal data loaded (CONSISTENT):', {
+        realTotalXP: totalXP,
+        realSessionXP: sessionXP,
+        bankTotalXP: userStats?.total_xp || 0,
+        bankSessionXP: todayXP,
         streak: userStats?.streak_days || streakDays,
-        propsIgnored: { sessionXP, totalXP }
+        todayPracticesCount: todayPractices.length,
+        allPracticesCount: practiceHistory.length
       });
 
     } catch (error) {
