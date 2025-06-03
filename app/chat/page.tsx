@@ -1543,14 +1543,23 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       />
 
       {/* ✅ FIXED: Footer now truly fixed at bottom, independent of ChatBox and keyboard */}
-      <div className={`fixed-footer bg-secondary border-t border-white/5 ${
-        typeof window !== 'undefined' && 
-        ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-         window.innerWidth <= 768) ||
-        ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
-          ? 'pb-safe' 
-          : 'pb-safe'
-      }`}>
+      <div 
+        className={`fixed-footer bg-secondary border-t border-white/5 ${
+          isIOSPWAMode ? 'ios-pwa-fixed-footer' : ''
+        } ${
+          typeof window !== 'undefined' && 
+          ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+           window.innerWidth <= 768) ||
+          ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
+            ? 'pb-safe' 
+            : 'pb-safe'
+        }`}
+        style={{
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)'
+        }}
+      >
         <div className="max-w-3xl mx-auto">
           <div className="flex items-end space-x-3">
             

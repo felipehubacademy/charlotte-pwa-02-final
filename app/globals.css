@@ -105,10 +105,17 @@ body {
   bottom: 0 !important;
   left: 0 !important;
   right: 0 !important;
+  transform: translateZ(0) !important;
   /* ✅ KEY: Add safe area padding for home indicator */
   padding-left: env(safe-area-inset-left) !important;
   padding-right: env(safe-area-inset-right) !important;
   padding-bottom: env(safe-area-inset-bottom) !important;
+  /* ✅ SAME AS HEADER: Fill safe area completely */
+  min-height: calc(80px + env(safe-area-inset-bottom)) !important;
+  background: var(--secondary) !important;
+  z-index: 50 !important;
+  width: 100vw !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 
 /* ✅ SIMPLIFIED: Content area for iOS PWA */
@@ -207,6 +214,7 @@ body {
     padding-left: constant(safe-area-inset-left) !important;
     padding-right: constant(safe-area-inset-right) !important;
     padding-bottom: constant(safe-area-inset-bottom) !important;
+    min-height: calc(80px + constant(safe-area-inset-bottom)) !important;
   }
   
   .ios-pwa-content {
@@ -362,7 +370,7 @@ input, textarea, select {
   top: calc(env(safe-area-inset-top) + 80px); /* Safe area + header height */
 }
 
-/* ✅ FORCE: Footer always fixed at bottom */
+/* ✅ FORCE: Footer always fixed at bottom - UPDATED with iOS PWA pattern */
 .fixed-footer {
   position: fixed !important;
   bottom: 0 !important;
@@ -374,6 +382,9 @@ input, textarea, select {
   padding: 0 !important;
   background: var(--secondary) !important; /* Garantir fundo sólido */
   border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  transform: translateZ(0) !important; /* ✅ SAME AS HEADER: Force own layer */
+  /* ✅ SAME AS HEADER: Fill safe area */
+  min-height: calc(80px + env(safe-area-inset-bottom)) !important;
 }
 
 /* ✅ PREVENT: Footer from moving with virtual keyboard */
@@ -387,10 +398,13 @@ input, textarea, select {
 @media (display-mode: standalone) {
   .fixed-footer {
     position: fixed !important;
-    bottom: env(safe-area-inset-bottom, 0) !important;
+    bottom: 0 !important;
     transform: translateZ(0) !important;
     will-change: transform !important;
     width: 100vw !important;
+    /* ✅ SAME AS HEADER: Fill safe area completely */
+    min-height: calc(80px + env(safe-area-inset-bottom)) !important;
+    padding-bottom: env(safe-area-inset-bottom) !important;
   }
 }
 

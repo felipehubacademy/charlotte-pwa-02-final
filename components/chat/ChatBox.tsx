@@ -482,7 +482,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         paddingBottom: isMobile 
           ? 'calc(100px + env(safe-area-inset-bottom))' // Mobile: ajustado para parar onde footer começa
           : 'calc(120px + env(safe-area-inset-bottom))', // Desktop: mantido como estava
-        WebkitOverflowScrolling: 'touch',
+      WebkitOverflowScrolling: 'touch',
         // Mobile: overflow hidden quando não há mensagens, auto quando há
         overflowY: isMobile 
           ? (messages.length === 0 ? 'hidden' : 'auto')

@@ -120,7 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let userLevel: 'Novice' | 'Inter' | 'Advanced';
       try {
         userLevel = await getUserLevel(account);
-        console.log('User level determined:', userLevel);
+      console.log('User level determined:', userLevel);
       } catch (error: any) {
         if (error.message?.includes('ACCESS_DENIED')) {
           console.log('🚫 Access denied - user not in Charlotte groups');
@@ -254,7 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (groupNames.some((name: string) => name.toLowerCase().includes('novice'))) {
         console.log('🎯 User level: Novice');
-        return 'Novice';
+      return 'Novice';
       } else if (groupNames.some((name: string) => name.toLowerCase().includes('inter'))) {
         console.log('🎯 User level: Inter');
         return 'Inter';
