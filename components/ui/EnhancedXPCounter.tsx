@@ -1069,43 +1069,41 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   // ✅ NEW: Set initial position for floating counter
   useEffect(() => {
     if (isMobile && isFloating && typeof window !== 'undefined') {
-      // 🔧 FIX: Posição inicial segura e visível
-      const initialX = window.innerWidth - 120; // Mais longe da borda
-      const initialY = 200; // Posição fixa mais alta
+      // 🔧 DEBUG: Posição inicial com logs
+      const initialX = window.innerWidth - 120;
+      const initialY = 200;
+      
+      console.log('🎯 XPCounter initial position:', { initialX, initialY, windowWidth: window.innerWidth, windowHeight: window.innerHeight });
       
       setInitialPosition({ x: initialX, y: initialY });
       setDragPosition({ x: initialX, y: initialY });
     }
   }, [isMobile, isFloating]);
 
-  // ✅ NEW: Handle window resize to maintain position
+  // 🔧 DEBUG: Log quando o componente renderiza
   useEffect(() => {
-    if (!isMobile || !isFloating) return;
-    
-    const handleResize = () => {
-      // 🔥 SIMPLE: Apenas reposicionar se estiver fora da tela
-      setDragPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - 50),
-        y: Math.min(prev.y, window.innerHeight - 50)
-      }));
-    };
-    
-    window.addEventListener('resize', handleResize);
-    window.addEventListener('orientationchange', handleResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('orientationchange', handleResize);
-    };
-  }, [isMobile, isFloating]);
+    console.log('🎯 XPCounter render:', { 
+      isMobile, 
+      isFloating, 
+      dragPosition, 
+      sessionXP, 
+      totalXP,
+      currentLevel 
+    });
+  }, [isMobile, isFloating, dragPosition, sessionXP, totalXP, currentLevel]);
 
   return (
     <>
       <div 
         className="relative flex items-center space-x-2"
         style={isMobile && isFloating ? {
+          position: 'fixed',
+          top: 0,
+          left: 0,
           transform: `translate(${dragPosition.x}px, ${dragPosition.y}px)`,
-          transition: isDragging ? 'none' : 'transform 0.2s ease'
+          transition: isDragging ? 'none' : 'transform 0.2s ease',
+          zIndex: 9999,
+          pointerEvents: 'auto'
         } : {}}
       >
         <motion.button

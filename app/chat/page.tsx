@@ -1625,14 +1625,14 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                             <>
                               <button
                                 onClick={cancelRecording}
-                                className="absolute right-[136px] bottom-[7px] p-2 text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 transition-colors rounded-full select-none"
+                                className="absolute right-[136px] bottom-2 p-2 text-red-400 hover:text-red-300 bg-red-400/10 hover:bg-red-400/20 transition-colors rounded-full select-none"
                                 title="Cancel recording"
                               >
                                 <X size={16} />
                               </button>
                               <button
                                 onClick={togglePlayback}
-                                className="absolute right-24 bottom-[7px] p-2 text-primary hover:text-primary-dark bg-primary/10 hover:bg-primary/20 transition-colors rounded-full select-none"
+                                className="absolute right-24 bottom-2 p-2 text-primary hover:text-primary-dark bg-primary/10 hover:bg-primary/20 transition-colors rounded-full select-none"
                                 title={isPlaying ? "Pause preview" : "Play preview"}
                               >
                                 {isPlaying ? <Pause size={16} /> : <Play size={16} />}
@@ -1642,7 +1642,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                               </span>
                               <button
                                 onClick={sendRecordedAudio}
-                                className="absolute right-[7px] bottom-[7px] p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
+                                className="absolute right-2 bottom-2 p-2 bg-primary text-black rounded-full hover:bg-primary-dark transition-colors select-none"
                                 title="Send audio"
                               >
                                 <Send size={16} />

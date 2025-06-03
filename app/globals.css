@@ -404,15 +404,6 @@ input, textarea, select {
 @media (max-width: 768px) {
   .fixed-footer > div {
     padding-bottom: env(safe-area-inset-bottom, 0) !important; /* Apenas safe area, sem padding extra */
-    padding-top: 0.25rem !important; /* Mínimo padding top */
-  }
-  
-  /* 🔧 MODERATE: Reduzir padding do footer mobile sem quebrar */
-  .fixed-footer .max-w-3xl {
-    padding-left: 0.75rem !important;
-    padding-right: 0.75rem !important;
-    padding-top: 0.25rem !important;
-    padding-bottom: env(safe-area-inset-bottom, 0) !important;
   }
 }
 
