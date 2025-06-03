@@ -1029,9 +1029,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     const deltaX = clientX - dragStart.x;
     const deltaY = clientY - dragStart.y;
     
-    // 🔥 FUCK IT: Movimento LIVRE em toda a tela
-    const newX = initialPosition.x + deltaX;
-    const newY = initialPosition.y + deltaY;
+    // 🔧 SAFE: Movimento com limites básicos de segurança
+    const newX = Math.max(0, Math.min(window.innerWidth - 100, initialPosition.x + deltaX));
+    const newY = Math.max(0, Math.min(window.innerHeight - 100, initialPosition.y + deltaY));
     
     setDragPosition({ x: newX, y: newY });
   };
@@ -1069,9 +1069,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   // ✅ NEW: Set initial position for floating counter
   useEffect(() => {
     if (isMobile && isFloating && typeof window !== 'undefined') {
-      // 🔥 SIMPLE: Posição inicial simples no centro-direita
-      const initialX = window.innerWidth - 100; // 100px da direita
-      const initialY = window.innerHeight / 2; // Centro vertical
+      // 🔧 FIX: Posição inicial segura e visível
+      const initialX = window.innerWidth - 120; // Mais longe da borda
+      const initialY = 200; // Posição fixa mais alta
       
       setInitialPosition({ x: initialX, y: initialY });
       setDragPosition({ x: initialX, y: initialY });
