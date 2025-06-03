@@ -1033,7 +1033,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     const minX = 10; // Margem mínima da esquerda
     const maxX = window.innerWidth - 100; // Margem da direita
     const minY = 80; // Abaixo do header
-    const maxY = window.innerHeight - 250; // Acima do footer (aumentado para não subir no footer)
+    const maxY = window.innerHeight - 300; // Acima do footer (aumentado mais 50px)
     
     const newX = Math.max(minX, Math.min(maxX, initialPosition.x + deltaX));
     const newY = Math.max(minY, Math.min(maxY, initialPosition.y + deltaY));
