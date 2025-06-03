@@ -162,7 +162,7 @@ export default function PWAInstaller() {
   // Banner de instalação para Android/Chrome
   if (showBanner && isInstallable && !isInstalled && !isIOS) {
     return (
-      <div className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg shadow-lg border border-blue-500/20 backdrop-blur-sm">
+      <div className="fixed bottom-4 left-4 right-4 z-[60] bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg shadow-lg border border-blue-500/20 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-white/20 p-2 rounded-lg">
@@ -195,7 +195,7 @@ export default function PWAInstaller() {
   // Banner de instruções para iOS
   if (showBanner && isIOS && !isInstalled) {
     return (
-      <div className="fixed bottom-4 left-4 right-4 z-50 bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded-lg shadow-lg border border-gray-700">
+      <div className="fixed bottom-4 left-4 right-4 z-[60] bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded-lg shadow-lg border border-gray-700">
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3">
             <div className="bg-white/20 p-2 rounded-lg">

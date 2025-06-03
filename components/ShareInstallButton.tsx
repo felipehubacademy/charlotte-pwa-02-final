@@ -83,7 +83,7 @@ export default function ShareInstallButton({
         </button>
         
         {showOptions && (
-          <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-64 z-50">
+          <div className="absolute top-full right-0 mt-2 bg-white rounded-lg shadow-xl border border-gray-200 p-4 min-w-64 z-[70]">
             <div className="space-y-2">
               <button
                 onClick={shareViaWhatsApp}
