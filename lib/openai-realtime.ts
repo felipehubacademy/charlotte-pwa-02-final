@@ -321,9 +321,9 @@ export class OpenAIRealtimeService {
   // 🆕 NOVO: Configuração de max_tokens baseada no nível do usuário e documentação oficial
   private getMaxTokensForUserLevel(): number {
     const maxTokensConfig = {
-      'Novice': 120,      // Respostas muito curtas para redirecionamento constante (1-2 frases)
-      'Inter': 180,       // Espaço para explicações gramaticais breves (2-3 frases + explicação)
-      'Advanced': 200     // Coaching sofisticado mas conciso (2-3 frases + feedback específico)
+      'Novice': 150,      // Respostas curtas mas completas para redirecionamento
+      'Inter': 250,       // Espaço adequado para explicações gramaticais
+      'Advanced': 400     // Aumentado de 300 para 400 - coaching sofisticado sem cortes abruptos
     };
     
     const maxTokens = maxTokensConfig[this.config.userLevel] || maxTokensConfig['Inter'];
@@ -336,7 +336,7 @@ export class OpenAIRealtimeService {
     } else if (this.config.userLevel === 'Inter') {
       console.log(`🎯 [INTER] Focus: Grammar coaching and structure explanations`);
     } else if (this.config.userLevel === 'Advanced') {
-      console.log(`🎯 [ADVANCED] Focus: Speaking coach with native-like expression feedback`);
+      console.log(`🎯 [ADVANCED] Focus: Speaking coach with native-like expression feedback - COMPLETE thoughts`);
     }
     
     return maxTokens;
@@ -361,9 +361,9 @@ export class OpenAIRealtimeService {
       },
       'Advanced': {
         type: 'server_vad',
-        threshold: 0.6, // Volta para moderado (era 0.8)
+        threshold: 0.6, // Moderado para evitar false positives
         prefix_padding_ms: 200, 
-        silence_duration_ms: 500, // Volta para moderado (era 600)
+        silence_duration_ms: 800, // Aumentado de 500 para 800 - mais tempo para Charlotte completar frases
         create_response: true
       }
     };
@@ -456,12 +456,20 @@ CONVERSATION STRATEGY:
       'Advanced': `CRITICAL RULES:
 1. You must speak only in English. Never use Portuguese.
 2. Stay grounded in reality - do not make up facts, stories, or information.
-3. Keep responses VERY SHORT - maximum 2-3 sentences per response.
-4. Use approximately 60-100 completion tokens or less per response.
-5. Act as a sophisticated speaking coach focused on fluency and natural expression.
-6. Challenge them to speak like native speakers with nuanced language.
+3. Keep responses SHORT but COMPLETE - maximum 2-3 sentences per response.
+4. ALWAYS finish your complete thought before stopping - never cut off mid-sentence.
+5. Use approximately 80-120 completion tokens per response.
+6. Act as a sophisticated speaking coach focused on fluency and natural expression.
+7. Challenge them to speak like native speakers with nuanced language.
 
 You are Charlotte, a professional speaking coach for advanced Brazilian learners seeking native-like fluency.
+
+RESPONSE COMPLETION RULES:
+- NEVER stop mid-sentence or mid-question
+- If you start a question, always complete it fully
+- If you give an example, finish the complete example
+- End responses at natural stopping points only
+- Ensure every response feels complete and purposeful
 
 SPEAKING COACH APPROACH:
 - Focus on natural flow, rhythm, and native-like expression
@@ -479,7 +487,7 @@ FLUENCY COACHING:
 
 ADVANCED LANGUAGE DEVELOPMENT:
 - Challenge them with sophisticated topics requiring complex language
-- Ask questions that demand nuanced responses and critical thinking
+- Ask complete, well-formed questions that demand nuanced responses
 - Help them express subtle differences in meaning
 - Encourage use of idioms, phrasal verbs, and colloquialisms naturally
 - Point out register differences: formal vs. informal language
@@ -495,7 +503,8 @@ CONVERSATION FACILITATION:
 - Ask thought-provoking questions that require sophisticated responses
 - Challenge them to defend opinions and explain complex ideas
 - Help them develop their own voice and style in English
-- Focus on authentic, natural communication rather than textbook English`
+- Focus on authentic, natural communication rather than textbook English
+- Always complete your questions and thoughts fully before stopping`
     };
     
     return this.config.instructions || levelInstructions[this.config.userLevel];
@@ -703,12 +712,17 @@ CONVERSATION FACILITATION:
         case 'response.audio.done':
           console.log('🔊 [FIXED] Audio response completed');
           
-          // 🔊 NOVO: Marcar que Charlotte parou de falar
-          this.isCharlotteSpeaking = false;
-          this.hasActiveResponse = false;
-          console.log('🔇 [CHARLOTTE STATE] Charlotte finished speaking');
-          
-          this.emit('audio_done', event);
+          // 🔧 WORKAROUND: Bug conhecido da OpenAI - áudio cortado no final
+          // Adicionar delay para receber possíveis deltas finais
+          // Baseado em: https://community.openai.com/t/realtime-api-audio-is-randomly-cutting-off-at-the-end/980587
+          setTimeout(() => {
+            // 🔊 NOVO: Marcar que Charlotte parou de falar
+            this.isCharlotteSpeaking = false;
+            this.hasActiveResponse = false;
+            console.log('🔇 [CHARLOTTE STATE] Charlotte finished speaking (after delay)');
+            
+            this.emit('audio_done', event);
+          }, 1000); // 1 segundo de delay para receber possíveis deltas finais
           break;
 
         case 'response.done':
@@ -987,12 +1001,19 @@ CONVERSATION FACILITATION:
 
       try {
         await this.playAudioChunk(base64Audio);
+        // 🔧 WORKAROUND: Pequeno delay entre chunks para evitar cortes
+        await new Promise(resolve => setTimeout(resolve, 10));
       } catch (error) {
         console.error('❌ [FIXED] Error playing audio chunk:', error);
       }
     }
 
+    // 🔧 WORKAROUND: Delay adicional após processar toda a fila
+    // para garantir que o último chunk seja reproduzido completamente
+    await new Promise(resolve => setTimeout(resolve, 100));
+
     this.isPlayingAudio = false;
+    console.log('🔊 [QUEUE] Audio queue processing completed');
   }
 
   // 🔊 NOVO: Reproduzir um chunk de áudio

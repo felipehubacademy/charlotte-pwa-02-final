@@ -555,8 +555,22 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         setIsListening(false);
       });
 
+      // 🔧 CORRIGIDO: Processar transcrição do usuário ANTES da resposta da Charlotte
+      service.on('input_transcription_completed', (event: any) => {
+        console.log('📝 [ORDER FIX] User speech transcribed FIRST:', event.transcript);
+        // 📝 PRIORIDADE: Adicionar ao histórico IMEDIATAMENTE
+        if (event.transcript) {
+          addUserMessage(event.transcript);
+          setTranscript(`You: "${event.transcript}"`);
+        }
+      });
+
+      service.on('input_transcription_failed', (event: any) => {
+        console.log('❌ Transcription failed');
+      });
+
       service.on('response_created', () => {
-        console.log('🤖 [INTERRUPT DEBUG] Assistant response created - Charlotte starts speaking');
+        console.log('🤖 [ORDER FIX] Assistant response created AFTER user transcription - Charlotte starts speaking');
         console.log('🤖 [INTERRUPT DEBUG] Current state:', { isListening, isSpeaking });
         setIsSpeaking(true);
         setIsListening(false);
@@ -638,17 +652,6 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         console.log('✅ Audio response completed');
         setIsSpeaking(false);
           setIsListening(true);
-      });
-
-      service.on('input_transcription_completed', (event: any) => {
-        console.log('📝 User speech transcribed:', event.transcript);
-        // 📝 ATUALIZADO: Adicionar ao histórico em vez de apenas salvar
-        addUserMessage(event.transcript);
-        setTranscript(`You: "${event.transcript}"`);
-      });
-
-      service.on('input_transcription_failed', (event: any) => {
-        console.log('❌ Transcription failed');
       });
 
       service.on('function_call_arguments_delta', (event: any) => {
@@ -889,8 +892,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 </div>
               </div>
 
-              {/* 📝 CENTRALIZADO: Botão Toggle de Transcrições */}
-              <div className="flex-1 flex justify-center">
+              {/* 📝 DESKTOP: Botão Toggle de Transcrições com texto */}
+              <div className="hidden md:flex flex-1 justify-center">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -905,7 +908,6 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 >
                   {showTranscriptions ? <MessageSquare size={16} /> : <MessageSquareOff size={16} />}
                   <span className="font-medium">
-                    {/* 📝 ATUALIZADO: Texto baseado no nível do usuário */}
                     {userLevel === 'Novice' ? 'Transcrição' : 'Transcription'}
                   </span>
                 </button>
@@ -938,6 +940,31 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               </div>
             </div>
           </motion.header>
+
+          {/* 📱 MOBILE: Botão de transcrição flutuante no canto direito */}
+          <AnimatePresence>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="md:hidden absolute top-20 right-4 z-40"
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleTranscriptions();
+                }}
+                className={`p-3 rounded-full transition-all cursor-pointer shadow-lg ${
+                  showTranscriptions 
+                    ? 'bg-primary/20 text-primary border border-primary/30 backdrop-blur-md' 
+                    : 'bg-white/10 text-white/70 border border-white/20 hover:bg-white/20 hover:text-white/90 backdrop-blur-md'
+                }`}
+                title={showTranscriptions ? 'Hide transcriptions' : 'Show transcriptions'}
+              >
+                {showTranscriptions ? <MessageSquare size={20} /> : <MessageSquareOff size={20} />}
+              </button>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Main content - Layout dinâmico baseado em transcrições */}
           <div className="relative flex-1 flex flex-col overflow-hidden">
