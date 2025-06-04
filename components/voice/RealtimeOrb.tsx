@@ -32,11 +32,11 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
       maxRadius: 95
     },
     compact: {
-      container: 'w-48 h-48',
-      orb: 'w-40 h-40',
-      baseRadius: 28,
-      waveSpacing: 5,
-      maxRadius: 60
+      container: 'w-56 h-56',
+      orb: 'w-48 h-48',
+      baseRadius: 32,
+      waveSpacing: 6,
+      maxRadius: 70
     }
   };
 
@@ -135,11 +135,11 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
     <motion.div 
       className={`relative ${config.container} flex items-center justify-center`}
       animate={{
-        scale: size === 'compact' ? 0.6 : 1
+        scale: size === 'compact' ? 0.75 : 1
       }}
       transition={{
-        duration: 0.5,
-        ease: "easeInOut"
+        duration: 0.6,
+        ease: [0.4, 0, 0.2, 1] // Custom easing for smoother animation
       }}
     >
       <motion.div

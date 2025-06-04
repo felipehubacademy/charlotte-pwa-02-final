@@ -562,6 +562,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         if (event.transcript) {
           addUserMessage(event.transcript);
           setTranscript(`You: "${event.transcript}"`);
+          console.log('📝 [ORDER FIX] User message added to history immediately');
         }
       });
 
@@ -572,10 +573,15 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       service.on('response_created', () => {
         console.log('🤖 [ORDER FIX] Assistant response created AFTER user transcription - Charlotte starts speaking');
         console.log('🤖 [INTERRUPT DEBUG] Current state:', { isListening, isSpeaking });
-        setIsSpeaking(true);
-        setIsListening(false);
-        // 📝 NOVO: Limpar resposta anterior da Charlotte
-        setCharlotteCurrentResponse('');
+        
+        // 📝 NOVO: Pequeno delay para garantir que a mensagem do usuário foi processada
+        setTimeout(() => {
+          setIsSpeaking(true);
+          setIsListening(false);
+          // 📝 NOVO: Limpar resposta anterior da Charlotte
+          setCharlotteCurrentResponse('');
+          console.log('🤖 [ORDER FIX] Charlotte state updated after delay');
+        }, 50); // 50ms delay para garantir ordem
       });
 
       // 📝 NOVO: Listeners para transcrição da Charlotte via áudio (eventos corretos)
@@ -593,6 +599,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       service.on('charlotte_transcript_completed', (event: any) => {
         console.log('✅ [CHARLOTTE TRANSCRIPT] Completed:', event.transcript);
         if (event.transcript) {
+          console.log('📝 [ORDER FIX] Adding Charlotte message from transcript:', event.transcript);
           addCharlotteMessage(event.transcript);
           setCharlotteCurrentResponse('');
         }
@@ -611,11 +618,6 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         if (currentTranscript) {
           setTranscript(currentTranscript);
           setCurrentTranscript('');
-        }
-        // 📝 ATUALIZADO: Finalizar resposta da Charlotte e adicionar ao histórico
-        if (charlotteCurrentResponse) {
-          addCharlotteMessage(charlotteCurrentResponse);
-          setCharlotteCurrentResponse('');
         }
       });
 
@@ -640,12 +642,14 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           setTranscript(currentTranscript);
           setCurrentTranscript('');
         }
-        // 📝 ATUALIZADO: Finalizar resposta da Charlotte
-        if (charlotteCurrentResponse) {
-          console.log('📝 [CHARLOTTE DEBUG] Saving Charlotte response to history:', charlotteCurrentResponse);
-          addCharlotteMessage(charlotteCurrentResponse);
-          setCharlotteCurrentResponse('');
-        }
+        // 📝 CORRIGIDO: Usar o estado atual da resposta para adicionar ao histórico
+        setCharlotteCurrentResponse(currentResponse => {
+          if (currentResponse) {
+            console.log('📝 [CHARLOTTE DEBUG] Saving Charlotte response to history:', currentResponse);
+            addCharlotteMessage(currentResponse);
+          }
+          return ''; // Limpar após adicionar ao histórico
+        });
       });
 
       service.on('audio_done', (event: any) => {
@@ -974,7 +978,11 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
+                  transition={{ 
+                    delay: 0.4,
+                    duration: 0.6,
+                    ease: [0.4, 0, 0.2, 1]
+                  }}
                   className="flex-shrink-0"
                 >
                   <RealtimeOrb
@@ -1015,7 +1023,11 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                   <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
-                    transition={{ delay: 0.4 }}
+                    transition={{ 
+                      delay: 0.4,
+                      duration: 0.6,
+                      ease: [0.4, 0, 0.2, 1]
+                    }}
                     className="flex-shrink-0"
                   >
                     <RealtimeOrb
@@ -1058,7 +1070,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                                 {message.type === 'user' ? 'You' : 'Charlotte'}
                               </p>
                               <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
-                                {message.type === 'user' ? `"${message.content}"` : message.content}
+                                {message.type === 'user' ? message.content : message.content}
                               </p>
                             </div>
                           </div>
