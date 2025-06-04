@@ -39,20 +39,28 @@ export const useOnboarding = (userId?: string): UseOnboardingReturn => {
       try {
         const storageKey = userId ? `${ONBOARDING_STORAGE_KEY}-${userId}` : ONBOARDING_STORAGE_KEY;
         
+        console.log('🎓 Loading onboarding state for key:', storageKey);
         const saved = localStorage.getItem(storageKey);
+        console.log('🎓 Saved onboarding data:', saved);
         
         if (saved) {
           const parsed: OnboardingState = JSON.parse(saved);
+          console.log('🎓 Parsed onboarding state:', parsed);
           setOnboardingState(parsed);
           
-          // Verificar se deve mostrar o tour principal
-          if (!parsed.hasCompletedMainTour && parsed.isFirstVisit) {
+          // 🔧 CORRIGIDO: Verificação mais rigorosa - só mostrar se NUNCA completou
+          if (!parsed.hasCompletedMainTour) {
+            console.log('🎓 Tour not completed - showing tour');
             // Delay para garantir que a página carregou completamente
             setTimeout(() => {
               setShowMainTour(true);
             }, 1000);
+          } else {
+            console.log('🎓 Tour already completed - not showing');
+            setShowMainTour(false);
           }
         } else {
+          console.log('🎓 No saved state - first visit, showing tour');
           // Primeira visita - mostrar tour principal após delay
           setTimeout(() => {
             setShowMainTour(true);
@@ -67,7 +75,17 @@ export const useOnboarding = (userId?: string): UseOnboardingReturn => {
       }
     };
 
-    loadOnboardingState();
+    // 🔧 NOVO: Só carregar se tiver userId (evitar problemas de timing)
+    if (userId) {
+      loadOnboardingState();
+    } else {
+      // Se não tem userId ainda, aguardar um pouco
+      const timer = setTimeout(() => {
+        loadOnboardingState();
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
   }, [userId]);
 
   // Salvar estado no localStorage
@@ -80,8 +98,13 @@ export const useOnboarding = (userId?: string): UseOnboardingReturn => {
         lastVisitDate: new Date().toISOString()
       };
       
+      console.log('🎓 Saving onboarding state:', { storageKey, updatedState });
       localStorage.setItem(storageKey, JSON.stringify(updatedState));
       setOnboardingState(updatedState);
+      
+      // 🔧 NOVO: Verificar se foi salvo corretamente
+      const verification = localStorage.getItem(storageKey);
+      console.log('🎓 Verification - saved data:', verification);
     } catch (error) {
       console.error('Error saving onboarding state:', error);
     }
@@ -89,6 +112,7 @@ export const useOnboarding = (userId?: string): UseOnboardingReturn => {
 
   // Completar tour principal
   const completeMainTour = () => {
+    console.log('🎓 Completing main tour');
     saveOnboardingState({
       hasCompletedMainTour: true,
       isFirstVisit: false
@@ -98,6 +122,7 @@ export const useOnboarding = (userId?: string): UseOnboardingReturn => {
 
   // Pular tour principal
   const skipMainTour = () => {
+    console.log('🎓 Skipping main tour');
     saveOnboardingState({
       hasCompletedMainTour: true,
       isFirstVisit: false

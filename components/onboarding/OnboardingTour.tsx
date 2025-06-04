@@ -60,8 +60,8 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
         targetId: 'photo-button',
         title: isNovice ? 'Tire uma Foto' : 'Take a Photo',
         description: isNovice 
-          ? 'Fotografe textos em inglês e receba traduções instantâneas com explicações detalhadas.'
-          : 'Capture English texts and get instant translations with detailed explanations.',
+          ? 'Fotografe textos ou objetos em inglês e receba explicações detalhadas instantâneas.'
+          : 'Capture English texts or objects and get instant detailed explanations.',
         icon: <Camera size={24} />,
         position: 'center',
         mobileOnly: true
@@ -125,16 +125,16 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
         position: 'center',
         isLiveVoiceStep: true
       },
-      // Step 8: XP System (volta para tela principal)
+      // Step 8: XP System (volta para tela principal) - 🔧 WORKAROUND para mobile
       {
         id: 'xp',
         targetId: 'xp-counter',
         title: isNovice ? 'Sistema de XP' : 'XP System',
         description: isNovice
-          ? 'Ganhe pontos de experiência praticando inglês e acompanhe seu progresso!'
-          : 'Earn experience points by practicing English and track your progress!',
+          ? 'Ganhe pontos de experiência praticando inglês e acompanhe seu progresso! O contador de XP aparece no canto superior direito.'
+          : 'Earn experience points by practicing English and track your progress! The XP counter appears in the top right corner.',
         icon: <Star size={24} />,
-        position: 'center'
+        position: 'center' // 🔧 SEMPRE centralizar para mobile
       }
     ];
 
@@ -201,6 +201,24 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
         element = document.querySelector('textarea[placeholder*="Ask"]') as HTMLElement;
       }
       
+      // 🔧 NOVO: Workaround especial para XP counter móvel
+      if (!element && step.targetId === 'xp-counter') {
+        // Tentar múltiplos seletores para o XP counter
+        element = document.querySelector('#xp-counter, .floating-xp-counter, [class*="xp-counter"], [class*="XPCounter"]') as HTMLElement;
+        
+        // Se ainda não encontrou, usar posição fixa no canto superior direito
+        if (!element && isMobile) {
+          console.log('🔧 XP Counter not found on mobile - using fixed position');
+          // Não definir elemento, mas usar posição fixa
+          setTargetElement(null);
+          setTooltipPosition({
+            x: window.innerWidth - 340, // 320px tooltip + 20px padding
+            y: 80 // Posição no topo, abaixo do header
+          });
+          return;
+        }
+      }
+      
       // 🔧 NOVO: Fallbacks para elementos do Live Voice modal
       if (!element && step.isLiveVoiceStep) {
         // Tentar múltiplos seletores para o botão de transcrição
@@ -223,8 +241,8 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
         setTargetElement(element);
         const positions = calculateTooltipPosition(element, step.position);
         setTooltipPosition(positions);
-      } else if (attempts < maxAttempts && step.isLiveVoiceStep) {
-        // 🔧 NOVO: Retry após delay se for step do Live Voice
+      } else if (attempts < maxAttempts && (step.isLiveVoiceStep || step.targetId === 'xp-counter')) {
+        // 🔧 NOVO: Retry após delay se for step do Live Voice ou XP counter
         setTimeout(() => findElementWithRetry(attempts + 1, maxAttempts), 500);
       } else {
         // Se não encontrar elemento, centralizar tooltip
