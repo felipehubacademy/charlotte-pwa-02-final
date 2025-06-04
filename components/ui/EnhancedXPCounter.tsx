@@ -1106,11 +1106,17 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   // ✅ NEW: Set initial position for floating counter
   useEffect(() => {
     if (isMobile && isFloating && typeof window !== 'undefined') {
-      // 🔧 FIX: Posição inicial mais conservadora e visível
-      const initialX = window.innerWidth - 90; // Mais próximo da borda direita
-      const initialY = 150; // Mais alto, mas visível
+      // 🔧 FORÇAR: Sempre iniciar na parte inferior para o tour conseguir encontrar
+      const initialX = window.innerWidth - 90; // Próximo da borda direita
+      const initialY = window.innerHeight - 200; // 🎯 SEMPRE na parte inferior (200px do bottom)
       
-      console.log('🎯 XPCounter initial position:', { initialX, initialY, windowWidth: window.innerWidth, windowHeight: window.innerHeight });
+      console.log('🎯 XPCounter FORCED bottom position:', { 
+        initialX, 
+        initialY, 
+        windowWidth: window.innerWidth, 
+        windowHeight: window.innerHeight,
+        bottomDistance: window.innerHeight - initialY
+      });
       
       setInitialPosition({ x: initialX, y: initialY });
       setDragPosition({ x: initialX, y: initialY });

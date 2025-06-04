@@ -131,8 +131,8 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
         targetId: 'xp-counter',
         title: isNovice ? 'Sistema de XP' : 'XP System',
         description: isNovice
-          ? 'Ganhe pontos de experiência praticando inglês e acompanhe seu progresso! O contador de XP aparece no canto superior direito.'
-          : 'Earn experience points by practicing English and track your progress! The XP counter appears in the top right corner.',
+          ? 'Ganhe pontos de experiência praticando inglês e acompanhe seu progresso! O contador de XP aparece na parte inferior direita.'
+          : 'Earn experience points by practicing English and track your progress! The XP counter appears in the bottom right corner.',
         icon: <Star size={24} />,
         position: 'center' // 🔧 SEMPRE centralizar para mobile
       }
@@ -203,17 +203,41 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
       
       // 🔧 NOVO: Workaround especial para XP counter móvel
       if (!element && step.targetId === 'xp-counter') {
-        // Tentar múltiplos seletores para o XP counter
-        element = document.querySelector('#xp-counter, .floating-xp-counter, [class*="xp-counter"], [class*="XPCounter"]') as HTMLElement;
+        console.log('🔍 Searching for XP counter...', { isMobile, step: step.targetId });
         
-        // Se ainda não encontrou, usar posição fixa no canto superior direito
+        // Tentar múltiplos seletores para o XP counter
+        const selectors = [
+          '#xp-counter',
+          '.floating-xp-counter',
+          '[class*="xp-counter"]',
+          '[class*="XPCounter"]',
+          'button[class*="space-x-1"]', // Fallback para o botão do XP
+          'div[style*="transform"]' // Fallback para elemento com transform
+        ];
+        
+        for (const selector of selectors) {
+          element = document.querySelector(selector) as HTMLElement;
+          if (element) {
+            console.log('✅ XP counter found with selector:', selector, element);
+            break;
+          }
+        }
+        
+        // Se ainda não encontrou, usar posição fixa na parte inferior onde ele sempre inicia
         if (!element && isMobile) {
-          console.log('🔧 XP Counter not found on mobile - using fixed position');
-          // Não definir elemento, mas usar posição fixa
+          console.log('🔧 XP Counter not found on mobile - using fixed bottom position');
+          console.log('📱 Window dimensions:', { width: window.innerWidth, height: window.innerHeight });
+          
+          // Não definir elemento, mas usar posição fixa na parte inferior
           setTargetElement(null);
+          const tooltipX = Math.max(20, window.innerWidth - 340);
+          const tooltipY = Math.max(100, window.innerHeight - 300);
+          
+          console.log('🎯 Tooltip position calculated:', { x: tooltipX, y: tooltipY });
+          
           setTooltipPosition({
-            x: window.innerWidth - 340, // 320px tooltip + 20px padding
-            y: 80 // Posição no topo, abaixo do header
+            x: tooltipX, // 320px tooltip + 20px padding, mas não sair da tela
+            y: tooltipY // 🎯 Posição inferior onde o XP counter sempre inicia
           });
           return;
         }
