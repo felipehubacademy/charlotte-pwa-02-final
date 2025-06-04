@@ -956,6 +956,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                     isSpeaking={isSpeaking}
                     audioLevels={effectiveAudioLevels}
                     connectionStatus={connectionStatus}
+                    size="normal"
                   />
                 </motion.div>
 
@@ -996,6 +997,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                       isSpeaking={isSpeaking}
                       audioLevels={effectiveAudioLevels}
                       connectionStatus={connectionStatus}
+                      size="compact"
                     />
                   </motion.div>
                 </div>

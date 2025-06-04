@@ -9,6 +9,7 @@ interface RealtimeOrbProps {
   isSpeaking: boolean;
   audioLevels?: number[];
   connectionStatus: 'connecting' | 'connected' | 'disconnected' | 'error';
+  size?: 'normal' | 'compact';
 }
 
 const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
@@ -16,10 +17,30 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
   isListening,
   isSpeaking,
   audioLevels = [],
-  connectionStatus
+  connectionStatus,
+  size = 'normal'
 }) => {
   const [animationPhase, setAnimationPhase] = useState(0);
   const frameRef = useRef<number>();
+
+  const sizeConfig = {
+    normal: {
+      container: 'w-80 h-80',
+      orb: 'w-64 h-64',
+      baseRadius: 45,
+      waveSpacing: 8,
+      maxRadius: 95
+    },
+    compact: {
+      container: 'w-48 h-48',
+      orb: 'w-40 h-40',
+      baseRadius: 28,
+      waveSpacing: 5,
+      maxRadius: 60
+    }
+  };
+
+  const config = sizeConfig[size];
 
   // Animação contínua de fase
   useEffect(() => {
@@ -85,7 +106,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
   const generateWaveData = (waveIndex: number) => {
     const points = [];
     const segments = 60;
-    const baseRadius = 45 + (waveIndex * 8);
+    const baseRadius = config.baseRadius + (waveIndex * config.waveSpacing);
     
     for (let i = 0; i <= segments; i++) {
       const angle = (i / segments) * Math.PI * 2;
@@ -111,9 +132,18 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
   };
 
   return (
-    <div className="relative w-80 h-80 flex items-center justify-center">
+    <motion.div 
+      className={`relative ${config.container} flex items-center justify-center`}
+      animate={{
+        scale: size === 'compact' ? 0.6 : 1
+      }}
+      transition={{
+        duration: 0.5,
+        ease: "easeInOut"
+      }}
+    >
       <motion.div
-        className="relative w-64 h-64"
+        className={`relative ${config.orb}`}
         animate={isActive ? {
           scale: [1, 1.02 + audioIntensity * 0.05, 1],
         } : {
@@ -155,13 +185,13 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           <motion.circle
             cx="100"
             cy="100"
-            r="95"
+            r={config.maxRadius}
             fill="url(#glowGradient)"
             animate={isActive ? {
-              r: [90, 95 + audioIntensity * 10, 90],
+              r: [config.maxRadius - 5, config.maxRadius + audioIntensity * 10, config.maxRadius - 5],
               opacity: [0.3, 0.6 + audioIntensity * 0.3, 0.3],
             } : {
-              r: 85,
+              r: config.maxRadius - 10,
               opacity: 0.2
             }}
             transition={{
@@ -201,13 +231,13 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           <motion.circle
             cx="100"
             cy="100"
-            r="50"
+            r={config.baseRadius + 5}
             fill="url(#mainGradient)"
             filter="url(#glow)"
             animate={isActive ? {
-              r: [48, 50 + audioIntensity * 3, 48],
+              r: [config.baseRadius + 3, config.baseRadius + 5 + audioIntensity * 3, config.baseRadius + 3],
             } : {
-              r: 45
+              r: config.baseRadius
             }}
             transition={{
               duration: 1.5,
@@ -220,14 +250,14 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           <motion.circle
             cx="100"
             cy="100"
-            r="15"
+            r={config.baseRadius * 0.33}
             fill={colors.primary}
             opacity="0.9"
             animate={isActive ? {
-              r: [12, 15 + audioIntensity * 2, 12],
+              r: [config.baseRadius * 0.27, config.baseRadius * 0.33 + audioIntensity * 2, config.baseRadius * 0.27],
               opacity: [0.7, 0.9 + audioIntensity * 0.1, 0.7],
             } : {
-              r: 10,
+              r: config.baseRadius * 0.22,
               opacity: 0.6
             }}
             transition={{
@@ -240,7 +270,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           {/* Partículas flutuantes */}
           {Array.from({ length: 12 }).map((_, particleIndex) => {
             const angle = (particleIndex / 12) * 360;
-            const radius = 65 + Math.sin(animationPhase * 0.03 + particleIndex) * 10;
+            const radius = (config.baseRadius + 20) + Math.sin(animationPhase * 0.03 + particleIndex) * 10;
             const x = 100 + Math.cos(angle * Math.PI / 180) * radius;
             const y = 100 + Math.sin(angle * Math.PI / 180) * radius;
             
@@ -291,7 +321,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           ease: "easeInOut"
         }}
       />
-    </div>
+    </motion.div>
   );
 };
 
