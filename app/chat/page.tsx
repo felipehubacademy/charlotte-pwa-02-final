@@ -272,21 +272,34 @@ export default function ChatPage() {
   // Handle achievement notifications
   const handleNewAchievements = useCallback((newAchievements: Achievement[]) => {
     if (newAchievements.length > 0) {
-      // ✅ FIX: Evitar achievements duplicados baseado no ID
+      // ✅ CORRIGIDO: Melhor lógica de deduplicação baseada em ID e timestamp
       setNewAchievements(prev => {
         const existingIds = new Set(prev.map(a => a.id));
-        const uniqueNewAchievements = newAchievements.filter(a => !existingIds.has(a.id));
+        const uniqueNewAchievements = newAchievements.filter(a => {
+          // Verificar se já existe baseado no ID
+          if (existingIds.has(a.id)) {
+            return false;
+          }
+          // Verificar se já existe nos achievements permanentes
+          const alreadyExists = achievements.some(existing => existing.id === a.id);
+          return !alreadyExists;
+        });
         
         if (uniqueNewAchievements.length > 0) {
           console.log('🏆 Adding unique achievements:', uniqueNewAchievements.map(a => a.title));
-          setAchievements(prevAch => [...prevAch, ...uniqueNewAchievements]);
+          // Adicionar aos achievements permanentes apenas uma vez
+          setAchievements(prevAch => {
+            const existingPermanentIds = new Set(prevAch.map(a => a.id));
+            const newPermanentAchievements = uniqueNewAchievements.filter(a => !existingPermanentIds.has(a.id));
+            return [...prevAch, ...newPermanentAchievements];
+          });
           return [...prev, ...uniqueNewAchievements];
         }
         
         return prev;
       });
     }
-  }, []);
+  }, [achievements]); // ✅ CORRIGIDO: Adicionar achievements como dependência
 
   const handleAchievementsDismissed = useCallback((achievementId: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== achievementId));
@@ -406,8 +419,12 @@ export default function ChatPage() {
             fluencyScore: scores.fluencyScore,
             completenessScore: scores.completenessScore,
             pronunciationScore: scores.pronunciationScore,
+            prosodyScore: scores.prosodyScore,
             xpAwarded: xpResult.totalXP,
-            feedback: xpResult.feedback
+            feedback: xpResult.feedback,
+            words: scores.words || [],
+            phonemes: scores.phonemes || [],
+            rawResult: scores
           },
           contextPrompt
         );
@@ -485,8 +502,15 @@ export default function ChatPage() {
           // ✅ NEW: Save achievements if any were earned (combinar ambos os sistemas)
           const allAchievements = [...xpResult.achievements, ...audioAchievements];
           if (allAchievements.length > 0) {
-            await supabaseService.saveAchievements(user.entra_id, allAchievements);
-            handleNewAchievements(allAchievements);
+            try {
+              await supabaseService.saveAchievements(user.entra_id, allAchievements);
+              handleNewAchievements(allAchievements);
+            } catch (error) {
+              // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
+              console.warn('⚠️ Failed to save achievements to database, but continuing...', error);
+              // Ainda mostrar achievements na UI mesmo se falhou salvar no banco
+              handleNewAchievements(allAchievements);
+            }
           }
           
           setSessionXP(prev => prev + xpResult.totalXP + achievementBonusXP);
@@ -834,7 +858,7 @@ export default function ChatPage() {
       role: 'assistant',
       content: shouldGreet 
         ? (user.user_level === 'Novice' 
-          ? `Olá ${user.name?.split(' ')[0]}! I'm Charlotte, your English assistant. You can write in Portuguese or English!`
+          ? `Hi ${user.name?.split(' ')[0]}! I'm Charlotte, your English assistant. You can write in Portuguese or English!`
           : `Hi ${user.name?.split(' ')[0]}! I'm Charlotte, ready to help you practice English. How can I assist you today?`)
         : `Welcome back! Let's continue our English practice. What would you like to work on?`,
       timestamp: new Date(),
@@ -1334,8 +1358,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-3 border-primary border-t-transparent mx-auto mb-3"></div>
-          <p className="text-white/70 text-sm">Loading Charlotte...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-3 border-primary border-t-transparent mx-auto"></div>
         </div>
       </div>
     );
@@ -1483,8 +1506,15 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
         // 🏆 NOVO: Salvar achievements se houver
         if (textAchievements.length > 0) {
-          await supabaseService.saveAchievements(user.entra_id, textAchievements);
-          handleNewAchievements(textAchievements);
+          try {
+            await supabaseService.saveAchievements(user.entra_id, textAchievements);
+            handleNewAchievements(textAchievements);
+          } catch (error) {
+            // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
+            console.warn('⚠️ Failed to save achievements to database, but continuing...', error);
+            // Ainda mostrar achievements na UI mesmo se falhou salvar no banco
+            handleNewAchievements(textAchievements);
+          }
         }
           
         setSessionXP(prev => prev + assistantResult.xpAwarded + achievementBonusXP);
@@ -1522,7 +1552,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
   return (
     <div className={`h-screen bg-secondary flex flex-col relative ${
-      typeof window !== 'undefined' && 
+        typeof window !== 'undefined' && 
       (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
        window.innerWidth <= 768) 
         ? 'mobile-chat-container' 
@@ -1534,25 +1564,25 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onLogout={logout}
       />
 
-      <ChatBox
-        messages={messages}
-        transcript={transcript}
-        finalTranscript={finalTranscript}
-        isProcessingMessage={isProcessingMessage}
-        userLevel={user?.user_level || 'Novice'}
-      />
+        <ChatBox
+          messages={messages}
+          transcript={transcript}
+          finalTranscript={finalTranscript}
+          isProcessingMessage={isProcessingMessage}
+          userLevel={user?.user_level || 'Novice'}
+        />
 
       {/* ✅ FIXED: Footer now truly fixed at bottom, independent of ChatBox and keyboard */}
       <div 
         className={`fixed-footer bg-secondary border-t border-white/5 ${
           isIOSPWAMode ? 'ios-pwa-fixed-footer' : ''
         } ${
-          typeof window !== 'undefined' && 
+        typeof window !== 'undefined' && 
           ((/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
            window.innerWidth <= 768) ||
           ((window.navigator as any).standalone === true || window.matchMedia('(display-mode: standalone)').matches))
             ? 'pb-safe' 
-            : 'pb-safe'
+          : 'pb-safe'
         }`}
         style={{
           paddingBottom: 'env(safe-area-inset-bottom)',

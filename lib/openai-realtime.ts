@@ -7,6 +7,13 @@ export interface RealtimeConfig {
   instructions?: string;
   userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName?: string;
+  onMessage?: (message: any) => void;
+  onError?: (error: any) => void;
+  onAudioData?: (audioData: ArrayBuffer) => void;
+  onTranscript?: (transcript: string, isFinal: boolean) => void;
+  onResponse?: (response: string) => void;
+  onConnectionChange?: (connected: boolean) => void;
+  onVADStateChange?: (isListening: boolean) => void;
 }
 
 export interface RealtimeEvent {
@@ -34,6 +41,23 @@ export class OpenAIRealtimeService {
   private microphoneSource: MediaStreamAudioSourceNode | null = null;
   private audioProcessor: ScriptProcessorNode | null = null;
   private isRecording: boolean = false;
+  // 🔧 NOVO: Controles para otimização de envio de áudio
+  private lastAudioSendTime: number = 0;
+  private audioSendThrottle: number = 30; // Reduzido de 50ms para 30ms - mais responsivo
+  private silenceThreshold: number = 0.01; // Threshold para detectar silêncio
+  private consecutiveSilenceFrames: number = 0;
+  private maxSilenceFrames: number = 10; // Parar de enviar após 10 frames de silêncio
+  private audioBuffer: Float32Array[] = [];
+  private audioBufferSize: number = 0;
+  private maxBufferSize: number = 4800; // ~200ms a 24kHz
+  private currentTranscriptDelta: string = '';
+  private originalAudioThrottle: number = 30; // Backup do throttle original
+  // 🛑 NOVO: Controle de estado para evitar interrupções desnecessárias
+  private isCharlotteSpeaking: boolean = false;
+  private hasActiveResponse: boolean = false;
+  // 🔧 NOVO: Controle de fala do usuário para interrupções inteligentes
+  private userSpeechStartTime: number = 0;
+  private isUserCurrentlySpeaking: boolean = false;
 
   constructor(config: RealtimeConfig) {
     this.config = config;
@@ -91,8 +115,8 @@ export class OpenAIRealtimeService {
   // 🌐 Conectar usando subprotocols (método oficial para browsers)
   private async connectWithSubprotocols(resolve: Function, reject: Function): Promise<void> {
     try {
-      // ✅ Usar modelo testado pela comunidade
-      const model = this.config.model || 'gpt-4o-realtime-preview-2024-10-01';
+      // ✅ Usar modelo mini mais barato (gpt-4o-mini-realtime-preview)
+      const model = this.config.model || 'gpt-4o-mini-realtime-preview-2024-12-17';
       const wsUrl = `wss://api.openai.com/v1/realtime?model=${model}`;
       
       // ✅ MÉTODO OFICIAL: Autenticação via subprotocols (funciona em browsers)
@@ -131,7 +155,32 @@ export class OpenAIRealtimeService {
 
       this.ws.onmessage = (event) => {
         try {
-          console.log('📥 [FIXED] Raw WebSocket message:', event.data);
+          // 🔧 NOVO: Log otimizado - reduzir verbosidade
+          const eventData = JSON.parse(event.data);
+          const eventType = eventData.type;
+          
+          // Lista de eventos que não precisam de log detalhado (muito frequentes)
+          const quietEvents = [
+            'response.audio.delta',
+            'conversation.item.input_audio_transcription.delta',
+            'input_audio_buffer.speech_started',
+            'input_audio_buffer.speech_stopped'
+          ];
+          
+          // Log apenas o tipo para eventos frequentes, dados completos para eventos importantes
+          if (quietEvents.includes(eventType)) {
+            // Log compacto apenas ocasionalmente para eventos frequentes
+            if (Date.now() % 3000 < 100) { // A cada ~3 segundos
+              console.log(`📥 [QUIET] ${eventType} (periodic log - data suppressed to reduce spam)`);
+            }
+          } else {
+            // Log completo para eventos importantes
+            console.log(`📥 [FIXED] Received event: ${eventType}`);
+            if (eventType === 'error' || eventType === 'session.created' || eventType === 'session.updated') {
+              console.log(`📥 [FIXED] Event data:`, eventData);
+            }
+          }
+          
           this.handleMessage(event.data);
         } catch (error) {
           console.error('❌ [FIXED] Error handling message:', error);
@@ -251,14 +300,8 @@ export class OpenAIRealtimeService {
       input_audio_transcription: {
         model: 'whisper-1'
       },
-      // 🔧 NOVO: Configuração otimizada de VAD para conversação natural
-      turn_detection: {
-        type: 'server_vad',
-        threshold: 0.6, // Aumentado para reduzir falsos positivos
-        prefix_padding_ms: 500, // Aumentado para capturar início da fala
-        silence_duration_ms: 800, // Aumentado para permitir pausas naturais
-        create_response: true
-      },
+      // 🔧 NOVO: Configuração de VAD otimizada por nível de usuário
+      turn_detection: this.getVADConfigForUserLevel(),
       tools: this.getEnglishLearningTools(),
       tool_choice: 'auto',
       temperature: 0.8,
@@ -272,6 +315,43 @@ export class OpenAIRealtimeService {
       type: 'session.update',
       session: sessionConfig
     });
+  }
+
+  // 🔧 NOVO: Configuração de VAD específica por nível de usuário
+  private getVADConfigForUserLevel() {
+    const vadConfigs = {
+      'Novice': {
+        type: 'server_vad',
+        threshold: 0.4, // Volta para sensibilidade moderada (era 0.6)
+        prefix_padding_ms: 300, 
+        silence_duration_ms: 700, // Balanceado (era 1000)
+        create_response: true
+      },
+      'Inter': {
+        type: 'server_vad', 
+        threshold: 0.5, // Volta para moderado (era 0.7)
+        prefix_padding_ms: 250, 
+        silence_duration_ms: 600, // Balanceado (era 800)
+        create_response: true
+      },
+      'Advanced': {
+        type: 'server_vad',
+        threshold: 0.6, // Volta para moderado (era 0.8)
+        prefix_padding_ms: 200, 
+        silence_duration_ms: 500, // Volta para moderado (era 600)
+        create_response: true
+      }
+    };
+
+    const config = vadConfigs[this.config.userLevel] || vadConfigs['Inter'];
+    
+    console.log(`🎤 [VAD] Configuring responsive server_vad for user level: ${this.config.userLevel}`);
+    console.log(`🎤 [VAD] Threshold setting: ${config.threshold} (responsive but stable)`);
+    console.log(`🎤 [VAD] Silence duration: ${config.silence_duration_ms}ms (balanced)`);
+    console.log(`🎤 [VAD] Prefix padding: ${config.prefix_padding_ms}ms (smooth)`);
+    console.log(`🎤 [VAD] Full VAD config:`, config);
+    
+    return config;
   }
 
   // 📋 Instruções por nível - VERSÃO CORRIGIDA
@@ -395,11 +475,29 @@ CONVERSATION STYLE:
     ];
   }
 
+  // 🔧 NOVO: Forçar envio do buffer (útil quando parar de gravar)
+  private forceFlushAudioBuffer(): void {
+    if (this.audioBuffer.length > 0) {
+      console.log('🔧 [OPTIMIZED] Force flushing audio buffer:', this.audioBufferSize, 'samples');
+      this.flushAudioBuffer();
+    }
+  }
+
   // 📤 Enviar evento para WebSocket
   private sendEvent(event: any): void {
     if (this.ws && this.isConnected && this.ws.readyState === WebSocket.OPEN) {
       const eventString = JSON.stringify(event);
+      
+      // 🔧 NOVO: Log otimizado - não fazer spam para eventos de áudio
+      if (event.type === 'input_audio_buffer.append') {
+        // Log apenas ocasionalmente para eventos de áudio
+        if (Date.now() % 5000 < 100) { // A cada ~5 segundos
+          console.log('📤 [OPTIMIZED] Audio buffer append (periodic log)');
+        }
+      } else {
       console.log('📤 [FIXED] Sending event:', event.type);
+      }
+      
       this.ws.send(eventString);
     } else {
       console.warn('⚠️ [FIXED] Cannot send event - WebSocket not connected', {
@@ -414,7 +512,8 @@ CONVERSATION STYLE:
   private handleMessage(data: string): void {
     try {
       const event: RealtimeEvent = JSON.parse(data);
-      console.log('📥 [FIXED] Received event:', event.type);
+      // 🔧 NOVO: Log reduzido - já logamos no onmessage
+      // console.log('📥 [FIXED] Received event:', event.type); // REMOVIDO - duplicado
       
       switch (event.type) {
         case 'session.created':
@@ -429,12 +528,42 @@ CONVERSATION STYLE:
           break;
 
         case 'input_audio_buffer.speech_started':
-          console.log('🎤 [FIXED] User started speaking');
+          console.log('🎤 [VAD DEBUG] User started speaking (from API)');
+          
+          // 🔧 NOVO: Marcar início da fala do usuário
+          this.isUserCurrentlySpeaking = true;
+          this.userSpeechStartTime = Date.now();
+          
+          // 🛑 NOVO: Lógica de interrupção mais inteligente
+          if (this.isCharlotteSpeaking && this.hasActiveResponse) {
+            // 🔧 NOVO: Aguardar um pouco antes de interromper para evitar false positives
+            console.log('🤔 [SMART INTERRUPT] User speech detected while Charlotte speaking - analyzing...');
+            
+            // Aguardar 250ms para balancear responsividade vs. estabilidade
+            setTimeout(() => {
+              // Verificar se o usuário ainda está falando após o delay
+              if (this.isUserStillSpeaking()) {
+                console.log('🛑 [SMART INTERRUPT] Confirmed user speech - interrupting Charlotte');
+                this.interruptResponse();
+                this.emergencyClearAllBuffers();
+              } else {
+                console.log('🚫 [SMART INTERRUPT] False positive detected - not interrupting');
+              }
+            }, 250); // Reduzido de 500ms para 250ms para mais responsividade
+          } else {
+            console.log('🎤 [VAD DEBUG] User speech detected but Charlotte not speaking - no interrupt needed');
+          }
+          
           this.emit('user_speech_started', event);
           break;
 
         case 'input_audio_buffer.speech_stopped':
-          console.log('🔇 [FIXED] User stopped speaking');
+          console.log('🔇 [VAD DEBUG] User stopped speaking (from API)');
+          
+          // 🔧 NOVO: Marcar fim da fala do usuário
+          this.isUserCurrentlySpeaking = false;
+          this.userSpeechStartTime = 0;
+          
           this.emit('user_speech_stopped', event);
           break;
 
@@ -456,8 +585,19 @@ CONVERSATION STYLE:
           }
           break;
 
+        case 'conversation.item.input_audio_transcription.delta':
+          // 📝 Log silencioso para deltas de transcrição (muito frequentes)
+          if (event.delta) {
+            // Log apenas ocasionalmente para debug
+            if (Date.now() % 5000 < 100) {
+              console.log('📝 [TRANSCRIPTION] Delta received (periodic log)');
+            }
+          }
+          break;
+
         case 'response.created':
           console.log('🤖 [FIXED] Response created');
+          this.hasActiveResponse = true; // 🛑 NOVO: Marcar que há resposta ativa
           this.emit('response_created', event);
           break;
 
@@ -470,8 +610,28 @@ CONVERSATION STYLE:
           this.emit('text_done', event);
           break;
 
+        // 📝 NOVO: Eventos corretos de transcrição de áudio da Charlotte (baseado na documentação oficial)
+        case 'response.audio_transcript.delta':
+          console.log('📝 [CHARLOTTE] Audio transcript delta:', event.delta);
+          this.emit('charlotte_transcript_delta', event);
+          break;
+
+        case 'response.audio_transcript.done':
+          console.log('📝 [CHARLOTTE] Audio transcript completed:', event.transcript);
+          this.emit('charlotte_transcript_completed', event);
+          break;
+
         case 'response.audio.delta':
-          console.log('🔊 [FIXED] Audio delta received, queue length:', this.audioQueue.length, 'isPlaying:', this.isPlayingAudio);
+          // 🔊 NOVO: Marcar que Charlotte está falando quando há áudio
+          if (!this.isCharlotteSpeaking) {
+            this.isCharlotteSpeaking = true;
+            console.log('🗣️ [CHARLOTTE STATE] Charlotte started speaking (audio delta)');
+          }
+          
+          // 🔧 Log silencioso para audio deltas (muito frequentes)
+          if (Date.now() % 8000 < 100) { // Log ocasional para debug
+            console.log('🔊 [AUDIO] Delta received (periodic log) - queue length:', this.audioQueue.length);
+          }
           this.emit('audio_delta', event);
           if (event.delta) {
             this.playAudio(event.delta);
@@ -479,22 +639,53 @@ CONVERSATION STYLE:
           break;
 
         case 'response.audio.done':
-          console.log('✅ [FIXED] Audio response completed');
+          console.log('🔊 [FIXED] Audio response completed');
+          
+          // 🔊 NOVO: Marcar que Charlotte parou de falar
+          this.isCharlotteSpeaking = false;
+          this.hasActiveResponse = false;
+          console.log('🔇 [CHARLOTTE STATE] Charlotte finished speaking');
+          
           this.emit('audio_done', event);
           break;
 
         case 'response.done':
           console.log('✅ [FIXED] Response completed');
+          
+          // 🔧 NOVO: Garantir que os estados sejam limpos
+          this.isCharlotteSpeaking = false;
+          this.hasActiveResponse = false;
+          
           this.emit('response_done', event);
           break;
 
         case 'error':
+          // 🔧 NOVO: Tratar erros específicos de cancelamento ANTES de qualquer log
+          if (event.error?.code === 'response_cancel_not_active') {
+            console.log('ℹ️ [INFO] Attempted to cancel non-active response - this is normal behavior');
+            // Resetar estados para evitar inconsistências
+            this.hasActiveResponse = false;
+            this.isCharlotteSpeaking = false;
+            // Não fazer NENHUM log de erro nem emitir evento
+            break; // Sair completamente do case
+          }
+          
+          // 🔧 NOVO: Outros erros conhecidos que podem ser tratados de forma menos intrusiva
+          if (event.error?.code === 'cancelled') {
+            console.log('ℹ️ [INFO] Request was cancelled - this is normal during interruptions');
+            break; // Sair sem fazer log de erro
+          }
+          
+          // ❌ Apenas para erros realmente problemáticos
           console.error('❌ [FIXED] API Error:', event.error);
           this.emit('error', event);
           break;
 
         default:
-          console.log('📨 [FIXED] Unhandled event:', event.type);
+          // 🔧 Log silencioso para eventos não tratados (evitar spam)
+          if (Date.now() % 10000 < 100) { // Log muito ocasional
+            console.log('📨 [UNHANDLED] Event type:', event.type, '(periodic log)');
+          }
           this.emit('unhandled_event', event);
       }
     } catch (error) {
@@ -587,6 +778,27 @@ CONVERSATION STYLE:
   private sendAudioData(audioData: Int16Array): void {
     if (!this.isConnected || this.ws?.readyState !== WebSocket.OPEN) return;
 
+    // 🔧 NOVO: Throttling - não enviar muito frequentemente
+    const now = Date.now();
+    if (now - this.lastAudioSendTime < this.audioSendThrottle) {
+      return;
+    }
+
+    // 🔧 NOVO: Detectar se há áudio significativo
+    const hasSignificantAudio = this.hasSignificantAudio(audioData);
+    
+    if (!hasSignificantAudio) {
+      this.consecutiveSilenceFrames++;
+      
+      // Se temos muitos frames de silêncio consecutivos, parar de enviar
+      if (this.consecutiveSilenceFrames > this.maxSilenceFrames) {
+        return;
+      }
+    } else {
+      // Reset contador de silêncio quando há áudio
+      this.consecutiveSilenceFrames = 0;
+    }
+
     try {
       const base64Audio = this.arrayBufferToBase64(audioData.buffer as ArrayBuffer);
       
@@ -594,9 +806,77 @@ CONVERSATION STYLE:
         type: 'input_audio_buffer.append',
         audio: base64Audio
       });
+      
+      this.lastAudioSendTime = now;
+      
+      // Log apenas ocasionalmente para evitar spam
+      if (now % 1000 < this.audioSendThrottle) {
+        console.log('📤 [OPTIMIZED] Audio sent - silence frames:', this.consecutiveSilenceFrames);
+      }
     } catch (error) {
       console.error('❌ [FIXED] Error sending audio:', error);
     }
+  }
+
+  // 🔧 NOVO: Detectar se há áudio significativo
+  private hasSignificantAudio(audioData: Int16Array): boolean {
+    // Calcular RMS (Root Mean Square) para detectar nível de áudio
+    let rms = 0;
+    for (let i = 0; i < audioData.length; i++) {
+      const sample = audioData[i] / 32768.0; // Normalizar para -1 a 1
+      rms += sample * sample;
+    }
+    rms = Math.sqrt(rms / audioData.length);
+    
+    // Retornar true se o nível está acima do threshold
+    return rms > this.silenceThreshold;
+  }
+
+  // 🔧 NOVO: Detectar se há áudio significativo no buffer acumulado
+  private hasSignificantAudioInBuffer(): boolean {
+    if (this.audioBuffer.length === 0) return false;
+    
+    let totalRms = 0;
+    let totalSamples = 0;
+    
+    for (const chunk of this.audioBuffer) {
+      for (let i = 0; i < chunk.length; i++) {
+        totalRms += chunk[i] * chunk[i];
+        totalSamples++;
+      }
+    }
+    
+    if (totalSamples === 0) return false;
+    
+    const rms = Math.sqrt(totalRms / totalSamples);
+    return rms > this.silenceThreshold;
+  }
+
+  // 🔧 NOVO: Enviar buffer acumulado
+  private flushAudioBuffer(): void {
+    if (this.audioBuffer.length === 0) return;
+    
+    // Concatenar todos os chunks do buffer
+    const totalSamples = this.audioBufferSize;
+    const combinedBuffer = new Float32Array(totalSamples);
+    
+    let offset = 0;
+    for (const chunk of this.audioBuffer) {
+      combinedBuffer.set(chunk, offset);
+      offset += chunk.length;
+    }
+    
+    // Converter para Int16 e enviar
+    const int16Array = new Int16Array(totalSamples);
+    for (let i = 0; i < totalSamples; i++) {
+      int16Array[i] = Math.max(-32768, Math.min(32767, combinedBuffer[i] * 32768));
+    }
+    
+    this.sendAudioData(int16Array);
+    
+    // Limpar buffer
+    this.audioBuffer = [];
+    this.audioBufferSize = 0;
   }
 
   // 🔄 Utilitários de conversão
@@ -838,62 +1118,103 @@ CONVERSATION STYLE:
     });
   }
 
-  // 🔧 NOVO: Interrupção inteligente com controle de VAD
+  // 🔧 NOVO: Interrupção inteligente com verificação de estado
   interruptResponse(): void {
-    console.log('🛑 [FIXED] Intelligent interruption triggered');
+    console.log('🛑 [INTERRUPT DEBUG] interruptResponse() called');
+    console.log('🛑 [INTERRUPT DEBUG] Service state:', {
+      isConnected: this.isConnected,
+      wsReadyState: this.ws?.readyState,
+      isPlayingAudio: this.isPlayingAudio,
+      currentAudioSource: !!this.currentAudioSource,
+      isCharlotteSpeaking: this.isCharlotteSpeaking,
+      hasActiveResponse: this.hasActiveResponse
+    });
+    
+    // 🛑 NOVO: Só tentar cancelar se há resposta ativa
+    if (!this.hasActiveResponse && !this.isCharlotteSpeaking) {
+      console.log('🛑 [INTERRUPT DEBUG] No active response to cancel - skipping API call');
+      // Ainda limpar buffers locais por segurança
+      this.stopCurrentAudio();
+      return;
+    }
     
     // 🛑 NOVO: Parar áudio atual antes de cancelar resposta
     this.stopCurrentAudio();
+    console.log('🛑 [INTERRUPT DEBUG] Audio stopped');
     
     // 🔧 NOVO: Ajustar temporariamente o VAD para ser menos sensível após interrupção
     this.adjustVADSensitivity('post_interruption');
+    console.log('🛑 [INTERRUPT DEBUG] VAD adjusted for post-interruption');
     
+    // 🛑 NOVO: Só enviar cancel se há resposta ativa
+    if (this.hasActiveResponse) {
     this.sendEvent({
       type: 'response.cancel'
     });
+    console.log('🛑 [INTERRUPT DEBUG] response.cancel sent to API');
+    }
+    
+    // 🛑 NOVO: Resetar estados
+    this.hasActiveResponse = false;
+    this.isCharlotteSpeaking = false;
     
     // 🔧 NOVO: Restaurar VAD após um tempo
     setTimeout(() => {
+      console.log('🛑 [INTERRUPT DEBUG] Restoring normal VAD sensitivity');
       this.adjustVADSensitivity('normal');
     }, 2000);
   }
 
-  // 🔧 NOVO: Ajustar sensibilidade do VAD dinamicamente
-  private adjustVADSensitivity(mode: 'normal' | 'post_interruption' | 'sensitive'): void {
+  // 🔧 ATUALIZADO: Ajustar sensibilidade do VAD dinamicamente (simplificado)
+  private adjustVADSensitivity(mode: 'normal' | 'post_interruption' | 'sensitive' | 'short_words'): void {
     let vadConfig;
     
+    console.log(`🔧 [VAD] Adjusting VAD mode to: ${mode} (User level: ${this.config.userLevel})`);
+    
     switch (mode) {
+      case 'short_words':
+        // Para palavras curtas, usar VAD mais sensível
+        vadConfig = {
+          type: 'server_vad',
+          threshold: 0.2, // Muito sensível para capturar palavras curtas
+          prefix_padding_ms: 150,
+          silence_duration_ms: 300,
+          create_response: true
+        };
+        console.log('🔧 [VAD] Using sensitive VAD for short words detection');
+        break;
+        
       case 'post_interruption':
-        vadConfig = {
-          type: 'server_vad',
-          threshold: 0.7, // Mais alto após interrupção
-          prefix_padding_ms: 300,
-          silence_duration_ms: 1200, // Mais tempo para evitar re-interrupções
-          create_response: true
-        };
-        break;
-        
-      case 'sensitive':
-        vadConfig = {
-          type: 'server_vad',
-          threshold: 0.4, // Mais sensível para capturar palavras curtas
-          prefix_padding_ms: 600,
-          silence_duration_ms: 600,
-          create_response: true
-        };
-        break;
-        
-      default: // normal
+        // Após interrupção, VAD um pouco menos sensível temporariamente
         vadConfig = {
           type: 'server_vad',
           threshold: 0.6,
-          prefix_padding_ms: 500,
-          silence_duration_ms: 800,
+          prefix_padding_ms: 200,
+          silence_duration_ms: 500,
           create_response: true
         };
+        console.log('🔧 [VAD] Using post-interruption VAD (temporarily less sensitive)');
+        break;
+        
+      case 'sensitive':
+        // VAD sensível geral
+        vadConfig = {
+          type: 'server_vad',
+          threshold: 0.3,
+          prefix_padding_ms: 150,
+          silence_duration_ms: 350,
+          create_response: true
+        };
+        console.log('🔧 [VAD] Using general sensitive VAD');
+        break;
+        
+      default: // normal
+        // VAD ultra-responsivo baseado no nível do usuário (como ChatGPT)
+        vadConfig = this.getVADConfigForUserLevel();
+        console.log(`🔧 [VAD] Using ChatGPT-like VAD (${vadConfig.threshold} threshold) for ${this.config.userLevel} level`);
     }
     
-    console.log(`🔧 [FIXED] Adjusting VAD to ${mode} mode:`, vadConfig);
+    console.log(`🔧 [VAD] Sending session update with VAD config:`, vadConfig);
     
     this.sendEvent({
       type: 'session.update',
@@ -903,20 +1224,60 @@ CONVERSATION STYLE:
     });
   }
 
-  // 🔧 NOVO: Detectar palavras curtas e ajustar VAD
+  // 🔧 ATUALIZADO: Detectar palavras curtas e ajustar VAD (simplificado - sem comandos específicos)
   private handleShortWordDetection(transcript: string): void {
-    const shortWords = ['yes', 'no', 'ok', 'yeah', 'nah', 'sure', 'right', 'good', 'bad', 'hi', 'bye'];
-    const words = transcript.toLowerCase().split(' ');
+    // Lista expandida de palavras curtas comuns em inglês
+    const shortWords = [
+      // Respostas básicas
+      'yes', 'no', 'ok', 'okay', 'yeah', 'yep', 'nah', 'nope',
+      // Cumprimentos
+      'hi', 'hey', 'hello', 'bye', 'goodbye',
+      // Confirmações
+      'sure', 'right', 'correct', 'wrong', 'true', 'false',
+      // Avaliações
+      'good', 'bad', 'great', 'nice', 'cool', 'wow',
+      // Números básicos
+      'one', 'two', 'three', 'four', 'five',
+      // Palavras de hesitação (importantes para estudantes)
+      'um', 'uh', 'er', 'hmm', 'well',
+      // Comandos diversos (mantidos para referência)
+      'stop', 'wait', 'pause', 'enough', 'done', 'finish'
+    ];
     
-    if (words.length <= 2 && words.some(word => shortWords.includes(word))) {
-      console.log('🔧 [FIXED] Short word detected, adjusting VAD sensitivity');
-      this.adjustVADSensitivity('sensitive');
+    const words = transcript.toLowerCase().trim().split(/\s+/);
+    const isShortResponse = words.length <= 2;
+    const containsShortWord = words.some(word => shortWords.includes(word.replace(/[.,!?]/g, '')));
+    
+    // 📝 NOTA: Não precisamos mais de lógica especial para comandos de parada
+    // porque agora qualquer fala interrompe imediatamente via speech_started
+    
+    if (isShortResponse && containsShortWord) {
+      console.log(`🔧 [VAD] Short word/phrase detected: "${transcript}" - maintaining high sensitivity`);
       
-      // Restaurar após 5 segundos
+      // Manter VAD sensível para palavras curtas
+      this.adjustVADSensitivity('short_words');
+      
+      // Restaurar após tempo baseado no nível do usuário
+      const restoreDelay = this.getRestoreDelayForUserLevel();
       setTimeout(() => {
+        console.log(`🔧 [VAD] Restoring normal VAD after ${restoreDelay}ms`);
         this.adjustVADSensitivity('normal');
-      }, 5000);
+      }, restoreDelay);
     }
+  }
+
+  // 🔧 NOVO: Tempo de restauração baseado no nível do usuário
+  private getRestoreDelayForUserLevel(): number {
+    const delays = {
+      'Novice': 8000,     // 8 segundos - mais tempo para iniciantes pensarem
+      'Inter': 6000,      // 6 segundos - tempo moderado
+      'Advanced': 4000    // 4 segundos - menos tempo para avançados
+    };
+    
+    const delay = delays[this.config.userLevel] || delays['Inter'];
+    console.log(`⏱️ [VAD] Restore delay for ${this.config.userLevel} level: ${delay}ms`);
+    
+    return delay;
   }
 
   sendFunctionResult(callId: string, output: string): void {
@@ -953,6 +1314,39 @@ CONVERSATION STYLE:
     this.sendEvent({
       type: 'input_audio_buffer.clear'
     });
+  }
+
+  // 🛑 NOVO: Limpeza emergencial de todos os buffers para comandos de parada
+  private emergencyClearAllBuffers(): void {
+    console.log('🛑 [EMERGENCY] Clearing all audio buffers immediately');
+    
+    // Limpar buffer da API
+    this.sendEvent({
+      type: 'input_audio_buffer.clear'
+    });
+    
+    // Limpar buffer interno
+    this.audioBuffer = [];
+    this.audioBufferSize = 0;
+    this.consecutiveSilenceFrames = 0;
+    
+    // Limpar fila de reprodução
+    this.audioQueue = [];
+    
+    // Parar áudio atual
+    this.stopCurrentAudio();
+    
+    // Reset throttling para permitir comandos imediatos
+    this.lastAudioSendTime = 0;
+    
+    // 🛑 NOVO: Limpar delta transcript acumulado
+    this.currentTranscriptDelta = '';
+    
+    // 🛑 NOVO: Resetar estados de fala
+    this.isCharlotteSpeaking = false;
+    this.hasActiveResponse = false;
+    
+    console.log('🛑 [EMERGENCY] All buffers cleared successfully');
   }
 
   // 🔌 Limpeza e desconexão
@@ -992,6 +1386,19 @@ CONVERSATION STYLE:
       this.audioContext.close();
       this.audioContext = null;
     }
+    
+    // 🔧 NOVO: Limpar controles de otimização de áudio
+    this.audioBuffer = [];
+    this.audioBufferSize = 0;
+    this.consecutiveSilenceFrames = 0;
+    this.lastAudioSendTime = 0;
+    
+    // 🛑 NOVO: Limpar delta transcript acumulado
+    this.currentTranscriptDelta = '';
+    
+    // 🛑 NOVO: Resetar estados de fala
+    this.isCharlotteSpeaking = false;
+    this.hasActiveResponse = false;
     
     this.isConnected = false;
     this.sessionId = null;
@@ -1035,8 +1442,12 @@ CONVERSATION STYLE:
     try {
       console.log('🎤 [FIXED] Setting up microphone...');
       
-      // 🔧 NOVO: Configurações avançadas para máxima qualidade e redução de ruído
-      const constraints: MediaStreamConstraints = {
+      // 🔧 NOVO: Primeiro tentar configurações básicas se as avançadas falharem
+      let constraints: MediaStreamConstraints;
+      
+      try {
+        // Tentar configurações avançadas primeiro
+        constraints = {
         audio: {
           sampleRate: 24000,
           channelCount: 1,
@@ -1056,7 +1467,38 @@ CONVERSATION STYLE:
         } as any
       };
 
+        console.log('🎤 [FIXED] Trying advanced microphone configuration...');
       this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        
+      } catch (advancedError) {
+        console.log('⚠️ [FIXED] Advanced config failed, trying basic configuration...');
+        
+        // Fallback para configurações básicas
+        constraints = {
+          audio: {
+            sampleRate: 24000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        };
+
+        try {
+          this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        } catch (basicError) {
+          console.log('⚠️ [FIXED] Basic config failed, trying minimal configuration...');
+          
+          // Último recurso - configuração mínima
+          constraints = {
+            audio: true
+          };
+          
+          this.mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        }
+      }
+      
+      console.log('✅ [FIXED] Microphone access granted');
       
       // 🔧 NOVO: Configurar processamento avançado do microfone
       this.microphoneSource = this.audioContext!.createMediaStreamSource(this.mediaStream);
@@ -1123,20 +1565,59 @@ CONVERSATION STYLE:
           }
         }
 
-        // Converter para Int16 e enviar
-        const int16Array = new Int16Array(inputData.length);
-        for (let i = 0; i < inputData.length; i++) {
-          int16Array[i] = Math.max(-32768, Math.min(32767, inputData[i] * 32768));
+        // 🔧 NOVO: Buffering inteligente - acumular dados antes de enviar
+        this.audioBuffer.push(new Float32Array(inputData));
+        this.audioBufferSize += inputData.length;
+        
+        // Enviar apenas quando o buffer estiver cheio ou houver áudio significativo
+        if (this.audioBufferSize >= this.maxBufferSize || this.hasSignificantAudioInBuffer()) {
+          this.flushAudioBuffer();
         }
-
-        this.sendAudioData(int16Array);
       };
 
       console.log('✅ [FIXED] Microphone setup complete with advanced noise reduction');
-    } catch (error) {
+      
+    } catch (error: any) {
       console.error('❌ [FIXED] Error setting up microphone:', error);
-      throw error;
+      
+      // 🔧 NOVO: Melhor tratamento de erros específicos
+      if (error.name === 'NotFoundError') {
+        throw new Error('Microfone não encontrado. Verifique se há um microfone conectado ao dispositivo.');
+      } else if (error.name === 'NotAllowedError') {
+        throw new Error('Permissão negada para acessar o microfone. Clique no ícone do microfone na barra de endereços e permita o acesso.');
+      } else if (error.name === 'NotReadableError') {
+        throw new Error('Microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone.');
+      } else if (error.name === 'OverconstrainedError') {
+        throw new Error('Configurações do microfone não suportadas. Tentando com configurações básicas...');
+      } else {
+        throw new Error(`Erro ao configurar microfone: ${error.message}`);
+      }
     }
+  }
+
+  // 🔧 NOVO: Parar gravação
+  private stopRecording(): void {
+    if (this.isRecording) {
+      this.isRecording = false;
+      
+      // 🔧 NOVO: Forçar envio do buffer restante antes de parar
+      this.forceFlushAudioBuffer();
+      
+      console.log('🎤 [OPTIMIZED] Recording stopped and buffer flushed');
+    }
+  }
+
+  // 🔧 NOVO: Verificar se o usuário ainda está falando
+  private isUserStillSpeaking(): boolean {
+    // Verificar se o usuário está atualmente falando e há tempo suficiente
+    const speechDuration = Date.now() - this.userSpeechStartTime;
+    const minSpeechDuration = 200; // Reduzido de 400ms para 200ms - mais responsivo para palavras como "Charlotte"
+    
+    const stillSpeaking = this.isUserCurrentlySpeaking && speechDuration >= minSpeechDuration;
+    
+    console.log(`🎤 [SPEECH CHECK] User speaking: ${this.isUserCurrentlySpeaking}, Duration: ${speechDuration}ms, Valid: ${stillSpeaking}`);
+    
+    return stillSpeaking;
   }
 }
 
@@ -1192,7 +1673,7 @@ export async function checkRealtimeAccess(): Promise<{
     // Se chegou até aqui, provavelmente tem acesso
     return {
       hasAccess: true,
-      models: ['gpt-4o-realtime-preview-2024-10-01'],
+      models: ['gpt-4o-mini-realtime-preview-2024-12-17'],
       error: undefined
     };
 

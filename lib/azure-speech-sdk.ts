@@ -117,7 +117,8 @@ export class AzureSpeechOfficialService {
           console.log('🔍 PronunciationAssessmentConfig methods:', Object.getOwnPropertyNames(pronunciationAssessmentConfig));
           console.log('🔍 PronunciationAssessmentConfig prototype:', Object.getOwnPropertyNames(Object.getPrototypeOf(pronunciationAssessmentConfig)));
           
-          (pronunciationAssessmentConfig as any).enableProsodyAssessment();
+          // ✅ MÉTODO OFICIAL CONFORME DOCUMENTAÇÃO MICROSOFT - PROPRIEDADE BOOLEAN
+          (pronunciationAssessmentConfig as any).enableProsodyAssessment = true;
           console.log('✅ Prosody assessment enabled successfully following Microsoft docs');
         } catch (e) {
           console.log('⚠️ Prosody assessment method not available, trying JSON config...');
@@ -143,6 +144,7 @@ export class AzureSpeechOfficialService {
       
       // ✅ CONFIGURAR NBEST PHONEMES PARA ANÁLISE DETALHADA
       try {
+        // ✅ CONFORME DOCUMENTAÇÃO OFICIAL MICROSOFT
         (pronunciationAssessmentConfig as any).nBestPhonemeCount = 5;
         console.log('✅ NBest phoneme count set to 5');
       } catch (e) {

@@ -195,7 +195,7 @@ Create a natural, conversational response that acknowledges their message and sm
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-nano",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -272,7 +272,7 @@ Keep the response conversational and engaging, avoiding repetitive patterns.`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-nano",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -382,7 +382,7 @@ Keep it natural and conversational - avoid formal assessment language.`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1-nano",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -447,100 +447,203 @@ Keep it natural and conversational - avoid formal assessment language.`;
   }
 }
 
-// 🆕 Gerar feedback técnico para o botão "Feedback"
+// 🆕 Gerar feedback técnico DETALHADO usando dados ocultos do Azure
 function generateTechnicalFeedback(pronunciationData: any, userLevel: string): string {
   const score = pronunciationData.pronunciationScore;
   const accuracy = pronunciationData.accuracyScore;
   const fluency = pronunciationData.fluencyScore;
-  const completeness = pronunciationData.completenessScore;
+  const prosody = pronunciationData.prosodyScore || 0;
+
+  // 🇧🇷 PORTUGUÊS para Novice, 🇺🇸 INGLÊS para Inter/Advanced
+  const isNovice = userLevel === 'Novice';
 
   let scoreEmoji = '🌱';
-  let scoreComment = 'Keep practicing!';
+  let scoreComment = isNovice ? 'Continue praticando!' : 'Keep practicing!';
   
   if (score >= 90) {
     scoreEmoji = '🌟';
-    scoreComment = 'Excellent pronunciation!';
+    scoreComment = isNovice ? 'Excelente pronúncia!' : 'Excellent pronunciation!';
   } else if (score >= 80) {
     scoreEmoji = '🎉';
-    scoreComment = 'Great job!';
+    scoreComment = isNovice ? 'Muito bem!' : 'Great job!';
   } else if (score >= 70) {
     scoreEmoji = '👍';
-    scoreComment = 'Good work!';
+    scoreComment = isNovice ? 'Bom trabalho!' : 'Good work!';
   } else if (score >= 60) {
     scoreEmoji = '💪';
-    scoreComment = 'Nice effort!';
+    scoreComment = isNovice ? 'Bom esforço!' : 'Nice effort!';
   }
 
-  const strengthsAndTips = generateStrengthsAndTips(pronunciationData, userLevel);
+  let feedback = isNovice 
+    ? `${scoreEmoji} **Pontuação Geral: ${score}/100** - ${scoreComment}
 
-  return `${scoreEmoji} **Score: ${score}/100** - ${scoreComment}
+📊 **Análise Detalhada:**
+• **Pronúncia:** ${score}/100
+• **Precisão:** ${accuracy}/100  
+• **Fluência:** ${fluency}/100`
+    : `${scoreEmoji} **Overall Score: ${score}/100** - ${scoreComment}
 
-📊 **Detailed Scores:**
-• Pronunciation: ${score}/100
-• Accuracy: ${accuracy}/100  
-• Fluency: ${fluency}/100
-• Completeness: ${completeness}/100
+📊 **Detailed Analysis:**
+• **Pronunciation:** ${score}/100
+• **Accuracy:** ${accuracy}/100  
+• **Fluency:** ${fluency}/100`;
 
-${strengthsAndTips}`;
-}
+  // 🎵 ADICIONAR PROSODY SE DISPONÍVEL (dados ocultos!)
+  if (prosody > 0) {
+    feedback += isNovice 
+      ? `
+• **Prosódia (Ritmo e Entonação):** ${prosody}/100`
+      : `
+• **Prosody (Rhythm & Intonation):** ${prosody}/100`;
+  }
 
-// 🆕 Gerar pontos fortes e dicas técnicas
-function generateStrengthsAndTips(pronunciationData: any, userLevel: string): string {
-  const score = pronunciationData.pronunciationScore;
-  const accuracy = pronunciationData.accuracyScore;
-  const fluency = pronunciationData.fluencyScore;
+  // 📝 ANÁLISE DETALHADA DE PALAVRAS (dados ocultos!)
+  if (pronunciationData.words && pronunciationData.words.length > 0) {
+    const words = pronunciationData.words;
+    const problemWords = words.filter((w: any) => w.accuracyScore < 70);
+    const excellentWords = words.filter((w: any) => w.accuracyScore >= 90);
+    
+    if (problemWords.length > 0) {
+      feedback += isNovice 
+        ? `
+
+🔍 **Palavras para Praticar:**`
+        : `
+
+🔍 **Words Needing Practice:**`;
+      
+      problemWords.slice(0, 5).forEach((word: any) => {
+        let errorInfo = '';
+        if (word.errorType && word.errorType !== 'None') {
+          const errorMap = isNovice ? {
+            'Mispronunciation': '❌ Pronunciada incorretamente',
+            'Omission': '🔇 Pulada',
+            'Insertion': '➕ Palavra extra',
+            'UnexpectedBreak': '⏸️ Pausa inesperada',
+            'MissingBreak': '🔗 Pausa perdida'
+          } : {
+            'Mispronunciation': '❌ Mispronounced',
+            'Omission': '🔇 Skipped',
+            'Insertion': '➕ Extra word',
+            'UnexpectedBreak': '⏸️ Unexpected pause',
+            'MissingBreak': '🔗 Missing pause'
+          };
+          errorInfo = ` (${errorMap[word.errorType as keyof typeof errorMap] || word.errorType})`;
+        }
+        feedback += `
+• **"${word.word}"** - ${word.accuracyScore}%${errorInfo}`;
+      });
+    }
+
+    if (excellentWords.length > 0 && excellentWords.length <= 3) {
+      feedback += isNovice 
+        ? `
+
+✨ **Palavras Perfeitas:** ${excellentWords.map((w: any) => `"${w.word}"`).join(', ')}`
+        : `
+
+✨ **Perfect Words:** ${excellentWords.map((w: any) => `"${w.word}"`).join(', ')}`;
+    }
+  }
+
+  // 🔤 ANÁLISE DE FONEMAS PROBLEMÁTICOS (dados ocultos!)
+  if (pronunciationData.phonemes && pronunciationData.phonemes.length > 0) {
+    const phonemes = pronunciationData.phonemes;
+    const problemPhonemes = phonemes.filter((p: any) => p.accuracyScore < 60);
+    
+    if (problemPhonemes.length > 0) {
+      // Agrupar fonemas por frequência de problema
+      const phonemeCount = new Map();
+      problemPhonemes.forEach((p: any) => {
+        phonemeCount.set(p.phoneme, (phonemeCount.get(p.phoneme) || 0) + 1);
+      });
+      
+      const topProblems = Array.from(phonemeCount.entries())
+        .sort(([,a], [,b]) => (b as number) - (a as number))
+        .slice(0, 4);
+      
+      if (topProblems.length > 0) {
+        feedback += isNovice 
+          ? `
+
+🔤 **Sons para Praticar:**`
+          : `
+
+🔤 **Sounds to Practice:**`;
+        
+        topProblems.forEach(([phoneme, count]) => {
+          const avgScore = problemPhonemes
+            .filter((p: any) => p.phoneme === phoneme)
+            .reduce((sum: number, p: any) => sum + p.accuracyScore, 0) / (count as number);
+          
+          feedback += `
+• **/${phoneme}/** - ${Math.round(avgScore)}%${(count as number) > 1 ? ` (${count}x)` : ''}`;
+        });
+      }
+    }
+  }
+
+  // 🎵 FEEDBACK ESPECÍFICO DE PROSÓDIA (dados ocultos!)
+  if (prosody > 0) {
+    feedback += isNovice 
+      ? `
+
+🎵 **Análise de Ritmo e Entonação:**`
+      : `
+
+🎵 **Rhythm & Intonation Analysis:**`;
+    
+    if (prosody >= 85) {
+      feedback += isNovice 
+        ? `
+• Excelente ritmo natural e padrões de acentuação`
+        : `
+• Excellent natural rhythm and stress patterns`;
+    } else if (prosody >= 70) {
+      feedback += isNovice 
+        ? `
+• Boa entonação, trabalhe nos padrões de acentuação`
+        : `
+• Good intonation, work on stress patterns`;
+    } else if (prosody >= 50) {
+      feedback += isNovice 
+        ? `
+• Pratique ritmo natural e acentuação das palavras`
+        : `
+• Practice natural rhythm and word stress`;
+    } else {
+      feedback += isNovice 
+        ? `
+• Foque nos padrões de entonação natural do inglês`
+        : `
+• Focus on natural English intonation patterns`;
+    }
+  }
+
+  // 📈 ANÁLISE COMPARATIVA POR CATEGORIA
+  const categories = [
+    { name: isNovice ? 'Precisão' : 'Accuracy', score: accuracy, icon: '🎯' },
+    { name: isNovice ? 'Fluência' : 'Fluency', score: fluency, icon: '🌊' },
+  ];
   
-  let strengths = [];
-  let tips = [];
-
-  // Analisar pontos fortes
-  if (fluency >= 90) strengths.push('Excellent fluency and rhythm');
-  else if (fluency >= 80) strengths.push('Good speaking flow');
-  
-  if (accuracy >= 85) strengths.push('Clear pronunciation of words');
-  else if (accuracy >= 75) strengths.push('Generally clear speech');
-  
-  if (score >= 80) strengths.push('Strong overall pronunciation');
-
-  // Gerar dicas baseadas nas áreas que precisam melhorar
-  if (accuracy < 70) {
-    tips.push('Focus on pronouncing each word clearly');
-  }
-  if (fluency < 80) {
-    tips.push('Try speaking at a steady, natural pace');
-  }
-  if (score < 70) {
-    tips.push('Practice speaking longer sentences');
+  if (prosody > 0) {
+    categories.push({ name: isNovice ? 'Prosódia' : 'Prosody', score: prosody, icon: '🎵' });
   }
 
-  // Fallbacks se não há pontos específicos
-  if (strengths.length === 0) {
-    strengths.push('You\'re practicing and improving');
-  }
-  if (tips.length === 0) {
-    tips.push('Keep practicing regularly to build confidence');
-  }
+  const weakest = categories.reduce((min, cat) => cat.score < min.score ? cat : min);
+  const strongest = categories.reduce((max, cat) => cat.score > max.score ? cat : max);
 
-  let result = '';
-  
-  if (strengths.length > 0) {
-    result += `🔍 **What worked well:**\n${strengths.map(s => `• ${s}`).join('\n')}\n\n`;
-  }
-  
-  if (tips.length > 0) {
-    result += `🎯 **Areas to improve:**\n${tips.map(t => `• ${t}`).join('\n')}\n\n`;
+  if (strongest.score - weakest.score > 15) {
+    feedback += isNovice 
+      ? `
+
+📈 **Área de Foco:** ${weakest.icon} **${weakest.name}** é sua principal oportunidade de melhoria (${weakest.score}/100)`
+      : `
+
+📈 **Focus Area:** ${weakest.icon} **${weakest.name}** is your main opportunity for improvement (${weakest.score}/100)`;
   }
 
-  // Dica específica por nível
-  const levelTips = {
-    'Novice': '💡 **Tip:** Speak slowly and clearly - accuracy is more important than speed!',
-    'Intermediate': '💡 **Tip:** Focus on natural rhythm and stress patterns in sentences.',
-    'Advanced': '💡 **Tip:** Work on subtle pronunciation nuances and professional delivery.'
-  };
-
-  result += levelTips[userLevel as keyof typeof levelTips] || levelTips['Intermediate'];
-
-  return result;
+  return feedback;
 }
 
 // ✅ FUNÇÕES AUXILIARES (mantidas iguais)
@@ -654,7 +757,7 @@ IMPORTANT INSTRUCTIONS:
 Your response should help the student learn new vocabulary through visual association.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4.1-nano",
       messages: [
         { role: "system", content: systemPrompt },
         {

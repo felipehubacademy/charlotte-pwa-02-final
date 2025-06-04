@@ -92,13 +92,19 @@ Text to translate to Portuguese:
 "${text}"`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // Mais rápido e econômico
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
+        {
+          role: "system",
+          content: systemPrompt
+        },
+        {
+          role: "user", 
+          content: userPrompt
+        }
       ],
-      max_tokens: 300,
-      temperature: 0.3
+      model: "gpt-4.1-nano", // 🔧 OTIMIZADO: Mudança de gpt-4o-mini para gpt-4.1-nano (33% mais barato)
+      max_tokens: 500,
+      temperature: 0.3,
     });
 
     const translatedText = completion.choices[0]?.message?.content?.trim();

@@ -873,6 +873,12 @@ class SupabaseService {
       return false;
     }
 
+    // 🛡️ PROTEÇÃO: Se não há achievements, retornar sucesso silenciosamente
+    if (!achievements || achievements.length === 0) {
+      console.log('ℹ️ No achievements to save, skipping...');
+      return true;
+    }
+
     try {
       console.log('💾 Salvando achievements para usuário:', userId);
       console.log('🏆 Achievements a salvar (RAW):', achievements);
@@ -898,8 +904,8 @@ class SupabaseService {
       // Primeiro, verificar se o usuário existe na tabela users
       const { data: existingUser, error: userError } = await this.supabase
         .from('users')
-        .select('id')
-        .eq('id', userId)
+        .select('entra_id')
+        .eq('entra_id', userId)
         .single();
 
       if (userError && userError.code === 'PGRST116') {
@@ -907,7 +913,7 @@ class SupabaseService {
         console.log('👤 Criando usuário:', userId);
         const { error: createUserError } = await this.supabase
           .from('users')
-          .insert([{ id: userId }]);
+          .insert([{ entra_id: userId }]);
         
         if (createUserError) {
           console.error('❌ Erro ao criar usuário:', createUserError);
@@ -940,7 +946,7 @@ class SupabaseService {
                        0;
         
         const mappedData = {
-          user_id: userId,
+        user_id: userId,
           achievement_id: null, // Deixar NULL para achievements dinâmicos
           earned_at: new Date().toISOString(),
           achievement_type: achievement.type || 'general',
@@ -979,8 +985,16 @@ class SupabaseService {
       console.log('✅ Achievements salvos com sucesso:', data);
       return data;
     } catch (error) {
-      console.error('💥 Erro geral ao salvar achievements:', error);
-      throw error;
+      // 🛡️ PROTEÇÃO: Log mais detalhado e não quebrar o fluxo principal
+      console.error('💥 Erro geral ao salvar achievements:', {
+        error: error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        userId,
+        achievementsCount: achievements?.length || 0
+      });
+      
+      // 🔄 RETORNAR FALSE EM VEZ DE THROW para não quebrar o fluxo principal
+      return false;
     }
   }
 
@@ -1277,9 +1291,28 @@ class SupabaseService {
 
       console.log(`👥 Found ${userProgress.length} user progress records and ${users?.length || 0} user records`);
 
+      // 🔍 DEBUG: Log dados específicos do Felipe
+      const felipeProgress = userProgress.find(p => p.user_id?.includes('felipe') || p.user_id?.includes('Felipe'));
+      const felipeUser = users?.find(u => u.entra_id?.includes('felipe') || u.entra_id?.includes('Felipe') || u.name?.includes('Felipe'));
+      
+      console.log('🔍 DEBUG Felipe Progress:', felipeProgress);
+      console.log('🔍 DEBUG Felipe User:', felipeUser);
+
       // ✅ CORRIGIDO: Combinar dados manualmente
       const usersWithProgress = userProgress.map(progress => {
         const user = users?.find(u => u.entra_id === progress.user_id);
+        
+        // 🔍 DEBUG: Log para cada usuário
+        if (progress.user_id?.includes('felipe') || progress.user_id?.includes('Felipe')) {
+          console.log('🔍 DEBUG Felipe Mapping:', {
+            progressUserId: progress.user_id,
+            foundUser: user,
+            userEntraId: user?.entra_id,
+            userName: user?.name,
+            userLevel: user?.user_level
+          });
+        }
+        
         return {
           ...progress,
           realUserLevel: user?.user_level || 'Inter',
@@ -1288,6 +1321,10 @@ class SupabaseService {
       });
 
       console.log('🔗 Combined data successfully');
+
+      // 🔍 DEBUG: Log dados combinados do Felipe
+      const felipeCombined = usersWithProgress.find(u => u.user_id?.includes('felipe') || u.user_id?.includes('Felipe'));
+      console.log('🔍 DEBUG Felipe Combined:', felipeCombined);
 
       // Agrupar por nível real da tabela users
       const usersByLevel = {
@@ -1320,9 +1357,29 @@ class SupabaseService {
         levelUsers
           .sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0))
           .forEach((userProgress, index) => {
+            // 🔍 DEBUG: Log para Felipe especificamente
+            if (userProgress.user_id?.includes('felipe') || userProgress.user_id?.includes('Felipe') || userProgress.realName?.includes('Felipe')) {
+              console.log('🔍 DEBUG Felipe Display Name Generation:', {
+                userId: userProgress.user_id,
+                realName: userProgress.realName,
+                realUserLevel: userProgress.realUserLevel,
+                aboutToFormat: userProgress.realName || userProgress.user_id
+              });
+            }
+            
             // ✅ CORRIGIDO: Usar nome real do Entra ID com tratamento seguro
             const displayName = this.formatDisplayNameForCache(userProgress.realName || userProgress.user_id);
             const avatarColor = this.generateAvatarColorForCache(userProgress.realName || userProgress.user_id);
+            
+            // 🔍 DEBUG: Log resultado para Felipe
+            if (userProgress.user_id?.includes('felipe') || userProgress.user_id?.includes('Felipe') || userProgress.realName?.includes('Felipe')) {
+              console.log('🔍 DEBUG Felipe Final Result:', {
+                userId: userProgress.user_id,
+                inputName: userProgress.realName || userProgress.user_id,
+                generatedDisplayName: displayName,
+                avatarColor: avatarColor
+              });
+            }
             
             // ✅ CORRIGIDO: Garantir que todos os campos obrigatórios estão preenchidos
             leaderboardEntries.push({
@@ -1393,6 +1450,17 @@ class SupabaseService {
    * Formatar nome para o cache (privacidade) - COM user_name
    */
   private formatDisplayNameForCache(fullName: string): string {
+    // 🔍 DEBUG: Log entrada da função
+    if (fullName?.includes('Felipe')) {
+      console.log('🔍 DEBUG formatDisplayNameForCache INPUT:', {
+        fullName,
+        type: typeof fullName,
+        length: fullName?.length,
+        trimmed: fullName?.trim(),
+        includesSpace: fullName?.includes(' ')
+      });
+    }
+    
     if (!fullName || fullName.trim() === '') return 'Anonymous';
     
     // Se parece com user_id (sem espaços), gerar nome anônimo
@@ -1400,7 +1468,20 @@ class SupabaseService {
       const firstChar = fullName.charAt(0).toUpperCase();
       const hash = fullName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
       const number = (hash % 999) + 1;
-      return `User ${firstChar}${number}`;
+      const result = `User ${firstChar}${number}`;
+      
+      // 🔍 DEBUG: Log quando gera User X
+      if (fullName?.includes('Felipe')) {
+        console.log('🔍 DEBUG formatDisplayNameForCache NO SPACE PATH:', {
+          fullName,
+          firstChar,
+          hash,
+          number,
+          result
+        });
+      }
+      
+      return result;
     }
     
     // ✅ RESTAURADO: Formatar nome real (Primeiro Nome + Inicial do Último)
@@ -1409,8 +1490,20 @@ class SupabaseService {
     
     const firstName = parts[0];
     const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+    const result = `${firstName} ${lastInitial}.`;
     
-    return `${firstName} ${lastInitial}.`;
+    // 🔍 DEBUG: Log quando formata nome real
+    if (fullName?.includes('Felipe')) {
+      console.log('🔍 DEBUG formatDisplayNameForCache REAL NAME PATH:', {
+        fullName,
+        parts,
+        firstName,
+        lastInitial,
+        result
+      });
+    }
+    
+    return result;
   }
 
   /**

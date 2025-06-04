@@ -142,24 +142,24 @@ Be encouraging but accurate in your assessment.`;
 Provide detailed grammar analysis focusing on the ${userLevel} level. Return only the JSON object.`;
 
     try {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const response = await openai.chat.completions.create({
+        model: "gpt-4.1-nano",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
-        max_tokens: 1000,
-        temperature: 0.3, // Lower temperature for more consistent analysis
+        max_tokens: 800,
+        temperature: 0.3,
       });
 
-      const response = completion.choices[0]?.message?.content;
+      const responseContent = response.choices[0]?.message?.content;
       
-      if (!response) {
+      if (!responseContent) {
         throw new Error('No response from OpenAI');
       }
 
       // Parse JSON response
-      const analysisData = JSON.parse(response);
+      const analysisData = JSON.parse(responseContent);
       
       // Validate and enhance the analysis
       return {
@@ -270,7 +270,7 @@ Provide encouraging, helpful feedback focusing on improvement.`;
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: "gpt-4.1-nano",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

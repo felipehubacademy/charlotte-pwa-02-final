@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Mic, MicOff, Volume2, VolumeX, Settings, LogOut } from 'lucide-react';
+import { X, Mic, MicOff, Volume2, VolumeX, Settings, LogOut, MessageSquare, MessageSquareOff } from 'lucide-react';
 import { OpenAIRealtimeService, RealtimeConfig } from '../../lib/openai-realtime';
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
 import RealtimeOrb from './RealtimeOrb';
@@ -48,6 +48,19 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const [currentTranscript, setCurrentTranscript] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // 🆕 NOVO: Estados para transcrição da Charlotte (ChatGPT-like)
+  const [showTranscriptions, setShowTranscriptions] = useState(false);
+  const [charlotteCurrentResponse, setCharlotteCurrentResponse] = useState('');
+  const [charlotteLastResponse, setCharlotteLastResponse] = useState('');
+  const [userLastTranscript, setUserLastTranscript] = useState('');
+
+  // 🆕 NOVO: Estado para histórico completo da conversa
+  const [conversationHistory, setConversationHistory] = useState<Array<{
+    type: 'user' | 'charlotte';
+    content: string;
+    timestamp: Date;
+  }>>([]);
+
   // 🆕 Estados para tracking de XP por tempo de conversa
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
   const [totalConversationTime, setTotalConversationTime] = useState(0);
@@ -63,6 +76,9 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const analyserRef = useRef<AnalyserNode | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number>();
+  // 📝 NOVO: Refs para auto-scroll
+  const transcriptContainerRef = useRef<HTMLDivElement>(null);
+  const charlotteMessageRef = useRef<HTMLDivElement>(null);
 
   // Usar dados VAD quando disponíveis, senão fallback para mock
   const effectiveAudioLevels = vadAudioLevels.length > 0 ? vadAudioLevels : audioLevels;
@@ -201,6 +217,9 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       service.off('conversation_item_created', () => {});
       service.off('error', () => {});
       service.off('disconnected', () => {});
+      // 📝 NOVO: Limpar listeners de transcrição da Charlotte
+      service.off('charlotte_transcript_delta', () => {});
+      service.off('charlotte_transcript_completed', () => {});
       
       service.disconnect();
       realtimeServiceRef.current = null;
@@ -223,6 +242,12 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     setIsSpeaking(false);
     setTranscript('');
     setCurrentTranscript('');
+    
+    // 📝 NOVO: Limpar estados de transcrição e histórico
+    setCharlotteCurrentResponse('');
+    setCharlotteLastResponse('');
+    setUserLastTranscript('');
+    setConversationHistory([]);
     
     // 🎤 Reset tracking states
     setConversationStartTime(null);
@@ -306,6 +331,94 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     console.log('API mode toggle disabled - always using Realtime API');
   };
 
+  // 📝 NOVO: Toggle transcrições
+  const toggleTranscriptions = () => {
+    setShowTranscriptions(!showTranscriptions);
+    console.log('🔄 Transcriptions toggled:', !showTranscriptions);
+  };
+
+  // 📝 NOVO: Funções para gerenciar histórico da conversa
+  const addUserMessage = useCallback((content: string) => {
+    const message = {
+      type: 'user' as const,
+      content,
+      timestamp: new Date()
+    };
+    setConversationHistory(prev => [...prev, message]);
+    setUserLastTranscript(content);
+    console.log('💬 User message added to history:', content);
+  }, []);
+
+  const addCharlotteMessage = useCallback((content: string) => {
+    const message = {
+      type: 'charlotte' as const,
+      content,
+      timestamp: new Date()
+    };
+    setConversationHistory(prev => [...prev, message]);
+    setCharlotteLastResponse(content);
+    console.log('💬 Charlotte message added to history:', content);
+  }, []);
+
+  const updateCharlotteCurrentMessage = useCallback((content: string) => {
+    setCharlotteCurrentResponse(content);
+  }, []);
+
+  // 📝 NOVO: Auto-scroll para o final quando Charlotte estiver falando
+  const scrollToBottom = useCallback(() => {
+    if (transcriptContainerRef.current) {
+      transcriptContainerRef.current.scrollTop = transcriptContainerRef.current.scrollHeight;
+    }
+    if (charlotteMessageRef.current) {
+      charlotteMessageRef.current.scrollTop = charlotteMessageRef.current.scrollHeight;
+    }
+  }, []);
+
+  // 📝 ATUALIZADO: Auto-scroll mais agressivo
+  const scrollToBottomAggressive = useCallback(() => {
+    // Scroll imediato sem delay
+    scrollToBottom();
+    
+    // Scroll adicional após pequeno delay para garantir
+    setTimeout(() => {
+      scrollToBottom();
+    }, 50);
+  }, [scrollToBottom]);
+
+  // 📝 NOVO: Effect para auto-scroll mais agressivo baseado no tamanho do conteúdo
+  useEffect(() => {
+    if (charlotteCurrentResponse && showTranscriptions) {
+      const responseLength = charlotteCurrentResponse.length;
+      const lineBreaks = (charlotteCurrentResponse.match(/\n/g) || []).length;
+      
+      // Trigger scroll em várias condições:
+      // 1. A cada 50 caracteres (aproximadamente 2 linhas)
+      // 2. A cada quebra de linha
+      // 3. A cada 100ms durante a resposta
+      if (responseLength > 50 || lineBreaks > 0) {
+        scrollToBottomAggressive();
+      }
+    }
+  }, [charlotteCurrentResponse, showTranscriptions, scrollToBottomAggressive]);
+
+  // 📝 NOVO: Auto-scroll contínuo durante a resposta da Charlotte
+  useEffect(() => {
+    let scrollInterval: NodeJS.Timeout;
+    
+    if (charlotteCurrentResponse && showTranscriptions && isSpeaking) {
+      // Scroll a cada 200ms durante a resposta
+      scrollInterval = setInterval(() => {
+        scrollToBottomAggressive();
+      }, 200);
+    }
+    
+    return () => {
+      if (scrollInterval) {
+        clearInterval(scrollInterval);
+      }
+    };
+  }, [charlotteCurrentResponse, showTranscriptions, isSpeaking, scrollToBottomAggressive]);
+
   // 🚪 Fechar modal
   const handleClose = () => {
     cleanup();
@@ -314,10 +427,21 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
   // ⏹️ Interromper resposta
   const interruptResponse = () => {
+    console.log('🛑 [INTERRUPT DEBUG] Manual interrupt button clicked');
+    console.log('🛑 [INTERRUPT DEBUG] Current state:', { 
+      hasService: !!realtimeServiceRef.current, 
+      isSpeaking, 
+      isListening 
+    });
+    
     if (realtimeServiceRef.current && isSpeaking) {
+      console.log('🛑 [INTERRUPT DEBUG] Calling service.interruptResponse()');
       realtimeServiceRef.current.interruptResponse();
       setIsSpeaking(false);
       setIsListening(true);
+      console.log('🛑 [INTERRUPT DEBUG] State updated after interrupt');
+    } else {
+      console.log('🛑 [INTERRUPT DEBUG] Cannot interrupt - missing service or not speaking');
     }
   };
 
@@ -373,10 +497,28 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       
       const config: RealtimeConfig = {
         apiKey: '', // Será obtida via API route segura
-        model: 'gpt-4o-realtime-preview-2024-12-17',
         voice: 'alloy',
-        userLevel,
-        userName
+        userLevel, // 🔧 NOVO: Passar nível do usuário para configuração de VAD
+        onMessage: (message) => console.log('Realtime message:', message),
+        onError: (error) => {
+          console.error('Realtime error:', error);
+          // 🔧 NOVO: Tratar erros específicos do microfone
+          if (error.message?.includes('Microfone não encontrado')) {
+            alert('❌ Microfone não encontrado!\n\nVerifique se há um microfone conectado ao seu dispositivo e tente novamente.');
+          } else if (error.message?.includes('Permissão negada')) {
+            alert('❌ Permissão negada!\n\nClique no ícone do microfone na barra de endereços do navegador e permita o acesso ao microfone.');
+          } else if (error.message?.includes('sendo usado por outro aplicativo')) {
+            alert('❌ Microfone ocupado!\n\nO microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone e tente novamente.');
+          }
+        },
+        onConnectionChange: (connected) => {
+          console.log('Connection changed:', connected);
+          setConnectionStatus(connected ? 'connected' : 'disconnected');
+        },
+        onVADStateChange: (listening) => {
+          console.log('VAD state changed:', listening);
+          setIsListening(listening);
+        }
       };
 
       const service = new OpenAIRealtimeService(config);
@@ -394,20 +536,52 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       });
 
       service.on('user_speech_started', () => {
-        console.log('🎤 User started speaking');
+        console.log('🎤 [INTERRUPT DEBUG] User started speaking - service will handle interrupt if needed');
+        console.log('🎤 [INTERRUPT DEBUG] Current state:', { isListening, isSpeaking });
         setIsListening(true);
         setIsSpeaking(false);
+        
+        // 🔧 REMOVIDO: Não precisamos mais forçar interrupção aqui
+        // O serviço já faz isso de forma inteligente baseado no estado real
+        // if (isSpeaking) {
+        //   console.log('🛑 [INTERRUPT DEBUG] Force interrupting Charlotte via VAD');
+        //   service.interruptResponse();
+        // }
       });
 
       service.on('user_speech_stopped', () => {
-        console.log('🔇 User stopped speaking');
+        console.log('🔇 [INTERRUPT DEBUG] User stopped speaking');
+        console.log('🔇 [INTERRUPT DEBUG] Current state:', { isListening, isSpeaking });
         setIsListening(false);
       });
 
       service.on('response_created', () => {
-        console.log('🤖 Assistant response created');
+        console.log('🤖 [INTERRUPT DEBUG] Assistant response created - Charlotte starts speaking');
+        console.log('🤖 [INTERRUPT DEBUG] Current state:', { isListening, isSpeaking });
         setIsSpeaking(true);
         setIsListening(false);
+        // 📝 NOVO: Limpar resposta anterior da Charlotte
+        setCharlotteCurrentResponse('');
+      });
+
+      // 📝 NOVO: Listeners para transcrição da Charlotte via áudio (eventos corretos)
+      service.on('charlotte_transcript_delta', (event: any) => {
+        if (event.delta) {
+          console.log('📝 [CHARLOTTE TRANSCRIPT] Delta received:', event.delta);
+          setCharlotteCurrentResponse(prev => {
+            const newResponse = prev + event.delta;
+            console.log('📝 [CHARLOTTE TRANSCRIPT] Updated response:', newResponse);
+            return newResponse;
+          });
+        }
+      });
+
+      service.on('charlotte_transcript_completed', (event: any) => {
+        console.log('✅ [CHARLOTTE TRANSCRIPT] Completed:', event.transcript);
+        if (event.transcript) {
+          addCharlotteMessage(event.transcript);
+          setCharlotteCurrentResponse('');
+        }
       });
 
       service.on('transcript_delta', (event: any) => {
@@ -424,19 +598,39 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           setTranscript(currentTranscript);
           setCurrentTranscript('');
         }
+        // 📝 ATUALIZADO: Finalizar resposta da Charlotte e adicionar ao histórico
+        if (charlotteCurrentResponse) {
+          addCharlotteMessage(charlotteCurrentResponse);
+          setCharlotteCurrentResponse('');
+        }
       });
 
       service.on('text_delta', (event: any) => {
         if (event.delta) {
+          console.log('📝 [CHARLOTTE DEBUG] Text delta received:', event.delta);
+          // 📝 ATUALIZADO: Usar setState diretamente
+          setCharlotteCurrentResponse(prev => {
+            const newResponse = prev + event.delta;
+            console.log('📝 [CHARLOTTE DEBUG] Updated Charlotte response:', newResponse);
+            return newResponse;
+          });
+          // Manter o comportamento existente também
           setCurrentTranscript(prev => prev + event.delta);
         }
       });
 
       service.on('text_done', (event: any) => {
         console.log('✅ Text response completed');
+        console.log('📝 [CHARLOTTE DEBUG] Final Charlotte response:', charlotteCurrentResponse);
         if (currentTranscript) {
           setTranscript(currentTranscript);
           setCurrentTranscript('');
+        }
+        // 📝 ATUALIZADO: Finalizar resposta da Charlotte
+        if (charlotteCurrentResponse) {
+          console.log('📝 [CHARLOTTE DEBUG] Saving Charlotte response to history:', charlotteCurrentResponse);
+          addCharlotteMessage(charlotteCurrentResponse);
+          setCharlotteCurrentResponse('');
         }
       });
 
@@ -448,6 +642,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
       service.on('input_transcription_completed', (event: any) => {
         console.log('📝 User speech transcribed:', event.transcript);
+        // 📝 ATUALIZADO: Adicionar ao histórico em vez de apenas salvar
+        addUserMessage(event.transcript);
         setTranscript(`You: "${event.transcript}"`);
       });
 
@@ -542,32 +738,59 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         stopConversationTracking();
       });
 
-      // Conectar e inicializar áudio
+      // 🔧 NOVO: Conectar e inicializar áudio
       await service.connect();
       await service.initializeAudio();
       
+      console.log('✅ Realtime API initialized successfully');
+
     } catch (error) {
       console.error('❌ Failed to initialize Realtime API:', error);
       setConnectionStatus('error');
       
-      // Mensagens de erro específicas para problemas de inicialização
+      // 🔧 NOVO: Mensagens de erro específicas para problemas de inicialização
       let errorMessage = '';
       
       if (error instanceof Error) {
-        if (error.message.includes('REALTIME_ACCESS_DENIED')) {
-          errorMessage = 'Your OpenAI account does not have access to the Realtime API. Please upgrade your account or contact OpenAI support.';
+        // 🎤 NOVO: Erros específicos de microfone
+        if (error.message.includes('Microfone não encontrado')) {
+          errorMessage = 'Microfone não encontrado. Verifique se há um microfone conectado ao seu dispositivo e recarregue a página.';
+        } else if (error.message.includes('Permissão negada')) {
+          errorMessage = 'Permissão de microfone negada. Clique no ícone do microfone na barra de endereços e permita o acesso, depois recarregue a página.';
+        } else if (error.message.includes('sendo usado por outro aplicativo')) {
+          errorMessage = 'O microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone e tente novamente.';
+        } else if (error.message.includes('Configurações do microfone não suportadas')) {
+          errorMessage = 'Configurações de microfone não suportadas. Tentando configuração básica...';
+        }
+        // 🌐 Erros de conexão/API
+        else if (error.message.includes('REALTIME_ACCESS_DENIED')) {
+          errorMessage = 'Sua conta OpenAI não tem acesso à API Realtime. Atualize sua conta ou entre em contato com o suporte da OpenAI.';
         } else if (error.message.includes('Failed to get API token')) {
-          errorMessage = 'Failed to authenticate with OpenAI. Please check your API key configuration.';
+          errorMessage = 'Falha na autenticação com OpenAI. Verifique a configuração da sua chave API.';
         } else if (error.message.includes('Connection timeout')) {
-          errorMessage = 'Connection timeout. Please check your internet connection and try again.';
+          errorMessage = 'Timeout de conexão. Verifique sua conexão com a internet e tente novamente.';
+        } else if (error.message.includes('NotFoundError')) {
+          errorMessage = 'Dispositivo de áudio não encontrado. Conecte um microfone e recarregue a página.';
+        } else if (error.message.includes('NotAllowedError')) {
+          errorMessage = 'Acesso ao microfone foi negado pelo navegador. Permita o acesso nas configurações e recarregue a página.';
+        } else if (error.message.includes('NotReadableError')) {
+          errorMessage = 'Não foi possível acessar o microfone. Verifique se não está sendo usado por outro aplicativo.';
         } else {
-          errorMessage = `Connection failed: ${error.message}`;
+          errorMessage = `Falha na conexão: ${error.message}`;
         }
       } else {
-        errorMessage = 'Unknown error occurred while connecting to voice chat.';
+        errorMessage = 'Erro desconhecido ao conectar ao chat de voz.';
       }
       
       setErrorMessage(errorMessage);
+      
+      // 🔧 NOVO: Se for erro de microfone, tentar novamente automaticamente após delay
+      if (errorMessage.includes('Configurações do microfone não suportadas')) {
+        setTimeout(() => {
+          console.log('🔄 Retrying with basic microphone configuration...');
+          initializeRealtimeAPI();
+        }, 2000);
+      }
     }
   }, [userLevel, userName, startConversationTracking, stopConversationTracking, playConnectionSound]); // 🔧 FIXO: Dependências estáveis
 
@@ -665,9 +888,31 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                   </p>
                 </div>
               </div>
+
+              {/* 📝 CENTRALIZADO: Botão Toggle de Transcrições */}
+              <div className="flex-1 flex justify-center">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleTranscriptions();
+                  }}
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-full transition-all cursor-pointer text-sm ${
+                    showTranscriptions 
+                      ? 'bg-primary/20 text-primary border border-primary/30' 
+                      : 'bg-white/10 text-white/70 border border-white/20 hover:bg-white/20 hover:text-white/90'
+                  }`}
+                  title={showTranscriptions ? 'Hide transcriptions' : 'Show transcriptions'}
+                >
+                  {showTranscriptions ? <MessageSquare size={16} /> : <MessageSquareOff size={16} />}
+                  <span className="font-medium">
+                    {/* 📝 ATUALIZADO: Texto baseado no nível do usuário */}
+                    {userLevel === 'Novice' ? 'Transcrição' : 'Transcription'}
+                  </span>
+                </button>
+              </div>
           
               {/* User Info + Close */}
-              <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+              <div className="flex items-center space-x-2 sm:space-x-3 flex-1 justify-end">
                 {/* User Info */}
                 {user && (
                   <div className="flex flex-col items-center text-center min-w-[70px] sm:min-w-[80px]">
@@ -694,104 +939,155 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             </div>
           </motion.header>
 
-          {/* Status Bar - Simplificado */}
-          <motion.div
-            initial={{ y: -20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="z-20 bg-charcoal/30 backdrop-blur-sm border-b border-white/5"
-          >
-            <div className="flex items-center justify-center px-4 py-2">
-              <div className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
-                <div className={`w-1.5 h-1.5 rounded-full ${
-                  connectionStatus === 'connected' 
-                  ? isListening 
-                    ? 'bg-blue-400 animate-pulse' 
-                    : isSpeaking 
-                      ? 'bg-primary animate-pulse'
-                      : 'bg-green-400'
-                    : connectionStatus === 'connecting'
-                      ? 'bg-yellow-400 animate-pulse'
-                      : connectionStatus === 'error'
-                        ? 'bg-red-400'
-                        : 'bg-gray-400'
-              }`} />
-                <span className="text-white/80 text-xs font-medium">
-                  {connectionStatus === 'connecting' && 'Connecting to Realtime API...'}
-                  {connectionStatus === 'connected' && isListening && 'Listening for your voice...'}
-                  {connectionStatus === 'connected' && isSpeaking && 'Charlotte is speaking...'}
-                  {connectionStatus === 'connected' && !isListening && !isSpeaking && 'Ready for conversation'}
-                  {connectionStatus === 'disconnected' && 'Disconnected'}
-                  {connectionStatus === 'error' && 'Connection Error'}
-              </span>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Main content */}
-          <div className="relative flex-1 flex flex-col items-center justify-center px-8">
-            {/* Orb melhorado */}
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="mb-8"
-            >
-              <RealtimeOrb
-                isConnected={connectionStatus === 'connected'}
-                isListening={isListening}
-                isSpeaking={isSpeaking}
-                audioLevels={effectiveAudioLevels}
-                connectionStatus={connectionStatus}
-              />
-            </motion.div>
-
-            {/* Transcript display */}
-            <AnimatePresence>
-              {(transcript || currentTranscript) && (
+          {/* Main content - Layout dinâmico baseado em transcrições */}
+          <div className="relative flex-1 flex flex-col overflow-hidden">
+            {/* Layout quando transcrições estão DESATIVADAS - Orb centralizado */}
+            {!showTranscriptions && (
+              <div className="flex-1 flex items-center justify-center px-8">
                 <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="max-w-md text-center mb-8"
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.4 }}
+                  className="flex-shrink-0"
                 >
-                  <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
-                    <p className="text-white text-sm leading-relaxed">
-                      {currentTranscript || transcript}
-                      {currentTranscript && <span className="animate-pulse">|</span>}
-                    </p>
-                  </div>
+                  <RealtimeOrb
+                    isConnected={connectionStatus === 'connected'}
+                    isListening={isListening}
+                    isSpeaking={isSpeaking}
+                    audioLevels={effectiveAudioLevels}
+                    connectionStatus={connectionStatus}
+                  />
                 </motion.div>
-              )}
-            </AnimatePresence>
 
-            {/* Error message display */}
-            <AnimatePresence>
-              {connectionStatus === 'error' && errorMessage && (
-              <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="max-w-md text-center mb-8"
-                >
-                  <div className="bg-red-500/10 backdrop-blur-sm rounded-2xl p-4 border border-red-400/20">
-                    <p className="text-red-300 text-sm leading-relaxed">
-                      {errorMessage}
-                    </p>
-                  </div>
-              </motion.div>
+                {/* Error message display - centralizado */}
+                <AnimatePresence>
+                  {connectionStatus === 'error' && errorMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute bottom-20 left-1/2 transform -translate-x-1/2 max-w-md"
+                    >
+                      <div className="bg-red-500/10 backdrop-blur-sm rounded-2xl p-4 border border-red-400/20">
+                        <p className="text-red-300 text-sm leading-relaxed text-center">
+                          {errorMessage}
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
-            </AnimatePresence>
+
+            {/* Layout quando transcrições estão ATIVADAS - Orb no topo + Chat embaixo */}
+            {showTranscriptions && (
+              <>
+                {/* Orb na parte superior */}
+                <div className="flex-shrink-0 flex justify-center px-8 py-4">
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.4 }}
+                    className="flex-shrink-0"
+                  >
+                    <RealtimeOrb
+                      isConnected={connectionStatus === 'connected'}
+                      isListening={isListening}
+                      isSpeaking={isSpeaking}
+                      audioLevels={effectiveAudioLevels}
+                      connectionStatus={connectionStatus}
+                    />
+                  </motion.div>
+                </div>
+
+                {/* Container de transcrições na parte inferior */}
+                <div className="flex-1 flex flex-col items-center justify-start overflow-hidden min-h-0 px-8">
+                  <AnimatePresence>
+                    {(conversationHistory.length > 0 || charlotteCurrentResponse) && (
+                      <motion.div
+                        ref={transcriptContainerRef}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="w-full max-w-lg text-left space-y-3 overflow-y-auto scroll-smooth flex-1 pb-4"
+                        style={{
+                          scrollbarWidth: 'thin',
+                          scrollbarColor: 'rgba(255, 255, 255, 0.3) transparent'
+                        }}
+                      >
+                        {/* Histórico completo da conversa */}
+                        {conversationHistory.map((message, index) => (
+                          <div key={index} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`rounded-2xl px-4 py-3 border max-w-[80%] ${
+                              message.type === 'user'
+                                ? 'bg-primary/20 backdrop-blur-sm rounded-br-sm border-primary/30'
+                                : 'bg-white/10 backdrop-blur-sm rounded-bl-sm border-white/20'
+                            }`}>
+                              <p className={`text-sm font-medium mb-1 ${
+                                message.type === 'user' ? 'text-primary/80' : 'text-primary'
+                              }`}>
+                                {message.type === 'user' ? 'You' : 'Charlotte'}
+                              </p>
+                              <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                                {message.type === 'user' ? `"${message.content}"` : message.content}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Resposta atual da Charlotte em progresso */}
+                        {charlotteCurrentResponse && (
+                          <div className="flex justify-start">
+                            <div 
+                              ref={charlotteMessageRef}
+                              className="bg-white/10 backdrop-blur-sm rounded-2xl rounded-bl-sm px-4 py-3 border border-white/20 max-w-[80%] max-h-[60vh] overflow-y-auto scroll-smooth"
+                              style={{
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: 'rgba(255, 255, 255, 0.3) transparent'
+                              }}
+                            >
+                              <p className="text-sm font-medium text-primary mb-1">Charlotte</p>
+                              <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
+                                {charlotteCurrentResponse}
+                                <span className="animate-pulse">|</span>
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Error message display - quando transcrições ativas */}
+                  <AnimatePresence>
+                    {connectionStatus === 'error' && errorMessage && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="max-w-md text-center mt-4"
+                      >
+                        <div className="bg-red-500/10 backdrop-blur-sm rounded-2xl p-4 border border-red-400/20">
+                          <p className="text-red-300 text-sm leading-relaxed">
+                            {errorMessage}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </>
+            )}
           </div>
 
-          {/* Controls */}
+          {/* Controls compactos */}
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.8 }}
             className="flex-shrink-0 pb-safe"
           >
-            <div className="flex justify-center items-center space-x-4 px-8 py-6">
+            <div className="flex justify-center items-center space-x-4 px-8 py-4">
               {/* Mute button */}
               <button
                 onClick={(e) => {
@@ -806,23 +1102,6 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               >
                 {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
               </button>
-
-              {/* Interrupt button - only show when Charlotte is speaking */}
-              {isSpeaking && (
-                <motion.button
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    interruptResponse();
-                  }}
-                  className="p-3 rounded-full transition-all cursor-pointer bg-red-500/10 text-red-400 border border-red-400/20 hover:bg-red-500/20"
-                  title="Interrupt Charlotte"
-                >
-                  <X size={20} />
-                </motion.button>
-              )}
             </div>
           </motion.div>
         </motion.div>
