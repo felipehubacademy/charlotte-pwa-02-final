@@ -22,6 +22,9 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
 }) => {
   const [animationPhase, setAnimationPhase] = useState(0);
   const frameRef = useRef<number>();
+  
+  // 🔧 ID único para este componente
+  const orbId = useRef(`orb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`).current;
 
   const sizeConfig = {
     normal: {
@@ -133,6 +136,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
 
   return (
     <motion.div 
+      id="realtime-orb"
       className={`relative ${config.container} flex items-center justify-center`}
       animate={{
         scale: size === 'compact' ? 0.75 : 1
@@ -158,21 +162,21 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
         <svg viewBox="0 0 200 200" className="w-full h-full">
           <defs>
             {/* Gradiente principal dinâmico */}
-            <radialGradient id="mainGradient" cx="50%" cy="50%" r="80%">
+            <radialGradient id={`mainGradient-${orbId}`} cx="50%" cy="50%" r="80%">
               <stop offset="0%" stopColor={colors.primary} stopOpacity="0.9" />
               <stop offset="50%" stopColor={colors.secondary} stopOpacity="0.7" />
               <stop offset="100%" stopColor={colors.accent} stopOpacity="0.3" />
             </radialGradient>
 
             {/* Gradiente de glow */}
-            <radialGradient id="glowGradient" cx="50%" cy="50%" r="90%">
+            <radialGradient id={`glowGradient-${orbId}`} cx="50%" cy="50%" r="90%">
               <stop offset="0%" stopColor={colors.primary} stopOpacity="0.1" />
               <stop offset="70%" stopColor={colors.glow.replace(')', ', 0.3)')} />
               <stop offset="100%" stopColor="transparent" />
             </radialGradient>
 
             {/* Filtro de blur para glow */}
-            <filter id="glow">
+            <filter id={`glow-${orbId}`}>
               <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
               <feMerge> 
                 <feMergeNode in="coloredBlur"/>
@@ -186,7 +190,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
             cx="100"
             cy="100"
             r={config.maxRadius}
-            fill="url(#glowGradient)"
+            fill="url(#glowGradient-${orbId})"
             animate={isActive ? {
               r: [config.maxRadius - 5, config.maxRadius + audioIntensity * 10, config.maxRadius - 5],
               opacity: [0.3, 0.6 + audioIntensity * 0.3, 0.3],
@@ -210,7 +214,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
               stroke={colors.primary}
               strokeWidth={1.5 - waveIndex * 0.2}
               opacity={0.4 + waveIndex * 0.1}
-              filter="url(#glow)"
+              filter={`url(#glow-${orbId})`}
               animate={isActive ? {
                 opacity: [0.3, 0.7 + audioIntensity * 0.3, 0.3],
                 strokeWidth: [1.5 - waveIndex * 0.2, 2 - waveIndex * 0.2, 1.5 - waveIndex * 0.2],
@@ -232,8 +236,8 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
             cx="100"
             cy="100"
             r={config.baseRadius + 5}
-            fill="url(#mainGradient)"
-            filter="url(#glow)"
+            fill="url(#mainGradient-${orbId})"
+            filter={`url(#glow-${orbId})`}
             animate={isActive ? {
               r: [config.baseRadius + 3, config.baseRadius + 5 + audioIntensity * 3, config.baseRadius + 3],
             } : {

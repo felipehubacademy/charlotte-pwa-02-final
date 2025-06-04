@@ -15,6 +15,8 @@ import { ConversationContextManager } from '@/lib/conversation-context';
 import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import ChatHeader from '@/components/ChatHeader';
+import { useOnboarding } from '@/hooks/useOnboarding';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -131,6 +133,14 @@ async function sendSequentialMessages(
 export default function ChatPage() {
   const { user, isLoading, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  
+  // 🎓 NOVO: Onboarding system
+  const onboarding = useOnboarding(user?.entra_id);
+  const {
+    showMainTour,
+    completeMainTour,
+    skipMainTour
+  } = onboarding;
   
   // ✅ SIMPLIFIED: Just detect iOS PWA mode without complex keyboard handling
   const [isIOSPWAMode, setIsIOSPWAMode] = useState(false);
@@ -1598,6 +1608,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               <div className="flex items-end bg-charcoal/60 backdrop-blur-sm border border-white/10 rounded-3xl focus-within:border-primary/30 transition-colors">
                 <textarea
                   ref={textareaRef}
+                  id="message-input"
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   onKeyDown={handleKeyPress}
@@ -1630,6 +1641,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                         <>
                           {recordingState === 'idle' && (
                             <button
+                              id="voice-button"
                               onClick={startRecording}
                               className="absolute right-2 bottom-[7px] p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none"
                               title="Click to start recording"
@@ -1705,10 +1717,11 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                           {/* Camera button para mobile - PRIMEIRO */}
                           {isMobileDevice() && recordingState === 'idle' && (
                             <button 
+                              id="photo-button"
                               onClick={handleCameraClick}
                               className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none mb-1.5"
-                          title="Take photo"
-                        >
+                              title="Take photo"
+                            >
                               <Camera size={16} />
                             </button>
                           )}
@@ -1716,12 +1729,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                           {/* MOBILE: Botão click to record - SEGUNDO */}
                           {isMobileDevice() && recordingState === 'idle' && (
                             <button
+                              id="voice-button"
                               onClick={startRecording}
                               className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none mb-1.5"
                               title={user?.user_level === 'Novice' ? 'Toque para gravar' : 'Tap to record'}
                             >
                               <Mic size={16} />
-                        </button>
+                            </button>
                           )}
                         </>
                       )}
@@ -1773,7 +1787,18 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
             {/* Live conversation button */}
             <button 
-              onClick={() => setIsLiveVoiceOpen(true)}
+              id="live-voice-button"
+              onClick={() => {
+                setIsLiveVoiceOpen(true);
+                // 🎓 RESTAURADO: Ativar tour ao abrir Live Voice (melhor UX)
+                console.log('🎓 Live Voice button clicked - starting tour check...');
+                if ('debugOnboardingState' in onboarding) {
+                  (onboarding as any).debugOnboardingState();
+                }
+                if ('startLiveVoiceTour' in onboarding) {
+                  (onboarding as any).startLiveVoiceTour();
+                }
+              }}
               className="p-3 bg-charcoal/60 hover:bg-charcoal text-primary hover:text-primary-dark rounded-full transition-colors flex-shrink-0 border border-white/10 select-none"
               title="Start Live Conversation"
             >
@@ -1787,7 +1812,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
       {/* Floating XP Counter */}
       {sessionXP !== undefined && totalXP !== undefined && !isLiveVoiceOpen && (
-        <div className="floating-xp-counter">
+        <div id="xp-counter" className="floating-xp-counter">
           <EnhancedXPCounter 
             sessionXP={sessionXP}
             totalXP={totalXP}
@@ -1833,6 +1858,15 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       <AchievementNotification
         achievements={newAchievements}
         onDismiss={handleAchievementsDismissed}
+      />
+
+      {/* 🎓 NOVO: Onboarding Tour */}
+      <OnboardingTour
+        isOpen={showMainTour}
+        onClose={skipMainTour}
+        userLevel={user?.user_level as 'Novice' | 'Inter' | 'Advanced' || 'Inter'}
+        isMobile={isMobileDevice()}
+        onComplete={completeMainTour}
       />
     </div>
   );

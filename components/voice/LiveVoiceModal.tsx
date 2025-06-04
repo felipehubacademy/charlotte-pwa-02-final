@@ -9,6 +9,7 @@ import RealtimeOrb from './RealtimeOrb';
 import EnhancedXPCounter from '../ui/EnhancedXPCounter';
 import CharlotteAvatar from '../ui/CharlotteAvatar';
 import { supabaseService } from '../../lib/supabase-service';
+import { useOnboarding } from '../../hooks/useOnboarding';
 
 interface LiveVoiceModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ interface LiveVoiceModalProps {
   totalXP?: number;
   onLogout?: () => void;
   onXPGained?: (amount: number) => void;
+  demoMode?: boolean; // 🎭 NOVO: Modo demo para onboarding
 }
 
 const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({ 
@@ -35,7 +37,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   sessionXP,
   totalXP,
   onLogout,
-  onXPGained
+  onXPGained,
+  demoMode
 }) => {
   // Estados principais
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
@@ -65,7 +68,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const [conversationStartTime, setConversationStartTime] = useState<Date | null>(null);
   const [totalConversationTime, setTotalConversationTime] = useState(0);
   const [lastXPUpdate, setLastXPUpdate] = useState<Date | null>(null);
-  const [xpAlreadyAwarded, setXpAlreadyAwarded] = useState(false); // 🔧 NEW: Prevent multiple XP awards
+  const [xpAlreadyAwarded, setXpAlreadyAwarded] = useState(false);
 
   // Hook VAD para análise de áudio real
   const { volume, audioLevels: vadAudioLevels, start: startVAD, stop: stopVAD } = useVoiceActivityDetection();
@@ -276,6 +279,46 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       return;
     }
 
+    // 🎭 NOVO: Modo demo - não conectar API, apenas simular estados
+    if (demoMode) {
+      // 🔧 CORRIGIDO: Limpar histórico primeiro para evitar duplicatas
+      setConversationHistory([]);
+      setCharlotteCurrentResponse('');
+      setCharlotteLastResponse('');
+      setUserLastTranscript('');
+      
+      setConnectionStatus('connected');
+      setIsListening(true);
+      setIsSpeaking(false);
+      setShowTranscriptions(true); // Mostrar transcrições por padrão no demo
+      
+      // 🔧 CORRIGIDO: Usar timeouts únicos e limpar anteriores
+      const demoTimeouts: NodeJS.Timeout[] = [];
+      
+      // Simular conversa demo com delays
+      demoTimeouts.push(setTimeout(() => {
+        addUserMessage('Hello Charlotte, how are you?');
+      }, 1000));
+      
+      demoTimeouts.push(setTimeout(() => {
+        setIsSpeaking(true);
+        setIsListening(false);
+        setCharlotteCurrentResponse('Hello! I\'m doing great, thank you for asking. How can I help you practice English today?');
+      }, 2000));
+      
+      demoTimeouts.push(setTimeout(() => {
+        addCharlotteMessage('Hello! I\'m doing great, thank you for asking. How can I help you practice English today?');
+        setCharlotteCurrentResponse('');
+        setIsSpeaking(false);
+        setIsListening(true);
+      }, 4000));
+      
+      // 🔧 NOVO: Cleanup function para demo mode
+      return () => {
+        demoTimeouts.forEach(timeout => clearTimeout(timeout));
+      };
+    }
+
     // 🔧 NOVO: Verificar se já existe uma instância ativa
     if (realtimeServiceRef.current) {
       console.log('⚠️ Realtime service already exists, cleaning up first...');
@@ -304,7 +347,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       cleanup();
       stopVAD();
     };
-  }, [isOpen]); // 🔧 FIXO: Apenas isOpen como dependência
+  }, [isOpen, demoMode]); // 🔧 NOVO: Adicionar demoMode como dependência
 
   // 🔄 Efeito para análise de áudio (apenas para visualização)
   useEffect(() => {
@@ -333,8 +376,9 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
   // 📝 NOVO: Toggle transcrições
   const toggleTranscriptions = () => {
-    setShowTranscriptions(!showTranscriptions);
-    console.log('🔄 Transcriptions toggled:', !showTranscriptions);
+    const newShowTranscriptions = !showTranscriptions;
+    setShowTranscriptions(newShowTranscriptions);
+    console.log('🔄 Transcriptions toggled:', newShowTranscriptions);
   };
 
   // 📝 NOVO: Funções para gerenciar histórico da conversa
@@ -899,6 +943,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               {/* 📝 DESKTOP: Botão Toggle de Transcrições com texto */}
               <div className="hidden md:flex flex-1 justify-center">
                 <button
+                  id="transcription-toggle"
                   onClick={(e) => {
                     e.stopPropagation();
                     toggleTranscriptions();
@@ -954,6 +999,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               className="md:hidden absolute top-20 right-4 z-40"
             >
               <button
+                id="transcription-toggle-mobile"
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleTranscriptions();
@@ -1131,6 +1177,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             <div className="flex justify-center items-center space-x-4 px-8 py-4">
               {/* Mute button */}
               <button
+                id="audio-controls"
                 onClick={(e) => {
                   e.stopPropagation();
                   toggleMute();
