@@ -943,7 +943,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           <div className="relative flex-1 flex flex-col overflow-hidden">
             {/* Layout quando transcrições estão DESATIVADAS - Orb centralizado */}
             {!showTranscriptions && (
-              <div className="flex-1 flex items-center justify-center px-8">
+              <div className="flex-1 flex flex-col items-center justify-center px-8">
                 <motion.div
                   initial={{ scale: 0.8, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
@@ -967,10 +967,10 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="absolute bottom-20 left-1/2 transform -translate-x-1/2 max-w-md"
+                      className="max-w-md text-center mt-8"
                     >
                       <div className="bg-red-500/10 backdrop-blur-sm rounded-2xl p-4 border border-red-400/20">
-                        <p className="text-red-300 text-sm leading-relaxed text-center">
+                        <p className="text-red-300 text-sm leading-relaxed">
                           {errorMessage}
                         </p>
                       </div>

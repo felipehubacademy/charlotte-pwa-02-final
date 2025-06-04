@@ -306,10 +306,7 @@ export class OpenAIRealtimeService {
       tool_choice: 'auto',
       // 🎯 ANTI-ALUCINAÇÃO E CONTROLE DE TAMANHO: Configurações mais conservadoras
       temperature: 0.6, // Reduzido de 0.8 para 0.6 - menos criatividade, mais precisão
-      max_response_output_tokens: this.getMaxTokensForUserLevel(), // 🆕 NOVO: Tokens baseados no nível
-      // 🎯 NOVO: Configurações adicionais para reduzir alucinações
-      presence_penalty: 0.1, // Pequena penalidade para repetição
-      frequency_penalty: 0.1 // Pequena penalidade para frequência
+      max_response_output_tokens: this.getMaxTokensForUserLevel() // 🆕 NOVO: Tokens baseados no nível
     };
 
     console.log('📤 [FIXED] Sending session update:', sessionConfig);
