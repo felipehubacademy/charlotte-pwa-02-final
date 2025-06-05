@@ -184,7 +184,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
         />
 
         {/* Rolling spheres inside the orb - SUTIS COMO ONDAS DO MAR */}
-        <div className="absolute inset-2 rounded-full overflow-hidden">
+        <div className="absolute inset-3 rounded-full overflow-hidden" style={{ clipPath: 'circle(50% at 50% 50%)' }}>
           {[...Array(12)].map((_, i) => { // 🔧 Reduzido para menos caos
             // 🎵 MELHORADO: Tamanhos normais (revertido)
             const sizeVariation = Math.sin(i * 2.1) * Math.cos(i * 1.7) * 0.8;
