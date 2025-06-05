@@ -723,7 +723,7 @@ CONVERSATION FACILITATION:
             this.hasActiveResponse = false;
             console.log('🔇 [CHARLOTTE STATE] Charlotte finished speaking (after delay)');
             
-            this.emit('audio_done', event);
+          this.emit('audio_done', event);
           }, 1000); // 1 segundo de delay para receber possíveis deltas finais
           break;
 

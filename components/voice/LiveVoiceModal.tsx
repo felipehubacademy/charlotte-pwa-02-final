@@ -666,8 +666,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         
         // 📝 NOVO: Pequeno delay para garantir que a mensagem do usuário foi processada
         setTimeout(() => {
-          setIsSpeaking(true);
-          setIsListening(false);
+        setIsSpeaking(true);
+        setIsListening(false);
           // 📝 NOVO: Limpar resposta anterior da Charlotte
           setCharlotteCurrentResponse('');
           console.log('🤖 [ORDER FIX] Charlotte state updated after delay');
@@ -840,7 +840,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       await service.initializeAudio();
       
       console.log('✅ Realtime API initialized successfully');
-
+      
     } catch (error) {
       console.error('❌ Failed to initialize Realtime API:', error);
       setConnectionStatus('error');
@@ -1038,7 +1038,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
           {/* 📱 MOBILE: Botão de transcrição flutuante no canto direito */}
           <AnimatePresence>
-            <motion.div
+          <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
@@ -1100,8 +1100,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                         <p className="text-red-300 text-sm leading-relaxed">
                           {errorMessage}
                         </p>
-                      </div>
-                    </motion.div>
+            </div>
+          </motion.div>
                   )}
                 </AnimatePresence>
               </div>
@@ -1111,37 +1111,37 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             {showTranscriptions && (
               <>
                 {/* Orb na parte superior */}
-                <div className="flex-shrink-0 flex justify-center px-8 py-10 md:py-8 pt-24 md:pt-8">
-                  <motion.div
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
+                <div className="flex-shrink-0 flex justify-center px-8 py-10 md:py-16 pt-24 md:pt-16">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
                     transition={{ 
                       delay: 0.4,
                       duration: 0.6,
                       ease: [0.4, 0, 0.2, 1]
                     }}
                     className="flex-shrink-0"
-                  >
-                    <RealtimeOrb
-                      isConnected={connectionStatus === 'connected'}
-                      isListening={isListening}
-                      isSpeaking={isSpeaking}
-                      audioLevels={effectiveAudioLevels}
-                      connectionStatus={connectionStatus}
+            >
+              <RealtimeOrb
+                isConnected={connectionStatus === 'connected'}
+                isListening={isListening}
+                isSpeaking={isSpeaking}
+                audioLevels={effectiveAudioLevels}
+                connectionStatus={connectionStatus}
                       size="compact"
-                    />
-                  </motion.div>
+              />
+            </motion.div>
                 </div>
 
                 {/* Container de transcrições na parte inferior */}
                 <div className="flex-1 flex flex-col items-center justify-start overflow-hidden min-h-0 px-8">
-                  <AnimatePresence>
+            <AnimatePresence>
                     {(conversationHistory.length > 0 || charlotteCurrentResponse) && (
-                      <motion.div
+                <motion.div
                         ref={transcriptContainerRef}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
                         className="w-full max-w-lg text-left space-y-3 overflow-y-auto scroll-smooth flex-1 pb-4"
                         style={{
                           scrollbarWidth: 'thin',
@@ -1163,8 +1163,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                               </p>
                               <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">
                                 {message.type === 'user' ? message.content : message.content}
-                              </p>
-                            </div>
+                    </p>
+                  </div>
                           </div>
                         ))}
 
@@ -1187,27 +1187,27 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
                             </div>
                           </div>
                         )}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
                   {/* Error message display - quando transcrições ativas */}
-                  <AnimatePresence>
-                    {connectionStatus === 'error' && errorMessage && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
+            <AnimatePresence>
+              {connectionStatus === 'error' && errorMessage && (
+              <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
                         className="max-w-md text-center mt-4"
-                      >
-                        <div className="bg-red-500/10 backdrop-blur-sm rounded-2xl p-4 border border-red-400/20">
-                          <p className="text-red-300 text-sm leading-relaxed">
-                            {errorMessage}
-                          </p>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                >
+                  <div className="bg-red-500/10 backdrop-blur-sm rounded-2xl p-4 border border-red-400/20">
+                    <p className="text-red-300 text-sm leading-relaxed">
+                      {errorMessage}
+                    </p>
+                  </div>
+              </motion.div>
+            )}
+            </AnimatePresence>
                 </div>
               </>
             )}

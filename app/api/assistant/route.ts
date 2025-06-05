@@ -495,7 +495,7 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
 • **Prosódia (Ritmo e Entonação):** ${prosody}/100`
       : `
 • **Prosody (Rhythm & Intonation):** ${prosody}/100`;
-  }
+}
 
   // 📝 ANÁLISE DETALHADA DE PALAVRAS (dados ocultos!)
   if (pronunciationData.words && pronunciationData.words.length > 0) {

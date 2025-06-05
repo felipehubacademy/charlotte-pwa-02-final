@@ -80,7 +80,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
       if (interval) clearInterval(interval);
     };
   }, [state, isSpeaking, isListening, baseIntensity, audioLevels]);
-
+      
   // 🎨 NOVO: Esquemas de cores simplificados - apenas laranja (conectando) e verde (ativo)
   const colorSchemes = {
     connecting: {
@@ -100,7 +100,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
       particleShadow: "rgba(184, 255, 74, 0.7)",
     }
   };
-
+      
   const colors = colorSchemes[state as keyof typeof colorSchemes];
 
   // 📏 NOVO: Configurações de tamanho responsivas
@@ -163,8 +163,8 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
               opacity: 0.4,
             }),
             filter: `blur(${4 + baseIntensity * 4}px)`, // 🔧 Blur responsivo ao áudio real
-          }}
-        />
+            }}
+          />
 
         {/* Outer glow ring - ainda mais sutil */}
         <div
@@ -240,9 +240,9 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
         {/* Reflection highlight */}
         <div
           className="absolute top-2 left-2 w-4 h-4 rounded-full opacity-30"
-          style={{
+        style={{
             background: "radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), transparent 60%)",
-          }}
+        }}
         />
       </div>
     </div>

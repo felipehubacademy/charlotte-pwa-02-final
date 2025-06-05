@@ -513,8 +513,8 @@ export default function ChatPage() {
           const allAchievements = [...xpResult.achievements, ...audioAchievements];
           if (allAchievements.length > 0) {
             try {
-              await supabaseService.saveAchievements(user.entra_id, allAchievements);
-              handleNewAchievements(allAchievements);
+            await supabaseService.saveAchievements(user.entra_id, allAchievements);
+            handleNewAchievements(allAchievements);
             } catch (error) {
               // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
               console.warn('⚠️ Failed to save achievements to database, but continuing...', error);
@@ -1517,8 +1517,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         // 🏆 NOVO: Salvar achievements se houver
         if (textAchievements.length > 0) {
           try {
-            await supabaseService.saveAchievements(user.entra_id, textAchievements);
-            handleNewAchievements(textAchievements);
+          await supabaseService.saveAchievements(user.entra_id, textAchievements);
+          handleNewAchievements(textAchievements);
           } catch (error) {
             // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
             console.warn('⚠️ Failed to save achievements to database, but continuing...', error);
@@ -1720,8 +1720,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                               id="photo-button"
                               onClick={handleCameraClick}
                               className="p-2 text-white/60 hover:text-primary bg-white/5 hover:bg-primary/10 transition-colors rounded-full select-none mb-1.5"
-                              title="Take photo"
-                            >
+                          title="Take photo"
+                        >
                               <Camera size={16} />
                             </button>
                           )}
@@ -1735,7 +1735,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                               title={user?.user_level === 'Novice' ? 'Toque para gravar' : 'Tap to record'}
                             >
                               <Mic size={16} />
-                            </button>
+                        </button>
                           )}
                         </>
                       )}
