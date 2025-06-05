@@ -185,15 +185,15 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
 
         {/* Rolling spheres inside the orb - SUTIS COMO ONDAS DO MAR */}
         <div className="absolute inset-3 rounded-full overflow-hidden" style={{ clipPath: 'circle(50% at 50% 50%)' }}>
-          {[...Array(18)].map((_, i) => { // 🔧 Aumentado de 12 para 18 partículas
+          {[...Array(24)].map((_, i) => { // 🔧 Aumentado para 24 partículas para ocupar todo o orb
             // 🎵 MELHORADO: Tamanhos normais (revertido)
             const sizeVariation = Math.sin(i * 2.1) * Math.cos(i * 1.7) * 0.8;
             const size = Math.max(1.2, 2.0 + sizeVariation + (i % 3) * 0.4); // 🔧 Tamanho normal
             
-            // 🎵 CORRIGIDO: Raio orbital limitado para ficar DENTRO do container
-            const radiusBase = 6 + (i % 4) * 1; // 🔧 Base menor: 6-9px
-            const radiusVariation = Math.sin(i * 2.3) * 1.5 + Math.cos(i * 1.9) * 1; // 🔧 Variação menor
-            const radius = Math.max(4, Math.min(10, radiusBase + radiusVariation)); // 🔧 MÁXIMO 10px (container inset-2 = 8px margem)
+            // 🎵 EXPANDIDO: Raios orbitais maiores para ocupar todo o orb
+            const radiusBase = 8 + (i % 6) * 3; // 🔧 Base expandida: 8-23px
+            const radiusVariation = Math.sin(i * 2.3) * 4 + Math.cos(i * 1.9) * 3; // 🔧 Variação maior
+            const radius = Math.max(6, Math.min(26, radiusBase + radiusVariation)); // 🔧 MÁXIMO 26px para ocupar todo o orb
             
             // 🔧 NOVO: Velocidades MUITO mais lentas - como respiração
             const speedBase = 25 + (i % 5) * 5; // Base mais lenta
@@ -228,7 +228,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
                   animationTimingFunction: 'ease-in-out', // 🔧 Sempre suave
                   animationIterationCount: 'infinite',
                   animationDelay: `${animationDelay}s`,
-                  animationDirection: i % 6 === 0 ? 'reverse' : 'normal', // 🔧 Mais variação com 18 partículas
+                  animationDirection: i % 8 === 0 ? 'reverse' : 'normal', // 🔧 Mais variação com 24 partículas
                   // 🔧 Transform origin mais centrado e sutil
                   transformOrigin: `${48 + Math.sin(i * 1.7) * 8}% ${48 + Math.cos(i * 1.4) * 8}%`,
                 }}
