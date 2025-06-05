@@ -185,7 +185,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
 
         {/* Rolling spheres inside the orb - SUTIS COMO ONDAS DO MAR */}
         <div className="absolute inset-3 rounded-full overflow-hidden" style={{ clipPath: 'circle(50% at 50% 50%)' }}>
-          {[...Array(12)].map((_, i) => { // 🔧 Reduzido para menos caos
+          {[...Array(18)].map((_, i) => { // 🔧 Aumentado de 12 para 18 partículas
             // 🎵 MELHORADO: Tamanhos normais (revertido)
             const sizeVariation = Math.sin(i * 2.1) * Math.cos(i * 1.7) * 0.8;
             const size = Math.max(1.2, 2.0 + sizeVariation + (i % 3) * 0.4); // 🔧 Tamanho normal
@@ -223,12 +223,12 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
                   opacity: Math.max(0.15, Math.min(0.9, finalOpacity)), // 🔧 MUITO mais visível (0.15-0.9)
                   boxShadow: `0 0 ${size * (2.0 + waveIntensity * 1.5)}px ${colors.particleShadow}`, // 🔧 Sombra original (revertido)
                   // 🔧 Propriedades de animação separadas - MUITO mais lentas
-                  animationName: `orbSphere${i % 8}`,
+                  animationName: `orbSphere${i % 8}`, // 🔧 Usar as 8 animações de forma cíclica
                   animationDuration: `${animationDuration}s`, // 🔧 20-40 segundos!
                   animationTimingFunction: 'ease-in-out', // 🔧 Sempre suave
                   animationIterationCount: 'infinite',
                   animationDelay: `${animationDelay}s`,
-                  animationDirection: i % 4 === 0 ? 'reverse' : 'normal', // 🔧 Menos reversas
+                  animationDirection: i % 6 === 0 ? 'reverse' : 'normal', // 🔧 Mais variação com 18 partículas
                   // 🔧 Transform origin mais centrado e sutil
                   transformOrigin: `${48 + Math.sin(i * 1.7) * 8}% ${48 + Math.cos(i * 1.4) * 8}%`,
                 }}
