@@ -412,16 +412,6 @@ input, textarea, select {
   z-index: 20; /* Floating elements layer - below footer and PWA banner */
 }
 
-/* 🎯 MOBILE: Force XP counter to bottom for onboarding tour */
-@media (max-width: 768px) {
-  .floating-xp-counter {
-    bottom: calc(env(safe-area-inset-bottom) + 160px) !important; /* 🎯 Mais baixo no mobile para tour */
-    right: 1rem !important;
-    /* 🔧 Garantir que o JavaScript possa sobrescrever se necessário */
-    position: fixed !important;
-  }
-}
-
 /* Achievement notifications positioning */
 .achievement-notifications {
   position: fixed;

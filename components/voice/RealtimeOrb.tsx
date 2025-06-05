@@ -106,8 +106,8 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
   // 📏 NOVO: Configurações de tamanho responsivas
   const sizeConfig = {
     normal: {
-      container: 'w-20 h-20 md:w-24 md:h-24',
-      orbSize: 80
+      container: 'w-24 h-24 md:w-32 md:h-32',
+      orbSize: 128
     },
     compact: {
       container: 'w-16 h-16 md:w-20 md:h-20',
@@ -134,18 +134,17 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           className="absolute inset-0 rounded-full transition-all duration-150 ease-out"
           style={{
             background: `radial-gradient(circle, transparent 50%, ${colors.wave}18 60%, transparent 80%)`,
-            // 🔧 CORRIGIDO: Pulse quando há áudio ativo (usuário OU Charlotte)
+            // 🔧 CORRIGIDO: Resposta direta ao áudio real, sem delay
             ...(isActiveAudio ? {
-              // 🔧 NOVO: Pulse para áudio ativo - sem conflito de transform
               animation: `orbPulse 2s ease-in-out infinite`,
-              opacity: 0.3 + waveIntensity * 0.6,
+              opacity: 0.4 + (baseIntensity * 0.4), // 🔧 Resposta direta ao áudio real
+              transform: `scale(${1.1 + baseIntensity * 0.3})`, // 🔧 Escala responsiva ao áudio real
             } : {
-              // 🔧 Transform normal para outros estados
-              transform: `scale(${1.1 + waveIntensity * 1.2})`,
-              opacity: 0.2 + waveIntensity * 0.8,
+              transform: `scale(1.1)`,
+              opacity: 0.3,
             }),
-            filter: `blur(${6 + waveIntensity * 15}px)`,
-            boxShadow: `0 0 ${30 + waveIntensity * 80}px ${colors.shadow}`,
+            filter: `blur(${8 + baseIntensity * 8}px)`, // 🔧 Blur responsivo ao áudio real
+            boxShadow: `0 0 ${40 + baseIntensity * 40}px ${colors.shadow}`, // 🔧 Sombra responsiva ao áudio real
           }}
         />
 
@@ -154,17 +153,16 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           className="absolute inset-0 rounded-full transition-all duration-200 ease-out"
           style={{
             background: `radial-gradient(circle, transparent 70%, ${colors.wave}25 80%, transparent 90%)`,
-            // 🔧 CORRIGIDO: Pulse quando há áudio ativo (usuário OU Charlotte)
+            // 🔧 CORRIGIDO: Resposta direta ao áudio real, sem delay
             ...(isActiveAudio ? {
-              // 🔧 NOVO: Pulse para áudio ativo com delay
               animation: `orbPulse 2s ease-in-out infinite 0.3s`,
-              opacity: 0.4 + waveIntensity * 0.4,
+              opacity: 0.5 + (baseIntensity * 0.3), // 🔧 Resposta direta ao áudio real
+              transform: `scale(${1.05 + baseIntensity * 0.2})`, // 🔧 Escala responsiva ao áudio real
             } : {
-              // 🔧 Transform normal para outros estados
-              transform: `scale(${1.05 + waveIntensity * 0.4})`,
-              opacity: 0.3 + waveIntensity * 0.5,
+              transform: `scale(1.05)`,
+              opacity: 0.4,
             }),
-            filter: `blur(${3 + waveIntensity * 6}px)`,
+            filter: `blur(${4 + baseIntensity * 4}px)`, // 🔧 Blur responsivo ao áudio real
           }}
         />
 
@@ -173,15 +171,14 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
           className="absolute inset-0 rounded-full opacity-60 transition-all duration-300"
           style={{
             background: `radial-gradient(circle, transparent 65%, ${colors.wave}20 75%, transparent 85%)`,
-            // 🔧 CORRIGIDO: Pulse quando há áudio ativo (usuário OU Charlotte)
+            // 🔧 CORRIGIDO: Resposta direta ao áudio real, sem delay
             ...(isActiveAudio ? {
-              // 🔧 NOVO: Pulse para áudio ativo com delay maior
               animation: `orbPulse 2s ease-in-out infinite 0.6s`,
-              opacity: 0.4 + waveIntensity * 0.2,
+              opacity: 0.5 + (baseIntensity * 0.2), // 🔧 Resposta direta ao áudio real
+              transform: `scale(${1.0 + baseIntensity * 0.15})`, // 🔧 Escala responsiva ao áudio real
             } : {
-              // 🔧 Transform normal para outros estados
-              transform: `scale(${1.0 + waveIntensity * 0.2})`,
-              opacity: 0.3 + waveIntensity * 0.3,
+              transform: `scale(1.0)`,
+              opacity: 0.4,
             }),
           }}
         />
@@ -207,15 +204,15 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
             const delayVariation = Math.sin(i * 2.1) * 3 + Math.cos(i * 1.8) * 2;
             const animationDelay = (i * 2.5) + delayVariation; // 🔧 Mais espaçado
             
-            // 🔧 NOVO: Opacidade muito mais sutil - quase imperceptível
-            const baseOpacity = 0.08 + (Math.sin(i * 1.5) * 0.06); // 🔧 Muito sutil
-            const intensityOpacity = waveIntensity * 0.15; // 🔧 Muito reduzido
-            const finalOpacity = (baseOpacity + intensityOpacity) * (0.5 + Math.sin(i * 1.8) * 0.2);
+            // 🔧 NOVO: Opacidade muito mais visível - FOCO na responsividade ao áudio
+            const baseOpacity = 0.2 + (Math.sin(i * 1.5) * 0.15); // 🔧 Base aumentada
+            const intensityOpacity = waveIntensity * 0.6; // 🔧 MUITO mais responsivo ao áudio
+            const finalOpacity = (baseOpacity + intensityOpacity) * (0.8 + Math.sin(i * 1.8) * 0.2); // 🔧 Multiplicador aumentado
             
             return (
               <div
                 key={`sphere-${i}`}
-                className="absolute rounded-full transition-opacity duration-1000" // 🔧 Transição mais lenta
+                className="absolute rounded-full transition-opacity duration-300" // 🔧 Transição mais rápida para áudio
                 style={{
                   width: `${size}px`,
                   height: `${size}px`,
@@ -223,8 +220,8 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
                   left: '50%',
                   top: '50%',
                   transform: `translate(-50%, -50%)`,
-                  opacity: Math.max(0.05, Math.min(0.4, finalOpacity)), // 🔧 Aumentado para mostrar a cor mais forte
-                  boxShadow: `0 0 ${size * (1.2 + waveIntensity * 0.5)}px ${colors.particleShadow}`, // 🔧 Sombra mais intensa
+                  opacity: Math.max(0.15, Math.min(0.9, finalOpacity)), // 🔧 MUITO mais visível (0.15-0.9)
+                  boxShadow: `0 0 ${size * (2.0 + waveIntensity * 1.5)}px ${colors.particleShadow}`, // 🔧 Sombra mais responsiva
                   // 🔧 Propriedades de animação separadas - MUITO mais lentas
                   animationName: `orbSphere${i % 8}`,
                   animationDuration: `${animationDuration}s`, // 🔧 20-40 segundos!
