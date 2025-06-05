@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
 
 interface RealtimeOrbProps {
   isConnected: boolean;
@@ -20,312 +19,236 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
   connectionStatus,
   size = 'normal'
 }) => {
-  const [animationPhase, setAnimationPhase] = useState(0);
-  const frameRef = useRef<number>();
-  
-  // 🔧 ID único para este componente
-  const orbId = useRef(`orb-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`).current;
+  // 🎯 NOVO: Mapear estados para o novo sistema - SIMPLIFICADO
+  const getVoiceState = () => {
+    if (connectionStatus === 'connecting' || !isConnected) {
+      return 'connecting';
+    }
+    // 🎵 NOVO: Sempre verde quando conectado, independente de quem está falando
+    return 'speaking'; // Sempre verde quando conectado
+  };
 
+  const state = getVoiceState();
+  
+  // 🎯 NOVO: Calcular intensidade baseada nos audioLevels existentes
+  const baseIntensity = audioLevels.length > 0 
+    ? audioLevels.reduce((sum, level) => sum + level, 0) / audioLevels.length
+    : (isConnected && (isListening || isSpeaking) ? 0.5 : 0.3);
+
+  // 🔧 NOVO: Detectar se há áudio ativo (usuário ou Charlotte)
+  const hasUserAudio = audioLevels.length > 0 && audioLevels.some(level => level > 0.1);
+  const isActiveAudio = isSpeaking || hasUserAudio;
+
+  const [waveIntensity, setWaveIntensity] = useState(0.3);
+
+  // 🎵 NOVO: Animação contínua para todos os estados
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (state === 'connecting') {
+      interval = setInterval(() => {
+        setWaveIntensity(0.3 + Math.random() * 0.4); // 🔧 Reduzido para ser mais sutil
+      }, 400); // 🔧 Mais lento
+    } else if (isSpeaking) {
+      // 🎵 MELHORADO: Simulação mais sutil para Charlotte falando
+      interval = setInterval(() => {
+        const time = Date.now() * 0.0005; // 🔧 Muito mais lento
+        // Simular respiração suave
+        const breathPattern = Math.sin(time * 1.5) * 0.15 + Math.sin(time * 3) * 0.1;
+        const subtleVariation = (Math.random() - 0.5) * 0.1; // 🔧 Muito mais sutil
+        const organicIntensity = 0.4 + breathPattern + subtleVariation;
+        setWaveIntensity(Math.max(0.2, Math.min(organicIntensity, 0.7))); // 🔧 Range menor
+      }, 150); // 🔧 Mais lento
+    } else if (isListening) {
+      // 🎵 MELHORADO: Usar áudio real do usuário quando está ouvindo
+      interval = setInterval(() => {
+        // 🔧 MELHORADO: Detecção mais sensível de áudio do usuário
+        const hasAudio = audioLevels.length > 0 && audioLevels.some(level => level > 0.02); // 🔧 Mais sensível
+        const avgLevel = hasAudio ? baseIntensity : 0;
+        
+        const userIntensity = hasAudio 
+          ? Math.min(avgLevel * 2.0 + 0.3, 1.0) // 🔧 Mais responsivo ao áudio do usuário
+          : 0.15 + Math.sin(Date.now() * 0.001) * 0.05; // 🔧 Respiração muito sutil quando sem áudio
+        setWaveIntensity(userIntensity);
+      }, 50); // 🔧 Mais responsivo
+    } else {
+      // Estado idle - respiração muito sutil
+      setWaveIntensity(0.15 + Math.sin(Date.now() * 0.0008) * 0.03);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [state, isSpeaking, isListening, baseIntensity, audioLevels]);
+
+  // 🎨 NOVO: Esquemas de cores simplificados - apenas laranja (conectando) e verde (ativo)
+  const colorSchemes = {
+    connecting: {
+      background: "#2e1a0a",
+      wave: "#ff8c3a", // Laranja - conectando
+      shadow: "rgba(255, 140, 58, 0.3)",
+      // 🔧 NOVO: Cores mais intensas para partículas
+      particleColor: "#ffaa5a", // Laranja mais vibrante
+      particleShadow: "rgba(255, 170, 90, 0.6)",
+    },
+    speaking: {
+      background: "#212121", 
+      wave: "#a3ff3c", // Verde Charlotte - SEMPRE verde quando conectado
+      shadow: "rgba(163, 255, 60, 0.3)",
+      // 🔧 NOVO: Cores mais intensas para partículas
+      particleColor: "#b8ff4a", // Verde mais vibrante e brilhante
+      particleShadow: "rgba(184, 255, 74, 0.7)",
+    }
+  };
+
+  const colors = colorSchemes[state as keyof typeof colorSchemes];
+
+  // 📏 NOVO: Configurações de tamanho responsivas
   const sizeConfig = {
     normal: {
-      container: 'w-80 h-80',
-      orb: 'w-64 h-64',
-      baseRadius: 45,
-      waveSpacing: 8,
-      maxRadius: 95
+      container: 'w-20 h-20 md:w-24 md:h-24',
+      orbSize: 80
     },
     compact: {
-      container: 'w-56 h-56',
-      orb: 'w-48 h-48',
-      baseRadius: 32,
-      waveSpacing: 6,
-      maxRadius: 70
+      container: 'w-16 h-16 md:w-20 md:h-20',
+      orbSize: 64
     }
   };
 
   const config = sizeConfig[size];
 
-  // Animação contínua de fase
-  useEffect(() => {
-    const animate = () => {
-      setAnimationPhase(prev => (prev + 1) % 360);
-      frameRef.current = requestAnimationFrame(animate);
-    };
-    frameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (frameRef.current) {
-        cancelAnimationFrame(frameRef.current);
-      }
-    };
-  }, []);
-
-  // Cores baseadas no estado
-  const getColors = () => {
-    if (!isConnected) {
-      return {
-        primary: '#FBB928', // Amarelo - conectando
-        secondary: '#F59E0B',
-        accent: '#D97706',
-        glow: 'rgba(251, 185, 40, 0.6)'
-      };
-    }
-    
-    if (isSpeaking) {
-      return {
-        primary: '#A3FF3C', // Verde Charlotte - falando
-        secondary: '#8FE61A',
-        accent: '#65A30D',
-        glow: 'rgba(163, 255, 60, 0.8)'
-      };
-    }
-    
-    if (isListening) {
-      return {
-        primary: '#3B82F6', // Azul - ouvindo
-        secondary: '#2563EB',
-        accent: '#1D4ED8',
-        glow: 'rgba(59, 130, 246, 0.7)'
-      };
-    }
-    
-    return {
-      primary: '#FFFFFF', // Branco - idle
-      secondary: '#F3F4F6',
-      accent: '#E5E7EB',
-      glow: 'rgba(255, 255, 255, 0.4)'
-    };
-  };
-
-  const colors = getColors();
-  const isActive = isConnected && (isListening || isSpeaking);
-
-  // Calcular intensidade do áudio
-  const audioIntensity = audioLevels.length > 0 
-    ? audioLevels.reduce((sum, level) => sum + level, 0) / audioLevels.length
-    : (isActive ? 0.5 : 0.1);
-
-  // Gerar dados de onda baseados no áudio
-  const generateWaveData = (waveIndex: number) => {
-    const points = [];
-    const segments = 60;
-    const baseRadius = config.baseRadius + (waveIndex * config.waveSpacing);
-    
-    for (let i = 0; i <= segments; i++) {
-      const angle = (i / segments) * Math.PI * 2;
-      const time = animationPhase * 0.02;
-      
-      // Múltiplas ondas senoidais para complexidade
-      const wave1 = Math.sin(angle * 3 + time * 2) * 3;
-      const wave2 = Math.sin(angle * 5 + time * 1.5) * 2;
-      const wave3 = Math.sin(angle * 7 + time * 3) * 1;
-      
-      // Intensidade baseada no áudio
-      const audioWave = audioLevels[i % audioLevels.length] || audioIntensity;
-      const audioEffect = audioWave * (isSpeaking ? 8 : isListening ? 4 : 1);
-      
-      const radius = baseRadius + wave1 + wave2 + wave3 + audioEffect;
-      const x = 100 + Math.cos(angle) * radius;
-      const y = 100 + Math.sin(angle) * radius;
-      
-      points.push(`${x},${y}`);
-    }
-    
-    return `M ${points.join(' L ')} Z`;
-  };
-
   return (
-    <motion.div 
-      id="realtime-orb"
-      className={`relative ${config.container} flex items-center justify-center`}
-      animate={{
-        scale: size === 'compact' ? 0.75 : 1
-      }}
-      transition={{
-        duration: 0.6,
-        ease: [0.4, 0, 0.2, 1] // Custom easing for smoother animation
-      }}
-    >
-      <motion.div
-        className={`relative ${config.orb}`}
-        animate={isActive ? {
-          scale: [1, 1.02 + audioIntensity * 0.05, 1],
-        } : {
-          scale: 1
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      >
-        <svg viewBox="0 0 200 200" className="w-full h-full">
-          <defs>
-            {/* Gradiente principal dinâmico */}
-            <radialGradient id={`mainGradient-${orbId}`} cx="50%" cy="50%" r="80%">
-              <stop offset="0%" stopColor={colors.primary} stopOpacity="0.9" />
-              <stop offset="50%" stopColor={colors.secondary} stopOpacity="0.7" />
-              <stop offset="100%" stopColor={colors.accent} stopOpacity="0.3" />
-            </radialGradient>
+    <div id="realtime-orb" className={`relative ${config.container}`}>
+      <div className="relative w-full h-full">
+        {/* Main orb */}
+        <div
+          className="absolute inset-0 rounded-full transition-all duration-500 ease-in-out"
+          style={{
+            backgroundColor: colors.background,
+            boxShadow: `0 0 30px ${colors.shadow}, 0 0 60px ${colors.shadow}, inset 0 0 20px rgba(255, 255, 255, 0.1)`,
+          }}
+        />
 
-            {/* Gradiente de glow */}
-            <radialGradient id={`glowGradient-${orbId}`} cx="50%" cy="50%" r="90%">
-              <stop offset="0%" stopColor={colors.primary} stopOpacity="0.1" />
-              <stop offset="70%" stopColor={colors.glow.replace(')', ', 0.3)')} />
-              <stop offset="100%" stopColor="transparent" />
-            </radialGradient>
-
-            {/* Filtro de blur para glow */}
-            <filter id={`glow-${orbId}`}>
-              <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-              <feMerge> 
-                <feMergeNode in="coloredBlur"/>
-                <feMergeNode in="SourceGraphic"/>
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* Halo externo pulsante */}
-          <motion.circle
-            cx="100"
-            cy="100"
-            r={config.maxRadius}
-            fill="url(#glowGradient-${orbId})"
-            animate={isActive ? {
-              r: [config.maxRadius - 5, config.maxRadius + audioIntensity * 10, config.maxRadius - 5],
-              opacity: [0.3, 0.6 + audioIntensity * 0.3, 0.3],
+        {/* 🎵 MELHORADO: Sombra externa mais responsiva ao áudio */}
+        <div
+          className="absolute inset-0 rounded-full transition-all duration-150 ease-out"
+          style={{
+            background: `radial-gradient(circle, transparent 50%, ${colors.wave}18 60%, transparent 80%)`,
+            // 🔧 CORRIGIDO: Pulse quando há áudio ativo (usuário OU Charlotte)
+            ...(isActiveAudio ? {
+              // 🔧 NOVO: Pulse para áudio ativo - sem conflito de transform
+              animation: `orbPulse 2s ease-in-out infinite`,
+              opacity: 0.3 + waveIntensity * 0.6,
             } : {
-              r: config.maxRadius - 10,
-              opacity: 0.2
-            }}
-            transition={{
-              duration: 3,
-              repeat: Infinity,
-              ease: "easeInOut",
-            }}
-          />
+              // 🔧 Transform normal para outros estados
+              transform: `scale(${1.1 + waveIntensity * 1.2})`,
+              opacity: 0.2 + waveIntensity * 0.8,
+            }),
+            filter: `blur(${6 + waveIntensity * 15}px)`,
+            boxShadow: `0 0 ${30 + waveIntensity * 80}px ${colors.shadow}`,
+          }}
+        />
 
-          {/* Ondas senoidais internas */}
-          {Array.from({ length: 4 }).map((_, waveIndex) => (
-            <motion.path
-              key={`wave-${waveIndex}`}
-              d={generateWaveData(waveIndex)}
-              fill="none"
-              stroke={colors.primary}
-              strokeWidth={1.5 - waveIndex * 0.2}
-              opacity={0.4 + waveIndex * 0.1}
-              filter={`url(#glow-${orbId})`}
-              animate={isActive ? {
-                opacity: [0.3, 0.7 + audioIntensity * 0.3, 0.3],
-                strokeWidth: [1.5 - waveIndex * 0.2, 2 - waveIndex * 0.2, 1.5 - waveIndex * 0.2],
-              } : {
-                opacity: 0.2,
-                strokeWidth: 1 - waveIndex * 0.1
-              }}
-              transition={{
-                duration: 2 + waveIndex * 0.5,
-                repeat: Infinity,
-                ease: "easeInOut",
-                delay: waveIndex * 0.2
-              }}
-            />
-          ))}
-
-          {/* Orb principal */}
-          <motion.circle
-            cx="100"
-            cy="100"
-            r={config.baseRadius + 5}
-            fill="url(#mainGradient-${orbId})"
-            filter={`url(#glow-${orbId})`}
-            animate={isActive ? {
-              r: [config.baseRadius + 3, config.baseRadius + 5 + audioIntensity * 3, config.baseRadius + 3],
+        {/* 🎵 MELHORADO: Anel de pulso médio mais sutil */}
+        <div
+          className="absolute inset-0 rounded-full transition-all duration-200 ease-out"
+          style={{
+            background: `radial-gradient(circle, transparent 70%, ${colors.wave}25 80%, transparent 90%)`,
+            // 🔧 CORRIGIDO: Pulse quando há áudio ativo (usuário OU Charlotte)
+            ...(isActiveAudio ? {
+              // 🔧 NOVO: Pulse para áudio ativo com delay
+              animation: `orbPulse 2s ease-in-out infinite 0.3s`,
+              opacity: 0.4 + waveIntensity * 0.4,
             } : {
-              r: config.baseRadius
-            }}
-            transition={{
-              duration: 1.5,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
+              // 🔧 Transform normal para outros estados
+              transform: `scale(${1.05 + waveIntensity * 0.4})`,
+              opacity: 0.3 + waveIntensity * 0.5,
+            }),
+            filter: `blur(${3 + waveIntensity * 6}px)`,
+          }}
+        />
 
-          {/* Núcleo central brilhante */}
-          <motion.circle
-            cx="100"
-            cy="100"
-            r={config.baseRadius * 0.33}
-            fill={colors.primary}
-            opacity="0.9"
-            animate={isActive ? {
-              r: [config.baseRadius * 0.27, config.baseRadius * 0.33 + audioIntensity * 2, config.baseRadius * 0.27],
-              opacity: [0.7, 0.9 + audioIntensity * 0.1, 0.7],
+        {/* Outer glow ring - ainda mais sutil */}
+        <div
+          className="absolute inset-0 rounded-full opacity-60 transition-all duration-300"
+          style={{
+            background: `radial-gradient(circle, transparent 65%, ${colors.wave}20 75%, transparent 85%)`,
+            // 🔧 CORRIGIDO: Pulse quando há áudio ativo (usuário OU Charlotte)
+            ...(isActiveAudio ? {
+              // 🔧 NOVO: Pulse para áudio ativo com delay maior
+              animation: `orbPulse 2s ease-in-out infinite 0.6s`,
+              opacity: 0.4 + waveIntensity * 0.2,
             } : {
-              r: config.baseRadius * 0.22,
-              opacity: 0.6
-            }}
-            transition={{
-              duration: 1,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-          />
+              // 🔧 Transform normal para outros estados
+              transform: `scale(${1.0 + waveIntensity * 0.2})`,
+              opacity: 0.3 + waveIntensity * 0.3,
+            }),
+          }}
+        />
 
-          {/* Partículas flutuantes */}
-          {Array.from({ length: 12 }).map((_, particleIndex) => {
-            const angle = (particleIndex / 12) * 360;
-            const radius = (config.baseRadius + 20) + Math.sin(animationPhase * 0.03 + particleIndex) * 10;
-            const x = 100 + Math.cos(angle * Math.PI / 180) * radius;
-            const y = 100 + Math.sin(angle * Math.PI / 180) * radius;
+        {/* Rolling spheres inside the orb - SUTIS COMO ONDAS DO MAR */}
+        <div className="absolute inset-2 rounded-full overflow-hidden">
+          {[...Array(12)].map((_, i) => { // 🔧 Reduzido para menos caos
+            // 🎵 MELHORADO: Tamanhos mais sutis
+            const sizeVariation = Math.sin(i * 2.1) * Math.cos(i * 1.7) * 0.8;
+            const size = Math.max(1.2, 2.0 + sizeVariation + (i % 3) * 0.4); // 🔧 Menor variação
+            
+            // 🎵 MELHORADO: Posições mais suaves
+            const radiusBase = 10 + (i % 4) * 2;
+            const radiusVariation = Math.sin(i * 2.3) * 3 + Math.cos(i * 1.9) * 2;
+            const radius = Math.max(8, Math.min(25, radiusBase + radiusVariation));
+            
+            // 🔧 NOVO: Velocidades MUITO mais lentas - como respiração
+            const speedBase = 25 + (i % 5) * 5; // Base mais lenta
+            const speedVariation = Math.sin(i * 1.7) * 8 + Math.cos(i * 1.3) * 5;
+            const animationDuration = Math.max(20, speedBase + speedVariation); // 🔧 Mínimo 20s!
+            
+            // 🔧 NOVO: Delays mais espaçados e orgânicos
+            const delayVariation = Math.sin(i * 2.1) * 3 + Math.cos(i * 1.8) * 2;
+            const animationDelay = (i * 2.5) + delayVariation; // 🔧 Mais espaçado
+            
+            // 🔧 NOVO: Opacidade muito mais sutil - quase imperceptível
+            const baseOpacity = 0.08 + (Math.sin(i * 1.5) * 0.06); // 🔧 Muito sutil
+            const intensityOpacity = waveIntensity * 0.15; // 🔧 Muito reduzido
+            const finalOpacity = (baseOpacity + intensityOpacity) * (0.5 + Math.sin(i * 1.8) * 0.2);
             
             return (
-              <motion.circle
-                key={`particle-${particleIndex}`}
-                cx={x}
-                cy={y}
-                r="1.5"
-                fill={colors.primary}
-                opacity="0.6"
-                animate={isActive ? {
-                  r: [1, 2 + audioIntensity, 1],
-                  opacity: [0.4, 0.8, 0.4],
-                } : {
-                  r: 0.8,
-                  opacity: 0.3
-                }}
-                transition={{
-                  duration: 2 + particleIndex * 0.1,
-                  repeat: Infinity,
-                  ease: "easeInOut",
-                  delay: particleIndex * 0.1
+              <div
+                key={`sphere-${i}`}
+                className="absolute rounded-full transition-opacity duration-1000" // 🔧 Transição mais lenta
+                style={{
+                  width: `${size}px`,
+                  height: `${size}px`,
+                  backgroundColor: colors.particleColor, // 🔧 Cor mais intensa para partículas
+                  left: '50%',
+                  top: '50%',
+                  transform: `translate(-50%, -50%)`,
+                  opacity: Math.max(0.05, Math.min(0.4, finalOpacity)), // 🔧 Aumentado para mostrar a cor mais forte
+                  boxShadow: `0 0 ${size * (1.2 + waveIntensity * 0.5)}px ${colors.particleShadow}`, // 🔧 Sombra mais intensa
+                  // 🔧 Propriedades de animação separadas - MUITO mais lentas
+                  animationName: `orbSphere${i % 8}`,
+                  animationDuration: `${animationDuration}s`, // 🔧 20-40 segundos!
+                  animationTimingFunction: 'ease-in-out', // 🔧 Sempre suave
+                  animationIterationCount: 'infinite',
+                  animationDelay: `${animationDelay}s`,
+                  animationDirection: i % 4 === 0 ? 'reverse' : 'normal', // 🔧 Menos reversas
+                  // 🔧 Transform origin mais centrado e sutil
+                  transformOrigin: `${48 + Math.sin(i * 1.7) * 8}% ${48 + Math.cos(i * 1.4) * 8}%`,
                 }}
               />
             );
           })}
-        </svg>
-      </motion.div>
+        </div>
 
-      {/* Glow externo adicional */}
-      <motion.div
-        className="absolute inset-0 rounded-full"
-        style={{
-          background: `radial-gradient(circle, ${colors.glow}, transparent 70%)`,
-          filter: 'blur(20px)',
-        }}
-        animate={isActive ? {
-          scale: [1, 1.1 + audioIntensity * 0.2, 1],
-          opacity: [0.3, 0.6 + audioIntensity * 0.4, 0.3],
-        } : {
-          scale: 0.8,
-          opacity: 0.1
-        }}
-        transition={{
-          duration: 4,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
-      />
-    </motion.div>
+        {/* Reflection highlight */}
+        <div
+          className="absolute top-2 left-2 w-4 h-4 rounded-full opacity-30"
+          style={{
+            background: "radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.8), transparent 60%)",
+          }}
+        />
+      </div>
+    </div>
   );
 };
 
