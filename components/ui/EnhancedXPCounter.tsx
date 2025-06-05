@@ -475,7 +475,7 @@ const EnhancedStatsModal: React.FC<{
 
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" onClick={onClose}>
+      <div className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm" onClick={onClose}>
         <div className="min-h-screen flex items-start justify-center p-4 pt-16 sm:pt-12 md:pt-8 lg:items-center lg:pt-4">
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
@@ -485,7 +485,7 @@ const EnhancedStatsModal: React.FC<{
             className="bg-secondary backdrop-blur-md rounded-2xl p-4 sm:p-6 w-full border border-white/10 shadow-2xl
                        max-w-md lg:max-w-4xl 
                        max-h-[85vh] sm:max-h-[85vh] lg:max-h-[85vh] overflow-hidden
-                       lg:flex lg:gap-6 relative z-50"
+                       lg:flex lg:gap-6 relative z-[100]"
           >
             {/* Header - Responsivo */}
             <div className="lg:hidden flex items-center justify-between mb-6">
@@ -1143,9 +1143,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
           position: 'fixed',
           top: 0,
           left: 0,
-          transform: `translate(${dragPosition.x || window.innerWidth - 90}px, ${dragPosition.y || 150}px)`,
+          transform: `translate(${dragPosition.x || window.innerWidth - 90}px, ${dragPosition.y || 120}px)`,
           transition: isDragging ? 'none' : 'transform 0.2s ease',
-          zIndex: showStatsModal ? 40 : 70,
+          zIndex: showStatsModal ? 30 : 70,
           pointerEvents: 'auto'
         } : {}}
       >

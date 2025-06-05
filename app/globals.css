@@ -407,9 +407,9 @@ input, textarea, select {
 /* Floating XP Counter positioning */
 .floating-xp-counter {
   position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + 140px); /* Above footer + input */
+  bottom: calc(env(safe-area-inset-bottom) + 160px); /* Above footer + input - INCREASED */
   right: 1rem;
-  z-index: 20; /* Floating elements layer - below footer and PWA banner */
+  z-index: 70; /* Above footer and PWA banner */
 }
 
 /* Achievement notifications positioning */
