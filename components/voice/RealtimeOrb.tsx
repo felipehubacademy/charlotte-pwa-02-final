@@ -106,7 +106,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
   // 📏 NOVO: Configurações de tamanho responsivas
   const sizeConfig = {
     normal: {
-      container: 'w-28 h-28 md:w-36 md:h-36',
+      container: 'w-34 h-34 md:w-36 md:h-36',
       orbSize: 144
     },
     compact: {

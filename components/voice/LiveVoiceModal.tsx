@@ -366,7 +366,53 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
   // 🔇 Toggle mute
   const toggleMute = () => {
-    setIsMuted(!isMuted);
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    
+    console.log('🔇 Toggling mute:', { from: isMuted, to: newMutedState });
+    
+    // Controlar o stream de mídia local (microfone)
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !newMutedState;
+        console.log('🎤 Audio track enabled:', track.enabled);
+      });
+    }
+    
+    // Controlar o volume de saída da Charlotte via audioContext
+    if (realtimeServiceRef.current && (realtimeServiceRef.current as any).audioGainNode) {
+      try {
+        const gainNode = (realtimeServiceRef.current as any).audioGainNode;
+        if (newMutedState) {
+          // Mutar: volume 0
+          console.log('🔇 Muting Charlotte audio output');
+          gainNode.gain.setValueAtTime(0, gainNode.context.currentTime);
+        } else {
+          // Desmutar: volume normal
+          console.log('🔊 Unmuting Charlotte audio output');
+          gainNode.gain.setValueAtTime(1.0, gainNode.context.currentTime);
+        }
+      } catch (error) {
+        console.error('❌ Error controlling audio gain:', error);
+      }
+    }
+    
+    // Também parar/iniciar gravação se possível
+    if (realtimeServiceRef.current) {
+      try {
+        if (newMutedState) {
+          // Parar gravação quando mutado
+          console.log('🔇 Stopping audio recording');
+          (realtimeServiceRef.current as any).isRecording = false;
+        } else {
+          // Retomar gravação quando desmutado
+          console.log('🔊 Resuming audio recording');
+          (realtimeServiceRef.current as any).isRecording = true;
+        }
+      } catch (error) {
+        console.error('❌ Error controlling recording:', error);
+      }
+    }
   };
 
   // 🔄 Toggle API mode
