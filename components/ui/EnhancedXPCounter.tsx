@@ -1108,9 +1108,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     if (isMobile && isFloating && typeof window !== 'undefined') {
       // 🔧 FORÇAR: Sempre iniciar na parte inferior para o tour conseguir encontrar
       const initialX = window.innerWidth - 90; // Próximo da borda direita
-      const initialY = window.innerHeight - 350; // 🎯 AINDA MAIS ALTO (350px do bottom)
+      const initialY = window.innerHeight - 300; // 🎯 AJUSTADO (300px do bottom)
       
-      console.log('🎯 XPCounter FORCED even higher position:', { 
+      console.log('🎯 XPCounter FORCED adjusted position:', { 
         initialX, 
         initialY, 
         windowWidth: window.innerWidth, 
