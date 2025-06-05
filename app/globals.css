@@ -254,36 +254,36 @@ body {
 
 /* 🎯 NOVO: Animações para esferas rolantes dos orbs */
 @keyframes orbSphere0 {
-  0% { transform: translate(-50%, -50%) rotate(0deg) translateX(20px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(360deg) translateX(20px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(0deg) translateX(16px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg) translateX(16px) rotate(-360deg); }
 }
 @keyframes orbSphere1 {
-  0% { transform: translate(-50%, -50%) rotate(45deg) translateX(24px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(405deg) translateX(24px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(45deg) translateX(14px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(405deg) translateX(14px) rotate(-360deg); }
 }
 @keyframes orbSphere2 {
-  0% { transform: translate(-50%, -50%) rotate(90deg) translateX(28px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(450deg) translateX(28px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(90deg) translateX(18px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(450deg) translateX(18px) rotate(-360deg); }
 }
 @keyframes orbSphere3 {
-  0% { transform: translate(-50%, -50%) rotate(135deg) translateX(20px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(495deg) translateX(20px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(135deg) translateX(16px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(495deg) translateX(16px) rotate(-360deg); }
 }
 @keyframes orbSphere4 {
-  0% { transform: translate(-50%, -50%) rotate(180deg) translateX(24px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(540deg) translateX(24px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(180deg) translateX(14px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(540deg) translateX(14px) rotate(-360deg); }
 }
 @keyframes orbSphere5 {
-  0% { transform: translate(-50%, -50%) rotate(225deg) translateX(28px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(585deg) translateX(28px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(225deg) translateX(18px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(585deg) translateX(18px) rotate(-360deg); }
 }
 @keyframes orbSphere6 {
-  0% { transform: translate(-50%, -50%) rotate(270deg) translateX(20px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(630deg) translateX(20px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(270deg) translateX(16px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(630deg) translateX(16px) rotate(-360deg); }
 }
 @keyframes orbSphere7 {
-  0% { transform: translate(-50%, -50%) rotate(315deg) translateX(24px) rotate(0deg); }
-  100% { transform: translate(-50%, -50%) rotate(675deg) translateX(24px) rotate(-360deg); }
+  0% { transform: translate(-50%, -50%) rotate(315deg) translateX(14px) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(675deg) translateX(14px) rotate(-360deg); }
 }
 
 /* 🔧 NOVO: Animação de pulse suave para orb verde */

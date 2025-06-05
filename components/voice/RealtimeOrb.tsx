@@ -186,14 +186,14 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
         {/* Rolling spheres inside the orb - SUTIS COMO ONDAS DO MAR */}
         <div className="absolute inset-2 rounded-full overflow-hidden">
           {[...Array(12)].map((_, i) => { // 🔧 Reduzido para menos caos
-            // 🎵 MELHORADO: Tamanhos mais sutis
+            // 🎵 MELHORADO: Tamanhos normais (revertido)
             const sizeVariation = Math.sin(i * 2.1) * Math.cos(i * 1.7) * 0.8;
-            const size = Math.max(1.2, 2.0 + sizeVariation + (i % 3) * 0.4); // 🔧 Menor variação
+            const size = Math.max(1.2, 2.0 + sizeVariation + (i % 3) * 0.4); // 🔧 Tamanho normal
             
-            // 🎵 MELHORADO: Posições mais suaves
-            const radiusBase = 10 + (i % 4) * 2;
-            const radiusVariation = Math.sin(i * 2.3) * 3 + Math.cos(i * 1.9) * 2;
-            const radius = Math.max(8, Math.min(25, radiusBase + radiusVariation));
+            // 🎵 CORRIGIDO: Raio orbital limitado para ficar DENTRO do container
+            const radiusBase = 6 + (i % 4) * 1; // 🔧 Base menor: 6-9px
+            const radiusVariation = Math.sin(i * 2.3) * 1.5 + Math.cos(i * 1.9) * 1; // 🔧 Variação menor
+            const radius = Math.max(4, Math.min(10, radiusBase + radiusVariation)); // 🔧 MÁXIMO 10px (container inset-2 = 8px margem)
             
             // 🔧 NOVO: Velocidades MUITO mais lentas - como respiração
             const speedBase = 25 + (i % 5) * 5; // Base mais lenta
@@ -221,7 +221,7 @@ const RealtimeOrb: React.FC<RealtimeOrbProps> = ({
                   top: '50%',
                   transform: `translate(-50%, -50%)`,
                   opacity: Math.max(0.15, Math.min(0.9, finalOpacity)), // 🔧 MUITO mais visível (0.15-0.9)
-                  boxShadow: `0 0 ${size * (2.0 + waveIntensity * 1.5)}px ${colors.particleShadow}`, // 🔧 Sombra mais responsiva
+                  boxShadow: `0 0 ${size * (2.0 + waveIntensity * 1.5)}px ${colors.particleShadow}`, // 🔧 Sombra original (revertido)
                   // 🔧 Propriedades de animação separadas - MUITO mais lentas
                   animationName: `orbSphere${i % 8}`,
                   animationDuration: `${animationDuration}s`, // 🔧 20-40 segundos!
