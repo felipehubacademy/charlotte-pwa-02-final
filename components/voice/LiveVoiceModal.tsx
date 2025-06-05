@@ -1065,7 +1065,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             {showTranscriptions && (
               <>
                 {/* Orb na parte superior */}
-                <div className="flex-shrink-0 flex justify-center px-8 py-6 md:py-4 pt-12 md:pt-4">
+                <div className="flex-shrink-0 flex justify-center px-8 py-10 md:py-8 pt-24 md:pt-8">
                   <motion.div
                     initial={{ scale: 0.8, opacity: 0 }}
                     animate={{ scale: 1, opacity: 1 }}
