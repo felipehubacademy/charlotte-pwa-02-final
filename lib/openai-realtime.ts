@@ -1665,11 +1665,17 @@ CONVERSATION FACILITATION:
     } catch (error: any) {
       console.error('❌ [FIXED] Error setting up microphone:', error);
       
-      // 🔧 NOVO: Melhor tratamento de erros específicos
+      // 🔧 ANDROID FIX: Melhor tratamento de erros específicos com instruções detalhadas
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      
       if (error.name === 'NotFoundError') {
         throw new Error('Microfone não encontrado. Verifique se há um microfone conectado ao dispositivo.');
       } else if (error.name === 'NotAllowedError') {
-        throw new Error('Permissão negada para acessar o microfone. Clique no ícone do microfone na barra de endereços e permita o acesso.');
+        if (isAndroid) {
+          throw new Error('Permissão negada para acessar o microfone. Toque no ícone 🔒 na barra de endereços → Permissões do site → Microfone → Permitir.');
+        } else {
+          throw new Error('Permissão negada para acessar o microfone. Clique no ícone do microfone na barra de endereços e permita o acesso.');
+        }
       } else if (error.name === 'NotReadableError') {
         throw new Error('Microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone.');
       } else if (error.name === 'OverconstrainedError') {

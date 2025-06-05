@@ -279,37 +279,42 @@ export default function ChatPage() {
     }
   }, [user?.entra_id]);
 
+  // ✅ ANDROID FIX: Cache de IDs processados fora do callback
+  const processedAchievementIds = useRef(new Set<string>());
+
   // Handle achievement notifications
   const handleNewAchievements = useCallback((newAchievements: Achievement[]) => {
     if (newAchievements.length > 0) {
-      // ✅ CORRIGIDO: Melhor lógica de deduplicação baseada em ID e timestamp
       setNewAchievements(prev => {
-        const existingIds = new Set(prev.map(a => a.id));
+        const currentIds = new Set([...prev.map(a => a.id), ...achievements.map(a => a.id)]);
+        
         const uniqueNewAchievements = newAchievements.filter(a => {
-          // Verificar se já existe baseado no ID
-          if (existingIds.has(a.id)) {
+          // Verificar se já foi processado
+          if (processedAchievementIds.current.has(a.id)) {
+            console.log('🚫 Achievement already processed:', a.title);
             return false;
           }
-          // Verificar se já existe nos achievements permanentes
-          const alreadyExists = achievements.some(existing => existing.id === a.id);
-          return !alreadyExists;
+          // Verificar se já existe
+          if (currentIds.has(a.id)) {
+            console.log('🚫 Achievement already exists:', a.title);
+            return false;
+          }
+          // Marcar como processado
+          processedAchievementIds.current.add(a.id);
+          return true;
         });
         
         if (uniqueNewAchievements.length > 0) {
           console.log('🏆 Adding unique achievements:', uniqueNewAchievements.map(a => a.title));
           // Adicionar aos achievements permanentes apenas uma vez
-          setAchievements(prevAch => {
-            const existingPermanentIds = new Set(prevAch.map(a => a.id));
-            const newPermanentAchievements = uniqueNewAchievements.filter(a => !existingPermanentIds.has(a.id));
-            return [...prevAch, ...newPermanentAchievements];
-          });
+          setAchievements(prevAch => [...prevAch, ...uniqueNewAchievements]);
           return [...prev, ...uniqueNewAchievements];
         }
         
         return prev;
       });
     }
-  }, [achievements]); // ✅ CORRIGIDO: Adicionar achievements como dependência
+  }, [achievements]); // ✅ Manter dependência para acessar achievements atuais
 
   const handleAchievementsDismissed = useCallback((achievementId: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== achievementId));

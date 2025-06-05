@@ -592,11 +592,34 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         onMessage: (message) => console.log('Realtime message:', message),
         onError: (error) => {
           console.error('Realtime error:', error);
-          // 🔧 NOVO: Tratar erros específicos do microfone
+          // 🔧 ANDROID FIX: Melhorar instruções para microfone bloqueado
           if (error.message?.includes('Microfone não encontrado')) {
             alert('❌ Microfone não encontrado!\n\nVerifique se há um microfone conectado ao seu dispositivo e tente novamente.');
           } else if (error.message?.includes('Permissão negada')) {
-            alert('❌ Permissão negada!\n\nClique no ícone do microfone na barra de endereços do navegador e permita o acesso ao microfone.');
+            const isAndroid = /Android/i.test(navigator.userAgent);
+            const isChrome = /Chrome/i.test(navigator.userAgent);
+            
+            let instructions = '❌ Permissão de microfone negada!\n\n';
+            
+            if (isAndroid) {
+              instructions += '📱 ANDROID - Como habilitar:\n';
+              instructions += '1. Toque no ícone 🔒 ou ⓘ na barra de endereços\n';
+              instructions += '2. Toque em "Permissões do site"\n';
+              instructions += '3. Encontre "Microfone" e altere para "Permitir"\n';
+              instructions += '4. Recarregue a página\n\n';
+              instructions += 'OU:\n';
+              instructions += '1. Vá em Configurações do Chrome\n';
+              instructions += '2. Toque em "Configurações do site"\n';
+              instructions += '3. Toque em "Microfone"\n';
+              instructions += '4. Encontre este site e permita o acesso';
+            } else {
+              instructions += '🖥️ DESKTOP - Como habilitar:\n';
+              instructions += '1. Clique no ícone do microfone na barra de endereços\n';
+              instructions += '2. Selecione "Sempre permitir"\n';
+              instructions += '3. Recarregue a página';
+            }
+            
+            alert(instructions);
           } else if (error.message?.includes('sendo usado por outro aplicativo')) {
             alert('❌ Microfone ocupado!\n\nO microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone e tente novamente.');
           }
@@ -849,11 +872,16 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       let errorMessage = '';
       
       if (error instanceof Error) {
-        // 🎤 NOVO: Erros específicos de microfone
+        // 🎤 ANDROID FIX: Erros específicos de microfone com instruções detalhadas
         if (error.message.includes('Microfone não encontrado')) {
           errorMessage = 'Microfone não encontrado. Verifique se há um microfone conectado ao seu dispositivo e recarregue a página.';
         } else if (error.message.includes('Permissão negada')) {
-          errorMessage = 'Permissão de microfone negada. Clique no ícone do microfone na barra de endereços e permita o acesso, depois recarregue a página.';
+          const isAndroid = /Android/i.test(navigator.userAgent);
+          if (isAndroid) {
+            errorMessage = 'Permissão de microfone negada. Toque no ícone 🔒 na barra de endereços → Permissões do site → Microfone → Permitir. Depois recarregue a página.';
+          } else {
+            errorMessage = 'Permissão de microfone negada. Clique no ícone do microfone na barra de endereços e permita o acesso, depois recarregue a página.';
+          }
         } else if (error.message.includes('sendo usado por outro aplicativo')) {
           errorMessage = 'O microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone e tente novamente.';
         } else if (error.message.includes('Configurações do microfone não suportadas')) {
