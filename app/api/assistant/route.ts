@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const body: AssistantRequest = await request.json();
     const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext, imageData } = body;
 
-    console.log('Processing for user:', { userName, userLevel, transcription });
+    console.log('Processing for user:', { userName: userName ? 'user-***' : 'unknown', userLevel, hasTranscription: !!transcription });
     console.log('Pronunciation scores:', pronunciationData);
     console.log('Message type:', messageType);
     console.log('Has conversation context:', !!conversationContext);

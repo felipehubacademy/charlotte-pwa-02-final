@@ -127,7 +127,7 @@ export class OpenAIRealtimeService {
       ];
 
       console.log('🌐 [FIXED] WebSocket URL:', wsUrl);
-      console.log('🔑 [FIXED] Subprotocols:', subprotocols);
+      console.log('🔑 [FIXED] Subprotocols:', ['realtime', `openai-insecure-api-key.sk-***MASKED***`, 'openai-beta.realtime-v1']);
 
       // Criar WebSocket com subprotocols (método oficial)
       this.ws = new WebSocket(wsUrl, subprotocols);

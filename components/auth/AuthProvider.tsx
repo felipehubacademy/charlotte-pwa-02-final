@@ -110,11 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      console.log('Starting user sync for:', {
-        localAccountId: account.localAccountId,
-        username: account.username,
-        name: account.name
-      });
+      console.log('Starting user sync for user:', account.localAccountId ? 'user-***' : 'unknown');
 
       // ✅ NOVO: Verificar acesso antes de sincronizar
       let userLevel: 'Novice' | 'Inter' | 'Advanced';
@@ -139,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         last_activity: new Date().toISOString(),
       };
 
-      console.log('Attempting upsert with data:', userData);
+      console.log('Attempting upsert for user:', userData.entra_id ? 'user-***' : 'unknown');
 
       const { data, error } = await supabaseClient
         .from('users')
@@ -166,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('No data returned from upsert');
       }
 
-      console.log('User sync successful:', data);
+      console.log('User sync successful for user:', data.entra_id ? 'user-***' : 'unknown');
       setUser(data);
       
     } catch (error: any) {
@@ -198,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updated_at: new Date().toISOString(),
       };
       
-      console.log('Using fallback user:', fallbackUser);
+      console.log('Using fallback user for:', fallbackUser.entra_id ? 'user-***' : 'unknown');
       setUser(fallbackUser);
       
       toast.error('Profile sync failed, using temporary profile');
