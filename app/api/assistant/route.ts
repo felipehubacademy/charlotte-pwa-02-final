@@ -1074,7 +1074,125 @@ function generateEncouragement(score: number): string {
   return "Keep going! Every practice session makes you stronger! 🌱";
 }
 
-// 🆕 NOVA FUNÇÃO: Processar mensagens de IMAGEM com ANÁLISE DE VOCABULÁRIO
+// 🎯 NOVA FUNÇÃO: Processar mensagens de imagem específicas para NOVICE
+async function handleNoviceImageMessage(
+  prompt: string,
+  imageData: string,
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('👶 Processing Novice image message with natural, friendly approach...');
+
+    const systemPrompt = `You are Charlotte, a warm and genuine friend helping someone practice English.
+
+BE NATURAL AND FRIENDLY:
+- React like a genuine friend who's interested in what they're showing you
+- Use natural reactions: "Oh cool!", "Wow!", "That's great!", "Nice!"
+- Be curious about their life and experiences
+- Show genuine interest in their photo
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+RESPONSE FORMAT:
+- Use this format: "[Natural reaction], it is a [object], it is [simple description]. [One simple fact]."
+- Keep it under 25 words total
+- ONE message only - don't ask questions
+- Be encouraging and show genuine interest
+
+VOCABULARY: Use simple, natural words:
+- Reactions: oh, wow, cool, great, nice, fun, good, awesome, really, that's cool
+- Common words: like, love, want, need, go, come, see, do, make, have, get, work, play, eat, live, think, feel, visit, enjoy, beautiful, small, big
+
+EXAMPLES:
+- "Oh cool, it is a smartwatch, it is a small computer you wear on your wrist. It can tell time and track your steps."
+- "Wow, it is a bicycle, it is a vehicle with two wheels. You can ride it for exercise and fun."
+- "Nice, it is a coffee cup, it is a container for hot drinks. People use it every morning."
+
+Remember: Be a real friend reacting to their photo, not a formal teacher!`;
+
+    const userPrompt = `Look at this image and react naturally like a friend:
+
+1. Start with a natural reaction (Oh cool!, Wow!, Nice!, etc.)
+2. Identify the main object
+3. Give a simple description
+4. Add one simple fact
+5. Keep it under 25 words total
+6. Be warm and encouraging
+
+React naturally to what they're showing you!`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-nano",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: userPrompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageData,
+                detail: "low"
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 60,
+      temperature: 0.7,
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Novice image response generated:', assistantResponse.length, 'characters');
+
+    // Clean markdown formatting for natural conversation
+    const cleanFeedback = assistantResponse
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .trim();
+
+    // 🎯 XP para Novice: 8-25 XP
+    const cameraXP = Math.floor(Math.random() * 18) + 8;
+
+    const response: AssistantResponse = {
+      feedback: cleanFeedback,
+      xpAwarded: cameraXP,
+      nextChallenge: '', // Novice não precisa de challenge separado
+      tips: ['Keep sharing photos!'],
+      encouragement: 'You\'re doing great! 😊',
+      technicalFeedback: '' // Novice não tem feedback técnico
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleNoviceImageMessage:', error);
+    
+    // Fallback ultra-simples para Novice
+    const fallbackResponse = `Great photo, ${userName || 'there'}! I had trouble seeing it clearly. Can you try taking another picture?`;
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 8,
+        nextChallenge: '', // Novice não precisa de challenge separado
+        tips: ['Keep practicing!'],
+        encouragement: 'You\'re doing well! 😊',
+        technicalFeedback: '' // Novice não tem feedback técnico
+      }
+    });
+  }
+}
+
+// 🆕 FUNÇÃO GERAL: Processar mensagens de IMAGEM (Inter/Advanced)
 async function handleImageMessage(
   prompt: string,
   imageData: string,
@@ -1082,11 +1200,16 @@ async function handleImageMessage(
   userName?: string,
   conversationContext?: string
 ) {
+  // 🎯 NOVICE SPECIAL HANDLING: Usar lógica simplificada e natural
+  if (userLevel === 'Novice') {
+    console.log('👶 Using Novice-specific image handling...');
+    return await handleNoviceImageMessage(prompt, imageData, userName, conversationContext);
+  }
+
   try {
     console.log('📸 Starting image analysis for vocabulary learning...');
 
     const levelInstructions = {
-      'Novice': 'Respond in simple, clear English only. Be very encouraging and use basic vocabulary. Focus on building confidence.',
       'Intermediate': 'Provide clear explanations in English. Focus on practical communication skills.',
       'Advanced': 'Use sophisticated English. Focus on advanced vocabulary and nuanced definitions.'
     };
@@ -1094,11 +1217,11 @@ async function handleImageMessage(
     const systemPrompt = `You are Charlotte, an English vocabulary tutor. Analyze the image and identify the main object to help the student learn new English vocabulary.
 
 User Level: ${userLevel}
-Guidelines: ${levelInstructions[userLevel]}
+Guidelines: ${levelInstructions[userLevel as keyof typeof levelInstructions]}
 
 ${conversationContext ? `\n${conversationContext}\n` : ''}
 
-IMPORTANT INSTRUCTIONS:
+INSTRUCTIONS:
 1. Identify the MAIN object in the image
 2. Follow the EXACT format requested in the user's prompt
 3. Be VERY CONCISE and focused
@@ -1119,7 +1242,7 @@ Your response should help the student learn new vocabulary through visual associ
               type: "image_url",
               image_url: {
                 url: imageData,
-                detail: "low" // Use low detail for faster processing
+                detail: "low"
               }
             }
           ]
@@ -1137,14 +1260,12 @@ Your response should help the student learn new vocabulary through visual associ
       .replace(/\*(.*?)\*/g, '$1')
       .trim();
 
-    // 🎯 REBALANCEADO: Camera XP aumentado para 8-25 XP
-    const cameraXP = userLevel === 'Novice' ? 
-      Math.floor(Math.random() * 18) + 8 :  // 8-25 XP
-      userLevel === 'Intermediate' ? 
+    // 🎯 XP para Inter/Advanced
+    const cameraXP = userLevel === 'Intermediate' ? 
       Math.floor(Math.random() * 15) + 10 : // 10-24 XP
       Math.floor(Math.random() * 13) + 8;   // 8-20 XP
 
-    console.log('📸 Camera XP calculated (REBALANCED):', {
+    console.log('📸 Camera XP calculated:', {
       userLevel,
       xpAwarded: cameraXP,
       prompt: prompt.substring(0, 50) + '...'
@@ -1152,7 +1273,7 @@ Your response should help the student learn new vocabulary through visual associ
 
     const response: AssistantResponse = {
       feedback: cleanFeedback,
-      xpAwarded: cameraXP, // 🎯 REBALANCEADO: Era 3 XP, agora 8-25 XP
+      xpAwarded: cameraXP,
       nextChallenge: '',
       tips: [],
       encouragement: 'Great job using the camera feature!',
@@ -1167,10 +1288,8 @@ Your response should help the student learn new vocabulary through visual associ
     
     // Fallback response
     const fallbackResponse: AssistantResponse = {
-      feedback: userLevel === 'Novice' 
-        ? 'I apologize, but I had trouble analyzing your image. Please try taking another photo with better lighting and I\'ll help you learn new vocabulary!'
-        : 'I apologize, but I had trouble analyzing your image. Please try taking another photo with better lighting.',
-      xpAwarded: 8, // 🎯 REBALANCEADO: Era 1 XP, agora 8 XP mínimo
+      feedback: 'I apologize, but I had trouble analyzing your image. Please try taking another photo with better lighting.',
+      xpAwarded: 8,
       nextChallenge: '',
       tips: [],
       encouragement: 'Keep practicing!',

@@ -1011,16 +1011,7 @@ export default function ChatPage() {
           audioUrl: thumbnailData // Using audioUrl field to store image data
         };
 
-        // Add question message (separate balloon) - ALWAYS IN ENGLISH
-        const questionMessage: Message = {
-          id: generateMessageId('user-question'),
-          role: 'user',
-          content: 'What do you see in this photo?', // Always English
-          messageType: 'text',
-          timestamp: new Date()
-        };
-
-        setMessages(prev => [...prev, imageMessage, questionMessage]);
+        setMessages(prev => [...prev, imageMessage]);
         setIsProcessingMessage(true);
 
         try {
@@ -1128,8 +1119,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
             }
           }
 
-          // Split response into multiple messages
-          const aiMessages = splitIntoMultipleMessages(assistantFeedback);
+          // Split response into multiple messages (Novice gets single message)
+          const aiMessages = splitIntoMultipleMessages(assistantFeedback, user?.user_level);
 
           // Don't add vocabulary XP notification - keep conversation natural
           // The XP is already awarded silently in the background

@@ -1179,7 +1179,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="md:hidden absolute top-20 right-4 z-40"
+              className="md:hidden absolute top-32 right-4 z-40"
             >
               <button
                 id="transcription-toggle-mobile"
@@ -1248,7 +1248,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
             {showTranscriptions && (
               <>
                 {/* Orb na parte superior */}
-                <div className="flex-shrink-0 flex justify-center px-8 py-10 md:py-16 pt-24 md:pt-16">
+                <div className="flex-shrink-0 flex justify-center px-8 py-10 md:py-16 pt-36 md:pt-16">
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
