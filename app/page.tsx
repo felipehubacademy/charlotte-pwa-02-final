@@ -91,10 +91,10 @@ export default function LoginPage() {
                 
                 <div className="pt-4 space-y-1">
                   <p className="text-lg text-white/90 font-medium leading-relaxed">
-                    Practice Business English
+                    Pratique Inglês
                   </p>
                   <p className="text-base text-white/60 leading-relaxed">
-                    with intelligent conversations & real-time feedback
+                    com conversas inteligentes e feedback em tempo real
                   </p>
                 </div>
               </div>
@@ -114,7 +114,7 @@ export default function LoginPage() {
                   <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
                   <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
                 </svg>
-                <span>Sign in with Microsoft</span>
+                <span>Entrar com Microsoft</span>
               </motion.button>
 
               {/* Feature Icons - Below Button */}
@@ -134,13 +134,13 @@ export default function LoginPage() {
                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
                     <Mic className="w-6 h-6 text-primary" />
                   </div>
-                  <span className="text-xs text-white/60">Voice</span>
+                  <span className="text-xs text-white/60">Voz</span>
                 </div>
                 <div className="flex flex-col items-center space-y-2">
                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
                     <Camera className="w-6 h-6 text-primary" />
                   </div>
-                  <span className="text-xs text-white/60">Photos</span>
+                  <span className="text-xs text-white/60">Fotos</span>
                 </div>
               </motion.div>
 
@@ -190,7 +190,7 @@ export default function LoginPage() {
         >
           <div className="px-6 py-4">
             <div className="text-sm text-white/40 text-center">
-              AI English Assistant
+              Assistente de Inglês com IA
             </div>
           </div>
         </motion.header>
@@ -223,10 +223,10 @@ export default function LoginPage() {
 
                 <div className="pt-2 space-y-2">
                   <p className="text-xl text-white/90 font-medium leading-relaxed">
-                    Practice Business English
+                    Pratique Inglês
                   </p>
                   <p className="text-lg text-white/60 leading-relaxed">
-                    with intelligent conversations & real-time feedback
+                    com conversas inteligentes e feedback em tempo real
                   </p>
                 </div>
               </div>
@@ -243,7 +243,7 @@ export default function LoginPage() {
                   <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
                   <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
                 </svg>
-                <span>Sign in with Microsoft</span>
+                <span>Entrar com Microsoft</span>
               </button>
             </motion.div>
 
