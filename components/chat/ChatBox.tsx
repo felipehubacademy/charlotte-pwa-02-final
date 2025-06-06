@@ -467,25 +467,31 @@ const ChatBox: React.FC<ChatBoxProps> = ({
 
   React.useEffect(scrollToBottom, [messages, isProcessingMessage]);
 
-  // Detectar mobile
+  // Detectar mobile e tela pequena
   const isMobile = typeof window !== 'undefined' && 
     (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
      window.innerWidth <= 768);
+  
+  const isSmallScreen = typeof window !== 'undefined' && window.innerHeight < 700;
 
   return (
     <div 
       className="px-3 sm:px-4 py-2 sm:py-4 flex-1 scrollbar-custom" 
       style={{ 
         paddingTop: isMobile 
-          ? 'calc(3.5rem + env(safe-area-inset-top) + 0.75rem)' // Mobile: só um pouquinho mais
+          ? (isSmallScreen 
+              ? 'calc(3.5rem + env(safe-area-inset-top) + 0.25rem)' // Telas pequenas: padding mínimo
+              : 'calc(3.5rem + env(safe-area-inset-top) + 0.5rem)') // Mobile normal
           : 'calc(3.5rem + env(safe-area-inset-top) + 0.5rem)', // Desktop: ajuste mínimo
         paddingBottom: isMobile 
           ? 'calc(100px + env(safe-area-inset-bottom))' // Mobile: ajustado para parar onde footer começa
           : 'calc(120px + env(safe-area-inset-bottom))', // Desktop: mantido como estava
       WebkitOverflowScrolling: 'touch',
-        // Mobile: overflow hidden quando não há mensagens, auto quando há
+        // Mobile: overflow mais restritivo para evitar scroll desnecessário, especialmente em telas pequenas
         overflowY: isMobile 
-          ? (messages.length === 0 ? 'hidden' : 'auto')
+          ? (isSmallScreen 
+              ? (messages.length <= 2 ? 'hidden' : 'auto') // Telas pequenas: ainda mais restritivo
+              : (messages.length <= 1 ? 'hidden' : 'auto')) // Mobile normal
           : (messages.length > 2 ? 'auto' : 'hidden')
       }}
     >
