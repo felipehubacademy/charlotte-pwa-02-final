@@ -1064,7 +1064,9 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     // 🔧 SAFE: Movimento com limites seguros para evitar sumir
     const minX = 10; // Margem mínima da esquerda
     const maxX = window.innerWidth - 100; // Margem da direita
-    const minY = 80; // Abaixo do header
+    // 📱 RESPONSIVE: Ajustar limite superior baseado no tamanho da tela
+    const headerHeight = window.innerHeight < 700 ? 100 : 80; // Mais espaço em telas menores
+    const minY = headerHeight + (window.innerHeight < 700 ? 20 : 0); // Extra padding para iPhone 15 normal
     const maxY = window.innerHeight - 300; // Acima do footer (aumentado mais 50px)
     
     const newX = Math.max(minX, Math.min(maxX, initialPosition.x + deltaX));
@@ -1108,7 +1110,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     if (isMobile && isFloating && typeof window !== 'undefined') {
       // 🔧 FORÇAR: Sempre iniciar na parte inferior para o tour conseguir encontrar
       const initialX = window.innerWidth - 90; // Próximo da borda direita
-      const initialY = window.innerHeight - 300; // 🎯 AJUSTADO (300px do bottom)
+      const initialY = window.innerHeight - 300; // 🎯 MANTIDO: posição original que funcionava bem
       
       console.log('🎯 XPCounter FORCED adjusted position:', { 
         initialX, 
