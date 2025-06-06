@@ -11,7 +11,7 @@ import { assessPronunciation } from '@/lib/pronunciation';
 import { supabaseService } from '@/lib/supabase-service';
 import EnhancedXPCounter from '@/components/ui/EnhancedXPCounter';
 import AchievementNotification from '@/components/achievements/AchievementNotification';
-import { ConversationContextManager } from '@/lib/conversation-context';
+import { EnhancedConversationContextManager } from '@/lib/enhanced-conversation-context';
 import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
 import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
 import ChatHeader from '@/components/ChatHeader';
@@ -85,7 +85,13 @@ async function getAssistantResponse(
   }
 }
 
-function splitIntoMultipleMessages(response: string): string[] {
+function splitIntoMultipleMessages(response: string, userLevel?: string): string[] {
+  // 🎯 NOVICE: Sempre uma única mensagem, nunca dividir
+  if (userLevel === 'Novice') {
+    return [response.trim()];
+  }
+  
+  // Para outros níveis, manter comportamento original
   let messages = response.split(/(?:\n\n|\|\|\||\. {2,})/);
   
   if (messages.length < 2) {
@@ -180,9 +186,10 @@ export default function ChatPage() {
   const [playTime, setPlayTime] = useState(0);
 
   const [conversationContext] = useState(() => 
-    new ConversationContextManager(
+    new EnhancedConversationContextManager(
       user?.user_level || 'Inter',
-      user?.name?.split(' ')[0] || 'Student'
+      user?.name?.split(' ')[0] || 'Student',
+      user?.entra_id // Adicionar userId para persistência
     )
   );
 
@@ -421,7 +428,7 @@ export default function ChatPage() {
           return;
         }
         
-        conversationContext.addMessage('user', transcription, 'audio', scores.pronunciationScore);
+        conversationContext.addMessage('user', transcription, 'audio', undefined, scores.pronunciationScore);
         const contextPrompt = conversationContext.generateContextForAssistant();
         
         const assistantResponse = await getAssistantResponse(
@@ -444,7 +451,7 @@ export default function ChatPage() {
           contextPrompt
         );
 
-        const aiMessages = splitIntoMultipleMessages(assistantResponse.feedback);
+        const aiMessages = splitIntoMultipleMessages(assistantResponse.feedback, user?.user_level);
 
         await sendSequentialMessages(
           aiMessages,
@@ -1403,6 +1410,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
     setMessages(prev => [...prev, userMessage]);
 
     try {
+      // Add user message to context
+      conversationContext.addMessage('user', userText, 'text');
+      
       // Get conversation context
       const context = conversationContext.generateContextForAssistant();
       
@@ -1468,8 +1478,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         }
       }
 
-      // Split response into multiple messages
-      const aiMessages = splitIntoMultipleMessages(assistantResult.feedback);
+      // Split response into multiple messages (Novice sempre 1 mensagem)
+      const aiMessages = splitIntoMultipleMessages(assistantResult.feedback, user?.user_level);
 
       // Send messages sequentially with XP info in first message
       await sendSequentialMessages(
@@ -1491,7 +1501,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
       // Update conversation context
       aiMessages.forEach(msg => 
-        conversationContext.addMessage('assistant', msg, 'text')
+        conversationContext.addMessage('assistant', msg, 'audio')
       );
 
       if (supabaseService.isAvailable() && user?.entra_id) {
@@ -1847,6 +1857,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           console.log('Live Voice XP gained:', amount);
           // Don't update state here to avoid loops - XP is already updated by the component
         }}
+        conversationContext={conversationContext}
       />
       
       {/* Hidden camera input */}

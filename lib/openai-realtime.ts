@@ -303,10 +303,8 @@ export class OpenAIRealtimeService {
       // 🔧 NOVO: Configuração de VAD otimizada por nível de usuário
       turn_detection: this.getVADConfigForUserLevel(),
       tools: this.getEnglishLearningTools(),
-      tool_choice: 'auto',
-      // 🎯 ANTI-ALUCINAÇÃO E CONTROLE DE TAMANHO: Configurações mais conservadoras
-      temperature: 0.6, // Reduzido de 0.8 para 0.6 - menos criatividade, mais precisão
-      max_response_output_tokens: this.getMaxTokensForUserLevel() // 🆕 NOVO: Tokens baseados no nível
+      tool_choice: 'auto'
+      // NOTA: temperature e max_response_output_tokens devem ser enviados em response.create, não em session.update
     };
 
     console.log('📤 [FIXED] Sending session update:', sessionConfig);
@@ -318,195 +316,228 @@ export class OpenAIRealtimeService {
     });
   }
 
-  // 🆕 NOVO: Configuração de max_tokens baseada no nível do usuário e documentação oficial
+  // 🎛️ MOBILE FIX: Temperatura otimizada por plataforma e nível
+  private getTemperatureForPlatform(): number {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    // Novice: temperatura mínima permitida pela API (0.6) para máxima consistência
+    if (this.config.userLevel === 'Novice') {
+      return 0.6; // Mínimo permitido pela API - máxima consistência
+    }
+    
+    return isMobile ? 0.6 : 0.7; // Mobile: mais consistente, Desktop: mais natural
+  }
+
+  // 🆕 MOBILE FIX: Configuração de max_tokens otimizada por nível e plataforma
   private getMaxTokensForUserLevel(): number {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
     const maxTokensConfig = {
-      'Novice': 150,      // Respostas curtas mas completas para redirecionamento
-      'Inter': 280,       // Espaço adequado para explicações gramaticais
-      'Advanced': 500     // Aumentado de 400 para 500 - garantir perguntas completas sem cortes
+      'Novice': isMobile ? 40 : 50,        // MARGEM DE SEGURANÇA: evitar cortes prematuros
+      'Inter': isMobile ? 200 : 280,       // Mobile: mais direto, Desktop: explicações completas
+      'Advanced': isMobile ? 350 : 500     // Mobile: respostas focadas, Desktop: discussões completas
     };
     
     const maxTokens = maxTokensConfig[this.config.userLevel] || maxTokensConfig['Inter'];
     
-    console.log(`🎯 [TOKENS] Setting max_response_output_tokens to ${maxTokens} for ${this.config.userLevel} level`);
+    console.log(`🎯 [TOKENS] Platform: ${isMobile ? 'Mobile' : 'Desktop'} - Setting max_response_output_tokens to ${maxTokens} for ${this.config.userLevel} level`);
     
-    // Log específico por nível
+    // Log específico por nível e plataforma
     if (this.config.userLevel === 'Novice') {
-      console.log(`🎯 [NOVICE] Focus: English immersion and constant redirection to practice`);
+      console.log(`🎯 [NOVICE] Focus: Natural conversation with simple English - ${isMobile ? 'Mobile: concise responses' : 'Desktop: complete responses'}`);
     } else if (this.config.userLevel === 'Inter') {
-      console.log(`🎯 [INTER] Focus: Grammar coaching and structure explanations`);
+      console.log(`🎯 [INTER] Focus: Friendly conversation coaching - ${isMobile ? 'Mobile: direct tips' : 'Desktop: detailed explanations'}`);
     } else if (this.config.userLevel === 'Advanced') {
-      console.log(`🎯 [ADVANCED] Focus: Speaking coach with native-like expression feedback - COMPLETE thoughts and questions`);
+      console.log(`🎯 [ADVANCED] Focus: Sophisticated conversation partner - ${isMobile ? 'Mobile: focused insights' : 'Desktop: complete discussions'}`);
     }
     
     return maxTokens;
   }
 
-  // 🔧 NOVO: Configuração de VAD específica por nível de usuário
+  // 🔧 MOBILE FIX: Configuração de VAD otimizada para mobile/desktop
   private getVADConfigForUserLevel() {
+    // Detectar plataforma mobile
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    const isIOS = typeof window !== 'undefined' && /iPhone|iPad/i.test(navigator.userAgent);
+    
     const vadConfigs = {
       'Novice': {
         type: 'server_vad',
-        threshold: 0.4, // Volta para sensibilidade moderada (era 0.6)
-        prefix_padding_ms: 300, 
-        silence_duration_ms: 700, // Balanceado (era 1000)
+        threshold: isMobile ? 0.6 : 0.55,          // Sensibilidade equilibrada para evitar cortes
+        prefix_padding_ms: 500,                    // Tempo para capturar começo da fala
+        silence_duration_ms: 800,                  // Tempo extra para evitar cortes prematuros
         create_response: true
       },
       'Inter': {
         type: 'server_vad', 
-        threshold: 0.5, // Volta para moderado (era 0.7)
-        prefix_padding_ms: 250, 
-        silence_duration_ms: 600, // Balanceado (era 800)
+        threshold: isMobile ? 0.7 : 0.5,           // Mobile: menos sensível
+        prefix_padding_ms: isMobile ? 400 : 250,   // Mobile: mais padding
+        silence_duration_ms: isMobile ? 1000 : 600, // Mobile: mais tempo
         create_response: true
       },
       'Advanced': {
         type: 'server_vad',
-        threshold: 0.7, // Aumentado de 0.6 para 0.7 - menos sensível para evitar interrupções
-        prefix_padding_ms: 200, 
-        silence_duration_ms: 1000, // Aumentado de 800 para 1000 - muito mais tempo para perguntas complexas
+        threshold: isMobile ? 0.8 : 0.7,           // Mobile: muito menos sensível
+        prefix_padding_ms: isMobile ? 300 : 200,   // Mobile: padding adequado
+        silence_duration_ms: isMobile ? 1500 : 1000, // Mobile: muito mais tempo para respostas complexas
         create_response: true
       }
     };
 
     const config = vadConfigs[this.config.userLevel] || vadConfigs['Inter'];
     
-    console.log(`🎤 [VAD] Configuring responsive server_vad for user level: ${this.config.userLevel}`);
-    console.log(`🎤 [VAD] Threshold setting: ${config.threshold} (responsive but stable)`);
-    console.log(`🎤 [VAD] Silence duration: ${config.silence_duration_ms}ms (balanced)`);
-    console.log(`🎤 [VAD] Prefix padding: ${config.prefix_padding_ms}ms (smooth)`);
-    console.log(`🎤 [VAD] Full VAD config:`, config);
+    console.log(`🎤 [VAD] Platform: ${isMobile ? (isIOS ? 'iOS' : 'Android') : 'Desktop'}`);
+    console.log(`🎤 [VAD] Configuring ${isMobile ? 'mobile-optimized' : 'desktop'} server_vad for ${this.config.userLevel} level`);
+    console.log(`🎤 [VAD] Threshold: ${config.threshold} (${isMobile ? 'mobile: less sensitive' : 'desktop: responsive'})`);
+    console.log(`🎤 [VAD] Silence duration: ${config.silence_duration_ms}ms (${isMobile ? 'mobile: more thinking time' : 'desktop: balanced'})`);
+    console.log(`🎤 [VAD] Prefix padding: ${config.prefix_padding_ms}ms (${isMobile ? 'mobile: more buffer' : 'desktop: smooth'})`);
     
     return config;
   }
 
-  // 📋 Instruções por nível - VERSÃO REFINADA COM DIFERENÇAS COMPORTAMENTAIS CLARAS
+  // 🧠 NOVO: Adicionar contexto conversacional às instruções
+  addContextualInstructions(contextPrompt: string): void {
+    if (!this.isConnected) {
+      console.warn('⚠️ Cannot add context - not connected');
+      return;
+    }
+
+    const baseInstructions = this.getInstructions();
+    const enhancedInstructions = `${baseInstructions}
+
+CONVERSATION CONTEXT:
+${contextPrompt}
+
+Use this context to maintain conversation continuity and avoid repetitive greetings. Reference previous topics naturally when relevant.`;
+
+    console.log('🧠 [CONTEXT] Updating session with enhanced instructions');
+    
+    this.sendEvent({
+      type: 'session.update',
+      session: {
+        instructions: enhancedInstructions
+      }
+    });
+  }
+
+  // 📋 Instruções por nível - PERSONALIDADE NATURAL E AMIGÁVEL
   private getInstructions(): string {
     const levelInstructions = {
-      'Novice': `CRITICAL RULES:
-1. You must speak only in English. Never mix Portuguese and English in the same response.
-2. Stay grounded in reality - do not make up facts, stories, or information.
-3. Keep responses EXTREMELY SHORT - maximum 1-2 sentences per response.
-4. Use approximately 30-50 completion tokens or less per response.
-5. ALWAYS redirect conversation back to English practice, no matter what topic the student brings up.
-6. Focus 100% on English immersion - treat every interaction as English practice.
+      'Novice': `You are Charlotte, a friendly and patient English coach for Brazilian beginners.
 
-You are Charlotte, a friendly and patient English immersion tutor for Brazilian beginners. Your ONLY goal is English practice.
+CRITICAL RULES:
+- Speak ONLY in English. NEVER use Portuguese.
+- Keep responses very short: 1 sentence only, up to 10 words maximum.
+- Use a slow-paced tone: simple words, clear ideas, no contractions.
+- Respond slowly, as if the student is just starting to learn.
+- Do NOT give long explanations or multiple ideas.
+- Speak less than the student. The student must speak more than you.
+- After every message, ask a VERY simple question to keep them speaking.
+- Gently correct if needed, but keep corrections ultra-brief and positive.
+- Do NOT give examples unless extremely simple.
+- Avoid giving two messages in a row — wait for the student's turn.
+- CRITICAL: Always speak in full sentences with a clear, natural ending. Never stop mid-sentence or mid-question. Only finish speaking after a complete, meaningful thought is expressed.
+- ALWAYS end with proper punctuation: . ? or !
+- Complete every thought before stopping, even if it means using a few extra words.
 
-ENGLISH IMMERSION STRATEGY:
-- If student talks about random topics (sports, food, weather), immediately connect it to English practice
-- Example: Student says "I like pizza" → You respond: "Great! Let's practice food vocabulary. What's your favorite pizza topping?"
-- Always steer conversations toward English learning opportunities
-- Never let conversations drift away from language practice
-- Make every topic an excuse to practice English
+EXAMPLES OF GOOD RESPONSES:
+- "Nice! What's your favorite color?"
+- "Good job! Can you say that again?"
+- "Great! Do you like pizza or pasta?"
+- "Yes! What's your favorite food?"
 
-SPEAKING GUIDELINES:
-- Always speak in English only - complete immersion
-- Use very simple vocabulary and short sentences
-- Ask basic questions to keep them speaking English
-- Celebrate every English word they say
-- Gently correct by repeating correctly, then continue
+SUPPORTIVE EXPRESSIONS TO USE:
+- "Nice try!"
+- "Well done!"
+- "That's great!"
+- "Let's try again!"
+- "Say it with me."
+- "Your turn!"
 
-CONVERSATION REDIRECTION EXAMPLES:
-- Student: "I'm tired" → You: "Tired? Let's practice feelings! How do you feel today?"
-- Student: "My job is boring" → You: "Tell me about your job in English! What do you do?"
-- Student: "I like music" → You: "Music is great for English! What's your favorite song in English?"
+BEHAVIOR:
+Always finish with a question, even if the student says just one word. Never allow silence after your message — always push for them to try again or say more.
 
-TEACHING APPROACH:
-- Every response should encourage more English speaking
-- Ask simple follow-up questions about anything they mention
-- Keep them talking in English at all costs
-- Make English feel natural and fun through constant practice`,
+CONVERSATION TECHNIQUE:
+- Student says something → You give ONE short positive response + ONE simple question
+- Keep the student talking 80% of the time
+- You talk only 20% of the time
+- Make them feel successful with every attempt`,
 
-      'Inter': `CRITICAL RULES:
-1. You must speak only in English. Never use Portuguese.
-2. Stay grounded in reality - do not make up facts, stories, or information.
-3. Keep responses SHORT - maximum 2-3 sentences per response.
-4. Use approximately 50-80 completion tokens or less per response.
-5. Focus on grammar, structure, and language mechanics while conversing.
-6. Provide brief but specific language feedback during natural conversation.
+      'Inter': `You are Charlotte, a friendly English conversation coach who helps intermediate learners express themselves more naturally.
 
-You are Charlotte, an English structure and grammar coach for intermediate Brazilian learners.
+PERSONALITY: Supportive, encouraging, like a helpful friend who happens to know English really well. You're genuinely interested in having good conversations while helping them improve.
 
-GRAMMAR & STRUCTURE FOCUS:
-- Notice and gently correct grammar mistakes in real-time
-- Explain WHY something is correct: "Use 'have been' for present perfect continuous"
-- Point out good language use: "Great use of past tense there!"
-- Introduce intermediate structures naturally: "Try using 'would rather' instead of 'prefer'"
-- Help with word order, verb tenses, and sentence construction
+CONVERSATION-FIRST APPROACH:
+- Have genuine, engaging conversations as your primary focus
+- Help with language naturally when opportunities arise
+- Make language tips feel like friendly suggestions, not corrections
+- Show real interest in their thoughts, opinions, and experiences
 
-TEACHING THROUGH CONVERSATION:
-- When they make mistakes, repeat correctly then explain briefly
-- Example: Student: "I am going to home" → You: "Going home? We say 'going home' without 'to'. Why do you think that is?"
-- Introduce new grammar patterns through questions
-- Help them understand the logic behind English structures
+NATURAL LANGUAGE COACHING:
+- When you notice something, offer it gently: "Oh, you could also say..." or "Another way to put that is..."
+- Celebrate good language use: "I love how you used that phrase!" or "That was perfectly said!"
+- Help them sound more natural: "That's correct, but most people would say..."
+- Focus on helping them feel confident and expressive
 
-LANGUAGE COACHING APPROACH:
-- Ask questions that require specific grammar structures
-- "Can you tell me about something you've been doing lately?" (present perfect continuous)
-- "What would you do if you won the lottery?" (conditional)
-- "Describe something that happened before you came here" (past perfect)
-- Give brief explanations of language patterns they use correctly or incorrectly
+CONVERSATION TOPICS & QUESTIONS:
+- Ask about their experiences, opinions, plans, and interests
+- "What's been the highlight of your week?" 
+- "How do you feel about..." 
+- "What would you do if..."
+- "Tell me about a time when..."
 
-CONVERSATION STRATEGY:
-- Balance natural conversation with language instruction
-- Make grammar feel practical and useful
-- Help them notice patterns in English
-- Encourage experimentation with new structures`,
+COACHING STYLE:
+- Gentle and encouraging, never critical
+- Help them express complex ideas more clearly
+- Introduce useful phrases naturally in context
+- Make them feel proud of their progress
+- Balance conversation flow with helpful language insights
 
-      'Advanced': `CRITICAL RULES:
-1. You must speak only in English. Never use Portuguese.
-2. Stay grounded in reality - do not make up facts, stories, or information.
-3. Keep responses SHORT but COMPLETE - maximum 2-3 sentences per response.
-4. ALWAYS finish your complete thought before stopping - never cut off mid-sentence or mid-question.
-5. Use approximately 100-150 completion tokens per response to ensure completeness.
-6. Act as a sophisticated speaking coach focused on fluency and natural expression.
-7. Challenge them to speak like native speakers with nuanced language.
+RESPONSE STYLE:
+- Keep responses conversational and engaging (2-3 sentences)
+- Share your own thoughts briefly when appropriate
+- Ask follow-up questions to keep conversations flowing
+- Offer language help as friendly tips, not formal lessons`,
 
-You are Charlotte, a professional speaking coach for advanced Brazilian learners seeking native-like fluency.
+      'Advanced': `You are Charlotte, a sophisticated conversation partner who helps advanced learners refine their English and develop native-like fluency.
 
-RESPONSE COMPLETION RULES - CRITICAL:
-- NEVER stop mid-sentence or mid-question under any circumstances
-- If you start a question, ALWAYS complete it fully with proper punctuation
-- If you give an example, finish the complete example with all details
-- End responses at natural stopping points only (after complete sentences)
-- Ensure every response feels complete and purposeful
-- If asking a question, include the complete question mark and context
+PERSONALITY: Intelligent, engaging, culturally aware, and genuinely interested in meaningful conversations. You're like a well-educated friend who enjoys deep discussions.
 
-SPEAKING COACH APPROACH:
-- Focus on natural flow, rhythm, and native-like expression
-- Help with subtle language choices: "Instead of 'very good', try 'excellent' or 'outstanding'"
-- Point out opportunities for more sophisticated vocabulary
-- Coach them on natural conversation patterns and cultural nuances
-- Help them sound more native-like in their expression
+CONVERSATION APPROACH:
+- Engage in sophisticated, meaningful conversations on complex topics
+- Treat them as an intellectual equal while offering subtle language refinement
+- Share your own perspectives and insights to create genuine dialogue
+- Help them develop their unique voice and style in English
 
-FLUENCY COACHING:
-- Encourage natural hesitation patterns: "It's okay to say 'Well...' or 'You know...' like natives do"
-- Help with intonation and stress patterns through conversation
-- Point out when they sound too formal or textbook-like
-- Encourage contractions and natural speech patterns
-- Coach them on conversation flow and turn-taking
+SOPHISTICATED LANGUAGE COACHING:
+- Offer subtle suggestions for more natural or sophisticated expression
+- "That's perfect! You could also say..." or "Interesting point. Another way natives might express that is..."
+- Help with cultural nuances and context: "In American English, we'd typically say..." 
+- Point out register differences naturally: "That's quite formal - in casual conversation, you might say..."
 
-ADVANCED LANGUAGE DEVELOPMENT:
-- Challenge them with sophisticated topics requiring complex language
-- Ask complete, well-formed questions that demand nuanced responses
-- Help them express subtle differences in meaning
-- Encourage use of idioms, phrasal verbs, and colloquialisms naturally
-- Point out register differences: formal vs. informal language
+CONVERSATION TOPICS:
+- Current events, culture, philosophy, career, personal growth
+- "What's your take on..." "How do you see..." "What's been your experience with..."
+- Encourage them to express complex ideas and defend their viewpoints
+- Ask follow-up questions that require nuanced responses
 
-NATIVE-LIKE EXPRESSION COACHING:
-- "That's grammatically correct, but natives would say..."
-- "Try expressing that more naturally with..."
-- "Your English is perfect, but to sound more native..."
-- Help them with cultural context and appropriate language use
-- Coach them on when to use different levels of formality
+FLUENCY DEVELOPMENT:
+- Help them sound more natural and less textbook-like
+- Encourage use of idioms, phrasal verbs, and colloquialisms when appropriate
+- Model natural conversation patterns, hesitations, and turn-taking
+- Help them understand when to be formal vs. casual
 
-CONVERSATION FACILITATION:
-- Ask thought-provoking questions that require sophisticated responses
-- Challenge them to defend opinions and explain complex ideas
-- Help them develop their own voice and style in English
-- Focus on authentic, natural communication rather than textbook English
-- Always complete your questions and thoughts fully before stopping
-- NEVER end abruptly - always provide complete, well-formed responses`
+CULTURAL COACHING:
+- Share cultural insights naturally within conversations
+- Help them understand context and appropriateness
+- Explain subtle differences in meaning and connotation
+- Guide them on professional vs. social communication styles
+
+RESPONSE STYLE:
+- Provide complete, well-formed responses that model sophisticated English
+- Share your own thoughts and experiences when relevant
+- Ask thought-provoking follow-up questions
+- Balance being a conversation partner with being a subtle language coach`
     };
     
     return this.config.instructions || levelInstructions[this.config.userLevel];
@@ -691,6 +722,19 @@ CONVERSATION FACILITATION:
 
         case 'response.audio_transcript.done':
           console.log('📝 [CHARLOTTE] Audio transcript completed:', event.transcript);
+          
+          // 🎯 NOVICE FIX: Verificar se a resposta termina adequadamente
+          if (this.config.userLevel === 'Novice' && event.transcript) {
+            const text = event.transcript.trim();
+            const hasProperEnding = text.endsWith('.') || text.endsWith('?') || text.endsWith('!');
+            
+            if (!hasProperEnding) {
+              console.warn('⚠️ [NOVICE] Response may be incomplete - missing proper punctuation:', text);
+            } else {
+              console.log('✅ [NOVICE] Response properly completed with punctuation');
+            }
+          }
+          
           this.emit('charlotte_transcript_completed', event);
           break;
 
@@ -1198,7 +1242,10 @@ CONVERSATION FACILITATION:
       type: 'response.create',
       response: {
         modalities: ['text', 'audio'],
-        instructions: `Respond naturally as Charlotte, adapting to the user's ${this.config.userLevel} level.`
+        instructions: `Respond naturally as Charlotte, adapting to the user's ${this.config.userLevel} level.`,
+        // 🎯 MOBILE FIX: Parâmetros de temperatura e tokens no local correto
+        temperature: this.getTemperatureForPlatform(),
+        max_output_tokens: this.getMaxTokensForUserLevel()
       }
     });
   }
@@ -1531,6 +1578,10 @@ CONVERSATION FACILITATION:
       let constraints: MediaStreamConstraints;
       
       try {
+        // 🔧 MOBILE FIX: Configurações otimizadas por plataforma
+        const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+        const isIOS = typeof window !== 'undefined' && /iPhone|iPad/i.test(navigator.userAgent);
+        
         // Tentar configurações avançadas primeiro
         constraints = {
         audio: {
@@ -1538,17 +1589,23 @@ CONVERSATION FACILITATION:
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
-          autoGainControl: true,
-          // 🔧 NOVO: Configurações avançadas para reduzir ruído
+          autoGainControl: isMobile ? false : true,     // Mobile: desabilitar AGC que pode causar problemas
+          // 🔧 MOBILE FIX: Configurações específicas por plataforma
+          ...(isMobile ? {
+            // Mobile: configurações mais conservadoras
+            latency: 0.02,                              // Latência ligeiramente maior para estabilidade
+            volume: isIOS ? 0.7 : 0.8,                  // iOS: volume menor para evitar feedback
+          } : {
+            // Desktop: configurações avançadas
           googEchoCancellation: true,
           googAutoGainControl: true,
           googNoiseSuppression: true,
           googHighpassFilter: true,
           googTypingNoiseDetection: true,
           googAudioMirroring: false,
-          // 🔧 NOVO: Configurações de qualidade premium
-          latency: 0.01, // Latência mínima
-          volume: 0.8,   // Volume controlado
+            latency: 0.01,                              // Latência mínima
+            volume: 0.8,                                // Volume controlado
+          })
         } as any
       };
 
@@ -1674,7 +1731,7 @@ CONVERSATION FACILITATION:
         if (isAndroid) {
           throw new Error('Permissão negada para acessar o microfone. Toque no ícone 🔒 na barra de endereços → Permissões do site → Microfone → Permitir.');
         } else {
-          throw new Error('Permissão negada para acessar o microfone. Clique no ícone do microfone na barra de endereços e permita o acesso.');
+        throw new Error('Permissão negada para acessar o microfone. Clique no ícone do microfone na barra de endereços e permita o acesso.');
         }
       } else if (error.name === 'NotReadableError') {
         throw new Error('Microfone está sendo usado por outro aplicativo. Feche outros programas que possam estar usando o microfone.');

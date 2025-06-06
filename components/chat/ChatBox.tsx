@@ -314,8 +314,8 @@ const MessageBubble: React.FC<{ message: Message; userLevel: string }> = ({ mess
               </button>
             )}
             
-            {/* 🆕 Feedback button for audio responses */}
-            {isAudioResponse && (
+            {/* 🆕 Feedback button for audio responses (NOT for Novice - too technical) */}
+            {isAudioResponse && userLevel !== 'Novice' && (
               <button
                 onClick={() => setShowTechnicalFeedback(!showTechnicalFeedback)}
                 className="text-xs text-primary hover:text-primary-dark flex items-center space-x-1"

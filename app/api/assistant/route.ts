@@ -91,6 +91,15 @@ async function handleTextMessageWithGrammar(
   conversationContext?: string
 ) {
   try {
+    console.log('🔍 Starting text message processing for level:', userLevel);
+
+    // 🎯 NOVICE SPECIAL HANDLING: Usar lógica simplificada e encorajadora
+    if (userLevel === 'Novice') {
+      console.log('👶 Using Novice-specific text handling...');
+      return await handleNoviceTextMessage(transcription, userName, conversationContext);
+    }
+
+    // Para Inter/Advanced: usar análise completa de gramática
     console.log('🔍 Starting comprehensive grammar analysis with context...');
 
     // 1. 🎯 ANÁLISE COMPLETA DE GRAMÁTICA
@@ -221,6 +230,330 @@ Create a natural, conversational response that acknowledges their message and sm
   }
 }
 
+// 🎯 NOVA FUNÇÃO: Processar mensagens de texto específicas para NOVICE
+async function handleNoviceTextMessage(
+  transcription: string,
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('👶 Processing Novice text message with simple, encouraging approach...');
+
+    const systemPrompt = `You are Charlotte, a warm and genuine friend helping someone practice English.
+
+BE NATURAL AND HUMAN:
+- React genuinely to what they say - show real interest
+- Vary your responses naturally (don't always start with "Nice!")
+- Use natural conversation starters: "Oh!", "Wow!", "Cool!", "Really?", "That's great!", "I see!"
+- Don't copy their exact words back to them
+- Be curious about their life and experiences
+
+CONVERSATION STYLE:
+- Listen to what they actually said and respond to it specifically
+- Ask follow-up questions that show you're paying attention
+- Share brief, relatable responses when appropriate
+- Keep the conversation flowing naturally
+- When they make small mistakes, naturally model the correct way without being obvious about it
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+VOCABULARY: Use simple, natural words:
+- Reactions: oh, wow, cool, great, nice, fun, good, awesome, really, that's cool, sounds good, interesting
+- Questions: what, where, how, why, do you, are you, can you, which, when
+- Common words: like, love, want, need, go, come, see, do, make, have, get, work, play, eat, live, think, feel, visit, enjoy, beautiful, small, big
+
+EXAMPLES OF NATURAL RESPONSES:
+- "Oh cool! What kind of work do you do?"
+- "That sounds fun! Where did you go?"
+- "Wow, really? How was that?"
+- "I see! Do you like doing that?"
+
+NATURAL CORRECTIONS (when they make mistakes):
+- They say "it are beautiful" → You say "Oh, it sounds beautiful! What makes it so special?"
+- They say "I like to the church" → You say "Cool! What do you like about the church?"
+- They say "I goed there" → You say "Nice! When did you go there?"
+
+AVOID being robotic:
+- Don't always start with "Nice!"
+- Don't repeat their exact words back
+- Don't give the same type of response every time
+- Don't ignore what they actually said
+
+Remember: Be a real friend having a genuine conversation. Show interest in their life!`;
+
+    const userPrompt = `Student wrote: "${transcription}"
+
+Respond like a genuine friend who is really listening:
+
+1. React naturally to what they specifically said (don't just say "Nice!")
+2. Show genuine interest in their message
+3. If they made a small mistake, naturally model the correct way in your response (don't repeat their mistake)
+4. Ask a follow-up question that shows you were paying attention
+5. Keep it short and conversational (2 sentences max)
+
+IMPORTANT: 
+- Don't copy their exact words back to them
+- Vary your response style - be unpredictable and natural
+- React to the actual content of their message
+- End with a question mark (?) for questions, period (.) for statements`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 80, // Mais flexível para respostas naturais
+      temperature: 0.7,
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Novice text response generated:', assistantResponse.length, 'characters');
+
+    // 🔧 PUNCTUATION VALIDATION: Corrigir pontuação se necessário
+    let correctedResponse = assistantResponse.trim();
+    
+    // 🎯 NOVICE: Verificar se tem pergunta natural (não forçar mais)
+    if (!correctedResponse.includes('?')) {
+      console.log('⚠️ [NOVICE] Response without question - should be naturally generated');
+    }
+    
+    // 🔧 CORREÇÃO DE PONTUAÇÃO PARA MÚLTIPLAS FRASES
+    // Dividir em frases e corrigir pontuação de cada uma
+    const sentences = correctedResponse.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    
+    const correctedSentences = sentences.map((sentence, index) => {
+      let trimmed = sentence.trim();
+      
+      // Detectar se é pergunta
+      const lowerText = trimmed.toLowerCase();
+      const questionStarters = ["what", "where", "when", "who", "how", "why", "do", "does", "did", "is", "are", "can", "could", "would", "will", "should", "have", "has", "had"];
+      const firstWord = lowerText.split(" ")[0];
+      const isQuestion = questionStarters.includes(firstWord) || 
+                        lowerText.includes("do you") || 
+                        lowerText.includes("are you") ||
+                        lowerText.includes("can you");
+      
+      // Aplicar pontuação correta
+      if (isQuestion) {
+        if (!trimmed.endsWith("?")) {
+          trimmed = trimmed.replace(/[.!]*$/, "") + "?";
+          console.log('🔧 [PUNCTUATION] Fixed question:', trimmed);
+        }
+      } else {
+        if (!trimmed.match(/[.!?]$/)) {
+          trimmed += ".";
+          console.log('🔧 [PUNCTUATION] Added period:', trimmed);
+        }
+      }
+      
+      return trimmed;
+    });
+    
+    correctedResponse = correctedSentences.join(" ");
+
+                const response: AssistantResponse = {
+        feedback: correctedResponse,
+        xpAwarded: 5, // XP baixo mas consistente para Novice
+        nextChallenge: '', // Novice não precisa de challenge separado
+      tips: ['Keep writing in English!'],
+      encouragement: 'You\'re doing great! 😊',
+      technicalFeedback: ''
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleNoviceTextMessage:', error);
+    
+    // Fallback ultra-simples para Novice
+    const fallbackResponse = `Great job, ${userName || 'there'}! Keep writing in English. What do you like to do?`;
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 5,
+        nextChallenge: '', // Novice não precisa de challenge separado
+        tips: ['Keep practicing!'],
+        encouragement: 'You\'re doing well! 😊',
+        technicalFeedback: ''
+      }
+    });
+  }
+}
+
+// 🎯 NOVA FUNÇÃO: Processar mensagens de áudio específicas para NOVICE
+async function handleNoviceAudioMessage(
+  transcription: string,
+  pronunciationData: any,
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('👶 Processing Novice audio message with natural, encouraging approach...');
+
+    const systemPrompt = `You are Charlotte, a warm and genuine friend helping someone practice English pronunciation.
+
+BE NATURAL AND HUMAN:
+- React genuinely to what they said - show real interest
+- Vary your responses naturally (don't always start with "Nice!")
+- Use natural conversation starters: "Oh!", "Wow!", "Cool!", "Really?", "That's great!", "I see!"
+- Don't copy their exact words back to them
+- Be curious about their life and experiences
+
+CONVERSATION STYLE:
+- Listen to what they actually said and respond to it specifically
+- Ask follow-up questions that show you're paying attention
+- Share brief, relatable responses when appropriate
+- Keep the conversation flowing naturally
+- When they make small mistakes, naturally model the correct way without being obvious about it
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+VOCABULARY: Use simple, natural words:
+- Reactions: oh, wow, cool, great, nice, fun, good, awesome, really, that's cool, sounds good, interesting
+- Questions: what, where, how, why, do you, are you, can you, which, when
+- Common words: like, love, want, need, go, come, see, do, make, have, get, work, play, eat, live, think, feel, visit, enjoy, beautiful, small, big
+
+EXAMPLES OF NATURAL RESPONSES:
+- "Oh cool! What kind of work do you do?"
+- "That sounds fun! Where did you go?"
+- "Wow, really? How was that?"
+- "I see! Do you like doing that?"
+
+NATURAL CORRECTIONS (when they make mistakes):
+- They say "it are beautiful" → You say "Oh, it sounds beautiful! What makes it so special?"
+- They say "I like to the church" → You say "Cool! What do you like about the church?"
+- They say "I goed there" → You say "Nice! When did you go there?"
+
+AVOID being robotic:
+- Don't always start with "Nice!"
+- Don't repeat their exact words back
+- Don't give the same type of response every time
+- Don't ignore what they actually said
+
+Remember: Be a real friend having a genuine conversation. Show interest in their life!`;
+
+    const userPrompt = `Student said: "${transcription}"
+
+Their pronunciation score: ${pronunciationData.pronunciationScore}/100
+
+Respond like a genuine friend who is really listening:
+
+1. React naturally to what they specifically said (don't just say "Nice!")
+2. Show genuine interest in their message
+3. If they made a small mistake, naturally model the correct way in your response (don't repeat their mistake)
+4. Ask a follow-up question that shows you were paying attention
+5. Keep it short and conversational (2 sentences max)
+6. Don't mention pronunciation scores - just have a natural conversation
+
+IMPORTANT: 
+- Don't copy their exact words back to them
+- Vary your response style - be unpredictable and natural
+- React to the actual content of their message
+- End with a question mark (?) for questions, period (.) for statements`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      max_tokens: 80, // Mais flexível para respostas naturais
+      temperature: 0.7,
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Novice audio response generated:', assistantResponse.length, 'characters');
+
+    // 🔧 PUNCTUATION VALIDATION: Corrigir pontuação se necessário
+    let correctedResponse = assistantResponse.trim();
+    
+    // 🔧 CORREÇÃO DE PONTUAÇÃO PARA MÚLTIPLAS FRASES
+    // Dividir em frases e corrigir pontuação de cada uma
+    const sentences = correctedResponse.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    
+    const correctedSentences = sentences.map((sentence, index) => {
+      let trimmed = sentence.trim();
+      
+      // Detectar se é pergunta
+      const lowerText = trimmed.toLowerCase();
+      const questionStarters = ["what", "where", "when", "who", "how", "why", "do", "does", "did", "is", "are", "can", "could", "would", "will", "should", "have", "has", "had"];
+      const firstWord = lowerText.split(" ")[0];
+      const isQuestion = questionStarters.includes(firstWord) || 
+                        lowerText.includes("do you") || 
+                        lowerText.includes("are you") ||
+                        lowerText.includes("can you");
+      
+      // Aplicar pontuação correta
+      if (isQuestion) {
+        if (!trimmed.endsWith("?")) {
+          trimmed = trimmed.replace(/[.!]*$/, "") + "?";
+          console.log('🔧 [PUNCTUATION] Fixed question:', trimmed);
+        }
+      } else {
+        if (!trimmed.match(/[.!?]$/)) {
+          trimmed += ".";
+          console.log('🔧 [PUNCTUATION] Added period:', trimmed);
+        }
+      }
+      
+      return trimmed;
+    });
+    
+    correctedResponse = correctedSentences.join(" ");
+
+    // Calcular XP baseado nos scores (lógica original)
+    let xpAwarded = 25;
+    if (pronunciationData.pronunciationScore >= 80) {
+      xpAwarded += 50;
+    }
+    if (pronunciationData.pronunciationScore >= 90) {
+      xpAwarded += 25;
+    }
+
+    const response: AssistantResponse = {
+      feedback: correctedResponse,
+      xpAwarded,
+      nextChallenge: '', // Novice não precisa de challenge separado
+      tips: ['Keep speaking in English!'],
+      encouragement: 'You\'re doing great! 😊',
+      technicalFeedback: '' // Novice não tem feedback técnico
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleNoviceAudioMessage:', error);
+    
+    // Fallback ultra-simples para Novice
+    const fallbackResponse = `Great job, ${userName || 'there'}! Your pronunciation sounds good. What do you like to do?`;
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 25,
+        nextChallenge: '', // Novice não precisa de challenge separado
+        tips: ['Keep practicing!'],
+        encouragement: 'You\'re doing well! 😊',
+        technicalFeedback: '' // Novice não tem feedback técnico
+      }
+    });
+  }
+}
+
 // 🔄 Função de fallback para texto simples (caso a análise de gramática falhe)
 async function handleTextMessageSimple(
   transcription: string, 
@@ -330,8 +663,13 @@ async function handleAudioMessage(
   userName?: string,
   conversationContext?: string
 ) {
+  // 🎯 NOVICE SPECIAL HANDLING: Usar lógica simplificada e natural como no texto
+  if (userLevel === 'Novice') {
+    console.log('👶 Using Novice-specific audio handling...');
+    return await handleNoviceAudioMessage(transcription, pronunciationData, userName, conversationContext);
+  }
+
   const levelInstructions = {
-    'Novice': 'Use simple, encouraging English only. Be very supportive like a friendly coach. Speak clearly and slowly to help beginners understand.',
     'Intermediate': 'Provide clear, practical feedback like a professional coach. Focus on business English and communication effectiveness.',
     'Advanced': 'Give sophisticated feedback like an expert coach. Focus on nuanced pronunciation and professional communication.'
   };
@@ -427,9 +765,7 @@ Keep it natural and conversational - avoid formal assessment language.`;
     console.error('Error generating conversational audio feedback:', error);
     
     // Fallback conversacional
-    const fallbackResponse = userLevel === 'Novice'
-      ? `That's great practice, ${userName || 'there'}! I can hear you're working hard on your pronunciation. Your English sounds good - keep speaking with confidence! What would you like to talk about next?`
-      : `Nice work on your pronunciation, ${userName || 'there'}! Your speaking skills are developing well. I appreciate the effort you're putting into practicing. What else would you like to discuss?`;
+    const fallbackResponse = `Nice work on your pronunciation, ${userName || 'there'}! Your speaking skills are developing well. I appreciate the effort you're putting into practicing. What else would you like to discuss?`;
 
     const technicalFeedback = generateTechnicalFeedback(pronunciationData, userLevel);
 
@@ -647,6 +983,21 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
 }
 
 // ✅ FUNÇÕES AUXILIARES (mantidas iguais)
+function generateNoviceTextChallenge(): string {
+  const challenges = [
+    'Try writing: "I like coffee"',
+    'Practice: "How are you today?"',
+    'Write: "Thank you very much!"',
+    'Try: "I am happy today"',
+    'Practice: "Do you like music?"',
+    'Write: "What is your name?"',
+    'Try: "I go to work"',
+    'Practice: "I have a dog"'
+  ];
+
+  return challenges[Math.floor(Math.random() * challenges.length)];
+}
+
 function generateTextChallenge(level: string): string {
   const challenges = {
     'Novice': [

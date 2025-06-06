@@ -26,6 +26,7 @@ interface LiveVoiceModalProps {
   onLogout?: () => void;
   onXPGained?: (amount: number) => void;
   demoMode?: boolean; // 🎭 NOVO: Modo demo para onboarding
+  conversationContext?: any; // 🧠 NOVO: Contexto conversacional unificado
 }
 
 const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({ 
@@ -38,7 +39,8 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   totalXP,
   onLogout,
   onXPGained,
-  demoMode
+  demoMode,
+  conversationContext
 }) => {
   // Estados principais
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
@@ -637,6 +639,78 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       const service = new OpenAIRealtimeService(config);
       realtimeServiceRef.current = service;
 
+      // 🧠 NOVO: Adicionar contexto conversacional se disponível
+      if (conversationContext) {
+        try {
+          const contextPrompt = conversationContext.generateContextForAssistant();
+          console.log('🧠 [CONTEXT] Adding conversation context to Live Voice:', {
+            hasContext: !!contextPrompt,
+            contextLength: contextPrompt?.length || 0
+          });
+          
+          // Adicionar contexto como instrução inicial
+          if (contextPrompt) {
+            service.addContextualInstructions(contextPrompt);
+          }
+        } catch (error) {
+          console.error('❌ Error adding conversation context:', error);
+        }
+      }
+
+      // 🧠 NOVO: Função para enviar saudação inicial contextual
+      const sendInitialGreeting = (service: OpenAIRealtimeService) => {
+        try {
+          let greetingMessage = '';
+          
+          if (conversationContext) {
+            const shouldGreet = conversationContext.shouldGreet();
+            const hasRecentMessages = conversationContext.getRecentMessages(3).length > 0;
+            
+            if (shouldGreet || !hasRecentMessages) {
+              // Primeira conversa ou sem mensagens recentes
+              greetingMessage = userLevel === 'Novice' 
+                ? "Hi! I'm Charlotte. What would you like to talk about?"
+                : `Hi ${userName || 'there'}! I'm Charlotte, ready to practice English with you. What's on your mind?`;
+            } else {
+              // Continuação de conversa
+              const recentMessages = conversationContext.getRecentMessages(2);
+                             const lastTopic = recentMessages.find((m: any) => m.role === 'user')?.content;
+              
+              if (lastTopic && lastTopic.length > 10) {
+                greetingMessage = userLevel === 'Novice'
+                  ? "Hi again! How are you today?"
+                  : `Welcome back! Earlier we were talking about ${lastTopic.substring(0, 30)}... How has your day been?`;
+              } else {
+                greetingMessage = userLevel === 'Novice'
+                  ? "Hi! What do you want to talk about?"
+                  : "Hi again! What would you like to practice today?";
+              }
+            }
+          } else {
+            // Sem contexto - saudação padrão
+            greetingMessage = userLevel === 'Novice'
+              ? "Hi! I'm Charlotte. What would you like to talk about?"
+              : `Hi ${userName || 'there'}! Ready to practice English?`;
+          }
+          
+          console.log('🧠 [INITIAL GREETING] Sending:', greetingMessage);
+          
+          // Enviar como mensagem de texto que será convertida em áudio
+          service.sendTextMessage(greetingMessage);
+          
+          // Adicionar ao histórico local
+          addCharlotteMessage(greetingMessage);
+          
+          // Marcar como cumprimentado se aplicável
+          if (conversationContext) {
+            conversationContext.markGreetingDone();
+          }
+          
+        } catch (error) {
+          console.error('❌ Error sending initial greeting:', error);
+        }
+      };
+
       // Event listeners
       service.on('session_created', () => {
         console.log('✅ Realtime session created');
@@ -646,6 +720,11 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         startConversationTracking();
         // 🔊 Tocar som de conexão
         playConnectionSound();
+        
+        // 🧠 NOVO: Enviar mensagem inicial contextual
+        setTimeout(() => {
+          sendInitialGreeting(service);
+        }, 1000); // Pequeno delay para garantir que tudo está configurado
       });
 
       service.on('user_speech_started', () => {
@@ -676,6 +755,16 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           addUserMessage(event.transcript);
           setTranscript(`You: "${event.transcript}"`);
           console.log('📝 [ORDER FIX] User message added to history immediately');
+          
+          // 🧠 NOVO: Adicionar ao contexto conversacional unificado
+          if (conversationContext) {
+            try {
+              conversationContext.addMessage('user', event.transcript, 'live_voice');
+              console.log('🧠 [CONTEXT] User message added to unified context');
+            } catch (error) {
+              console.error('❌ Error adding user message to context:', error);
+            }
+          }
         }
       });
 
@@ -715,6 +804,16 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           console.log('📝 [ORDER FIX] Adding Charlotte message from transcript:', event.transcript);
           addCharlotteMessage(event.transcript);
           setCharlotteCurrentResponse('');
+          
+          // 🧠 NOVO: Adicionar resposta da Charlotte ao contexto unificado
+          if (conversationContext) {
+            try {
+              conversationContext.addMessage('assistant', event.transcript, 'live_voice');
+              console.log('🧠 [CONTEXT] Charlotte message added to unified context');
+            } catch (error) {
+              console.error('❌ Error adding Charlotte message to context:', error);
+            }
+          }
         }
       });
 
@@ -760,6 +859,16 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           if (currentResponse) {
             console.log('📝 [CHARLOTTE DEBUG] Saving Charlotte response to history:', currentResponse);
             addCharlotteMessage(currentResponse);
+            
+            // 🧠 NOVO: Adicionar ao contexto unificado (fallback)
+            if (conversationContext) {
+              try {
+                conversationContext.addMessage('assistant', currentResponse, 'live_voice');
+                console.log('🧠 [CONTEXT] Charlotte message added to unified context (fallback)');
+              } catch (error) {
+                console.error('❌ Error adding Charlotte message to context (fallback):', error);
+              }
+            }
           }
           return ''; // Limpar após adicionar ao histórico
         });
