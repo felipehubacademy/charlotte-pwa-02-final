@@ -195,13 +195,14 @@ function splitIntoMultipleMessages(response: string, userLevel?: string): string
   let messages = response.split(/(?:\n\n|\|\|\||\. {2,})/);
   
   if (messages.length < 2) {
-    const sentences = response.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    // 🔧 PRESERVE PUNCTUATION: Split while keeping punctuation marks
+    const sentences = response.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
     
     if (sentences.length >= 2) {
       const mid = Math.ceil(sentences.length / 2);
       messages = [
-        sentences.slice(0, mid).join('. ') + (sentences.length > 1 ? '.' : ''),
-        sentences.slice(mid).join('. ') + '.'
+        sentences.slice(0, mid).join(' ').trim(),
+        sentences.slice(mid).join(' ').trim()
       ];
     } else {
       messages = [response, "What else would you like to practice today? 😊"];

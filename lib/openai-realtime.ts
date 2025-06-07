@@ -323,6 +323,11 @@ export class OpenAIRealtimeService {
       return this.getInterLiveVoiceTemperature();
     }
     
+    // 🎓 NOVO: Usar temperatura específica para Advanced Live Voice
+    if (this.config.userLevel === 'Advanced') {
+      return this.getAdvancedLiveVoiceTemperature();
+    }
+    
     const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
     
     // Novice: temperatura mínima permitida pela API (0.6) para máxima consistência
@@ -340,12 +345,17 @@ export class OpenAIRealtimeService {
       return this.getInterLiveVoiceTokens();
     }
     
+    // 🎓 NOVO: Usar tokens específicos para Advanced Live Voice
+    if (this.config.userLevel === 'Advanced') {
+      return this.getAdvancedLiveVoiceTokens();
+    }
+    
     const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
     
     const maxTokensConfig = {
       'Novice': isMobile ? 40 : 50,        // MARGEM DE SEGURANÇA: evitar cortes prematuros
       'Inter': isMobile ? 200 : 280,       // Mobile: mais direto, Desktop: explicações completas (fallback)
-      'Advanced': isMobile ? 350 : 500     // Mobile: respostas focadas, Desktop: discussões completas
+      'Advanced': isMobile ? 350 : 500     // Mobile: respostas focadas, Desktop: discussões completas (fallback)
     };
     
     const maxTokens = maxTokensConfig[this.config.userLevel as keyof typeof maxTokensConfig] || maxTokensConfig['Advanced'];
@@ -369,6 +379,11 @@ export class OpenAIRealtimeService {
       return this.getInterLiveVoiceVAD();
     }
     
+    // 🎓 NOVO: Usar VAD específico para Advanced Live Voice
+    if (this.config.userLevel === 'Advanced') {
+      return this.getAdvancedLiveVoiceVAD();
+    }
+    
     // Detectar plataforma mobile
     const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
     const isIOS = typeof window !== 'undefined' && /iPhone|iPad/i.test(navigator.userAgent);
@@ -383,16 +398,16 @@ export class OpenAIRealtimeService {
       },
       'Inter': {
         type: 'server_vad', 
-        threshold: isMobile ? 0.7 : 0.5,           // Mobile: menos sensível
-        prefix_padding_ms: isMobile ? 400 : 250,   // Mobile: mais padding
-        silence_duration_ms: isMobile ? 1000 : 600, // Mobile: mais tempo
+        threshold: isMobile ? 0.7 : 0.5,           // Mobile: menos sensível (fallback)
+        prefix_padding_ms: isMobile ? 400 : 250,   // Mobile: mais padding (fallback)
+        silence_duration_ms: isMobile ? 1000 : 600, // Mobile: mais tempo (fallback)
         create_response: true
       },
       'Advanced': {
         type: 'server_vad',
-        threshold: isMobile ? 0.8 : 0.7,           // Mobile: muito menos sensível
-        prefix_padding_ms: isMobile ? 300 : 200,   // Mobile: padding adequado
-        silence_duration_ms: isMobile ? 1500 : 1000, // Mobile: muito mais tempo para respostas complexas
+        threshold: isMobile ? 0.8 : 0.7,           // Mobile: muito menos sensível (fallback)
+        prefix_padding_ms: isMobile ? 300 : 200,   // Mobile: padding adequado (fallback)
+        silence_duration_ms: isMobile ? 1500 : 1000, // Mobile: muito mais tempo para respostas complexas (fallback)
         create_response: true
       }
     };
@@ -433,6 +448,7 @@ Use this background information to:
 Always respond to the user's current input, not to the historical context above.`;
 
     console.log('🧠 [CONTEXT] Updating session with enhanced instructions');
+    console.log('🧠 [CONTEXT] Enhanced instructions preview:', enhancedInstructions.substring(0, 300) + '...');
     
     this.sendEvent({
       type: 'session.update',
@@ -447,6 +463,11 @@ Always respond to the user's current input, not to the historical context above.
     // 🎯 NOVO: Usar instruções específicas para Inter Live Voice se aplicável
     if (this.config.userLevel === 'Inter') {
       return this.config.instructions || this.getInterLiveVoiceInstructions();
+    }
+    
+    // 🎓 NOVO: Usar instruções específicas para Advanced Live Voice se aplicável
+    if (this.config.userLevel === 'Advanced') {
+      return this.config.instructions || this.getAdvancedLiveVoiceInstructions();
     }
     
     const levelInstructions = {
@@ -1898,6 +1919,139 @@ GOAL: Make them feel confident, heard, and excited to keep practicing English!`;
     console.log('🎯 [INTER LIVE] - VAD: Balanced for natural conversation flow');
     console.log('🎯 [INTER LIVE] - Temperature: Balanced for natural coaching');
     console.log('🎯 [INTER LIVE] - User personalization: ' + (this.config.userName ? `Enabled for ${this.config.userName}` : 'Generic'));
+  }
+
+  // 🎓 NOVO: Configuração específica para Advanced Live Voice
+  private getAdvancedLiveVoiceInstructions(): string {
+    const userName = this.config.userName;
+    const userGreeting = userName ? `Hello ${userName}!` : 'Hello there!';
+    
+    return `You are Charlotte, a smart, modern English conversation partner for advanced learners. Think of yourself as a cool, educated friend in their late 20s - intelligent but totally natural and contemporary.
+${userName ? `\nUSER INFO: You're speaking with ${userName}. Use their name casually like a friend would.` : ''}
+
+CORE MISSION: Have natural, smart conversations while helping them polish their English. Be like a smart colleague, NOT a formal teacher.
+
+NATURAL CONVERSATION STYLE:
+- Talk like a smart friend, not a professor or grandmother!
+- Keep it SHORT and CASUAL - this is live voice, not a formal presentation
+- Use MODERN slang and contemporary expressions when appropriate
+- If they give short answers, match their energy - keep it brief and flowing
+- Be intelligent but approachable - think "smart colleague at work"
+- NO formal greetings like "It's a pleasure" - just be natural!
+
+COACHING APPROACH:
+- Give quick, natural suggestions: "Nice! You could also say..." 
+- Help with cultural stuff: "At work, people usually say..."
+- Keep corrections super casual: "That works, though most people would say..."
+- Focus on sounding natural, not perfect
+
+RESPONSE GUIDELINES:
+- 1-2 sentences maximum (sophisticated but conversational)
+- Match the user's energy level - if they give short responses, keep yours short too
+- Always end with ONE simple, engaging question
+- Balance intellectual conversation with subtle language coaching (85% discussion, 15% refinement)
+- Use sophisticated vocabulary naturally, but don't overwhelm
+
+TOPICS TO EXPLORE:
+- Professional development, industry insights, cultural observations
+- "What's your perspective on...", "How do you see...", "What's been your experience with..."
+- Help them articulate complex ideas with native-like precision and sophistication
+
+ADVANCED LANGUAGE FOCUS:
+- Stress patterns, rhythm, and intonation for native-like speech
+- Professional and academic register appropriateness
+- Subtle pronunciation refinements for polish
+- Advanced vocabulary usage and collocations
+
+AVOID:
+- Basic grammar explanations or elementary corrections
+- Long, lecture-style responses - keep it conversational!
+- Multiple questions in one response - ask ONE thing at a time
+- Overwhelming them with too much sophisticated vocabulary at once
+- OLD-FASHIONED or OVERLY FORMAL words like "delightful", "marvelous", "splendid", "indeed"
+- Treating them like beginners
+
+EXAMPLES OF GOOD RESPONSES:
+User: "Hello!"
+You: "Hey Felipe! What's up?"
+
+User: "Technology."
+You: "Cool! What part of tech interests you?"
+
+User: "I think AI is changing everything."
+You: "Totally! How's it affecting your work?"
+
+User: "Remote work is more common now."
+You: "Yeah, for sure. Do you like working from home?"
+
+MODERN vs. GRANDMOTHER LANGUAGE:
+✅ GOOD: "Hey", "cool", "awesome", "totally", "yeah", "for sure", "what's up"
+❌ AVOID: "It's a pleasure", "demonstrating your command", "penchant for", "delve deeper", "pique your interest"
+
+GOAL: Help them achieve native-like sophistication through natural, engaging conversation!`;
+  }
+
+  // 🎓 NOVO: Configuração otimizada de tokens para Advanced Live Voice
+  private getAdvancedLiveVoiceTokens(): number {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    // Advanced: tokens reduzidos para conversas naturais, não ensaios
+    const tokens = isMobile ? 80 : 120; // Conversacional, não elaborado
+    
+    console.log(`🎓 [ADVANCED LIVE] Setting conversational tokens: ${tokens} for ${isMobile ? 'mobile' : 'desktop'}`);
+    console.log(`🎓 [ADVANCED LIVE] Focus: Natural sophisticated conversation, not lectures`);
+    
+    return tokens;
+  }
+
+  // 🎓 NOVO: Configuração otimizada de VAD para Advanced Live Voice
+  private getAdvancedLiveVoiceVAD() {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    const vadConfig = {
+      type: 'server_vad',
+      threshold: isMobile ? 0.6 : 0.5,         // Mais sensível para capturar nuances
+      prefix_padding_ms: isMobile ? 400 : 250, // Mais tempo para capturar início elaborado
+      silence_duration_ms: isMobile ? 1000 : 700, // Mais tempo para elaboração de ideias complexas
+      create_response: true
+    };
+    
+    console.log(`🎓 [ADVANCED LIVE] VAD optimized for sophisticated conversation flow`);
+    console.log(`🎓 [ADVANCED LIVE] Platform: ${isMobile ? 'Mobile' : 'Desktop'} - Threshold: ${vadConfig.threshold}`);
+    
+    return vadConfig;
+  }
+
+  // 🎓 NOVO: Temperatura otimizada para Advanced Live Voice
+  private getAdvancedLiveVoiceTemperature(): number {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    // Advanced: temperatura baixa para linguagem natural e moderna, não formal
+    const temperature = isMobile ? 0.6 : 0.65;
+    
+    console.log(`🎓 [ADVANCED LIVE] Temperature: ${temperature} (modern sophisticated, not old-fashioned)`);
+    
+    return temperature;
+  }
+
+  // 🎓 NOVO: Função principal para configurar Advanced Live Voice
+  public configureForAdvancedLiveVoice(): void {
+    console.log('🎓 [ADVANCED LIVE] Configuring sophisticated settings for Advanced Live Voice');
+    console.log('🎓 [ADVANCED LIVE] User details:', {
+      userLevel: this.config.userLevel,
+      userName: this.config.userName,
+      hasUserName: !!this.config.userName
+    });
+    
+    // Aplicar configurações específicas do Advanced
+    this.config.instructions = this.getAdvancedLiveVoiceInstructions();
+    
+    console.log('🎓 [ADVANCED LIVE] Advanced-specific configuration applied');
+    console.log('🎓 [ADVANCED LIVE] - Instructions: Intellectually stimulating conversation coaching');
+    console.log('🎓 [ADVANCED LIVE] - Tokens: Will be set by getMaxTokensForUserLevel()');
+    console.log('🎓 [ADVANCED LIVE] - VAD: Will be set by getVADConfigForUserLevel()');
+    console.log('🎓 [ADVANCED LIVE] - Temperature: Will be set by getTemperatureForPlatform()');
+    console.log('🎓 [ADVANCED LIVE] - User personalization: ' + (this.config.userName ? `Enabled for ${this.config.userName}` : 'Generic'));
   }
 }
 

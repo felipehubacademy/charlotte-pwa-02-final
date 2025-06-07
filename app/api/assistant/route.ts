@@ -92,6 +92,9 @@ async function handleTextMessageWithGrammar(
 ) {
   try {
     console.log('🔍 Starting text message processing for level:', userLevel);
+    console.log('🔍 [DEBUG] userLevel type:', typeof userLevel);
+    console.log('🔍 [DEBUG] userLevel value:', JSON.stringify(userLevel));
+    console.log('🔍 [DEBUG] userLevel === "Advanced":', userLevel === 'Advanced');
 
     // 🎯 NOVICE SPECIAL HANDLING: Usar lógica simplificada e encorajadora
     if (userLevel === 'Novice') {
@@ -103,6 +106,12 @@ async function handleTextMessageWithGrammar(
     if (userLevel === 'Inter') {
       console.log('🎓 Using Inter-specific text handling...');
       return await handleInterTextMessage(transcription, userName, conversationContext);
+    }
+
+    // 🎯 ADVANCED: Usar análise de gramática com personalidade business moderna
+    console.log('🔍 [DEBUG] Checking userLevel for Advanced:', userLevel, typeof userLevel);
+    if (userLevel === 'Advanced') {
+      console.log('🎓 Advanced will use grammar analysis with modern business personality...');
     }
 
     // Para Inter/Advanced: usar análise completa de gramática
@@ -168,10 +177,35 @@ async function generateContextualFeedback(
   const levelInstructions = {
     'Novice': 'Use simple, clear English only. Be very encouraging about grammar mistakes. Speak slowly and use basic vocabulary to help beginners understand.',
     'Inter': 'Provide clear feedback. Balance grammar correction with conversational response. Focus on practical improvements.',
-    'Advanced': 'Give sophisticated feedback. Integrate grammar analysis naturally into professional conversation.'
+    'Advanced': 'Be a modern business professional. Use contemporary language, be direct and efficient. Think startup founder or tech consultant - smart, current, no old-fashioned words. Sound like someone from Google or Netflix.'
   };
 
-  const systemPrompt = `You are Charlotte, an English tutor. Create a natural, conversational response that seamlessly integrates grammar feedback while maintaining conversation flow.
+  const systemPrompt = userLevel === 'Advanced' ? 
+    `You are Charlotte, a modern business professional in your early 30s. Think startup founder, tech consultant, or someone who works at Google/Netflix - smart, direct, contemporary.
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+MODERN BUSINESS COMMUNICATION:
+- Use current business language: "solid", "makes sense", "got it", "fair point", "totally"
+- Be direct and efficient but engaging
+- AVOID old-fashioned words: "delightful", "marvelous", "indeed", "quite so", "rather"
+- NO academic language: "demonstrates", "penchant for", "I appreciate"
+- Sound like 2024, not 1994
+
+GRAMMAR FEEDBACK STYLE:
+- Give practical, modern feedback: "Quick tip: most people say..."
+- Be direct: "That works, though in business we usually say..."
+- Keep it professional but casual: "Sounds good! Just a heads up..."
+
+Create a response that:
+1. Responds naturally to their message (like a colleague would)
+2. Gives practical grammar feedback when needed
+3. Uses contemporary, business-casual language
+4. Continues the conversation professionally
+5. Sounds like someone they'd work with at a modern company
+
+Think "Slack conversation with a smart colleague" not "English teacher".` :
+    `You are Charlotte, an English tutor. Create a natural, conversational response that seamlessly integrates grammar feedback while maintaining conversation flow.
 
 User Level: ${userLevel}
 Guidelines: ${levelInstructions[userLevel as keyof typeof levelInstructions]}
@@ -224,6 +258,31 @@ Create a natural, conversational response that acknowledges their message and sm
     if (!response) {
       // Fallback: usar apenas o feedback de gramática
       return grammarResult.feedback;
+    }
+
+    // 🔧 CORREÇÃO DE PONTUAÇÃO PARA ADVANCED
+    if (userLevel === 'Advanced') {
+      let correctedResponse = response.trim();
+      console.log('🔧 [ADVANCED GRAMMAR] Original response:', correctedResponse);
+      
+      // Correção SIMPLES E EFICAZ: qualquer frase que termine com ponto mas deveria ser pergunta
+      correctedResponse = correctedResponse.replace(/\b(what's|whats|what|where|when|who|how|why|do|does|did|is|are|can|could|would|will|should|have|has|had)\b[^?]*\.$/gi, (match) => {
+        console.log('🔧 [PUNCTUATION FIX] Converting to question:', match);
+        return match.slice(0, -1) + '?';
+      });
+      
+      // Correção para perguntas no meio da frase também
+      correctedResponse = correctedResponse.replace(/\.\s+(what's|whats|what|where|when|who|how|why|do|does|did|is|are|can|could|would|will|should|have|has|had)\b[^?]*\.$/gi, (match) => {
+        console.log('🔧 [PUNCTUATION FIX] Converting mid-sentence to question:', match);
+        const parts = match.split('. ');
+        if (parts.length === 2) {
+          return '. ' + parts[1].slice(0, -1) + '?';
+        }
+        return match;
+      });
+      
+      console.log('🔧 [ADVANCED GRAMMAR] Fixed response:', correctedResponse);
+      return correctedResponse;
     }
 
     return response;
@@ -674,6 +733,178 @@ Create a gentle, encouraging pronunciation feedback that feels like friendly adv
   }
 }
 
+// 🎓 NOVA FUNÇÃO: Processar mensagens de texto específicas para ADVANCED
+async function handleAdvancedTextMessage(
+  transcription: string,
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('🎓 Processing Advanced text message with sophisticated approach...');
+    console.log('📝 [ADVANCED TEXT] Input transcription:', transcription);
+    console.log('👤 [ADVANCED TEXT] User name:', userName);
+    console.log('💬 [ADVANCED TEXT] Has context:', !!conversationContext);
+    console.log('🚀 [ADVANCED TEXT] HANDLER DEFINITELY CALLED - STARTING PROCESSING...');
+
+    const systemPrompt = `You are Charlotte, a modern business professional in your early 30s who speaks fluent, contemporary English. Think startup founder, tech professional, or modern consultant - smart, direct, current.
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+MODERN BUSINESS COMMUNICATION:
+- Talk like a smart professional, not a teacher or grandmother
+- Use current business language and contemporary expressions
+- Be direct, efficient, and engaging
+- Think "colleague at a modern company" not "English professor"
+- Sound like someone who works at Google, Netflix, or a startup
+
+CONTEMPORARY LANGUAGE:
+- Use modern expressions: "solid", "makes sense", "got it", "fair point", "totally"
+- Business casual: "sounds good", "let's see", "interesting", "I hear you"
+- AVOID old-fashioned: "delightful", "marvelous", "indeed", "quite so", "rather"
+- NO academic language: "demonstrates", "penchant for", "I appreciate"
+- Sound like 2024, not 1994
+
+COMMUNICATION STYLE:
+- Be concise but engaging (2-3 sentences)
+- Ask relevant follow-up questions
+- Show genuine interest in their thoughts
+- Give practical, modern feedback when needed
+- Think "Slack conversation with a smart colleague"
+
+Student wrote: "${transcription}"
+
+Respond like a modern professional would:
+1. React naturally and directly to their message
+2. Use contemporary, business-casual language
+3. Keep it engaging but efficient
+4. Ask a relevant question to continue the conversation
+5. Sound like someone they'd work with at a modern company
+
+Think "texting a colleague" not "teaching a student".`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: systemPrompt }],
+      max_tokens: 150, // Respostas mais elaboradas para Advanced
+      temperature: 0.75, // Mais criatividade para conversas sofisticadas
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Advanced text response generated:', assistantResponse.length, 'characters');
+
+    // 🔧 ADVANCED PUNCTUATION VALIDATION: Validação sofisticada de pontuação
+    // 🔧 SIMPLE PUNCTUATION FIX: Correção simples e eficaz
+    let correctedResponse = assistantResponse.trim();
+    console.log('🔧 [ADVANCED SIMPLE] Original response:', correctedResponse);
+    
+    // Correção simples: se começa com palavra de pergunta e não tem ?, adiciona ?
+    correctedResponse = correctedResponse.replace(/^(what|where|when|who|how|why|do|does|did|is|are|can|could|would|will|should|have|has|had)\s[^?]*\.$/gi, (match) => {
+      return match.slice(0, -1) + '?';
+    });
+    
+    // Correção para perguntas no meio da frase
+    correctedResponse = correctedResponse.replace(/\.\s+(what|where|when|who|how|why|do|does|did|is|are|can|could|would|will|should|have|has|had)\s[^?]*\.$/gi, (match) => {
+      const parts = match.split('. ');
+      if (parts.length === 2) {
+        return '. ' + parts[1].slice(0, -1) + '?';
+      }
+      return match;
+    });
+    
+    console.log('🔧 [ADVANCED SIMPLE] Fixed response:', correctedResponse);
+
+    // 🎯 ADVANCED XP SYSTEM: Mais generoso e baseado em complexidade
+    let xpAwarded = 35; // Base mais alto para Advanced
+    
+    // 🔥 BONUS POR COMPLEXIDADE DO TEXTO (Advanced merece mais!)
+    const wordCount = transcription.split(' ').length;
+    console.log('📊 [ADVANCED XP] Word count:', wordCount);
+    
+    if (wordCount >= 5) {
+      xpAwarded += 10; // Bonus básico para mensagens decentes
+      console.log('🎯 [ADVANCED XP] +10 for 5+ words');
+    }
+    if (wordCount >= 10) {
+      xpAwarded += 15; // Bonus para mensagens elaboradas
+      console.log('🎯 [ADVANCED XP] +15 for 10+ words');
+    }
+    if (wordCount >= 20) {
+      xpAwarded += 20; // Bonus para textos sofisticados
+      console.log('🎯 [ADVANCED XP] +20 for 20+ words');
+    }
+    if (wordCount >= 40) {
+      xpAwarded += 25; // Bonus máximo para textos complexos
+      console.log('🎯 [ADVANCED XP] +25 for 40+ words');
+    }
+    
+    // 🌟 BONUS POR SOFISTICAÇÃO (Advanced específico)
+    const lowerTranscription = transcription.toLowerCase();
+    let sophisticationBonus = 0;
+    
+    // Detectar linguagem sofisticada
+    const sophisticatedWords = ['however', 'therefore', 'furthermore', 'nevertheless', 'consequently', 'moreover', 'although', 'whereas', 'despite', 'regarding'];
+    const hasSophisticatedWords = sophisticatedWords.some(word => lowerTranscription.includes(word));
+    
+    if (hasSophisticatedWords) {
+      sophisticationBonus += 15;
+      console.log('🎯 [ADVANCED XP] +15 for sophisticated vocabulary');
+    }
+    
+    // Detectar estruturas complexas
+    if (lowerTranscription.includes(',') && lowerTranscription.includes(';')) {
+      sophisticationBonus += 10;
+      console.log('🎯 [ADVANCED XP] +10 for complex punctuation');
+    }
+    
+    xpAwarded += sophisticationBonus;
+    
+    console.log('🎯 [ADVANCED XP] Final XP awarded:', xpAwarded);
+
+    const response: AssistantResponse = {
+      feedback: correctedResponse,
+      xpAwarded,
+      nextChallenge: generateTextChallenge('Advanced'),
+      tips: extractTipsFromResponse(correctedResponse),
+      encouragement: generateTextEncouragement('Advanced'),
+      technicalFeedback: ''
+    };
+
+    console.log('🎉 [ADVANCED TEXT] Response ready:', { 
+      feedbackLength: correctedResponse.length, 
+      xpAwarded, 
+      wordCount,
+      sophisticationBonus 
+    });
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error: any) {
+    console.error('❌ [ADVANCED TEXT] Error in handleAdvancedTextMessage:', error);
+    console.error('❌ [ADVANCED TEXT] Error details:', error?.message);
+    console.error('❌ [ADVANCED TEXT] Stack trace:', error?.stack);
+    
+    // Fallback moderno para Advanced
+    const fallbackResponse = `Hey ${userName || 'there'}, your writing looks solid! What would you like to chat about?`;
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 25,
+        nextChallenge: generateTextChallenge('Advanced'),
+        tips: ['Continue refining your sophisticated English expression!'],
+        encouragement: 'Your advanced writing skills are impressive! 🌟',
+        technicalFeedback: ''
+      }
+    });
+  }
+}
+
 // 🎓 NOVA FUNÇÃO: Processar mensagens de texto específicas para INTER
 async function handleInterTextMessage(
   transcription: string,
@@ -749,13 +980,63 @@ KEEP IT NATURAL - be like a supportive friend who happens to know English well!`
 
     console.log('✅ Inter text response generated:', assistantResponse.length, 'characters');
 
-    // ✅ NATURAL RESPONSE: Manter resposta natural sem formatação numerada
+    // 🔧 INTER PUNCTUATION VALIDATION: Validação melhorada de pontuação
     let correctedResponse = assistantResponse.trim();
     
-    // Apenas corrigir pontuação básica se necessário
-    if (!correctedResponse.match(/[.!?]$/)) {
-      correctedResponse += ".";
-    }
+    // 🔧 CORREÇÃO DE PONTUAÇÃO PARA MÚLTIPLAS FRASES
+    const sentences = correctedResponse.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    
+    const correctedSentences = sentences.map((sentence, index) => {
+      let trimmed = sentence.trim();
+      
+      // Detectar se é pergunta
+      const lowerText = trimmed.toLowerCase();
+      const questionStarters = ["what", "where", "when", "who", "how", "why", "do", "does", "did", "is", "are", "can", "could", "would", "will", "should", "have", "has", "had"];
+      const firstWord = lowerText.split(" ")[0];
+      
+      const isQuestion = questionStarters.includes(firstWord) || 
+                        lowerText.includes("do you") || 
+                        lowerText.includes("are you") ||
+                        lowerText.includes("can you") ||
+                        lowerText.includes("would you") ||
+                        lowerText.includes("could you") ||
+                        lowerText.includes("have you") ||
+                        lowerText.includes("will you") ||
+                        lowerText.includes("don't you") ||
+                        lowerText.includes("wouldn't you");
+      
+      // Detectar exclamações
+      const isExclamation = lowerText.startsWith("wow") || 
+                           lowerText.startsWith("great") ||
+                           lowerText.startsWith("awesome") ||
+                           lowerText.startsWith("fantastic") ||
+                           lowerText.includes("congratulations") ||
+                           lowerText.includes("well done") ||
+                           lowerText.includes("that's amazing") ||
+                           lowerText.includes("how exciting");
+      
+      // Aplicar pontuação correta
+      if (isQuestion) {
+        if (!trimmed.endsWith("?")) {
+          trimmed = trimmed.replace(/[.!]*$/, "") + "?";
+          console.log('🔧 [INTER PUNCTUATION] Fixed question:', trimmed);
+        }
+      } else if (isExclamation) {
+        if (!trimmed.endsWith("!")) {
+          trimmed = trimmed.replace(/[.?]*$/, "") + "!";
+          console.log('🔧 [INTER PUNCTUATION] Fixed exclamation:', trimmed);
+        }
+      } else {
+        if (!trimmed.match(/[.!?]$/)) {
+          trimmed += ".";
+          console.log('🔧 [INTER PUNCTUATION] Added period:', trimmed);
+        }
+      }
+      
+      return trimmed;
+    });
+    
+    correctedResponse = correctedSentences.join(" ");
 
     // XP baseado na qualidade da mensagem
     const xpAwarded = 30; // Inter recebe XP moderado
@@ -892,6 +1173,203 @@ Keep the response conversational and engaging, avoiding repetitive patterns.`;
   }
 }
 
+// 🎓 NOVA FUNÇÃO: Processar mensagens de áudio específicas para ADVANCED
+async function handleAdvancedAudioMessage(
+  transcription: string,
+  pronunciationData: any,
+  userName?: string,
+  conversationContext?: string
+): Promise<NextResponse> {
+  try {
+    console.log('🎓 Processing Advanced audio message with sophisticated approach...');
+
+    const systemPrompt = `You are Charlotte, a smart, modern friend in your late 20s who's also an expert pronunciation coach for advanced English learners.
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+PERSONALITY & STYLE:
+- Talk like a smart friend, not a professor or grandmother
+- Use modern, natural language - avoid old-fashioned words
+- Be encouraging and supportive while keeping it real
+- Share your thoughts naturally, like texting a smart friend
+- Keep responses conversational and engaging (around 80 words max)
+
+MODERN LANGUAGE GUIDELINES:
+✅ USE: "Hey", "cool", "awesome", "totally", "yeah", "for sure", "makes sense", "solid point", "I get it", "that's interesting"
+❌ AVOID: "Delightful", "marvelous", "splendid", "indeed", "quite so", "I appreciate", "demonstrates", "penchant for"
+
+PRONUNCIATION COACHING (ADVANCED LEVEL):
+- Acknowledge their strong pronunciation skills naturally
+- Give advanced tips for native-like speech patterns
+- Help with subtle aspects like stress, rhythm, and intonation
+- Focus on polish and natural flow rather than basic corrections
+- Celebrate their sophisticated language use
+
+CONVERSATION APPROACH:
+- Respond to what they actually said (use conversation context)
+- Ask follow-up questions to keep the conversation going
+- Share your own thoughts when relevant
+- Balance being a friend with being a helpful coach
+- Keep it natural and conversational, not academic
+
+Student said: "${transcription}"
+
+Pronunciation Assessment:
+- Overall Score: ${pronunciationData.pronunciationScore}/100
+- Accuracy: ${pronunciationData.accuracyScore}/100  
+- Fluency: ${pronunciationData.fluencyScore}/100
+- Completeness: ${pronunciationData.completenessScore}/100
+
+Create a natural, friendly response that:
+1. Responds to what they said (considering conversation context)
+2. Acknowledges their pronunciation skills naturally
+3. Offers helpful pronunciation insights when relevant
+4. Continues the conversation naturally
+5. Sounds like a smart, modern friend helping them out
+
+Keep it natural and conversational - like talking to a friend who happens to be great at English!`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: systemPrompt }],
+      max_tokens: 80, // Conversational, not essays
+      temperature: 0.6, // Natural but not too random
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Advanced audio response generated:', assistantResponse.length, 'characters');
+
+    // 🔧 ADVANCED PUNCTUATION VALIDATION: Validação sofisticada de pontuação
+    let correctedResponse = assistantResponse.trim();
+    
+    // 🔧 CORREÇÃO AVANÇADA DE PONTUAÇÃO PARA MÚLTIPLAS FRASES
+    const sentences = correctedResponse.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    
+    const correctedSentences = sentences.map((sentence, index) => {
+      let trimmed = sentence.trim();
+      
+      // Detectar tipos de frases mais sofisticados
+      const lowerText = trimmed.toLowerCase();
+      
+      // Detectores de perguntas mais avançados
+      const questionStarters = ["what", "where", "when", "who", "how", "why", "do", "does", "did", "is", "are", "can", "could", "would", "will", "should", "have", "has", "had", "might", "may", "shall", "ought"];
+      const firstWord = lowerText.split(" ")[0];
+      
+      const isQuestion = questionStarters.includes(firstWord) || 
+                        lowerText.includes("do you") || 
+                        lowerText.includes("are you") ||
+                        lowerText.includes("can you") ||
+                        lowerText.includes("would you") ||
+                        lowerText.includes("could you") ||
+                        lowerText.includes("have you") ||
+                        lowerText.includes("will you") ||
+                        lowerText.includes("don't you") ||
+                        lowerText.includes("wouldn't you") ||
+                        lowerText.includes("isn't it") ||
+                        lowerText.includes("aren't they") ||
+                        lowerText.includes("right?") ||
+                        lowerText.includes("correct?") ||
+                        lowerText.includes("what's up") ||
+                        lowerText.includes("whats up") ||
+                        lowerText.includes("got anything") ||
+                        lowerText.includes("got any") ||
+                        lowerText.includes("have anything") ||
+                        lowerText.includes("anything cool") ||
+                        lowerText.includes("anything interesting") ||
+                        lowerText.includes("anything new") ||
+                        lowerText.includes("anything fun") ||
+                        (lowerText.startsWith("got ") && lowerText.includes("on your mind")) ||
+                        (lowerText.startsWith("have ") && lowerText.includes("on your mind"));
+      
+      // Detectar exclamações sofisticadas
+      const isExclamation = lowerText.startsWith("wow") || 
+                           lowerText.startsWith("excellent") ||
+                           lowerText.startsWith("fantastic") ||
+                           lowerText.startsWith("brilliant") ||
+                           lowerText.startsWith("outstanding") ||
+                           lowerText.startsWith("remarkable") ||
+                           lowerText.includes("congratulations") ||
+                           lowerText.includes("well done") ||
+                           lowerText.includes("how wonderful") ||
+                           lowerText.includes("how impressive");
+      
+      // Aplicar pontuação correta com lógica avançada
+      if (isQuestion) {
+        if (!trimmed.endsWith("?")) {
+          trimmed = trimmed.replace(/[.!]*$/, "") + "?";
+          console.log('🔧 [ADVANCED PUNCTUATION] Fixed question:', trimmed);
+        }
+      } else if (isExclamation) {
+        if (!trimmed.endsWith("!")) {
+          trimmed = trimmed.replace(/[.?]*$/, "") + "!";
+          console.log('🔧 [ADVANCED PUNCTUATION] Fixed exclamation:', trimmed);
+        }
+      } else {
+        if (!trimmed.match(/[.!?]$/)) {
+          trimmed += ".";
+          console.log('🔧 [ADVANCED PUNCTUATION] Added period:', trimmed);
+        }
+      }
+      
+      return trimmed;
+    });
+    
+    correctedResponse = correctedSentences.join(" ");
+
+    // Calcular XP baseado nos scores (consistente com outros níveis)
+    let xpAwarded = 25; // Base padrão
+    if (pronunciationData.pronunciationScore >= 80) {
+      xpAwarded += 50; // Bonus padrão para boa pronúncia
+    }
+    if (pronunciationData.pronunciationScore >= 90) {
+      xpAwarded += 25; // Bonus padrão para excelência
+    }
+    // Advanced pode ter pequeno bonus extra por complexidade
+    if (pronunciationData.pronunciationScore >= 95) {
+      xpAwarded += 10; // Pequeno bonus para perfeição avançada
+    }
+
+    // Gerar feedback técnico sofisticado
+    const technicalFeedback = generateTechnicalFeedback(pronunciationData, 'Advanced');
+
+    const response: AssistantResponse = {
+      feedback: correctedResponse,
+      xpAwarded,
+      nextChallenge: generateNextChallenge('Advanced', pronunciationData),
+      tips: extractTipsFromResponse(correctedResponse),
+      encouragement: generateEncouragement(pronunciationData.pronunciationScore),
+      technicalFeedback: technicalFeedback
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleAdvancedAudioMessage:', error);
+    
+    // Fallback moderno para Advanced
+    const fallbackResponse = `Hey ${userName || 'there'}, your pronunciation sounds really solid! What would you like to chat about?`;
+
+    const technicalFeedback = generateTechnicalFeedback(pronunciationData, 'Advanced');
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 25, // Consistente com base padrão
+        nextChallenge: generateNextChallenge('Advanced', pronunciationData),
+        tips: ['Continue refining your sophisticated English expression!'],
+        encouragement: 'Your advanced skills are impressive! 🌟',
+        technicalFeedback: technicalFeedback
+      }
+    });
+  }
+}
+
 // ✅ FUNÇÃO EXISTENTE: Processar mensagens de ÁUDIO (atualizada com contexto conversacional)
 async function handleAudioMessage(
   transcription: string,
@@ -910,6 +1388,12 @@ async function handleAudioMessage(
   if (userLevel === 'Inter') {
     console.log('🎓 Using Inter-specific audio handling...');
     return await handleInterAudioMessage(transcription, pronunciationData, userName, conversationContext);
+  }
+
+  // 🎯 ADVANCED SPECIAL HANDLING: Usar lógica sofisticada com validação de pontuação
+  if (userLevel === 'Advanced') {
+    console.log('🎓 Using Advanced-specific audio handling...');
+    return await handleAdvancedAudioMessage(transcription, pronunciationData, userName, conversationContext);
   }
 
   const levelInstructions = {
@@ -1435,6 +1919,346 @@ React naturally to what they're showing you!`;
   }
 }
 
+// 🆕 FUNÇÃO AVANÇADA: Processar mensagens de IMAGEM para Advanced
+async function handleAdvancedImageMessage(
+  prompt: string,
+  imageData: string,
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('🎓 Processing Advanced image message with modern approach...');
+
+    const systemPrompt = `You are Charlotte, a smart, modern friend in your late 20s who's great at helping with English vocabulary through photos.
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+PERSONALITY & STYLE:
+- Talk like a smart friend, not a professor or grandmother
+- Use modern, natural language - avoid old-fashioned words
+- Be encouraging and supportive while keeping it real
+- Share your thoughts naturally, like texting a smart friend
+- Keep responses conversational and engaging (around 80 words max)
+
+MODERN LANGUAGE GUIDELINES:
+✅ USE: "Hey", "cool", "awesome", "totally", "yeah", "for sure", "makes sense", "solid point", "I get it", "that's interesting"
+❌ AVOID: "Delightful", "marvelous", "splendid", "indeed", "quite so", "I appreciate", "demonstrates", "penchant for"
+
+ADVANCED VOCABULARY COACHING:
+- Identify the main object in the image
+- Give sophisticated vocabulary and nuanced definitions
+- Share interesting facts or cultural context when relevant
+- Help with advanced expressions and natural usage
+- Keep it conversational, not academic
+
+CONVERSATION APPROACH:
+- Respond to what they're asking about (use conversation context)
+- React naturally to their photo like a friend would
+- Share your own thoughts when relevant
+- Balance being helpful with being conversational
+- Keep it natural and engaging, not formal
+
+Your job is to help them learn advanced English vocabulary through visual association while being a cool, supportive friend.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-nano",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageData,
+                detail: "low"
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 80, // Conversational, not essays
+      temperature: 0.6 // Natural but not too random
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Advanced image response generated:', assistantResponse.length, 'characters');
+
+    // Clean markdown formatting for natural conversation
+    let cleanFeedback = assistantResponse
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .trim();
+
+    // 🔧 ADVANCED PUNCTUATION VALIDATION: Validação sofisticada de pontuação
+    const sentences = cleanFeedback.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    
+    const correctedSentences = sentences.map((sentence, index) => {
+      let trimmed = sentence.trim();
+      
+      // Detectar tipos de frases mais sofisticados
+      const lowerText = trimmed.toLowerCase();
+      
+      // Detectores de perguntas mais avançados
+      const questionStarters = ["what", "where", "when", "who", "how", "why", "do", "does", "did", "is", "are", "can", "could", "would", "will", "should", "have", "has", "had", "might", "may", "shall", "ought"];
+      const firstWord = lowerText.split(" ")[0];
+      
+      const isQuestion = questionStarters.includes(firstWord) || 
+                        lowerText.includes("do you") || 
+                        lowerText.includes("are you") ||
+                        lowerText.includes("can you") ||
+                        lowerText.includes("would you") ||
+                        lowerText.includes("could you") ||
+                        lowerText.includes("have you") ||
+                        lowerText.includes("will you") ||
+                        lowerText.includes("don't you") ||
+                        lowerText.includes("wouldn't you") ||
+                        lowerText.includes("isn't it") ||
+                        lowerText.includes("aren't they") ||
+                        lowerText.includes("right?") ||
+                        lowerText.includes("correct?") ||
+                        lowerText.includes("what's up") ||
+                        lowerText.includes("whats up") ||
+                        lowerText.includes("got anything") ||
+                        lowerText.includes("got any") ||
+                        lowerText.includes("have anything") ||
+                        lowerText.includes("anything cool") ||
+                        lowerText.includes("anything interesting") ||
+                        lowerText.includes("anything new") ||
+                        lowerText.includes("anything fun") ||
+                        (lowerText.startsWith("got ") && lowerText.includes("on your mind")) ||
+                        (lowerText.startsWith("have ") && lowerText.includes("on your mind"));
+      
+      // Detectar exclamações sofisticadas
+      const isExclamation = lowerText.startsWith("wow") || 
+                           lowerText.startsWith("cool") ||
+                           lowerText.startsWith("awesome") ||
+                           lowerText.startsWith("hey") ||
+                           lowerText.startsWith("totally") ||
+                           lowerText.includes("that's amazing") ||
+                           lowerText.includes("so cool") ||
+                           lowerText.includes("how awesome");
+      
+      // Aplicar pontuação correta com lógica avançada
+      if (isQuestion) {
+        if (!trimmed.endsWith("?")) {
+          trimmed = trimmed.replace(/[.!]*$/, "") + "?";
+          console.log('🔧 [ADVANCED PUNCTUATION] Fixed question:', trimmed);
+        }
+      } else if (isExclamation) {
+        if (!trimmed.endsWith("!")) {
+          trimmed = trimmed.replace(/[.?]*$/, "") + "!";
+          console.log('🔧 [ADVANCED PUNCTUATION] Fixed exclamation:', trimmed);
+        }
+      } else {
+        if (!trimmed.match(/[.!?]$/)) {
+          trimmed += ".";
+          console.log('🔧 [ADVANCED PUNCTUATION] Added period:', trimmed);
+        }
+      }
+      
+      return trimmed;
+    });
+    
+    cleanFeedback = correctedSentences.join(" ");
+
+    // 🎯 XP para Advanced: 8-20 XP (consistente com outros níveis)
+    const cameraXP = Math.floor(Math.random() * 13) + 8;
+
+    const response: AssistantResponse = {
+      feedback: cleanFeedback,
+      xpAwarded: cameraXP,
+      nextChallenge: '',
+      tips: ['Keep exploring vocabulary through photos!'],
+      encouragement: 'Your English is getting stronger! 🌟',
+      technicalFeedback: `Advanced image analysis completed. Object identification for sophisticated vocabulary learning.`
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleAdvancedImageMessage:', error);
+    
+    // Fallback moderno para Advanced
+    const fallbackResponse = `Hey ${userName || 'there'}, I had trouble seeing your photo clearly. Can you try taking another one?`;
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 8,
+        nextChallenge: '',
+        tips: ['Keep practicing with photos!'],
+        encouragement: 'You\'re doing great! 😊',
+        technicalFeedback: 'Image analysis failed - technical error'
+      }
+    });
+  }
+}
+
+// 🆕 FUNÇÃO INTERMEDIÁRIA: Processar mensagens de IMAGEM para Inter
+async function handleInterImageMessage(
+  prompt: string,
+  imageData: string,
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('🎓 Processing Inter image message with friendly approach...');
+
+    const systemPrompt = `You are Charlotte, a friendly English teacher who helps intermediate students learn vocabulary through photos.
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+PERSONALITY & STYLE:
+- Be friendly and encouraging, like a helpful teacher
+- Use clear, natural English that's easy to understand
+- Be supportive and positive while keeping it educational
+- Keep responses helpful and engaging (around 60-80 words)
+
+INTER LEVEL VOCABULARY COACHING:
+- Identify the main object in the image clearly
+- Give practical vocabulary and useful definitions
+- Share helpful facts or context when relevant
+- Help with common expressions and everyday usage
+- Keep it educational but not overwhelming
+
+CONVERSATION APPROACH:
+- Respond to what they're asking about (use conversation context)
+- React positively to their photo
+- Share useful information when relevant
+- Balance being helpful with being encouraging
+- Keep it clear and educational
+
+Your job is to help them learn practical English vocabulary through visual association while being a supportive teacher.`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-nano",
+      messages: [
+        { role: "system", content: systemPrompt },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageData,
+                detail: "low"
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 80, // Clear and focused
+      temperature: 0.6 // Natural but consistent
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Inter image response generated:', assistantResponse.length, 'characters');
+
+    // Clean markdown formatting for natural conversation
+    let cleanFeedback = assistantResponse
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .trim();
+
+    // 🔧 INTER PUNCTUATION VALIDATION: Validação intermediária de pontuação
+    const sentences = cleanFeedback.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
+    
+    const correctedSentences = sentences.map((sentence, index) => {
+      let trimmed = sentence.trim();
+      
+      // Detectar tipos de frases básicos
+      const lowerText = trimmed.toLowerCase();
+      
+      // Detectores de perguntas básicos
+      const questionStarters = ["what", "where", "when", "who", "how", "why", "do", "does", "did", "is", "are", "can", "could", "would", "will", "should"];
+      const firstWord = lowerText.split(" ")[0];
+      
+      const isQuestion = questionStarters.includes(firstWord) || 
+                        lowerText.includes("do you") || 
+                        lowerText.includes("are you") ||
+                        lowerText.includes("can you") ||
+                        lowerText.includes("would you") ||
+                        lowerText.includes("right?");
+      
+      // Detectar exclamações básicas
+      const isExclamation = lowerText.startsWith("wow") || 
+                           lowerText.startsWith("great") ||
+                           lowerText.startsWith("nice") ||
+                           lowerText.startsWith("good") ||
+                           lowerText.includes("that's great") ||
+                           lowerText.includes("well done");
+      
+      // Aplicar pontuação correta
+      if (isQuestion) {
+        if (!trimmed.endsWith("?")) {
+          trimmed = trimmed.replace(/[.!]*$/, "") + "?";
+          console.log('🔧 [INTER PUNCTUATION] Fixed question:', trimmed);
+        }
+      } else if (isExclamation) {
+        if (!trimmed.endsWith("!")) {
+          trimmed = trimmed.replace(/[.?]*$/, "") + "!";
+          console.log('🔧 [INTER PUNCTUATION] Fixed exclamation:', trimmed);
+        }
+      } else {
+        if (!trimmed.match(/[.!?]$/)) {
+          trimmed += ".";
+          console.log('🔧 [INTER PUNCTUATION] Added period:', trimmed);
+        }
+      }
+      
+      return trimmed;
+    });
+    
+    cleanFeedback = correctedSentences.join(" ");
+
+    // 🎯 XP para Inter: 10-24 XP (consistente com outros níveis)
+    const cameraXP = Math.floor(Math.random() * 15) + 10;
+
+    const response: AssistantResponse = {
+      feedback: cleanFeedback,
+      xpAwarded: cameraXP,
+      nextChallenge: '',
+      tips: ['Keep practicing with photos!'],
+      encouragement: 'You\'re making great progress! 🌟',
+      technicalFeedback: `Inter image analysis completed. Object identification for practical vocabulary learning.`
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleInterImageMessage:', error);
+    
+    // Fallback amigável para Inter
+    const fallbackResponse = `I had trouble seeing your photo clearly, ${userName || 'there'}. Can you try taking another one with better lighting?`;
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 10,
+        nextChallenge: '',
+        tips: ['Keep practicing with photos!'],
+        encouragement: 'You\'re doing well! 😊',
+        technicalFeedback: 'Image analysis failed - technical error'
+      }
+    });
+  }
+}
+
 // 🆕 FUNÇÃO GERAL: Processar mensagens de IMAGEM (Inter/Advanced)
 async function handleImageMessage(
   prompt: string,
@@ -1447,6 +2271,18 @@ async function handleImageMessage(
   if (userLevel === 'Novice') {
     console.log('👶 Using Novice-specific image handling...');
     return await handleNoviceImageMessage(prompt, imageData, userName, conversationContext);
+  }
+
+  // 🎯 ADVANCED SPECIAL HANDLING: Usar lógica moderna e natural
+  if (userLevel === 'Advanced') {
+    console.log('🎓 Using Advanced-specific image handling...');
+    return await handleAdvancedImageMessage(prompt, imageData, userName, conversationContext);
+  }
+
+  // 🎯 INTER SPECIAL HANDLING: Usar lógica intermediária e natural
+  if (userLevel === 'Inter') {
+    console.log('🎓 Using Inter-specific image handling...');
+    return await handleInterImageMessage(prompt, imageData, userName, conversationContext);
   }
 
   try {

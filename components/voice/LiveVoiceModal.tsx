@@ -703,16 +703,28 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         service.configureForInterLiveVoice();
         console.log('🎯 [INTER LIVE] Applied Inter-specific Live Voice configuration');
       }
+      // 🎓 NOVO: Configurar especificamente para Advanced Live Voice
+      else if (userLevel === 'Advanced') {
+        service.configureForAdvancedLiveVoice();
+        console.log('🎓 [ADVANCED LIVE] Applied Advanced-specific Live Voice configuration');
+      }
 
       // 🧠 NOVO: Função para adicionar contexto conversacional após conexão
       const addConversationContext = (service: OpenAIRealtimeService) => {
         if (conversationContext) {
           try {
+            // Debug: Verificar mensagens no contexto
+            const recentMessages = conversationContext.getRecentMessages(5);
+            console.log('🧠 [CONTEXT DEBUG] Recent messages in context:', recentMessages);
+            console.log('🧠 [CONTEXT DEBUG] Context stats:', conversationContext.getEnhancedStats());
+            
             const contextPrompt = conversationContext.generateContextForAssistant();
             console.log('🧠 [CONTEXT] Adding conversation context to Live Voice:', {
               hasContext: !!contextPrompt,
-              contextLength: contextPrompt?.length || 0
+              contextLength: contextPrompt?.length || 0,
+              contextPreview: contextPrompt?.substring(0, 200) + '...'
             });
+            console.log('🧠 [CONTEXT] Full context being sent:', contextPrompt);
             
             // Adicionar contexto como instrução inicial
             if (contextPrompt) {
