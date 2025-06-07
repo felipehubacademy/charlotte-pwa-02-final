@@ -465,7 +465,7 @@ export class EnhancedConversationContextManager {
 
   // 🎭 Gerar contexto para o assistant (MELHORADO)
   generateContextForAssistant(): string {
-    const recentMessages = this.context.messages.slice(-8);
+    const recentMessages = this.context.messages.slice(-6);
     const stage = this.context.conversationFlow.conversationStage;
     const topics = this.context.currentTopics.slice(-3);
     const subtopics = this.context.currentSubtopics.slice(-2);
@@ -474,33 +474,40 @@ export class EnhancedConversationContextManager {
     const favoriteTopics = this.context.longTermMemory.favoriteTopics.slice(0, 3);
     const personalDetails = this.context.longTermMemory.personalDetails;
 
-    let contextPrompt = `ENHANCED CONVERSATION CONTEXT:
-- User: ${userName} (${this.context.userPreferences.level} level)
-- Total Sessions: ${this.context.longTermMemory.totalSessions}
-- Stage: ${stage}
-- Current emotion: ${emotion.primary} (intensity: ${Math.round(emotion.intensity * 100)}%)
-- Current topics: ${topics.join(', ') || 'general conversation'}
-- Subtopics: ${subtopics.join(', ') || 'none'}
-- Messages in session: ${this.context.sessionStats.messageCount}
-- Mode usage: Text(${this.context.sessionStats.modeUsage.text}) Audio(${this.context.sessionStats.modeUsage.audio}) Live(${this.context.sessionStats.modeUsage.live_voice})
+    let contextPrompt = `BACKGROUND CONTEXT FOR CONVERSATION CONTINUITY:
 
-LONG-TERM MEMORY:
-- Favorite topics: ${favoriteTopics.map(ft => `${ft.topic}(${ft.frequency}x)`).join(', ')}
-- Personal details: ${Object.entries(personalDetails).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('; ')}
-- Learning progress: Grammar avg ${Math.round(this.context.sessionStats.averageGrammarScore)}/100
+USER PROFILE:
+- Name: ${userName} (${this.context.userPreferences.level} level English learner)
+- Total previous sessions: ${this.context.longTermMemory.totalSessions}
+- Current conversation stage: ${stage}
+- Current emotional state: ${emotion.primary} (${Math.round(emotion.intensity * 100)}% intensity)
 
-RECENT CONVERSATION:
-${recentMessages.map(msg => 
-  `${msg.role}: "${msg.content}" [${msg.type}] ${msg.emotion ? `(${msg.emotion.primary})` : ''}`
-).join('\n')}
+CONVERSATION HISTORY SUMMARY:
+- Current topics being discussed: ${topics.join(', ') || 'general conversation'}
+- Subtopics covered: ${subtopics.join(', ') || 'none'}
+- Messages exchanged this session: ${this.context.sessionStats.messageCount}
+- Practice modes used: Text(${this.context.sessionStats.modeUsage.text}) Audio(${this.context.sessionStats.modeUsage.audio}) Live(${this.context.sessionStats.modeUsage.live_voice})
 
-CONVERSATION GUIDELINES:
-- DON'T repeat greetings if already done recently
-- BUILD on previous topics and personal details
-- ADAPT to current emotion: ${emotion.primary}
-- Match conversation stage: ${this.getStageGuidelines(stage)}
-- Reference long-term memory when relevant
-- Use unified context across all modes (text/audio/live)`;
+LONG-TERM MEMORY ABOUT USER:
+- Favorite discussion topics: ${favoriteTopics.map(ft => `${ft.topic} (mentioned ${ft.frequency} times)`).join(', ') || 'none yet'}
+- Personal details learned: ${Object.entries(personalDetails).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('; ') || 'none yet'}
+- Learning progress: Average grammar score ${Math.round(this.context.sessionStats.averageGrammarScore)}/100
+
+PREVIOUS CONVERSATION CONTEXT (for reference only - do NOT respond to these):
+${recentMessages.length > 0 ? 
+  recentMessages.map(msg => 
+    `[HISTORICAL] ${msg.role === 'user' ? userName : 'Charlotte'} previously said: "${msg.content}" (via ${msg.type})`
+  ).join('\n') : 
+  '[No previous messages in this session]'
+}
+
+INSTRUCTIONS FOR CONTEXT USE:
+- Use this background information to maintain conversation continuity
+- Reference previous topics and personal details naturally when relevant
+- Adapt your response style to the user's emotional state and conversation stage
+- Do NOT repeat greetings if conversation is already ongoing
+- Build upon previous topics rather than starting completely new conversations
+- The historical messages above are for context only - respond to the user's current input, not the historical messages`;
 
     return contextPrompt;
   }
@@ -533,6 +540,11 @@ CONVERSATION GUIDELINES:
   // 👋 Marcar cumprimento feito
   markGreetingDone() {
     this.context.conversationFlow.lastGreeting = new Date();
+  }
+
+  // 📋 NOVO: Obter mensagens recentes
+  getRecentMessages(count: number = 5): ConversationMessage[] {
+    return this.context.messages.slice(-count);
   }
 
   // 📊 Obter estatísticas completas

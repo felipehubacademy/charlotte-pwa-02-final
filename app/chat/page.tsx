@@ -375,7 +375,9 @@ export default function ChatPage() {
         setCurrentLevel(level);
       }
 
+      // 🔧 CORRIGIDO: Sempre atualizar sessionXP com valor real do banco
       const todayXP = await supabaseService.getTodaySessionXP(user.entra_id);
+      console.log('🔄 Loading today XP from bank:', todayXP);
       setSessionXP(todayXP);
 
       // Load user achievements
@@ -655,6 +657,11 @@ export default function ChatPage() {
           
           setSessionXP(prev => prev + xpResult.totalXP + achievementBonusXP);
           setTotalXP(prev => prev + xpResult.totalXP + achievementBonusXP);
+          
+          // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
+          setTimeout(() => {
+            loadUserStats();
+          }, 1000); // Aguardar 1s para garantir que salvou no banco
           
         }
         
@@ -1256,9 +1263,32 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
             conversationContext.addMessage('assistant', msg, 'text')
           );
 
-          // Save practice with vocabulary XP
+          // Save practice with vocabulary XP and achievements
           if (supabaseService.isAvailable() && user?.entra_id) {
-            const totalXPAwarded = (assistantResult.xpAwarded || 3) + vocabularyXP; // Base XP + vocabulary XP
+            const baseXP = (assistantResult.xpAwarded || 3) + vocabularyXP; // Base XP + vocabulary XP
+            
+            // 🏆 Calcular achievements para Photo
+            const practiceData = {
+              user_id: user.entra_id,
+              type: 'camera_object' as const,
+              text: `Image analysis: ${discoveredWord || 'object identification'}`,
+              userLevel: user?.user_level as 'Novice' | 'Inter' | 'Advanced' || 'Inter',
+              xp_awarded: baseXP,
+              audio_duration: 0,
+              session_date: new Date().toISOString().split('T')[0],
+              streakDays: 0 // Will be calculated by the service
+            };
+
+            const achievementResult = calculateUniversalAchievements(practiceData);
+            const photoAchievements = achievementResult.achievements;
+            const achievementBonusXP = achievementResult.totalBonusXP;
+            const totalXPAwarded = baseXP + achievementBonusXP;
+
+            console.log('🏆 Photo achievements calculated:', {
+              achievementsEarned: photoAchievements.length,
+              bonusXP: achievementBonusXP,
+              achievements: photoAchievements.map(a => a.title)
+            });
             
             await supabaseService.saveAudioPractice({
               user_id: user.entra_id,
@@ -1271,11 +1301,49 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               practice_type: 'camera_object',
               audio_duration: 0,
               feedback: assistantFeedback,
-              technicalFeedback: assistantResult.technicalFeedback
+              technicalFeedback: assistantResult.technicalFeedback,
+              achievement_ids: photoAchievements.map(a => a.id),
+              surprise_bonus: 0,
+              base_xp: baseXP,
+              bonus_xp: achievementBonusXP
             });
+
+            // 🏆 Salvar achievements se houver
+            if (photoAchievements.length > 0) {
+              try {
+                console.log('🚀 Saving Photo achievements via API...');
+                
+                const response = await fetch('/api/achievements', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    userId: user.entra_id,
+                    achievements: photoAchievements
+                  })
+                });
+
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                if (!result.success) {
+                  throw new Error(result.error || 'Failed to save achievements');
+                }
+
+                console.log('✅ Photo achievements saved successfully!');
+              } catch (error) {
+                console.warn('⚠️ Failed to save Photo achievements:', error);
+              }
+            }
             
             setSessionXP(prev => prev + totalXPAwarded);
             setTotalXP(prev => prev + totalXPAwarded);
+            
+            // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
+            setTimeout(() => {
+              loadUserStats();
+            }, 1000); // Aguardar 1s para garantir que salvou no banco
             
           }
 
@@ -1706,6 +1774,11 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           
         setSessionXP(prev => prev + assistantResult.xpAwarded + achievementBonusXP);
         setTotalXP(prev => prev + assistantResult.xpAwarded + achievementBonusXP);
+        
+        // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
+        setTimeout(() => {
+          loadUserStats();
+        }, 1000); // Aguardar 1s para garantir que salvou no banco
           
       }
 
@@ -2017,7 +2090,14 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onLogout={logout}
         onXPGained={(amount) => {
           console.log('Live Voice XP gained:', amount);
-          // Don't update state here to avoid loops - XP is already updated by the component
+          // 🔧 CORRIGIDO: Atualizar estado local e recarregar stats
+          setSessionXP(prev => prev + amount);
+          setTotalXP(prev => prev + amount);
+          
+          // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
+          setTimeout(() => {
+            loadUserStats();
+          }, 1000); // Aguardar 1s para garantir que salvou no banco
         }}
         conversationContext={conversationContext}
       />

@@ -10,6 +10,7 @@ import EnhancedXPCounter from '../ui/EnhancedXPCounter';
 import CharlotteAvatar from '../ui/CharlotteAvatar';
 import { supabaseService } from '../../lib/supabase-service';
 import { useOnboarding } from '../../hooks/useOnboarding';
+import { calculateUniversalAchievements } from '../../lib/universal-achievement-service';
 
 interface LiveVoiceModalProps {
   isOpen: boolean;
@@ -158,6 +159,30 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       
       // Salvar no banco de dados
       if (supabaseService.isAvailable()) {
+        console.log('🚀 Starting Live Voice achievement calculation...');
+        
+        // 🏆 Calcular achievements para Live Voice
+        const practiceData = {
+          user_id: user.entra_id,
+          type: 'live_voice' as const,
+          text: `Live voice conversation completed (${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s)`,
+          userLevel: userLevel,
+          xp_awarded: finalXP,
+          audio_duration: totalSeconds,
+          session_date: new Date().toISOString().split('T')[0],
+          streakDays: 0 // Will be calculated by the service
+        };
+
+        const achievementResult = calculateUniversalAchievements(practiceData);
+        const liveAchievements = achievementResult.achievements;
+        const achievementBonusXP = achievementResult.totalBonusXP;
+
+        console.log('🏆 Live Voice achievements calculated:', {
+          achievementsEarned: liveAchievements.length,
+          bonusXP: achievementBonusXP,
+          achievements: liveAchievements.map(a => a.title)
+        });
+
         await supabaseService.saveAudioPractice({
           user_id: user.entra_id,
           transcription: `Live voice conversation completed (${Math.floor(totalSeconds / 60)}m ${totalSeconds % 60}s)`,
@@ -165,16 +190,49 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           fluency_score: null,
           completeness_score: null,
           pronunciation_score: null,
-          feedback: `Great conversation! You practiced English for ${durationMinutes.toFixed(1)} minutes. (+${finalXP} XP)`,
-          xp_awarded: finalXP,
+          feedback: `Great conversation! You practiced English for ${durationMinutes.toFixed(1)} minutes. (+${finalXP + achievementBonusXP} XP)`,
+          xp_awarded: finalXP + achievementBonusXP,
           practice_type: 'live_voice',
-          audio_duration: totalSeconds
+          audio_duration: totalSeconds,
+          achievement_ids: liveAchievements.map(a => a.id),
+          surprise_bonus: 0,
+          base_xp: finalXP,
+          bonus_xp: achievementBonusXP
         });
 
-        console.log('✅ Live voice practice saved with REBALANCED XP:', finalXP);
+        // 🏆 Salvar achievements se houver
+        if (liveAchievements.length > 0) {
+          try {
+            console.log('🚀 Saving Live Voice achievements via API...');
+            
+            const response = await fetch('/api/achievements', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.entra_id,
+                achievements: liveAchievements
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+              throw new Error(result.error || 'Failed to save achievements');
+            }
+
+            console.log('✅ Live Voice achievements saved successfully!');
+          } catch (error) {
+            console.warn('⚠️ Failed to save Live Voice achievements:', error);
+          }
+        }
+
+        console.log('✅ Live voice practice saved with achievements XP:', finalXP + achievementBonusXP);
         
-        // Callback para atualizar XP na UI
-        onXPGained?.(finalXP);
+        // Callback para atualizar XP na UI (incluindo bônus de achievements)
+        onXPGained?.(finalXP + achievementBonusXP);
       }
 
     } catch (error) {
@@ -591,6 +649,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         apiKey: '', // Será obtida via API route segura
         voice: 'alloy',
         userLevel, // 🔧 NOVO: Passar nível do usuário para configuração de VAD
+        userName, // 🎯 NOVO: Passar nome do usuário para personalização
         onMessage: (message) => console.log('Realtime message:', message),
         onError: (error) => {
           console.error('Realtime error:', error);
@@ -639,23 +698,31 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       const service = new OpenAIRealtimeService(config);
       realtimeServiceRef.current = service;
 
-      // 🧠 NOVO: Adicionar contexto conversacional se disponível
-      if (conversationContext) {
-        try {
-          const contextPrompt = conversationContext.generateContextForAssistant();
-          console.log('🧠 [CONTEXT] Adding conversation context to Live Voice:', {
-            hasContext: !!contextPrompt,
-            contextLength: contextPrompt?.length || 0
-          });
-          
-          // Adicionar contexto como instrução inicial
-          if (contextPrompt) {
-            service.addContextualInstructions(contextPrompt);
-          }
-        } catch (error) {
-          console.error('❌ Error adding conversation context:', error);
-        }
+      // 🎯 NOVO: Configurar especificamente para Inter Live Voice
+      if (userLevel === 'Inter') {
+        service.configureForInterLiveVoice();
+        console.log('🎯 [INTER LIVE] Applied Inter-specific Live Voice configuration');
       }
+
+      // 🧠 NOVO: Função para adicionar contexto conversacional após conexão
+      const addConversationContext = (service: OpenAIRealtimeService) => {
+        if (conversationContext) {
+          try {
+            const contextPrompt = conversationContext.generateContextForAssistant();
+            console.log('🧠 [CONTEXT] Adding conversation context to Live Voice:', {
+              hasContext: !!contextPrompt,
+              contextLength: contextPrompt?.length || 0
+            });
+            
+            // Adicionar contexto como instrução inicial
+            if (contextPrompt) {
+              service.addContextualInstructions(contextPrompt);
+            }
+          } catch (error) {
+            console.error('❌ Error adding conversation context:', error);
+          }
+        }
+      };
 
       // 🧠 NOVO: Função para enviar saudação inicial contextual
       const sendInitialGreeting = (service: OpenAIRealtimeService) => {
@@ -720,6 +787,11 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         startConversationTracking();
         // 🔊 Tocar som de conexão
         playConnectionSound();
+        
+        // 🧠 NOVO: Adicionar contexto conversacional após conexão estabelecida
+        setTimeout(() => {
+          addConversationContext(service);
+        }, 500); // Pequeno delay para garantir que a sessão está pronta
         
         // 🧠 NOVO: Enviar mensagem inicial contextual
         setTimeout(() => {

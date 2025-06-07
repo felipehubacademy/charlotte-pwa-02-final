@@ -318,6 +318,11 @@ export class OpenAIRealtimeService {
 
   // 🎛️ MOBILE FIX: Temperatura otimizada por plataforma e nível
   private getTemperatureForPlatform(): number {
+    // 🎯 NOVO: Usar temperatura específica para Inter Live Voice
+    if (this.config.userLevel === 'Inter') {
+      return this.getInterLiveVoiceTemperature();
+    }
+    
     const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
     
     // Novice: temperatura mínima permitida pela API (0.6) para máxima consistência
@@ -330,23 +335,26 @@ export class OpenAIRealtimeService {
 
   // 🆕 MOBILE FIX: Configuração de max_tokens otimizada por nível e plataforma
   private getMaxTokensForUserLevel(): number {
+    // 🎯 NOVO: Usar tokens específicos para Inter Live Voice
+    if (this.config.userLevel === 'Inter') {
+      return this.getInterLiveVoiceTokens();
+    }
+    
     const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
     
     const maxTokensConfig = {
       'Novice': isMobile ? 40 : 50,        // MARGEM DE SEGURANÇA: evitar cortes prematuros
-      'Inter': isMobile ? 200 : 280,       // Mobile: mais direto, Desktop: explicações completas
+      'Inter': isMobile ? 200 : 280,       // Mobile: mais direto, Desktop: explicações completas (fallback)
       'Advanced': isMobile ? 350 : 500     // Mobile: respostas focadas, Desktop: discussões completas
     };
     
-    const maxTokens = maxTokensConfig[this.config.userLevel] || maxTokensConfig['Inter'];
+    const maxTokens = maxTokensConfig[this.config.userLevel as keyof typeof maxTokensConfig] || maxTokensConfig['Advanced'];
     
     console.log(`🎯 [TOKENS] Platform: ${isMobile ? 'Mobile' : 'Desktop'} - Setting max_response_output_tokens to ${maxTokens} for ${this.config.userLevel} level`);
     
     // Log específico por nível e plataforma
     if (this.config.userLevel === 'Novice') {
       console.log(`🎯 [NOVICE] Focus: Natural conversation with simple English - ${isMobile ? 'Mobile: concise responses' : 'Desktop: complete responses'}`);
-    } else if (this.config.userLevel === 'Inter') {
-      console.log(`🎯 [INTER] Focus: Friendly conversation coaching - ${isMobile ? 'Mobile: direct tips' : 'Desktop: detailed explanations'}`);
     } else if (this.config.userLevel === 'Advanced') {
       console.log(`🎯 [ADVANCED] Focus: Sophisticated conversation partner - ${isMobile ? 'Mobile: focused insights' : 'Desktop: complete discussions'}`);
     }
@@ -356,6 +364,11 @@ export class OpenAIRealtimeService {
 
   // 🔧 MOBILE FIX: Configuração de VAD otimizada para mobile/desktop
   private getVADConfigForUserLevel() {
+    // 🎯 NOVO: Usar VAD específico para Inter Live Voice
+    if (this.config.userLevel === 'Inter') {
+      return this.getInterLiveVoiceVAD();
+    }
+    
     // Detectar plataforma mobile
     const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
     const isIOS = typeof window !== 'undefined' && /iPhone|iPad/i.test(navigator.userAgent);
@@ -384,7 +397,7 @@ export class OpenAIRealtimeService {
       }
     };
 
-    const config = vadConfigs[this.config.userLevel] || vadConfigs['Inter'];
+    const config = vadConfigs[this.config.userLevel as keyof typeof vadConfigs] || vadConfigs['Inter'];
     
     console.log(`🎤 [VAD] Platform: ${isMobile ? (isIOS ? 'iOS' : 'Android') : 'Desktop'}`);
     console.log(`🎤 [VAD] Configuring ${isMobile ? 'mobile-optimized' : 'desktop'} server_vad for ${this.config.userLevel} level`);
@@ -405,10 +418,19 @@ export class OpenAIRealtimeService {
     const baseInstructions = this.getInstructions();
     const enhancedInstructions = `${baseInstructions}
 
-CONVERSATION CONTEXT:
+===== BACKGROUND CONTEXT INFORMATION =====
 ${contextPrompt}
 
-Use this context to maintain conversation continuity and avoid repetitive greetings. Reference previous topics naturally when relevant.`;
+IMPORTANT: The above is background context information to help you maintain conversation continuity. It contains historical information about the user and previous conversations. Do NOT treat any of the historical messages as current user input - only respond to the actual user input you receive in real-time.
+
+Use this background information to:
+- Avoid repetitive greetings if conversation is ongoing
+- Reference previous topics naturally when relevant
+- Maintain awareness of the user's learning level and preferences
+- Build upon established conversation threads
+- Provide personalized responses based on the user's history
+
+Always respond to the user's current input, not to the historical context above.`;
 
     console.log('🧠 [CONTEXT] Updating session with enhanced instructions');
     
@@ -422,6 +444,11 @@ Use this context to maintain conversation continuity and avoid repetitive greeti
 
   // 📋 Instruções por nível - PERSONALIDADE NATURAL E AMIGÁVEL
   private getInstructions(): string {
+    // 🎯 NOVO: Usar instruções específicas para Inter Live Voice se aplicável
+    if (this.config.userLevel === 'Inter') {
+      return this.config.instructions || this.getInterLiveVoiceInstructions();
+    }
+    
     const levelInstructions = {
       'Novice': `You are Charlotte, a friendly and patient English coach for Brazilian beginners.
 
@@ -1766,6 +1793,111 @@ RESPONSE STYLE:
     console.log(`🎤 [SPEECH CHECK] User speaking: ${this.isUserCurrentlySpeaking}, Duration: ${speechDuration}ms, Valid: ${stillSpeaking}`);
     
     return stillSpeaking;
+  }
+
+  // 🎯 NOVO: Configuração específica para Inter Live Voice
+  private getInterLiveVoiceInstructions(): string {
+    const userName = this.config.userName;
+    const userGreeting = userName ? `Hi ${userName}!` : 'Hi there!';
+    
+    return `You are Charlotte, a friendly conversation coach specifically designed for intermediate English learners.
+${userName ? `\nUSER INFO: You're talking to ${userName}. Use their name naturally in conversation when appropriate.` : ''}
+
+CORE MISSION: Help Inter students practice natural conversation while building confidence.
+
+CONVERSATION STYLE:
+- Be genuinely interested in what they're saying
+- Respond like a supportive friend who happens to be great at English
+- Keep conversations flowing naturally - don't make it feel like a lesson
+- Share your own thoughts briefly to model natural conversation
+
+INTER-SPECIFIC COACHING:
+- Gently suggest better ways to say things: "That's good! You could also say..."
+- Celebrate when they use advanced structures: "I love how you said that!"
+- Help them sound more natural: "Most people would say..." 
+- Focus on practical phrases they can use immediately
+
+RESPONSE GUIDELINES:
+- 2-3 sentences maximum (Inter students need manageable chunks)
+- Always end with a follow-up question to keep them talking
+- Mix conversation with gentle coaching (80% chat, 20% tips)
+- Use encouraging phrases: "That's interesting!", "Tell me more!", "Good point!"
+
+TOPICS TO EXPLORE:
+- Their daily life, work, hobbies, opinions
+- "How was your day?", "What do you think about...", "Have you ever..."
+- Help them express complex ideas in simpler, clearer ways
+
+AVOID:
+- Long explanations or grammar lectures
+- Multiple corrections at once
+- Making them feel like they're in a classroom
+- Being too formal or teacher-like
+
+GOAL: Make them feel confident, heard, and excited to keep practicing English!`;
+  }
+
+  // 🎯 NOVO: Configuração otimizada de tokens para Inter Live Voice
+  private getInterLiveVoiceTokens(): number {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    // Inter precisa de respostas mais diretas e práticas
+    const tokens = isMobile ? 150 : 200; // Reduzido para ser mais focado
+    
+    console.log(`🎯 [INTER LIVE] Setting optimized tokens: ${tokens} for ${isMobile ? 'mobile' : 'desktop'}`);
+    console.log(`🎯 [INTER LIVE] Focus: Practical conversation coaching with manageable responses`);
+    
+    return tokens;
+  }
+
+  // 🎯 NOVO: Configuração otimizada de VAD para Inter Live Voice
+  private getInterLiveVoiceVAD() {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    const vadConfig = {
+      type: 'server_vad',
+      threshold: isMobile ? 0.65 : 0.55,        // Balanceado para conversação natural
+      prefix_padding_ms: isMobile ? 350 : 200,  // Tempo adequado para capturar início
+      silence_duration_ms: isMobile ? 800 : 500, // Tempo para pensar sem cortar
+      create_response: true
+    };
+    
+    console.log(`🎯 [INTER LIVE] VAD optimized for natural conversation flow`);
+    console.log(`🎯 [INTER LIVE] Platform: ${isMobile ? 'Mobile' : 'Desktop'} - Threshold: ${vadConfig.threshold}`);
+    
+    return vadConfig;
+  }
+
+  // 🎯 NOVO: Temperatura otimizada para Inter Live Voice
+  private getInterLiveVoiceTemperature(): number {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    // Inter precisa de equilíbrio entre naturalidade e consistência
+    const temperature = isMobile ? 0.65 : 0.75;
+    
+    console.log(`🎯 [INTER LIVE] Temperature: ${temperature} (balanced for natural coaching)`);
+    
+    return temperature;
+  }
+
+  // 🎯 NOVO: Função principal para configurar Inter Live Voice
+  public configureForInterLiveVoice(): void {
+    console.log('🎯 [INTER LIVE] Configuring optimized settings for Inter Live Voice');
+    console.log('🎯 [INTER LIVE] User details:', {
+      userLevel: this.config.userLevel,
+      userName: this.config.userName,
+      hasUserName: !!this.config.userName
+    });
+    
+    // Aplicar configurações específicas do Inter
+    this.config.instructions = this.getInterLiveVoiceInstructions();
+    
+    console.log('🎯 [INTER LIVE] Inter-specific configuration applied');
+    console.log('🎯 [INTER LIVE] - Instructions: Conversation-focused coaching');
+    console.log('🎯 [INTER LIVE] - Tokens: Optimized for manageable responses');
+    console.log('🎯 [INTER LIVE] - VAD: Balanced for natural conversation flow');
+    console.log('🎯 [INTER LIVE] - Temperature: Balanced for natural coaching');
+    console.log('🎯 [INTER LIVE] - User personalization: ' + (this.config.userName ? `Enabled for ${this.config.userName}` : 'Generic'));
   }
 }
 

@@ -560,6 +560,120 @@ IMPORTANT:
   }
 }
 
+// 🎓 NOVA FUNÇÃO: Processar mensagens de áudio específicas para INTER
+async function handleInterAudioMessage(
+  transcription: string,
+  pronunciationData: any,
+  userName?: string,
+  conversationContext?: string
+): Promise<NextResponse> {
+  try {
+    console.log('🎓 Processing Inter audio message with 2-message split approach...');
+
+    // 🎯 PRIMEIRA MENSAGEM: Resposta conversacional natural
+    const conversationalPrompt = `You are Charlotte, a supportive friend helping someone practice English conversation.
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+CONVERSATION RULES:
+- Respond naturally to what they said, like a real conversation
+- Be warm, encouraging, and genuinely interested
+- Ask follow-up questions to keep the conversation flowing
+- Reference previous conversation when relevant
+- Don't mention pronunciation or grammar - just have a natural chat
+- Keep it conversational and friendly (80-120 words)
+- React to expressions like "lol", "haha", "wow", "cool" naturally
+- Celebrate good news with "Congratulations!", "That's amazing!"
+- Be like a supportive friend who happens to know English well
+
+Student said: "${transcription}"
+
+Create a natural, conversational response that acknowledges what they said and continues the conversation naturally. Focus purely on the content and meaning, not the language mechanics.`;
+
+    // 🎯 SEGUNDA MENSAGEM: Feedback de pronúncia suave e encorajador
+    const feedbackPrompt = `You are Charlotte, giving gentle pronunciation feedback to an intermediate English learner.
+
+FEEDBACK RULES:
+- Start with encouraging phrases like "Oh, and...", "By the way...", "Just a tip..."
+- Focus on 1-2 specific pronunciation strengths they showed
+- Gently mention 1 area for improvement (if needed)
+- Keep it positive and encouraging
+- Make it feel like friendly advice, not a formal lesson
+- Keep it brief (40-80 words)
+
+Pronunciation Assessment:
+- Overall Score: ${pronunciationData.pronunciationScore}/100
+- Accuracy: ${pronunciationData.accuracyScore}/100  
+- Fluency: ${pronunciationData.fluencyScore}/100
+- Completeness: ${pronunciationData.completenessScore}/100
+
+Student said: "${transcription}"
+
+Create a gentle, encouraging pronunciation feedback that feels like friendly advice from a supportive coach.`;
+
+    // Gerar ambas as mensagens
+    const [conversationalResponse, feedbackResponse] = await Promise.all([
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: conversationalPrompt }],
+        max_tokens: 70,  // 🔧 REDUZIDO: 90 → 70 (~45-55 palavras)
+        temperature: 0.7, // 🔧 PADRONIZADO: 0.8 → 0.7
+      }),
+      openai.chat.completions.create({
+        model: "gpt-4o-mini", 
+        messages: [{ role: "user", content: feedbackPrompt }],
+        max_tokens: 50,  // 🔧 REDUZIDO: 60 → 50 (~30-40 palavras)
+        temperature: 0.7,
+      })
+    ]);
+
+    const conversationalText = conversationalResponse.choices[0]?.message?.content;
+    const feedbackText = feedbackResponse.choices[0]?.message?.content;
+
+    if (!conversationalText || !feedbackText) {
+      throw new Error('Failed to generate Inter audio responses');
+    }
+
+    console.log('🎯 Inter Audio - Conversational part:', conversationalText);
+    console.log('🎯 Inter Audio - Feedback part:', feedbackText);
+
+    // Combinar as duas mensagens
+    const combinedFeedback = `${conversationalText.trim()}\n\n${feedbackText.trim()}`;
+
+    console.log('✅ Inter audio response generated with 2-message approach');
+    console.log('📝 Combined response:', combinedFeedback);
+
+    // Calcular XP baseado nos scores
+    let xpAwarded = 25;
+    if (pronunciationData.pronunciationScore >= 80) {
+      xpAwarded += 50;
+    }
+    if (pronunciationData.pronunciationScore >= 90) {
+      xpAwarded += 25;
+    }
+
+    // Gerar feedback técnico separado
+    const technicalFeedback = generateTechnicalFeedback(pronunciationData, 'Inter');
+
+    const response: AssistantResponse = {
+      feedback: combinedFeedback,
+      xpAwarded,
+      nextChallenge: generateNextChallenge('Inter', pronunciationData),
+      tips: extractTipsFromResponse(feedbackText),
+      encouragement: generateEncouragement(pronunciationData.pronunciationScore),
+      technicalFeedback: technicalFeedback
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleInterAudioMessage:', error);
+    
+    // Fallback para lógica padrão
+    return await handleAudioMessage(transcription, pronunciationData, 'Inter', userName, conversationContext);
+  }
+}
+
 // 🎓 NOVA FUNÇÃO: Processar mensagens de texto específicas para INTER
 async function handleInterTextMessage(
   transcription: string,
@@ -785,11 +899,17 @@ async function handleAudioMessage(
   userLevel: string,
   userName?: string,
   conversationContext?: string
-) {
+): Promise<NextResponse> {
   // 🎯 NOVICE SPECIAL HANDLING: Usar lógica simplificada e natural como no texto
   if (userLevel === 'Novice') {
     console.log('👶 Using Novice-specific audio handling...');
     return await handleNoviceAudioMessage(transcription, pronunciationData, userName, conversationContext);
+  }
+
+  // 🎯 INTER SPECIAL HANDLING: Usar lógica de 2 mensagens com correções suaves
+  if (userLevel === 'Inter') {
+    console.log('🎓 Using Inter-specific audio handling...');
+    return await handleInterAudioMessage(transcription, pronunciationData, userName, conversationContext);
   }
 
   const levelInstructions = {

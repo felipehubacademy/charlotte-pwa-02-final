@@ -307,7 +307,7 @@ class SupabaseService {
     if (!this.supabase) return null;
 
     try {
-      // 🇧🇷 Usar timezone do Brasil (UTC-3)
+      // 🇧🇷 SIMPLIFICADO: Usar timezone do Brasil
       const now = new Date();
       const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
       const today = brazilTime.toISOString().split('T')[0];
@@ -402,9 +402,12 @@ class SupabaseService {
       }
 
       let streak = 0;
-      const today = new Date();
-      let currentDate = new Date(today);
-
+      
+      // 🇧🇷 SIMPLIFICADO: Usar timezone do Brasil para streak
+      const now = new Date();
+      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+      
+      let currentDate = new Date(brazilTime);
       // Normalizar para apenas a data (sem hora)
       currentDate.setHours(0, 0, 0, 0);
 
@@ -460,7 +463,10 @@ class SupabaseService {
         return;
       }
 
-      const today = new Date().toISOString().split('T')[0];
+      // 🇧🇷 SIMPLIFICADO: Usar timezone do Brasil
+      const now = new Date();
+      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+      const today = brazilTime.toISOString().split('T')[0];
 
       if (existingProgress) {
         console.log('📊 Found existing progress:', existingProgress);
@@ -609,7 +615,10 @@ class SupabaseService {
     if (!this.supabase) return null;
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // 🇧🇷 SIMPLIFICADO: Usar timezone do Brasil
+      const now = new Date();
+      const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
+      const today = brazilTime.toISOString().split('T')[0];
 
       const { data, error } = await this.supabase
         .from('user_sessions')
@@ -632,31 +641,28 @@ class SupabaseService {
     }
   }
 
-  // ✅ Buscar XP real de hoje - CORRIGIDO PARA TIMEZONE BRASIL
+  // ✅ Buscar XP real de hoje - SIMPLIFICADO E CORRIGIDO
   async getTodaySessionXP(userId: string): Promise<number> {
     if (!this.supabase) return 0;
 
     try {
       console.log(`🗓️ Getting today's XP for user: ${userId}`);
       
-      // 🇧🇷 Usar timezone do Brasil (UTC-3)
+      // 🇧🇷 SIMPLIFICADO: Usar timezone do Brasil de forma mais direta
       const now = new Date();
       const brazilTime = new Date(now.toLocaleString("en-US", {timeZone: "America/Sao_Paulo"}));
       const today = brazilTime.toISOString().split('T')[0];
       
-      // Calcular início e fim do dia no timezone do Brasil
-      const startOfDay = `${today}T00:00:00-03:00`;
-      const endOfDay = `${today}T23:59:59-03:00`;
+      console.log(`🕐 Brazil date: ${today}`);
+      console.log(`🌍 Current Brazil time: ${brazilTime.toISOString()}`);
 
-      console.log(`🕐 Brazil timezone - Today: ${today}, Range: ${startOfDay} to ${endOfDay}`);
-
-      // Buscar soma total de XP das práticas de hoje
+      // 🔧 Buscar práticas de hoje (usar LIKE para simplicidade)
       const { data, error } = await this.supabase
         .from('user_practices')
         .select('xp_awarded, created_at')
         .eq('user_id', userId)
-        .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay);
+        .gte('created_at', `${today}T00:00:00`)
+        .lt('created_at', `${today}T23:59:59`);
 
       if (error) {
         console.error('❌ Error getting today XP:', error);
@@ -666,7 +672,7 @@ class SupabaseService {
       // Somar todo o XP de hoje
       const totalXPToday = data.reduce((sum, practice) => sum + (practice.xp_awarded || 0), 0);
       
-      console.log(`✅ Today's total XP (Brazil timezone): ${totalXPToday} (from ${data.length} practices)`);
+      console.log(`✅ Today's total XP: ${totalXPToday} (from ${data.length} practices)`);
       console.log(`📊 Practice times:`, data.map(p => p.created_at));
       
       return totalXPToday;
