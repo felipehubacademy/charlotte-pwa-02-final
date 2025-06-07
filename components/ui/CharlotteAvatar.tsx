@@ -13,7 +13,7 @@ interface CharlotteAvatarProps {
   onClick?: () => void;
 }
 
-const CharlotteAvatar: React.FC<CharlotteAvatarProps> = ({
+const CharlotteAvatar: React.FC<CharlotteAvatarProps> = React.memo(({
   size = 'md',
   showStatus = false,
   isOnline = false,
@@ -77,7 +77,10 @@ const CharlotteAvatar: React.FC<CharlotteAvatarProps> = ({
               setImageError(true);
             }}
             onLoad={() => {
-              console.log('✅ Charlotte avatar loaded successfully');
+              // Reduzir logs desnecessários - só logar se houve erro antes
+              if (imageError) {
+                console.log('✅ Charlotte avatar recovered after error');
+              }
             }}
             priority={true}
             unoptimized={true}
@@ -125,6 +128,8 @@ const CharlotteAvatar: React.FC<CharlotteAvatarProps> = ({
       <AvatarContent />
     </div>
   );
-};
+});
+
+CharlotteAvatar.displayName = 'CharlotteAvatar';
 
 export default CharlotteAvatar; 

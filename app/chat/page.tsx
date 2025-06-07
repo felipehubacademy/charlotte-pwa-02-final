@@ -86,12 +86,112 @@ async function getAssistantResponse(
 }
 
 function splitIntoMultipleMessages(response: string, userLevel?: string): string[] {
-  // 🎯 NOVICE: Sempre uma única mensagem, nunca dividir
+  // 🎯 NOVICE: Não dividir - já vem formatado corretamente
   if (userLevel === 'Novice') {
     return [response.trim()];
   }
   
-  // Para outros níveis, manter comportamento original
+  // 🎓 INTER: Dividir em 2 mensagens - conversação + correção
+  if (userLevel === 'Inter') {
+    // Primeiro, procurar por padrões de correção, explicação ou encorajamento
+    const normalizedResponse = response.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+    
+    const grammarPatterns = [
+      /^(.*?)\s+(Ah and.*?)$/i,
+      /^(.*?)\s+(Oh,?\s*and.*?)$/i,
+      /^(.*?)\s+(Just a tip.*?)$/i,
+      /^(.*?)\s+(By the way.*?)$/i,
+      /^(.*?)\s+(Good question!.*?)$/i,
+      /^(.*?)\s+(Great question!.*?)$/i,
+      /^(.*?)\s+(Here's the thing:.*?)$/i,
+      /^(.*?)\s+(Quick explanation:.*?)$/i,
+      /^(.*?)\s+(The difference is:.*?)$/i,
+      /^(.*?)\s+(Great English!.*?)$/i,
+      /^(.*?)\s+(Perfect grammar!.*?)$/i,
+      /^(.*?)\s+(Well said!.*?)$/i,
+      /^(.*?)\s+(Nice expression!.*?)$/i,
+      /^(.*?)\s+(Remember to.*?)$/i,
+      /^(.*?)\s+(Just say.*?)$/i,
+      /^(.*?)\s+(Also.*?)$/i
+    ];
+    
+    for (const pattern of grammarPatterns) {
+      const match = normalizedResponse.match(pattern);
+      if (match) {
+        console.log('🔍 Split pattern matched:', pattern.source, 'Result:', [match[1].trim(), match[2].trim()]);
+        return [
+          match[1].trim(), // Parte da conversação
+          match[2].trim()  // Parte da correção
+        ].filter(msg => msg.length > 0);
+      }
+    }
+    
+    // Procurar por padrões de correção alternativos no final
+    const correctionPatterns = [
+      /^(.*?)\s+(Try saying.*?)$/i,
+      /^(.*?)\s+(You could say.*?)$/i,
+      /^(.*?)\s+(Better to say.*?)$/i,
+      /^(.*?)\s+(Say.*instead.*?)$/i,
+      /^(.*?)\s+(Instead of.*?)$/i,
+      /^(.*?)\s+(Use.*instead.*?)$/i,
+      /^(.*?)\s+(Change.*to.*?)$/i
+    ];
+    
+    for (const pattern of correctionPatterns) {
+      const match = normalizedResponse.match(pattern);
+      if (match) {
+        console.log('🔍 Correction pattern matched:', pattern.source, 'Result:', [match[1].trim(), match[2].trim()]);
+        return [
+          match[1].trim(),
+          match[2].trim()
+        ].filter(msg => msg.length > 0);
+      }
+    }
+    
+    // Dividir por ponto final seguido de frase que contém correção
+    const sentences = response.split(/\.\s+/);
+    if (sentences.length >= 2) {
+      // Procurar pela primeira sentença que contém correção
+      for (let i = 1; i < sentences.length; i++) {
+        const sentence = sentences[i].toLowerCase();
+        if (sentence.includes('tip:') || 
+            sentence.includes('instead') || 
+            sentence.includes('better') ||
+            sentence.includes('try') ||
+            sentence.includes('say') ||
+            sentence.includes('example') ||
+            sentence.includes('for example') ||
+            sentence.includes('use') ||
+            sentence.includes('change') ||
+            sentence.includes('with')) {
+          
+          const conversationPart = sentences.slice(0, i).join('. ') + '.';
+          const correctionPart = sentences.slice(i).join('. ') + (sentences[sentences.length - 1].endsWith('.') ? '' : '.');
+          
+          return [
+            conversationPart.trim(),
+            correctionPart.trim()
+          ].filter(msg => msg.length > 0);
+        }
+      }
+      
+      // Se não encontrou correção específica, mas tem pergunta na primeira parte
+      if (sentences[0].includes('?')) {
+        const conversationPart = sentences[0] + (sentences[0].endsWith('?') ? '' : '?');
+        const correctionPart = sentences.slice(1).join('. ') + '.';
+        
+        return [
+          conversationPart.trim(),
+          correctionPart.trim()
+        ].filter(msg => msg.length > 0);
+      }
+    }
+    
+    // Fallback: se não conseguir dividir inteligentemente, retornar como mensagem única
+    return [response.trim()];
+  }
+  
+  // Para Advanced, manter comportamento original de divisão
   let messages = response.split(/(?:\n\n|\|\|\||\. {2,})/);
   
   if (messages.length < 2) {
@@ -525,7 +625,25 @@ export default function ChatPage() {
           const allAchievements = [...xpResult.achievements, ...audioAchievements];
           if (allAchievements.length > 0) {
             try {
-            await supabaseService.saveAchievements(user.entra_id, allAchievements);
+            // ✅ Usar API route em vez de chamar diretamente
+            const response = await fetch('/api/achievements', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.entra_id,
+                achievements: allAchievements
+              })
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+            if (!result.success) {
+              throw new Error(result.error || 'Failed to save achievements');
+            }
+
             handleNewAchievements(allAchievements);
             } catch (error) {
               // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
@@ -1461,7 +1579,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           console.log('🏆 Text achievements calculated:', {
             achievementsEarned: textAchievements.length,
             bonusXP: achievementBonusXP,
-            achievements: textAchievements.map(a => a.title)
+            achievements: textAchievements.map(a => a.title),
+            fullAchievements: textAchievements
           });
 
         } catch (error) {
@@ -1521,10 +1640,62 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         });
 
         // 🏆 NOVO: Salvar achievements se houver
+        console.log('🔍 DEBUG: textAchievements before save check:', {
+          length: textAchievements.length,
+          achievements: textAchievements,
+          type: typeof textAchievements,
+          isArray: Array.isArray(textAchievements),
+          stringified: JSON.stringify(textAchievements)
+        });
+        
+        console.log('🔍 Checking if textAchievements.length > 0:', textAchievements.length > 0);
+        
         if (textAchievements.length > 0) {
+          console.log('✅ INSIDE achievement save condition!');
           try {
-          await supabaseService.saveAchievements(user.entra_id, textAchievements);
-          handleNewAchievements(textAchievements);
+            console.log('🔍 About to save achievements:', {
+              userId: user.entra_id,
+              achievementsCount: textAchievements.length,
+              achievements: textAchievements.map(a => ({
+                id: a.id,
+                title: a.title,
+                type: typeof a,
+                keys: Object.keys(a)
+              }))
+            });
+            
+            // ✅ Usar API route em vez de chamar diretamente
+            console.log('🚀 Making API call to /api/achievements...');
+            
+            const response = await fetch('/api/achievements', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.entra_id,
+                achievements: textAchievements
+              })
+            });
+
+            console.log('📡 API Response received:', {
+              status: response.status,
+              statusText: response.statusText,
+              ok: response.ok
+            });
+
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error('❌ API Error response:', errorText);
+              throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ API Success result:', result);
+            
+            if (!result.success) {
+              throw new Error(result.error || 'Failed to save achievements');
+            }
+
+            handleNewAchievements(textAchievements);
           } catch (error) {
             // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
             console.warn('⚠️ Failed to save achievements to database, but continuing...', error);

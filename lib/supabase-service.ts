@@ -3,8 +3,30 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabase } from './supabase'; // ✅ Usar o mesmo singleton
 
-// ✅ CORRIGIDO: Usar o mesmo singleton do lib/supabase.ts
+// ✅ CORRIGIDO: Usar service role para operações do backend quando disponível
 function getSupabaseClient(): SupabaseClient | null {
+  // Se estamos no servidor e temos service role key, usar ela
+  if (typeof window === 'undefined') {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    
+    console.log('🔍 Server-side Supabase client check:', {
+      hasUrl: !!supabaseUrl,
+      hasServiceRole: !!serviceRoleKey,
+      urlLength: supabaseUrl?.length || 0,
+      serviceRoleLength: serviceRoleKey?.length || 0
+    });
+    
+    if (supabaseUrl && serviceRoleKey) {
+      console.log('🔑 Using Supabase service role for backend operations');
+      const { createClient } = require('@supabase/supabase-js');
+      return createClient(supabaseUrl, serviceRoleKey);
+    } else {
+      console.warn('⚠️ SUPABASE_SERVICE_ROLE_KEY not found, using anon key (may cause RLS issues)');
+    }
+  }
+  
+  // Fallback para cliente normal
   return getSupabase();
 }
 
@@ -56,6 +78,15 @@ class SupabaseService {
 
   constructor() {
     this.supabase = getSupabaseClient();
+    
+    // Debug: verificar se service role está sendo usada
+    if (typeof window === 'undefined') {
+      const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+      console.log('🔍 SupabaseService constructor (server-side):', {
+        hasServiceRole,
+        serviceRoleLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0
+      });
+    }
   }
 
   isAvailable(): boolean {
@@ -801,12 +832,59 @@ class SupabaseService {
         console.error('❌ user_achievements error:', achievementsError);
       } else {
         if (achievementsData && achievementsData.length > 0) {
-          console.log('📋 user_achievements columns:', Object.keys(achievementsData[0]));
+          const columns = Object.keys(achievementsData[0]);
+          console.log('📋 user_achievements columns:', columns);
+          console.log('📝 Colunas detalhadas:', columns.join(', '));
+          console.log('📊 Exemplo de registro:', achievementsData[0]);
+        } else {
+          console.log('📋 user_achievements: tabela vazia, forçando descoberta de colunas...');
+          
+          // Método 1: Tentar inserção com campos básicos para descobrir estrutura
+          const testRecord = {
+            user_id: 'test-debug-' + Date.now(),
+            achievement_id: null,
+            achievement_type: 'test',
+            title: 'Test Achievement',
+            xp_bonus: 10,
+            rarity: 'common',
+            earned_at: new Date().toISOString()
+          };
+
+          const { data: testData, error: testError } = await this.supabase
+            .from('user_achievements')
+            .insert(testRecord)
+            .select();
+
+          if (testError) {
+            console.error('❌ Erro na inserção de teste (isso é esperado):', testError);
+            console.log('💡 Detalhes do erro:', {
+              message: testError.message,
+              details: testError.details,
+              hint: testError.hint,
+              code: testError.code
+            });
+          } else if (testData && testData.length > 0) {
+            const columns = Object.keys(testData[0]);
+            console.log('✅ DESCOBERTO! Colunas da user_achievements:', columns);
+            console.log('📝 Colunas detalhadas:', columns.join(', '));
+            console.log('📊 Registro de teste criado:', testData[0]);
+            
+            // Limpar o teste
+            await this.supabase
+              .from('user_achievements')
+              .delete()
+              .eq('id', testData[0].id);
+            console.log('🧹 Registro de teste removido');
+          }
         }
       }
     } catch (error) {
       console.error('❌ user_achievements exception:', error);
     }
+
+    // ✅ Campos confirmados da user_achievements (descobertos via debug):
+    // id, user_id, achievement_id, achievement_type, achievement_description, 
+    // achievement_name, xp_bonus, rarity, earned_at, category, badge_icon, badge_color
 
     // 3. Testar user_sessions
     try {
@@ -879,12 +957,26 @@ class SupabaseService {
       return true;
     }
 
+    // 🛡️ PROTEÇÃO ADICIONAL: Filtrar achievements válidos
+    const validAchievements = achievements.filter(ach => {
+      if (!ach || typeof ach !== 'object') {
+        console.warn('⚠️ Invalid achievement object:', ach);
+        return false;
+      }
+      return true;
+    });
+
+    if (validAchievements.length === 0) {
+      console.log('ℹ️ No valid achievements to save after filtering, skipping...');
+      return true;
+    }
+
     try {
       console.log('💾 Salvando achievements para usuário:', userId);
-      console.log('🏆 Achievements a salvar (RAW):', achievements);
+      console.log('🏆 Valid achievements a salvar:', validAchievements.length);
       
       // ✅ DEBUGGING: Log each achievement structure
-      achievements.forEach((ach, index) => {
+      validAchievements.forEach((ach, index) => {
         console.log(`🔍 Achievement ${index + 1}:`, {
           id: ach.id,
           title: ach.title,
@@ -922,7 +1014,7 @@ class SupabaseService {
       }
 
       // ✅ CORRIGIDO: Preparar dados para inserção com mapeamento mais robusto
-      const achievementData = achievements.map((achievement, index) => {
+      const achievementData = validAchievements.map((achievement, index) => {
         // Determinar título com fallbacks mais robustos
         const title = achievement.title || 
                      achievement.name || 
@@ -945,20 +1037,19 @@ class SupabaseService {
                        achievement.xpBonus || 
                        0;
         
+        // ✅ MAPEAMENTO CORRETO: Usar apenas campos que EXISTEM na tabela (confirmado pelos logs)
         const mappedData = {
-        user_id: userId,
+          user_id: userId,
           achievement_id: null, // Deixar NULL para achievements dinâmicos
           earned_at: new Date().toISOString(),
           achievement_type: achievement.type || 'general',
-          achievement_code: achievement.id || achievement.code || null,
-          achievement_name: title, // ✅ Campo que existe na tabela
-          achievement_description: description, // ✅ Campo que existe na tabela
-          category: achievement.category || 'general',
-          badge_icon: icon,
-          badge_color: achievement.badge_color || '#A3FF3C',
-          xp_bonus: xpBonus,
-          rarity: achievement.rarity || 'common',
-          type: achievement.type || 'general'
+          achievement_name: title, // ✅ Campo correto confirmado
+          achievement_description: description, // ✅ Campo correto confirmado
+          category: achievement.category || 'general', // ✅ Campo correto confirmado
+          badge_icon: icon, // ✅ Campo correto confirmado
+          badge_color: achievement.badge_color || '#A3FF3C', // ✅ Campo correto confirmado
+          xp_bonus: xpBonus, // ✅ Campo correto confirmado
+          rarity: achievement.rarity || 'common' // ✅ Campo correto confirmado
         };
         
         console.log(`📝 Mapped achievement ${index + 1}:`, mappedData);
@@ -973,12 +1064,22 @@ class SupabaseService {
         .select();
 
       if (error) {
-        console.error('❌ Erro detalhado ao salvar achievements:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code
-        });
+        // Log mais robusto para capturar todos os detalhes do erro
+        console.error('❌ Erro detalhado ao salvar achievements:');
+        console.error('Error message:', error.message || 'No message');
+        console.error('Error details:', error.details || 'No details');
+        console.error('Error hint:', error.hint || 'No hint');
+        console.error('Error code:', error.code || 'No code');
+        console.error('Full error object:', error);
+        console.error('Error keys:', Object.keys(error || {}));
+        
+        // Tentar diferentes formas de serializar o erro
+        try {
+          console.error('JSON stringify attempt:', JSON.stringify(error, null, 2));
+        } catch (jsonError) {
+          console.error('JSON stringify failed:', jsonError);
+        }
+        
         throw error;
       }
 
@@ -986,12 +1087,20 @@ class SupabaseService {
       return data;
     } catch (error) {
       // 🛡️ PROTEÇÃO: Log mais detalhado e não quebrar o fluxo principal
-      console.error('💥 Erro geral ao salvar achievements:', {
-        error: error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        userId,
-        achievementsCount: achievements?.length || 0
-      });
+      console.error('💥 Erro geral ao salvar achievements:');
+      console.error('Error type:', typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+      console.error('User ID:', userId);
+      console.error('Achievements count:', validAchievements?.length || 0);
+      console.error('Full error:', error);
+      
+      // Tentar serializar o erro de forma mais robusta
+      try {
+        console.error('Error JSON:', JSON.stringify(error, null, 2));
+      } catch (jsonError) {
+        console.error('Could not stringify error:', jsonError);
+      }
       
       // 🔄 RETORNAR FALSE EM VEZ DE THROW para não quebrar o fluxo principal
       return false;

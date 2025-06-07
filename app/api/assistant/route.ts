@@ -17,7 +17,7 @@ interface AssistantRequest {
     completenessScore: number;
     pronunciationScore: number;
   } | null;
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced';
+  userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName?: string;
   messageType?: 'text' | 'audio' | 'image'; // 🆕 Adicionado suporte para imagens
   conversationContext?: string; // 🆕 Contexto da conversa
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 // 🆕 NOVA FUNÇÃO: Processar mensagens de TEXTO com ANÁLISE DE GRAMÁTICA e CONTEXTO
 async function handleTextMessageWithGrammar(
   transcription: string, 
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced', 
+  userLevel: 'Novice' | 'Inter' | 'Advanced', 
   userName?: string,
   conversationContext?: string
 ) {
@@ -97,6 +97,12 @@ async function handleTextMessageWithGrammar(
     if (userLevel === 'Novice') {
       console.log('👶 Using Novice-specific text handling...');
       return await handleNoviceTextMessage(transcription, userName, conversationContext);
+    }
+
+    // 🎯 INTER SPECIAL HANDLING: Usar lógica de 2 mensagens com correções suaves
+    if (userLevel === 'Inter') {
+      console.log('🎓 Using Inter-specific text handling...');
+      return await handleInterTextMessage(transcription, userName, conversationContext);
     }
 
     // Para Inter/Advanced: usar análise completa de gramática
@@ -161,7 +167,7 @@ async function generateContextualFeedback(
   
   const levelInstructions = {
     'Novice': 'Use simple, clear English only. Be very encouraging about grammar mistakes. Speak slowly and use basic vocabulary to help beginners understand.',
-    'Intermediate': 'Provide clear feedback. Balance grammar correction with conversational response. Focus on practical improvements.',
+    'Inter': 'Provide clear feedback. Balance grammar correction with conversational response. Focus on practical improvements.',
     'Advanced': 'Give sophisticated feedback. Integrate grammar analysis naturally into professional conversation.'
   };
 
@@ -554,6 +560,123 @@ IMPORTANT:
   }
 }
 
+// 🎓 NOVA FUNÇÃO: Processar mensagens de texto específicas para INTER
+async function handleInterTextMessage(
+  transcription: string,
+  userName?: string,
+  conversationContext?: string
+) {
+  try {
+    console.log('🎓 Processing Inter text message with 2-message format...');
+
+    const systemPrompt = `You are Charlotte, a friendly English coach who loves having natural conversations while helping people improve.
+
+BE HUMAN AND NATURAL:
+- React to expressions like "lol", "haha", "wow", "cool" naturally
+- Show genuine interest in what they're saying
+- Be conversational, not robotic or formal
+- Respond to their emotions and tone
+
+CONVERSATION FLOW:
+1. First, respond naturally to what they said (like a friend would)
+2. Then, if needed, add a helpful language tip casually
+
+${conversationContext ? `Context: ${conversationContext}` : ''}
+
+RESPONSE PATTERNS:
+
+When they have GRAMMAR ERRORS:
+- React naturally to their message first
+- Add a casual grammar tip with starters like "Ah and...", "Oh and...", "Just a tip..."
+
+When they ask GRAMMAR QUESTIONS:
+- Show enthusiasm: "Good question!", "Great question!"
+- Give a brief, friendly explanation
+
+When they use INFORMAL EXPRESSIONS (lol, haha, wow, cool, etc.):
+- React naturally! "Haha, that's funny!", "Right? So cool!", "I know, right?"
+- Continue the conversation naturally
+
+When they share GOOD NEWS:
+- Celebrate with them! "That's amazing!", "Congratulations!", "How exciting!"
+
+Examples:
+User: "lol that's funny"
+Response: "Haha, glad I made you laugh! What else is going on today?"
+
+User: "I go work every day"
+Response: "I go to work too! What time do you start? Ah and remember to say 'go to work' with 'to'."
+
+User: "wow that's cool"
+Response: "Right? I thought you'd find that interesting! What part caught your attention most?"
+
+User: "I am promoted today"
+Response: "Congratulations! That's fantastic news! What new responsibilities will you have? Oh and just say 'I was promoted' for past events."
+
+KEEP IT NATURAL - be like a supportive friend who happens to know English well!`;
+
+    const userPrompt = transcription;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+        max_tokens: 90, // Permite conversas mais naturais e explicações
+      temperature: 0.7,
+    });
+
+    const assistantResponse = completion.choices[0]?.message?.content;
+    
+    if (!assistantResponse) {
+      throw new Error('No response from assistant');
+    }
+
+    console.log('✅ Inter text response generated:', assistantResponse.length, 'characters');
+
+    // ✅ NATURAL RESPONSE: Manter resposta natural sem formatação numerada
+    let correctedResponse = assistantResponse.trim();
+    
+    // Apenas corrigir pontuação básica se necessário
+    if (!correctedResponse.match(/[.!?]$/)) {
+      correctedResponse += ".";
+    }
+
+    // XP baseado na qualidade da mensagem
+    const xpAwarded = 30; // Inter recebe XP moderado
+
+    const response: AssistantResponse = {
+      feedback: correctedResponse, // Usar versão com pontuação corrigida
+      xpAwarded,
+      nextChallenge: '', // Inter não precisa de challenge separado
+      tips: ['Keep practicing your grammar!'],
+      encouragement: 'You\'re improving! 💪',
+      technicalFeedback: ''
+    };
+
+    return NextResponse.json({ success: true, result: response });
+
+  } catch (error) {
+    console.error('❌ Error in handleInterTextMessage:', error);
+    
+    // Fallback simples para Inter
+    const fallbackResponse = `Thanks for sharing, ${userName || 'there'}! That's interesting. Can you tell me more about it?`;
+
+    return NextResponse.json({ 
+      success: true, 
+      result: {
+        feedback: fallbackResponse,
+        xpAwarded: 20,
+        nextChallenge: '',
+        tips: ['Keep practicing!'],
+        encouragement: 'You\'re doing well! 😊',
+        technicalFeedback: ''
+      }
+    });
+  }
+}
+
 // 🔄 Função de fallback para texto simples (caso a análise de gramática falhe)
 async function handleTextMessageSimple(
   transcription: string, 
@@ -565,7 +688,7 @@ async function handleTextMessageSimple(
 
   const levelInstructions = {
     'Novice': 'Use simple, encouraging English only. Be very supportive and include basic vocabulary tips. Focus on building confidence with clear, slow speech.',
-    'Intermediate': 'Provide clear, business-focused English responses. Give grammar and vocabulary suggestions when relevant.',
+    'Inter': 'Provide clear, business-focused English responses. Give grammar and vocabulary suggestions when relevant.',
     'Advanced': 'Use sophisticated language and provide advanced English learning insights. Focus on professional communication.'
   };
 
@@ -670,7 +793,7 @@ async function handleAudioMessage(
   }
 
   const levelInstructions = {
-    'Intermediate': 'Provide clear, practical feedback like a professional coach. Focus on business English and communication effectiveness.',
+    'Inter': 'Provide clear, practical feedback like a professional coach. Focus on business English and communication effectiveness.',
     'Advanced': 'Give sophisticated feedback like an expert coach. Focus on nuanced pronunciation and professional communication.'
   };
 
@@ -1005,7 +1128,7 @@ function generateTextChallenge(level: string): string {
       'Practice: "Describe your perfect weekend"',
       'Write about: "What makes you happy?"'
     ],
-    'Intermediate': [
+    'Inter': [
       'Challenge: "Explain a recent challenge you overcame"',
       'Practice: "Describe your ideal work environment"',
       'Try: "Give your opinion on remote work"'
@@ -1017,14 +1140,14 @@ function generateTextChallenge(level: string): string {
     ]
   };
 
-  const levelChallenges = challenges[level as keyof typeof challenges] || challenges['Intermediate'];
+  const levelChallenges = challenges[level as keyof typeof challenges] || challenges['Inter'];
   return levelChallenges[Math.floor(Math.random() * levelChallenges.length)];
 }
 
 function generateTextEncouragement(level: string): string {
   const encouragements = {
     'Novice': "You're doing great with your English writing! 📝",
-    'Intermediate': "Your English communication skills are improving! 💬",
+    'Inter': "Your English communication skills are improving! 💬",
     'Advanced': "Excellent written expression! Keep challenging yourself! 🎯"
   };
   
@@ -1038,7 +1161,7 @@ function generateNextChallenge(level: string, scores: any): string {
       'Practice: "How was your day today?"',
       'Record: "Thank you very much!"'
     ],
-    'Intermediate': [
+    'Inter': [
       'Challenge: "I would like to schedule a meeting"',
       'Practice: "Could you please clarify that point?"',
       'Try: "I appreciate your assistance with this matter"'
@@ -1050,7 +1173,7 @@ function generateNextChallenge(level: string, scores: any): string {
     ]
   };
 
-  const levelChallenges = challenges[level as keyof typeof challenges] || challenges['Intermediate'];
+  const levelChallenges = challenges[level as keyof typeof challenges] || challenges['Inter'];
   return levelChallenges[Math.floor(Math.random() * levelChallenges.length)];
 }
 
@@ -1196,7 +1319,7 @@ React naturally to what they're showing you!`;
 async function handleImageMessage(
   prompt: string,
   imageData: string,
-  userLevel: 'Novice' | 'Intermediate' | 'Advanced',
+  userLevel: 'Novice' | 'Inter' | 'Advanced',
   userName?: string,
   conversationContext?: string
 ) {
@@ -1210,7 +1333,7 @@ async function handleImageMessage(
     console.log('📸 Starting image analysis for vocabulary learning...');
 
     const levelInstructions = {
-      'Intermediate': 'Provide clear explanations in English. Focus on practical communication skills.',
+      'Inter': 'Provide clear explanations in English. Focus on practical communication skills.',
       'Advanced': 'Use sophisticated English. Focus on advanced vocabulary and nuanced definitions.'
     };
 
@@ -1261,7 +1384,7 @@ Your response should help the student learn new vocabulary through visual associ
       .trim();
 
     // 🎯 XP para Inter/Advanced
-    const cameraXP = userLevel === 'Intermediate' ? 
+    const cameraXP = userLevel === 'Inter' ? 
       Math.floor(Math.random() * 15) + 10 : // 10-24 XP
       Math.floor(Math.random() * 13) + 8;   // 8-20 XP
 
