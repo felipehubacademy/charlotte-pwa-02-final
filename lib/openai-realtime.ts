@@ -318,6 +318,11 @@ export class OpenAIRealtimeService {
 
   // 🎛️ MOBILE FIX: Temperatura otimizada por plataforma e nível
   private getTemperatureForPlatform(): number {
+    // 👶 NOVO: Usar temperatura específica para Novice Live Voice
+    if (this.config.userLevel === 'Novice') {
+      return this.getNoviceLiveVoiceTemperature();
+    }
+    
     // 🎯 NOVO: Usar temperatura específica para Inter Live Voice
     if (this.config.userLevel === 'Inter') {
       return this.getInterLiveVoiceTemperature();
@@ -330,16 +335,16 @@ export class OpenAIRealtimeService {
     
     const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
     
-    // Novice: temperatura mínima permitida pela API (0.6) para máxima consistência
-    if (this.config.userLevel === 'Novice') {
-      return 0.6; // Mínimo permitido pela API - máxima consistência
-    }
-    
     return isMobile ? 0.6 : 0.7; // Mobile: mais consistente, Desktop: mais natural
   }
 
   // 🆕 MOBILE FIX: Configuração de max_tokens otimizada por nível e plataforma
   private getMaxTokensForUserLevel(): number {
+    // 👶 NOVO: Usar tokens específicos para Novice Live Voice
+    if (this.config.userLevel === 'Novice') {
+      return this.getNoviceLiveVoiceTokens();
+    }
+    
     // 🎯 NOVO: Usar tokens específicos para Inter Live Voice
     if (this.config.userLevel === 'Inter') {
       return this.getInterLiveVoiceTokens();
@@ -374,6 +379,11 @@ export class OpenAIRealtimeService {
 
   // 🔧 MOBILE FIX: Configuração de VAD otimizada para mobile/desktop
   private getVADConfigForUserLevel() {
+    // 👶 NOVO: Usar VAD específico para Novice Live Voice
+    if (this.config.userLevel === 'Novice') {
+      return this.getNoviceLiveVoiceVAD();
+    }
+    
     // 🎯 NOVO: Usar VAD específico para Inter Live Voice
     if (this.config.userLevel === 'Inter') {
       return this.getInterLiveVoiceVAD();
@@ -460,6 +470,11 @@ Always respond to the user's current input, not to the historical context above.
 
   // 📋 Instruções por nível - PERSONALIDADE NATURAL E AMIGÁVEL
   private getInstructions(): string {
+    // 👶 NOVO: Usar instruções específicas para Novice Live Voice se aplicável
+    if (this.config.userLevel === 'Novice') {
+      return this.config.instructions || this.getNoviceLiveVoiceInstructions();
+    }
+    
     // 🎯 NOVO: Usar instruções específicas para Inter Live Voice se aplicável
     if (this.config.userLevel === 'Inter') {
       return this.config.instructions || this.getInterLiveVoiceInstructions();
@@ -1816,6 +1831,125 @@ RESPONSE STYLE:
     return stillSpeaking;
   }
 
+  // 👶 NOVO: Configuração específica para Novice Live Voice - MINI-TEACHER
+  private getNoviceLiveVoiceInstructions(): string {
+    const userName = this.config.userName;
+    
+    return `You are Charlotte, a super friendly and patient English mini-teacher for complete beginners.
+${userName ? `\nUSER INFO: You're talking to ${userName}. Use their name naturally but keep it simple.` : ''}
+
+CORE MISSION: Help Novice students feel confident and give them basic English help when they ask.
+
+MINI-TEACHER APPROACH:
+- Be conversational BUT help when they ask questions
+- Give VERY simple explanations when requested
+- Use ultra-basic English for both chat and teaching
+- Celebrate EVERY attempt: "Good!", "Nice!", "Great job!"
+- Answer their questions directly but simply
+
+RESPONSE STYLE:
+- 1-2 sentences MAXIMUM per response  
+- Use VERY simple English - think elementary level
+- ALWAYS end with ONE easy question
+- When they ask "how to use" or "what's the difference" - HELP them!
+
+TEACHING GUIDELINES:
+- When asked about grammar (like FOR vs TO), give simple examples
+- Use basic vocabulary they know: good, nice, like, want, go, come, eat, play, work, home
+- Make explanations super short: "FOR = why, TO = where"
+- Give 2-3 simple examples maximum
+- Always check: "Does that help?"
+
+CONVERSATION TOPICS:
+- Very basic daily life: food, family, work, home, hobbies
+- "Do you like...?", "What is your...?", "Where do you...?"
+- Keep topics familiar and comfortable
+
+WHEN THEY ASK FOR HELP:
+✅ DO: Give simple, clear explanations
+✅ DO: Provide basic examples they can understand  
+✅ DO: Use their language level (very simple)
+✅ DO: Check if they understand
+
+❌ AVOID:
+- Complex grammar explanations
+- Long sentences or multiple ideas
+- Difficult vocabulary or idioms
+- Making them feel embarrassed or wrong
+
+EXAMPLES OF MINI-TEACHER RESPONSES:
+User: "Como usar FOR e TO?"
+You: "FOR = why/purpose. TO = where/who. Want examples?"
+
+User: "Yes, examples please"
+You: "FOR: 'This is for you'. TO: 'Go to work'. Clear?"
+
+User: "Hello"
+You: "Hi ${userName || 'there'}! How are you today?"
+
+GOAL: Be a helpful mini-teacher who makes English simple and less scary!`;
+  }
+
+  // 👶 NOVO: Configuração de tokens para Novice Live Voice
+  private getNoviceLiveVoiceTokens(): number {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    // Novice precisa de respostas muito curtas para não intimidar
+    const tokens = isMobile ? 25 : 35;
+    
+    console.log(`👶 [NOVICE LIVE] Platform: ${isMobile ? 'Mobile' : 'Desktop'} - Setting max_tokens to ${tokens} for ultra-simple responses`);
+    
+    return tokens;
+  }
+
+  // 👶 NOVO: Configuração de VAD para Novice Live Voice
+  private getNoviceLiveVoiceVAD() {
+    const isMobile = typeof window !== 'undefined' && /Android|iPhone|iPad/i.test(navigator.userAgent);
+    
+    const vadConfig = {
+      type: 'server_vad',
+      threshold: isMobile ? 0.5 : 0.45,        // Mais sensível - iniciantes falam baixo
+      prefix_padding_ms: isMobile ? 600 : 400,  // Mais tempo para capturar início hesitante
+      silence_duration_ms: isMobile ? 1200 : 900, // Muito mais tempo - iniciantes pensam devagar
+      create_response: true
+    };
+    
+    console.log(`👶 [NOVICE LIVE] VAD optimized for hesitant beginner speech patterns`);
+    console.log(`👶 [NOVICE LIVE] Platform: ${isMobile ? 'Mobile' : 'Desktop'} - Threshold: ${vadConfig.threshold} (sensitive)`);
+    console.log(`👶 [NOVICE LIVE] Silence duration: ${vadConfig.silence_duration_ms}ms (patient waiting)`);
+    
+    return vadConfig;
+  }
+
+  // 👶 NOVO: Configuração de temperatura para Novice Live Voice
+  private getNoviceLiveVoiceTemperature(): number {
+    const temperature = 0.3; // Baixa para respostas mais previsíveis e simples
+    
+    console.log(`👶 [NOVICE LIVE] Setting temperature to ${temperature} for consistent, simple responses`);
+    
+    return temperature;
+  }
+
+  // 👶 NOVO: Função principal para configurar Novice Live Voice
+  public configureForNoviceLiveVoice(): void {
+    console.log('👶 [NOVICE LIVE] Configuring ultra-simple settings for Novice Live Voice');
+    console.log('👶 [NOVICE LIVE] User details:', {
+      userLevel: this.config.userLevel,
+      userName: this.config.userName,
+      hasUserName: !!this.config.userName
+    });
+    
+    // Aplicar configurações específicas do Novice
+    this.config.instructions = this.getNoviceLiveVoiceInstructions();
+    
+    console.log('👶 [NOVICE LIVE] Novice-specific configuration applied');
+    console.log('👶 [NOVICE LIVE] - Instructions: Ultra-simple, encouraging conversation');
+    console.log('👶 [NOVICE LIVE] - Tokens: Very limited for short responses');
+    console.log('👶 [NOVICE LIVE] - VAD: Sensitive and patient for hesitant speech');
+    console.log('👶 [NOVICE LIVE] - Temperature: Low for predictable, simple responses');
+    console.log('👶 [NOVICE LIVE] - User personalization: ' + (this.config.userName ? `Enabled for ${this.config.userName}` : 'Generic'));
+  }
+
   // 🎯 NOVO: Configuração específica para Inter Live Voice
   private getInterLiveVoiceInstructions(): string {
     const userName = this.config.userName;
@@ -2010,14 +2144,15 @@ GOAL: Help them achieve native-like sophistication through natural, engaging con
     
     const vadConfig = {
       type: 'server_vad',
-      threshold: isMobile ? 0.6 : 0.5,         // Mais sensível para capturar nuances
+      threshold: isMobile ? 0.8 : 0.7,         // 🔧 CORRIGIDO: Threshold ALTO para evitar ruído de fundo
       prefix_padding_ms: isMobile ? 400 : 250, // Mais tempo para capturar início elaborado
-      silence_duration_ms: isMobile ? 1000 : 700, // Mais tempo para elaboração de ideias complexas
+      silence_duration_ms: isMobile ? 2000 : 1500, // 🔧 CORRIGIDO: Mais tempo para evitar interpretação de ruídos
       create_response: true
     };
     
     console.log(`🎓 [ADVANCED LIVE] VAD optimized for sophisticated conversation flow`);
     console.log(`🎓 [ADVANCED LIVE] Platform: ${isMobile ? 'Mobile' : 'Desktop'} - Threshold: ${vadConfig.threshold}`);
+    console.log(`🎓 [ADVANCED LIVE] 🔧 ANTI-NOISE: High threshold to avoid background noise interpretation`);
     
     return vadConfig;
   }

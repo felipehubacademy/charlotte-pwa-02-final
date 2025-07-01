@@ -463,51 +463,48 @@ export class EnhancedConversationContextManager {
     }
   }
 
-  // 🎭 Gerar contexto para o assistant (MELHORADO)
+  // 🎭 Gerar contexto para o assistant (OTIMIZADO PARA CONTINUIDADE)
   generateContextForAssistant(): string {
-    const recentMessages = this.context.messages.slice(-6);
-    const stage = this.context.conversationFlow.conversationStage;
-    const topics = this.context.currentTopics.slice(-3);
-    const subtopics = this.context.currentSubtopics.slice(-2);
+    const recentMessages = this.context.messages.slice(-4); // Reduzido para focar no essencial
+    const topics = this.context.currentTopics.slice(-2);
     const userName = this.context.userPreferences.name;
-    const emotion = this.context.currentEmotion;
-    const favoriteTopics = this.context.longTermMemory.favoriteTopics.slice(0, 3);
     const personalDetails = this.context.longTermMemory.personalDetails;
 
-    let contextPrompt = `BACKGROUND CONTEXT FOR CONVERSATION CONTINUITY:
+    console.log('🔍 [CONTEXT DEBUG] Values for context generation:', {
+      userName,
+      level: this.context.userPreferences.level,
+      recentMessagesCount: recentMessages.length,
+      topicsCount: topics.length
+    });
 
-USER PROFILE:
-- Name: ${userName} (${this.context.userPreferences.level} level English learner)
-- Total previous sessions: ${this.context.longTermMemory.totalSessions}
-- Current conversation stage: ${stage}
-- Current emotional state: ${emotion.primary} (${Math.round(emotion.intensity * 100)}% intensity)
+    // 🎯 CONTEXTO CONCISO E DIRETO
+    let contextPrompt = `CONVERSATION CONTEXT:
+User: ${userName} (${this.context.userPreferences.level} level)`;
 
-CONVERSATION HISTORY SUMMARY:
-- Current topics being discussed: ${topics.join(', ') || 'general conversation'}
-- Subtopics covered: ${subtopics.join(', ') || 'none'}
-- Messages exchanged this session: ${this.context.sessionStats.messageCount}
-- Practice modes used: Text(${this.context.sessionStats.modeUsage.text}) Audio(${this.context.sessionStats.modeUsage.audio}) Live(${this.context.sessionStats.modeUsage.live_voice})
+    // 📝 MENSAGENS RECENTES (essencial para continuidade)
+    if (recentMessages.length > 0) {
+      contextPrompt += `\n\nRECENT CONVERSATION:`;
+      recentMessages.forEach(msg => {
+        const speaker = msg.role === 'user' ? userName : 'You';
+        contextPrompt += `\n${speaker}: "${msg.content}"`;
+      });
+    }
 
-LONG-TERM MEMORY ABOUT USER:
-- Favorite discussion topics: ${favoriteTopics.map(ft => `${ft.topic} (mentioned ${ft.frequency} times)`).join(', ') || 'none yet'}
-- Personal details learned: ${Object.entries(personalDetails).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`).join('; ') || 'none yet'}
-- Learning progress: Average grammar score ${Math.round(this.context.sessionStats.averageGrammarScore)}/100
+    // 🎯 TÓPICOS ATUAIS
+    if (topics.length > 0) {
+      contextPrompt += `\n\nCurrent topics: ${topics.join(', ')}`;
+    }
 
-PREVIOUS CONVERSATION CONTEXT (for reference only - do NOT respond to these):
-${recentMessages.length > 0 ? 
-  recentMessages.map(msg => 
-    `[HISTORICAL] ${msg.role === 'user' ? userName : 'Charlotte'} previously said: "${msg.content}" (via ${msg.type})`
-  ).join('\n') : 
-  '[No previous messages in this session]'
-}
+    // 👤 DETALHES PESSOAIS RELEVANTES
+    const personalInfo = Object.entries(personalDetails)
+      .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+      .slice(0, 3); // Máximo 3 detalhes
 
-INSTRUCTIONS FOR CONTEXT USE:
-- Use this background information to maintain conversation continuity
-- Reference previous topics and personal details naturally when relevant
-- Adapt your response style to the user's emotional state and conversation stage
-- Do NOT repeat greetings if conversation is already ongoing
-- Build upon previous topics rather than starting completely new conversations
-- The historical messages above are for context only - respond to the user's current input, not the historical messages`;
+    if (personalInfo.length > 0) {
+      contextPrompt += `\nUser details: ${personalInfo.join('; ')}`;
+    }
+
+    contextPrompt += `\n\nIMPORTANT: Continue the conversation naturally based on what was just said. Reference previous topics when relevant. Don't repeat greetings if already talking.`;
 
     return contextPrompt;
   }

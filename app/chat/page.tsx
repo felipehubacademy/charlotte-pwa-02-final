@@ -286,13 +286,25 @@ export default function ChatPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playTime, setPlayTime] = useState(0);
 
-  const [conversationContext] = useState(() => 
-    new EnhancedConversationContextManager(
-      user?.user_level || 'Inter',
-      user?.name?.split(' ')[0] || 'Student',
-      user?.entra_id // Adicionar userId para persistência
-    )
-  );
+  const [conversationContext, setConversationContext] = useState<EnhancedConversationContextManager | null>(null);
+  
+  // Initialize conversation context when user loads
+  useEffect(() => {
+    if (user) {
+      console.log('👤 [CONTEXT] Initializing context with user data:', {
+        userLevel: user.user_level,
+        userName: user.name?.split(' ')[0],
+        entraId: user.entra_id
+      });
+      
+      const newContext = new EnhancedConversationContextManager(
+        user.user_level || 'Inter',
+        user.name?.split(' ')[0] || 'Student',
+        user.entra_id
+      );
+      setConversationContext(newContext);
+    }
+  }, [user]);
 
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -432,6 +444,14 @@ export default function ChatPage() {
 
   // Audio processing with improved XP system
   const handleAudioWithAssistantAPI = useCallback(async (audioBlob: Blob, duration: number) => {
+    if (!conversationContext || !user?.entra_id) {
+      console.log('⚠️ Cannot process audio:', {
+        hasContext: !!conversationContext,
+        hasUser: !!user?.entra_id
+      });
+      return;
+    }
+
     console.log('🎤 Starting audio processing:', { 
       blobSize: audioBlob.size, 
       duration, 
@@ -531,8 +551,8 @@ export default function ChatPage() {
           return;
         }
         
-        conversationContext.addMessage('user', transcription, 'audio', undefined, scores.pronunciationScore);
-        const contextPrompt = conversationContext.generateContextForAssistant();
+        conversationContext?.addMessage('user', transcription, 'audio', undefined, scores.pronunciationScore);
+        const contextPrompt = conversationContext?.generateContextForAssistant();
         
         const assistantResponse = await getAssistantResponse(
           transcription,
@@ -565,7 +585,7 @@ export default function ChatPage() {
         );
 
         aiMessages.forEach(msg => 
-          conversationContext.addMessage('assistant', msg, 'text')
+          conversationContext?.addMessage('assistant', msg, 'audio')
         );
 
         if (supabaseService.isAvailable() && user?.entra_id) {
@@ -999,7 +1019,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isMounted || !user || messages.length > 0) return;
     
-    const shouldGreet = conversationContext.shouldGreet();
+    const shouldGreet = conversationContext?.shouldGreet();
     
     const welcomeMessage: Message = {
       id: 'welcome-1',
@@ -1016,7 +1036,7 @@ export default function ChatPage() {
     setMessages([welcomeMessage]);
     
     if (shouldGreet) {
-      conversationContext.markGreetingDone();
+      conversationContext?.markGreetingDone();
     }
 
     loadUserStats();
@@ -1164,7 +1184,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               userName: user?.name?.split(' ')[0] || 'Student',
               messageType: 'image',
               imageData: imageData, // Send full image data to assistant
-              conversationContext: conversationContext.generateContextForAssistant()
+              conversationContext: conversationContext?.generateContextForAssistant()
             })
           });
 
@@ -1261,7 +1281,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
           // Add to conversation context
           aiMessages.forEach(msg => 
-            conversationContext.addMessage('assistant', msg, 'text')
+            conversationContext?.addMessage('assistant', msg, 'audio')
           );
 
           // Save practice with vocabulary XP and achievements
@@ -1570,7 +1590,15 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
   // Text message handler
   const handleSendMessage = async () => {
-    if (!message.trim() || isProcessingMessage || !user?.entra_id) return;
+    if (!message.trim() || isProcessingMessage || !user?.entra_id || !conversationContext) {
+      console.log('⚠️ Cannot send message:', {
+        hasMessage: !!message.trim(),
+        isProcessing: isProcessingMessage,
+        hasUser: !!user?.entra_id,
+        hasContext: !!conversationContext
+      });
+      return;
+    }
 
     const userText = message.trim();
     setMessage('');
@@ -1589,10 +1617,17 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
     try {
       // Add user message to context
-      conversationContext.addMessage('user', userText, 'text');
+      conversationContext?.addMessage('user', userText, 'text');
       
       // Get conversation context
-      const context = conversationContext.generateContextForAssistant();
+      const context = conversationContext?.generateContextForAssistant();
+      console.log('🧠 [CONTEXT DEBUG] Sending context to API:', {
+        hasContext: !!context,
+        contextLength: context?.length || 0,
+        recentMessages: conversationContext?.getRecentMessages(2).map(m => ({ role: m.role, content: m.content.substring(0, 50) + '...' })) || [],
+        userLevel: user.user_level,
+        userName: user.name?.split(' ')[0]
+      });
       
       // Call assistant API
       const response = await fetch('/api/assistant', {
@@ -1680,7 +1715,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
       // Update conversation context
       aiMessages.forEach(msg => 
-        conversationContext.addMessage('assistant', msg, 'audio')
+        conversationContext?.addMessage('assistant', msg, 'text')
       );
 
       if (supabaseService.isAvailable() && user?.entra_id) {
@@ -2084,7 +2119,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         isOpen={isLiveVoiceOpen}
         onClose={() => setIsLiveVoiceOpen(false)}
         userLevel={user?.user_level || 'Novice'}
-        userName={user?.name}
+        userName={user?.name?.split(' ')[0]}
         user={user || undefined}
         sessionXP={sessionXP}
         totalXP={totalXP}

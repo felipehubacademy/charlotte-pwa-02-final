@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
     console.log('Pronunciation scores:', pronunciationData);
     console.log('Message type:', messageType);
     console.log('Has conversation context:', !!conversationContext);
+    if (conversationContext) {
+      console.log('📝 Context preview:', conversationContext.substring(0, 200) + '...');
+    }
     console.log('Has image data:', !!imageData);
 
     // ✅ VERIFICAR TIPO DE MENSAGEM
@@ -174,6 +177,433 @@ async function generateContextualFeedback(
   conversationContext?: string
 ): Promise<string> {
   
+  // 🎯 PRIORIDADE MÁXIMA: Detectar pedidos de exemplos para TODOS os níveis e responder diretamente
+  if (conversationContext) {
+    // 🌍 MELHORADO: Detecção multilíngue para exemplos e perguntas FOR vs TO
+    const isAskingForExamples = /give\s*(me\s*)?(some\s*)?examples?|show\s*(me\s*)?examples?|examples?\s*please|can\s*you\s*give|dê\s+exemplos?|me\s+dê\s+exemplos?|exemplos?\s+por\s+favor|pode\s+dar\s+exemplos?/i.test(originalText);
+    // 🌍 SUPER EXPANDIDO: Detectar MUITAS formas de concordância em português/inglês
+    const isAffirmativeResponse = /^(sure|yes|yeah|yep|yup|ok|okay|alright|absolutely|definitely|of course|please|certainly|exactly|right|correct|perfect|great|awesome|cool|fine|sounds?\s+good|let'?s\s+do\s+it|go\s+ahead|proceed|continue|that\s+would\s+be\s+great|i'?d\s+like\s+that|sim|tá|ok|certo|claro|perfeito|exato|isso\s+mesmo|com\s+certeza|pode\s+ser|beleza|tranquilo|show|legal|massa|bacana|por\s+favor|seria\s+legal|seria\s+ótimo|gostaria\s+disso|vamos\s+lá|pode\s+ir|continua)\.?$/i.test(originalText.trim());
+    
+    // 🆕 NOVO: Detectar respostas negativas em português/inglês
+    const isNegativeResponse = /^(no|nope|nah|never|not\s+really|no\s+way|no\s+thanks|i\s+don'?t\s+think\s+so|não|nada|nunca|jamais|de\s+jeito\s+nenhum|não\s+quero|nem\s+pensar|não\s+precisa|deixa\s+pra\s+lá|não\s+obrigad[oa])\.?$/i.test(originalText.trim());
+    // 🌍 EXPANDIDO: Detectar perguntas gerais de gramática em português/inglês
+    // 🌍 SUPER EXPANDIDO: Detectar FOR vs TO em todas as formas possíveis
+    const isForToQuestion = /diferença\s+entre\s+(?:o\s+)?for\s+e\s+(?:o\s+)?to|diferença\s+entre\s+(?:o\s+)?to\s+e\s+(?:o\s+)?for|como\s+us[ao]\s+(?:o\s+)?for\s+e\s+(?:o\s+)?to|como\s+us[ao]\s+(?:o\s+)?to\s+e\s+(?:o\s+)?for|quando\s+us[ao]\s+(?:o\s+)?for\s+e\s+(?:o\s+)?to|quando\s+us[ao]\s+(?:o\s+)?to\s+e\s+(?:o\s+)?for|quando\s+us[ao]\s+(?:o\s+)?to\s+ou\s+(?:o\s+)?for|quando\s+us[ao]\s+(?:o\s+)?for\s+ou\s+(?:o\s+)?to|difference\s+between\s+for\s+and\s+to|difference\s+between\s+to\s+and\s+for|how\s+to\s+use\s+for\s+and\s+to|how\s+to\s+use\s+to\s+and\s+for|when\s+(?:to\s+)?use\s+for\s+and\s+to|when\s+(?:to\s+)?use\s+to\s+and\s+for/i.test(originalText);
+    // 🌍 SUPER EXPANDIDO: Detectar QUALQUER pergunta de gramática em português/inglês
+    const isGrammarQuestion = /como\s+(?:eu\s+)?us[ao]\s+(?:o\s+)?[a-z]+|diferença\s+entre|quando\s+us[ao]|quando\s+usar|qual\s+(?:a\s+)?diferença|difference\s+between|when\s+(?:to\s+)?use|how\s+to\s+use|how\s+do\s+(?:i|you)\s+use|what\s+is\s+the\s+difference|when\s+do\s+(?:i|you)\s+use|como\s+(?:se\s+)?faz|como\s+(?:se\s+)?form[ao]|what\s+about|help\s+with|explain.*grammar|grammar.*help/i.test(originalText);
+    const charlotteOfferedExamples = conversationContext.includes('Want some examples') || 
+                                    conversationContext.includes('examples to see') || 
+                                    conversationContext.includes('give you specific examples') || 
+                                    conversationContext.includes('I can give you') ||
+                                    conversationContext.includes('Do you want some examples') ||
+                                    /give you.*examples/i.test(conversationContext) ||
+                                    /want.*examples/i.test(conversationContext) ||
+                                    /examples.*based on/i.test(conversationContext) ||
+                                    /clarify further/i.test(conversationContext) ||
+                                    /do you want.*examples/i.test(conversationContext);
+    
+    // 🧠 ANÁLISE INTELIGENTE DE CONTEXTO: Detectar tópicos específicos nas mensagens recentes
+    const recentMessages = conversationContext.toLowerCase();
+    let smartTopicDetected = false;
+    let smartTopic = null;
+    
+    console.log('🧠 [SMART CONTEXT] Analyzing conversation context for topic patterns');
+    
+    // Detectar contexto de preposições IN/ON/AT
+    if ((recentMessages.includes(' in ') && recentMessages.includes(' on ') && recentMessages.includes(' at ')) || 
+        recentMessages.includes('preposição') || recentMessages.includes('preposition')) {
+      smartTopic = 'prepositions IN ON AT';
+      smartTopicDetected = true;
+      console.log('🧠 [SMART CONTEXT] Detected IN/ON/AT context in conversation');
+    }
+    // Detectar contexto de A vs AN
+    else if ((recentMessages.includes(' a ') && recentMessages.includes(' an ')) || recentMessages.includes('artigo')) {
+      smartTopic = 'a vs an';
+      smartTopicDetected = true;
+      console.log('🧠 [SMART CONTEXT] Detected A vs AN context in conversation');
+    }
+    // Detectar contexto de FOR vs TO
+    else if (recentMessages.includes(' for ') && recentMessages.includes(' to ')) {
+      smartTopic = 'for vs to';
+      smartTopicDetected = true;
+      console.log('🧠 [SMART CONTEXT] Detected FOR vs TO context in conversation');
+    }
+
+    console.log('🎯 [PRIORITY] Checking for examples request (all levels):', {
+      userLevel,
+      originalText,
+      isAskingForExamples,
+      isAffirmativeResponse,
+      isNegativeResponse,
+      isForToQuestion,
+      isGrammarQuestion,
+      charlotteOfferedExamples,
+      smartTopicDetected,
+      smartTopic,
+      contextSnippet: conversationContext.substring(0, 300)
+    });
+    
+    // 🆕 PRIMEIRO: Verificar se usuário rejeitou exemplos oferecidos
+    if (isNegativeResponse && charlotteOfferedExamples) {
+      console.log('🎯 [NEGATIVE] User declined examples - responding gracefully');
+      const declineResponse = `No problem at all! What else would you like to talk about? I'm here to help with anything - conversation practice, questions, or just chatting! 😊`;
+      
+      console.log('🎯 [NEGATIVE] RETURNING GRACEFUL DECLINE RESPONSE');
+      return declineResponse;
+    }
+    
+    // 🧠 INCLUIR ANÁLISE INTELIGENTE: Detectar quando user aceita exemplos baseado no contexto
+    const smartExampleRequest = smartTopicDetected && isAffirmativeResponse && charlotteOfferedExamples;
+    
+    if (isAskingForExamples || (isAffirmativeResponse && charlotteOfferedExamples) || isForToQuestion || isGrammarQuestion || smartExampleRequest) {
+      // 🌍 MELHORADO: Extrair tópico do contexto recente OU da pergunta atual
+      let topicMatch = conversationContext.match(/difference between\s+([^"]+)/i) || 
+                       conversationContext.match(/about\s+([^"]+)/i) ||
+                       conversationContext.match(/topic[s]?:\s*([^,\n]+)/i) ||
+                       conversationContext.match(/using\s+"([^"]+)"/i) ||
+                       conversationContext.match(/You use\s+"([^"]+)"/i);
+      
+      let topic = topicMatch ? topicMatch[1].trim() : null;
+      
+      // 🧠 PRIORIZAR SMART TOPIC se detectado
+      if (smartTopicDetected && smartTopic) {
+        topic = smartTopic;
+        console.log('🧠 [SMART PRIORITY] Using smart detected topic:', topic);
+      }
+      
+              // 🌍 SUPER MELHORADO: Detectar MUITOS tópicos específicos da pergunta atual
+        if (isForToQuestion || (!topic && /(?:for|to)/i.test(originalText))) {
+          topic = 'difference between FOR and TO';
+          console.log('🎯 [MULTILINGUAL] Detected direct FOR vs TO question - setting topic');
+        } else if (isGrammarQuestion) {
+          // 🔥 EXPANDIDO: Detectar MUITO mais tópicos gramaticais
+          
+          // Artigos
+          if (/(?:a|an)\b/i.test(originalText)) {
+            topic = 'difference between A and AN';
+            console.log('🎯 [MULTILINGUAL] Detected A vs AN question - setting topic');
+          }
+          // Preposições básicas (EXPANDIDO)
+          else if (/(?:in|on|at)\b/i.test(originalText) || /preposições|prepositions/i.test(originalText)) {
+            topic = 'prepositions IN ON AT';
+            console.log('🎯 [MULTILINGUAL] Detected preposition question - setting topic');
+          }
+          // Verbos auxiliares
+          else if (/(?:is|are)\b/i.test(originalText)) {
+            topic = 'difference between IS and ARE';
+            console.log('🎯 [MULTILINGUAL] Detected IS vs ARE question - setting topic');
+          }
+          else if (/(?:do|does)\b/i.test(originalText)) {
+            topic = 'difference between DO and DOES';
+            console.log('🎯 [MULTILINGUAL] Detected DO vs DOES question - setting topic');
+          }
+          // Modais
+          else if (/(?:can|could)\b/i.test(originalText)) {
+            topic = 'difference between CAN and COULD';
+            console.log('🎯 [MULTILINGUAL] Detected CAN vs COULD question - setting topic');
+          }
+          else if (/(?:will|would)\b/i.test(originalText)) {
+            topic = 'difference between WILL and WOULD';
+            console.log('🎯 [MULTILINGUAL] Detected WILL vs WOULD question - setting topic');
+          }
+          else if (/(?:should|must)\b/i.test(originalText)) {
+            topic = 'difference between SHOULD and MUST';
+            console.log('🎯 [MULTILINGUAL] Detected SHOULD vs MUST question - setting topic');
+          }
+          // Pronomes
+          else if (/(?:this|that)\b/i.test(originalText)) {
+            topic = 'difference between THIS and THAT';
+            console.log('🎯 [MULTILINGUAL] Detected THIS vs THAT question - setting topic');
+          }
+          else if (/(?:some|any)\b/i.test(originalText)) {
+            topic = 'difference between SOME and ANY';
+            console.log('🎯 [MULTILINGUAL] Detected SOME vs ANY question - setting topic');
+          }
+          else if (/(?:do|make)\b/i.test(originalText) && (/diferença.*entre|difference.*between|como\s+us[ao].*do.*make|how.*use.*do.*make/i.test(originalText))) {
+            topic = 'difference between DO and MAKE';
+            console.log('🎯 [MULTILINGUAL] Detected DO vs MAKE question - setting topic');
+          }
+          else if (/(?:get|take)\b/i.test(originalText) && (/diferença.*entre|difference.*between|como\s+us[ao].*get.*take|how.*use.*get.*take/i.test(originalText))) {
+            topic = 'difference between GET and TAKE';
+            console.log('🎯 [MULTILINGUAL] Detected GET vs TAKE question - setting topic');
+          }
+          else if (/(?:come|go)\b/i.test(originalText) && (/diferença.*entre|difference.*between|como\s+us[ao].*come.*go|how.*use.*come.*go/i.test(originalText))) {
+            topic = 'difference between COME and GO';
+            console.log('🎯 [MULTILINGUAL] Detected COME vs GO question - setting topic');
+          }
+          // Tempos verbais
+          else if (/past\s+simple|simple\s+past|passado\s+simples/i.test(originalText)) {
+            topic = 'Past Simple tense';
+            console.log('🎯 [MULTILINGUAL] Detected Past Simple question - setting topic');
+          }
+          else if (/present\s+perfect|presente\s+perfeito/i.test(originalText)) {
+            topic = 'Present Perfect tense';
+            console.log('🎯 [MULTILINGUAL] Detected Present Perfect question - setting topic');
+          }
+          else if (/future\s+tense|futuro/i.test(originalText)) {
+            topic = 'Future tense';
+            console.log('🎯 [MULTILINGUAL] Detected Future tense question - setting topic');
+          }
+          else if (!topic) {
+            // Tentar extrair palavras-chave da pergunta para resposta mais específica
+            const keywordsMatch = originalText.match(/(?:como\s+us[ao]\s+(?:o\s+)?|difference\s+between\s+|when\s+to\s+use\s+)([a-z\s]+)/i);
+            if (keywordsMatch) {
+              topic = keywordsMatch[1].trim();
+              console.log('🎯 [MULTILINGUAL] Extracted specific topic from question:', topic);
+            } else {
+              topic = 'grammar question';
+              console.log('🎯 [MULTILINGUAL] Detected general grammar question - setting generic topic');
+            }
+          }
+        }
+      
+      if (topic) {
+        console.log('🎯 [CONTEXT] Detected example request for topic:', topic);
+        
+        // 🌍 SUPER MELHORADO: Respostas diretas para MUITOS tópicos gramaticais
+        if (topic.toLowerCase().includes('for') && topic.toLowerCase().includes('to')) {
+          const directResponse = `Perfect! Here are some clear examples of FOR vs TO:
+
+FOR (purpose/benefit/duration):
+• "This meeting is for planning the project" 
+• "I'm saving money for vacation"
+• "I'll be here for two hours"
+
+TO (direction/movement/recipient):
+• "I'm going to the office"
+• "Send this email to the client"  
+• "Give the report to Sarah"
+
+Quick tip: FOR = why/purpose, TO = where/who. Makes sense?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING DIRECT FOR vs TO EXAMPLES - BYPASSING ALL OTHER LOGIC');
+          return directResponse;
+        } 
+        else if (topic.toLowerCase().includes('a') && topic.toLowerCase().includes('an')) {
+          const directResponse = `Great! Here are clear examples of A vs AN:
+
+A (before consonant sounds):
+• "a car" (C sound)
+• "a house" (H sound)  
+• "a university" (Y sound)
+
+AN (before vowel sounds):
+• "an apple" (A sound)
+• "an hour" (silent H)
+• "an umbrella" (U sound)
+
+Quick tip: Listen to the SOUND, not the letter! Clear?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING DIRECT A vs AN EXAMPLES - BYPASSING ALL OTHER LOGIC');
+          return directResponse;
+        } 
+        else if (topic.toLowerCase().includes('preposition') || topic.toLowerCase().includes('in on at')) {
+          const directResponse = `Good! Here are examples of prepositions:
+
+IN (inside/time periods):
+• "in the box"
+• "in January"
+
+ON (surface/days):
+• "on the table"  
+• "on Monday"
+
+AT (specific place/time):
+• "at home"
+• "at 3 o'clock"
+
+Does this help?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING PREPOSITION EXAMPLES - BYPASSING ALL OTHER LOGIC');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('do') && topic.toLowerCase().includes('does')) {
+          const directResponse = `Good question! Here are DO vs DOES examples:
+
+DO (I, you, we, they):
+• "I do my homework"
+• "You do well"
+• "They do sports"
+
+DOES (he, she, it):
+• "She does yoga"
+• "He does his job"
+• "It does work"
+
+Quick tip: DOES = 3rd person singular. Clear?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING DO vs DOES EXAMPLES');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('can') && topic.toLowerCase().includes('could')) {
+          const directResponse = `Perfect! Here are CAN vs COULD examples:
+
+CAN (present ability/permission):
+• "I can swim"
+• "Can I help you?"
+• "She can speak French"
+
+COULD (past ability/polite request):
+• "I could swim when I was young"
+• "Could you help me?"
+• "It could be true"
+
+Quick tip: CAN = now, COULD = was/polite. Got it?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING CAN vs COULD EXAMPLES');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('will') && topic.toLowerCase().includes('would')) {
+          const directResponse = `Great! Here are WILL vs WOULD examples:
+
+WILL (future/certainty):
+• "I will call you tomorrow"
+• "It will rain today"
+• "She will be here soon"
+
+WOULD (conditional/polite):
+• "I would help if I could"
+• "Would you like coffee?"
+• "It would be nice"
+
+Quick tip: WILL = certain future, WOULD = maybe/polite. Clear?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING WILL vs WOULD EXAMPLES');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('this') && topic.toLowerCase().includes('that')) {
+          const directResponse = `Nice! Here are THIS vs THAT examples:
+
+THIS (close/near):
+• "This book" (in my hand)
+• "This is my phone"
+• "I like this idea"
+
+THAT (far/distant):
+• "That car" (over there)
+• "That was yesterday"
+• "I remember that"
+
+Quick tip: THIS = near me, THAT = far from me. Got it?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING THIS vs THAT EXAMPLES');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('some') && topic.toLowerCase().includes('any')) {
+          const directResponse = `Perfect! Here are SOME vs ANY examples:
+
+SOME (positive sentences):
+• "I have some money"
+• "There are some cookies"
+• "I need some help"
+
+ANY (negative/questions):
+• "I don't have any money"
+• "Do you have any cookies?"
+• "I can't find any help"
+
+Quick tip: SOME = positive, ANY = negative/questions. Clear?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING SOME vs ANY EXAMPLES');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('do') && topic.toLowerCase().includes('make')) {
+          const directResponse = `Great question! Here are DO vs MAKE examples:
+
+DO (actions/activities):
+• "I do my homework"
+• "Do the dishes"
+• "She does yoga"
+
+MAKE (create/build):
+• "I make a cake"
+• "Make a plan"
+• "He makes coffee"
+
+Quick tip: DO = actions, MAKE = create. Does this help?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING DO vs MAKE EXAMPLES');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('get') && topic.toLowerCase().includes('take')) {
+          const directResponse = `Good question! Here are GET vs TAKE examples:
+
+GET (receive/obtain):
+• "I get a present"
+• "Get some milk"
+• "She gets tired"
+
+TAKE (grab/carry):
+• "Take this book"
+• "I take the bus"
+• "Take your time"
+
+Quick tip: GET = receive, TAKE = grab. Clear?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING GET vs TAKE EXAMPLES');
+          return directResponse;
+        }
+        else if (topic.toLowerCase().includes('come') && topic.toLowerCase().includes('go')) {
+          const directResponse = `Perfect! Here are COME vs GO examples:
+
+COME (toward the speaker):
+• "Come here!"
+• "Come to my house"
+• "She comes to work"
+
+GO (away from speaker):
+• "Go there!"
+• "Go to school"
+• "I go home"
+
+Quick tip: COME = toward me, GO = away from me. Got it?`;
+          
+          console.log('🎯 [SUCCESS] RETURNING COME vs GO EXAMPLES');
+          return directResponse;
+        }
+        else {
+          // 🎯 RESPOSTA GENÉRICA MELHORADA para tópicos não mapeados
+          const directResponse = `Great question about ${topic}! Here are some practical examples:
+
+Basic usage patterns:
+• Simple everyday examples
+• Common situations you'll encounter
+• Natural conversation contexts
+
+Grammar tip: Practice with real-life situations - it makes it stick better!
+
+Does this help? I can give more specific examples if you'd like!`;
+          
+          console.log('🎯 [SUCCESS] RETURNING ENHANCED GENERIC GRAMMAR EXAMPLES for topic:', topic);
+          return directResponse;
+        }
+        
+        // Para outros tópicos, usar resposta genérica mas contextual
+        console.log('🎯 [CONTEXT] Providing generic examples for topic:', topic);
+        return `Sure! Here are some examples of ${topic}:
+
+[Examples would be provided based on the specific topic discussed]
+
+Does that help clarify things?`;
+      } else {
+        console.log('🎯 [CONTEXT] No topic found in context, but user requested examples - providing direct response');
+        return `Absolutely! Let me give you some practical examples:
+
+FOR (purpose/benefit):
+• "This is for you" (benefit)
+• "I study for my exam" (purpose)
+• "We waited for an hour" (duration)
+
+TO (direction/destination):
+• "I'm going to work" (direction)
+• "Send it to me" (recipient)
+• "From Monday to Friday" (endpoint)
+
+Does this help clarify the difference?`;
+      }
+    }
+  }
+  
   const levelInstructions = {
     'Novice': 'Use simple, clear English only. Be very encouraging about grammar mistakes. Speak slowly and use basic vocabulary to help beginners understand.',
     'Inter': 'Provide clear feedback. Balance grammar correction with conversational response. Focus on practical improvements.',
@@ -185,26 +615,26 @@ async function generateContextualFeedback(
 
 ${conversationContext ? `\n${conversationContext}\n` : ''}
 
-MODERN BUSINESS COMMUNICATION:
-- Use current business language: "solid", "makes sense", "got it", "fair point", "totally"
-- Be direct and efficient but engaging
-- AVOID old-fashioned words: "delightful", "marvelous", "indeed", "quite so", "rather"
-- NO academic language: "demonstrates", "penchant for", "I appreciate"
-- Sound like 2024, not 1994
+ADVANCED USER COMMUNICATION STYLE:
+- Be direct and helpful - answer what they're actually asking for
+- Use the conversation context to provide relevant, specific responses
+- MINIMAL grammar corrections - only if it affects understanding
+- Focus on content over form for Advanced users
+- Sound like a smart colleague, not a teacher
 
-GRAMMAR FEEDBACK STYLE:
-- Give practical, modern feedback: "Quick tip: most people say..."
-- Be direct: "That works, though in business we usually say..."
-- Keep it professional but casual: "Sounds good! Just a heads up..."
+CONTEXT-AWARE RESPONSES:
+- If they ask for "examples" after a topic was discussed, give examples of THAT topic
+- If they say "explain more" or "tell me more", expand on the previous topic
+- Use the recent conversation to understand what they really want
+- Don't make them repeat themselves or be overly explicit
 
-Create a response that:
-1. Responds naturally to their message (like a colleague would)
-2. Gives practical grammar feedback when needed
-3. Uses contemporary, business-casual language
-4. Continues the conversation professionally
-5. Sounds like someone they'd work with at a modern company
+GRAMMAR FEEDBACK (MINIMAL):
+- Only correct if it's confusing or significantly impacts meaning
+- Skip minor issues like missing "some" or capitalization for short responses (sure, yes, ok are perfectly fine)
+- Skip corrections for single-word responses or casual acknowledgments
+- Focus on communication effectiveness, not perfection
 
-Think "Slack conversation with a smart colleague" not "English teacher".` :
+Create a response that directly addresses what they're asking for based on the conversation context.` :
     `You are Charlotte, an English tutor. Create a natural, conversational response that seamlessly integrates grammar feedback while maintaining conversation flow.
 
 User Level: ${userLevel}
@@ -229,7 +659,17 @@ Create a response that:
 
 Keep it natural - don't make it feel like a formal grammar lesson. Make it feel like a helpful friend giving tips while having a real conversation.`;
 
-  const userPrompt = `Student wrote: "${originalText}"
+  const userPrompt = userLevel === 'Advanced' ?
+    `Student said: "${originalText}"
+
+Grammar score: ${grammarResult.analysis.overallScore}/100
+
+IMPORTANT: Look at the conversation context above. What is the user actually asking for based on the recent conversation?
+
+If they're asking for examples, explanations, or clarifications about a topic that was just discussed, provide that directly. Don't focus on grammar corrections unless it's genuinely confusing.
+
+Response goal: Be a helpful colleague who understands context and gives useful, direct answers.`
+    : `Student wrote: "${originalText}"
 
 Grammar Analysis Results:
 - Overall Grammar Score: ${grammarResult.analysis.overallScore}/100
@@ -304,21 +744,23 @@ async function handleNoviceTextMessage(
   try {
     console.log('👶 Processing Novice text message with simple, encouraging approach...');
 
-    const systemPrompt = `You are Charlotte, a warm and genuine friend helping someone practice English.
+    const systemPrompt = `You are Charlotte, a warm and genuine English mini-teacher for beginners.
 
-BE NATURAL AND HUMAN:
+BE A HELPFUL MINI-TEACHER:
 - React genuinely to what they say - show real interest
+- WHEN THEY ASK QUESTIONS about English (like "como usar FOR e TO?"), HELP them with simple explanations
 - Vary your responses naturally (don't always start with "Nice!")
 - Use natural conversation starters: "Oh!", "Wow!", "Cool!", "Really?", "That's great!", "I see!"
 - Don't copy their exact words back to them
 - Be curious about their life and experiences
 
-CONVERSATION STYLE:
+MINI-TEACHER APPROACH:
 - Listen to what they actually said and respond to it specifically
 - Ask follow-up questions that show you're paying attention
 - Share brief, relatable responses when appropriate
 - Keep the conversation flowing naturally
 - When they make small mistakes, naturally model the correct way without being obvious about it
+- WHEN THEY ASK FOR HELP: Give simple, clear explanations using basic English
 
 ${conversationContext ? `\n${conversationContext}\n` : ''}
 
@@ -332,6 +774,11 @@ EXAMPLES OF NATURAL RESPONSES:
 - "That sounds fun! Where did you go?"
 - "Wow, really? How was that?"
 - "I see! Do you like doing that?"
+
+EXAMPLES OF MINI-TEACHER RESPONSES:
+- They ask "como usar FOR e TO?" → You say "FOR = why/purpose. TO = where/who. Want examples?"
+- They ask "give me examples" → You say "FOR: 'This is for you'. TO: 'Go to work'. Clear?"
+- They ask "what's the difference?" → You say "FOR is purpose. TO is direction. Need more help?"
 
 NATURAL CORRECTIONS (when they make mistakes):
 - They say "it are beautiful" → You say "Oh, it sounds beautiful! What makes it so special?"
@@ -463,6 +910,462 @@ async function handleNoviceAudioMessage(
   try {
     console.log('👶 Processing Novice audio message with natural, encouraging approach...');
 
+    // 🎯 PRIORIDADE MÁXIMA: Detectar pedidos de exemplos para ÁUDIO
+    if (conversationContext) {
+      // 🌍 MELHORADO: Detecção multilíngue para exemplos e perguntas FOR vs TO
+      const isAskingForExamples = /give\s*(me\s*)?(some\s*)?examples?|show\s*(me\s*)?examples?|examples?\s*please|can\s*you\s*give|dê\s+exemplos?|me\s+dê\s+exemplos?|exemplos?\s+por\s+favor|pode\s+dar\s+exemplos?/i.test(transcription);
+      // 🌍 SUPER EXPANDIDO: Detectar MUITAS formas de concordância em português/inglês
+      const isAffirmativeResponse = /^(sure|yes|yeah|yep|yup|ok|okay|alright|absolutely|definitely|of course|please|certainly|exactly|right|correct|perfect|great|awesome|cool|fine|sounds?\s+good|let'?s\s+do\s+it|go\s+ahead|proceed|continue|that\s+would\s+be\s+great|i'?d\s+like\s+that|sim|tá|ok|certo|claro|perfeito|exato|isso\s+mesmo|com\s+certeza|pode\s+ser|beleza|tranquilo|show|legal|massa|bacana|por\s+favor|seria\s+legal|seria\s+ótimo|gostaria\s+disso|vamos\s+lá|pode\s+ir|continua)\.?$/i.test(transcription.trim());
+      
+      // 🆕 NOVO: Detectar respostas negativas em português/inglês
+      const isNegativeResponse = /^(no|nope|nah|never|not\s+really|no\s+way|no\s+thanks|i\s+don'?t\s+think\s+so|não|nada|nunca|jamais|de\s+jeito\s+nenhum|não\s+quero|nem\s+pensar|não\s+precisa|deixa\s+pra\s+lá|não\s+obrigad[oa])\.?$/i.test(transcription.trim());
+      // 🌍 SUPER EXPANDIDO: Detectar FOR vs TO em todas as formas possíveis
+      const isForToQuestion = /diferença\s+entre\s+(?:o\s+)?for\s+e\s+(?:o\s+)?to|diferença\s+entre\s+(?:o\s+)?to\s+e\s+(?:o\s+)?for|como\s+us[ao]\s+(?:o\s+)?for\s+e\s+(?:o\s+)?to|como\s+us[ao]\s+(?:o\s+)?to\s+e\s+(?:o\s+)?for|quando\s+us[ao]\s+(?:o\s+)?for\s+e\s+(?:o\s+)?to|quando\s+us[ao]\s+(?:o\s+)?to\s+e\s+(?:o\s+)?for|quando\s+us[ao]\s+(?:o\s+)?to\s+ou\s+(?:o\s+)?for|quando\s+us[ao]\s+(?:o\s+)?for\s+ou\s+(?:o\s+)?to|difference\s+between\s+for\s+and\s+to|difference\s+between\s+to\s+and\s+for|how\s+to\s+use\s+for\s+and\s+to|how\s+to\s+use\s+to\s+and\s+for|when\s+(?:to\s+)?use\s+for\s+and\s+to|when\s+(?:to\s+)?use\s+to\s+and\s+for/i.test(transcription);
+      // 🌍 SUPER EXPANDIDO: Detectar QUALQUER pergunta de gramática em português/inglês
+      const isGrammarQuestion = /como\s+(?:eu\s+)?us[ao]\s+(?:o\s+)?[a-z]+|diferença\s+entre|quando\s+us[ao]|quando\s+usar|qual\s+(?:a\s+)?diferença|difference\s+between|when\s+(?:to\s+)?use|how\s+to\s+use|how\s+do\s+(?:i|you)\s+use|what\s+is\s+the\s+difference|when\s+do\s+(?:i|you)\s+use|como\s+(?:se\s+)?faz|como\s+(?:se\s+)?form[ao]|what\s+about|help\s+with|explain.*grammar|grammar.*help/i.test(transcription);
+      const charlotteOfferedExamples = conversationContext.includes('Want some examples') || 
+                                      conversationContext.includes('examples to see') || 
+                                      conversationContext.includes('give you specific examples') || 
+                                      conversationContext.includes('I can give you') ||
+                                      /give you.*examples/i.test(conversationContext) ||
+                                      /want.*examples/i.test(conversationContext) ||
+                                      /examples.*based on/i.test(conversationContext) ||
+                                      /clarify further/i.test(conversationContext);
+      
+      // 🧠 ANÁLISE INTELIGENTE DE CONTEXTO PARA AUDIO: Detectar tópicos específicos
+      const recentAudioMessages = conversationContext.toLowerCase();
+      let smartAudioTopicDetected = false;
+      let smartAudioTopic = null;
+      
+      console.log('🧠 [SMART AUDIO CONTEXT] Analyzing conversation context for topic patterns');
+      
+      // Detectar contexto de preposições IN/ON/AT
+      if ((recentAudioMessages.includes(' in ') && recentAudioMessages.includes(' on ') && recentAudioMessages.includes(' at ')) || 
+          recentAudioMessages.includes('preposição') || recentAudioMessages.includes('preposition')) {
+        smartAudioTopic = 'prepositions IN ON AT';
+        smartAudioTopicDetected = true;
+        console.log('🧠 [SMART AUDIO CONTEXT] Detected IN/ON/AT context in conversation');
+      }
+      // Detectar contexto de A vs AN
+      else if ((recentAudioMessages.includes(' a ') && recentAudioMessages.includes(' an ')) || recentAudioMessages.includes('artigo')) {
+        smartAudioTopic = 'a vs an';
+        smartAudioTopicDetected = true;
+        console.log('🧠 [SMART AUDIO CONTEXT] Detected A vs AN context in conversation');
+      }
+      // Detectar contexto de FOR vs TO
+      else if (recentAudioMessages.includes(' for ') && recentAudioMessages.includes(' to ')) {
+        smartAudioTopic = 'for vs to';
+        smartAudioTopicDetected = true;
+        console.log('🧠 [SMART AUDIO CONTEXT] Detected FOR vs TO context in conversation');
+      }
+
+      console.log('🎯 [AUDIO PRIORITY] Checking for examples request:', {
+        userLevel: 'Novice',
+        transcription,
+        isAskingForExamples,
+        isAffirmativeResponse,
+        isNegativeResponse,
+        isForToQuestion,
+        isGrammarQuestion,
+        charlotteOfferedExamples,
+        smartAudioTopicDetected,
+        smartAudioTopic,
+        contextSnippet: conversationContext.substring(0, 300)
+      });
+      
+      // 🆕 PRIMEIRO: Verificar se usuário rejeitou exemplos oferecidos
+      if (isNegativeResponse && charlotteOfferedExamples) {
+        console.log('🎯 [AUDIO NEGATIVE] User declined examples - responding gracefully');
+        const declineResponse = `No problem! What do you want to talk about? I can help with anything! 😊`;
+        
+        console.log('🎯 [AUDIO NEGATIVE] RETURNING GRACEFUL DECLINE RESPONSE');
+        
+        return NextResponse.json({ 
+          success: true, 
+          result: {
+            feedback: declineResponse,
+            xpAwarded: 5,
+            nextChallenge: '',
+            tips: ['No worries!'],
+            encouragement: 'You choose what to learn! 🌟',
+            technicalFeedback: ''
+          }
+        });
+      }
+      
+      // 🧠 INCLUIR ANÁLISE INTELIGENTE PARA AUDIO: Detectar quando user aceita exemplos baseado no contexto
+      const smartAudioExampleRequest = smartAudioTopicDetected && isAffirmativeResponse && charlotteOfferedExamples;
+      
+      if (isAskingForExamples || (isAffirmativeResponse && charlotteOfferedExamples) || isForToQuestion || isGrammarQuestion || smartAudioExampleRequest) {
+        // 🌍 MELHORADO: Extrair tópico do contexto recente OU da pergunta atual
+        let topicMatch = conversationContext.match(/difference between\s+([^"]+)/i) || 
+                         conversationContext.match(/about\s+([^"]+)/i) ||
+                         conversationContext.match(/topic[s]?:\s*([^,\n]+)/i) ||
+                         conversationContext.match(/using\s+"([^"]+)"/i) ||
+                         conversationContext.match(/You use\s+"([^"]+)"/i);
+        
+        let topic = topicMatch ? topicMatch[1].trim() : null;
+        
+        // 🧠 PRIORIZAR SMART AUDIO TOPIC se detectado
+        if (smartAudioTopicDetected && smartAudioTopic) {
+          topic = smartAudioTopic;
+          console.log('🧠 [SMART AUDIO PRIORITY] Using smart detected topic:', topic);
+        }
+        
+        // 🌍 SUPER MELHORADO: Detectar MUITOS tópicos específicos da pergunta atual
+        if (isForToQuestion || (!topic && /(?:for|to)/i.test(transcription))) {
+          topic = 'difference between FOR and TO';
+          console.log('🎯 [AUDIO MULTILINGUAL] Detected direct FOR vs TO question - setting topic');
+        } else if (isGrammarQuestion) {
+          // 🔥 EXPANDIDO: Detectar MUITO mais tópicos gramaticais
+          
+          // Artigos
+          if (/(?:a|an)\b/i.test(transcription)) {
+            topic = 'difference between A and AN';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected A vs AN question - setting topic');
+          }
+          // Preposições básicas
+          else if (/(?:in|on|at)\b/i.test(transcription)) {
+            topic = 'prepositions IN ON AT';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected preposition question - setting topic');
+          }
+          // Verbos auxiliares
+          else if (/(?:is|are)\b/i.test(transcription)) {
+            topic = 'difference between IS and ARE';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected IS vs ARE question - setting topic');
+          }
+          else if (/(?:do|does)\b/i.test(transcription)) {
+            topic = 'difference between DO and DOES';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected DO vs DOES question - setting topic');
+          }
+          // Modais
+          else if (/(?:can|could)\b/i.test(transcription)) {
+            topic = 'difference between CAN and COULD';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected CAN vs COULD question - setting topic');
+          }
+          else if (/(?:will|would)\b/i.test(transcription)) {
+            topic = 'difference between WILL and WOULD';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected WILL vs WOULD question - setting topic');
+          }
+          else if (/(?:should|must)\b/i.test(transcription)) {
+            topic = 'difference between SHOULD and MUST';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected SHOULD vs MUST question - setting topic');
+          }
+          // Pronomes
+          else if (/(?:this|that)\b/i.test(transcription)) {
+            topic = 'difference between THIS and THAT';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected THIS vs THAT question - setting topic');
+          }
+          else if (/(?:some|any)\b/i.test(transcription)) {
+            topic = 'difference between SOME and ANY';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected SOME vs ANY question - setting topic');
+          }
+          else if (/(?:do|make)\b/i.test(transcription) && (/diferença.*entre|difference.*between|como\s+us[ao].*do.*make|how.*use.*do.*make/i.test(transcription))) {
+            topic = 'difference between DO and MAKE';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected DO vs MAKE question - setting topic');
+          }
+          else if (/(?:get|take)\b/i.test(transcription) && (/diferença.*entre|difference.*between|como\s+us[ao].*get.*take|how.*use.*get.*take/i.test(transcription))) {
+            topic = 'difference between GET and TAKE';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected GET vs TAKE question - setting topic');
+          }
+          else if (/(?:come|go)\b/i.test(transcription) && (/diferença.*entre|difference.*between|como\s+us[ao].*come.*go|how.*use.*come.*go/i.test(transcription))) {
+            topic = 'difference between COME and GO';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected COME vs GO question - setting topic');
+          }
+          // Tempos verbais
+          else if (/past\s+simple|simple\s+past|passado\s+simples/i.test(transcription)) {
+            topic = 'Past Simple tense';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected Past Simple question - setting topic');
+          }
+          else if (/present\s+perfect|presente\s+perfeito/i.test(transcription)) {
+            topic = 'Present Perfect tense';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected Present Perfect question - setting topic');
+          }
+          else if (/future\s+tense|futuro/i.test(transcription)) {
+            topic = 'Future tense';
+            console.log('🎯 [AUDIO MULTILINGUAL] Detected Future tense question - setting topic');
+          }
+          else if (!topic) {
+            // Tentar extrair palavras-chave da pergunta para resposta mais específica
+            const keywordsMatch = transcription.match(/(?:como\s+us[ao]\s+(?:o\s+)?|difference\s+between\s+|when\s+to\s+use\s+)([a-z\s]+)/i);
+            if (keywordsMatch) {
+              topic = keywordsMatch[1].trim();
+              console.log('🎯 [AUDIO MULTILINGUAL] Extracted specific topic from question:', topic);
+            } else {
+              topic = 'grammar question';
+              console.log('🎯 [AUDIO MULTILINGUAL] Detected general grammar question - setting generic topic');
+            }
+          }
+        }
+        
+        if (topic) {
+          console.log('🎯 [AUDIO CONTEXT] Detected example request for topic:', topic);
+          
+          // Resposta direta com exemplos baseados no tópico
+          // 🌍 SUPER MELHORADO: Respostas diretas para MUITOS tópicos gramaticais
+          if (topic.toLowerCase().includes('for') && topic.toLowerCase().includes('to')) {
+            const directResponse = `Good! Here are easy examples:
+
+FOR - why:
+• "I work for money"
+• "This is for you"
+• "Study for test"
+
+TO - where:
+• "Go to home"
+• "Give to me"
+• "Come to here"
+
+Which do you use?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING DIRECT FOR vs TO EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['Good work!'],
+                encouragement: 'You are doing great! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          } 
+          else if (topic.toLowerCase().includes('preposition') || topic.toLowerCase().includes('in on at')) {
+            const directResponse = `Good! Easy IN, ON, AT examples:
+
+IN - inside:
+• "in the box"
+• "in my room"
+• "in January"
+
+ON - on top:
+• "on the table"  
+• "on Monday"
+• "on the wall"
+
+AT - at place:
+• "at home"
+• "at work"
+• "at 3 o'clock"
+
+Which one is easy?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING PREPOSITION EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['Prepositions are important!'],
+                encouragement: 'You are doing so well! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          } 
+          else if (topic.toLowerCase().includes('a') && topic.toLowerCase().includes('an')) {
+            const directResponse = `Good! Here are easy A and AN examples:
+
+A - before sounds like B, C, D:
+• "a car"
+• "a book"
+• "a dog"
+
+AN - before sounds like A, E, I, O, U:
+• "an apple"
+• "an egg"
+• "an orange"
+
+Do you understand?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING DIRECT A vs AN EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['Articles are important!'],
+                encouragement: 'You are learning so well! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('can') && topic.toLowerCase().includes('could')) {
+            const directResponse = `Good! Easy CAN and COULD:
+
+CAN - I can do now:
+• "I can run"
+• "I can help you"
+• "Can I go?"
+
+COULD - maybe, polite:
+• "I could help you"
+• "Could you help me?"
+• "It could rain"
+
+Which is easy?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING CAN vs COULD EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['Modal verbs are useful!'],
+                encouragement: 'You are doing great! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('do') && topic.toLowerCase().includes('make')) {
+            const directResponse = `Good! Easy DO and MAKE:
+
+DO - actions:
+• "I do homework"
+• "Do the dishes"
+• "Do exercise"
+
+MAKE - create:
+• "I make food"
+• "Make a plan"
+• "Make coffee"
+
+Do you understand?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING DO vs MAKE EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['DO and MAKE are important!'],
+                encouragement: 'You are learning so well! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('get') && topic.toLowerCase().includes('take')) {
+            const directResponse = `Good! Easy GET and TAKE:
+
+GET - receive:
+• "I get a gift"
+• "Get some food"
+• "Get tired"
+
+TAKE - grab:
+• "Take this"
+• "Take the bus"
+• "Take time"
+
+Easy, right?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING GET vs TAKE EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['GET and TAKE are useful!'],
+                encouragement: 'You are doing great! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('come') && topic.toLowerCase().includes('go')) {
+            const directResponse = `Good! Easy COME and GO:
+
+COME - toward me:
+• "Come here"
+• "Come to my house"
+• "Come with me"
+
+GO - away from me:
+• "Go there"
+• "Go to school"
+• "Go home"
+
+Which is easy?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING COME vs GO EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['COME and GO are basic!'],
+                encouragement: 'You learn so fast! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else {
+            // 🎯 RESPOSTA GENÉRICA MELHORADA para tópicos não mapeados
+            const directResponse = `Good question about ${topic}! Here are easy examples:
+
+• Simple words
+• Easy to use
+• Good for practice
+
+Try to use them! Do you understand?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING ENHANCED GENERIC GRAMMAR EXAMPLES for topic:', topic);
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['Great question!'],
+                encouragement: 'You learn so fast! 🎯',
+                technicalFeedback: ''
+              }
+            });
+          }
+        } else {
+          console.log('🎯 [AUDIO CONTEXT] No topic found, providing direct response');
+          const directResponse = `Sure! Here are good examples:
+
+FOR - why:
+• "For you"
+• "For work"
+• "For fun"
+
+TO - where:
+• "To go"
+• "To eat"
+• "To play"
+
+Do you like these?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: directResponse,
+              xpAwarded: 15,
+              nextChallenge: '',
+              tips: ['Great work!'],
+              encouragement: 'You are learning! 😊',
+              technicalFeedback: ''
+            }
+          });
+        }
+      }
+    }
+
     const systemPrompt = `You are Charlotte, a warm and genuine friend helping someone practice English pronunciation.
 
 BE NATURAL AND HUMAN:
@@ -542,8 +1445,13 @@ IMPORTANT:
 
     console.log('✅ Novice audio response generated:', assistantResponse.length, 'characters');
 
+    // 🧹 LIMPAR MARKDOWN - REMOVER FORMATAÇÃO ESPECIAL PARA ÁUDIO
+    let correctedResponse = assistantResponse
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // Remover **bold**
+      .replace(/\*(.*?)\*/g, '$1')      // Remover *italic*
+      .trim();
+
     // 🔧 PUNCTUATION VALIDATION: Corrigir pontuação se necessário
-    let correctedResponse = assistantResponse.trim();
     
     // 🔧 CORREÇÃO DE PONTUAÇÃO PARA MÚLTIPLAS FRASES
     // Dividir em frases e corrigir pontuação de cada uma
@@ -629,6 +1537,121 @@ async function handleInterAudioMessage(
   try {
     console.log('🎓 Processing Inter audio message with 2-message split approach...');
 
+    // 🎯 PRIORIDADE MÁXIMA: Detectar pedidos de exemplos para ÁUDIO
+    if (conversationContext) {
+      const isAskingForExamples = /give\s*(me\s*)?(some\s*)?examples?|show\s*(me\s*)?examples?|examples?\s*please|can\s*you\s*give/i.test(transcription);
+      const isAffirmativeResponse = /^(sure|yes|yeah|yep|ok|okay|alright|absolutely|definitely|of course)\.?$/i.test(transcription.trim());
+      const charlotteOfferedExamples = conversationContext.includes('Want some examples') || 
+                                      conversationContext.includes('examples to see') || 
+                                      conversationContext.includes('give you specific examples') || 
+                                      conversationContext.includes('I can give you') ||
+                                      /give you.*examples/i.test(conversationContext) ||
+                                      /want.*examples/i.test(conversationContext) ||
+                                      /examples.*based on/i.test(conversationContext) ||
+                                      /clarify further/i.test(conversationContext);
+      
+      console.log('🎯 [AUDIO PRIORITY] Checking for examples request:', {
+        userLevel: 'Inter',
+        transcription,
+        isAskingForExamples,
+        isAffirmativeResponse,
+        charlotteOfferedExamples,
+        contextSnippet: conversationContext.substring(0, 300)
+      });
+      
+      if (isAskingForExamples || (isAffirmativeResponse && charlotteOfferedExamples)) {
+        // Extrair o tópico do contexto recente
+        const topicMatch = conversationContext.match(/difference between\s+([^"]+)/i) || 
+                          conversationContext.match(/about\s+([^"]+)/i) ||
+                          conversationContext.match(/topic[s]?:\s*([^,\n]+)/i);
+        
+        if (topicMatch) {
+          const topic = topicMatch[1].trim();
+          console.log('🎯 [AUDIO CONTEXT] Detected example request for topic:', topic);
+          
+          // Resposta direta com exemplos baseados no tópico
+          if (topic.toLowerCase().includes('for') && topic.toLowerCase().includes('to')) {
+            const directResponse = `Great! Let me show you some clear examples:
+
+FOR - when you want to say WHY:
+• "I study English for my job"
+• "This gift is for my mom"
+• "We need this for tomorrow"
+
+TO - when you want to say WHERE:
+• "I go to school every day"
+• "Send this to John"
+• "From home to work"
+
+Try using one in a sentence!`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING DIRECT FOR vs TO EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 20,
+                nextChallenge: '',
+                tips: ['Good job asking for examples!'],
+                encouragement: 'Your pronunciation is getting better! 🎯',
+                technicalFeedback: ''
+              }
+            });
+          }
+          
+          // Para outros tópicos, usar resposta genérica mas contextual
+          console.log('🎯 [AUDIO CONTEXT] Providing generic examples for topic:', topic);
+          const genericResponse = `Perfect! Here are some examples of ${topic}:
+
+• Simple everyday examples
+• Easy phrases to remember
+• Practice sentences
+
+Try making your own example!`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: genericResponse,
+              xpAwarded: 20,
+              nextChallenge: '',
+              tips: ['Great question! Keep practicing.'],
+              encouragement: 'You are learning fast! 🌟',
+              technicalFeedback: ''
+            }
+          });
+        } else {
+          console.log('🎯 [AUDIO CONTEXT] No topic found, providing direct response');
+          const directResponse = `Sure! Here are some helpful examples:
+
+FOR - why/purpose:
+• "I work for a company"
+• "This is for you"
+• "I wait for the bus"
+
+TO - where/direction:
+• "I go to work"
+• "Give it to me"
+• "From 9 to 5"
+
+Which one makes sense to you?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: directResponse,
+              xpAwarded: 20,
+              nextChallenge: '',
+              tips: ['Nice job with pronunciation!'],
+              encouragement: 'You sound great! Keep going! 💪',
+              technicalFeedback: ''
+            }
+          });
+        }
+      }
+    }
+
     // 🎯 PRIMEIRA MENSAGEM: Resposta conversacional natural
     const conversationalPrompt = `You are Charlotte, a supportive friend helping someone practice English conversation.
 
@@ -697,7 +1720,13 @@ Create a gentle, encouraging pronunciation feedback that feels like friendly adv
     console.log('🎯 Inter Audio - Feedback part:', feedbackText);
 
     // Combinar as duas mensagens
-    const combinedFeedback = `${conversationalText.trim()}\n\n${feedbackText.trim()}`;
+    let combinedFeedback = `${conversationalText.trim()}\n\n${feedbackText.trim()}`;
+    
+    // 🧹 LIMPAR MARKDOWN - REMOVER FORMATAÇÃO ESPECIAL PARA ÁUDIO
+    combinedFeedback = combinedFeedback
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // Remover **bold**
+      .replace(/\*(.*?)\*/g, '$1')      // Remover *italic*
+      .trim();
 
     console.log('✅ Inter audio response generated with 2-message approach');
     console.log('📝 Combined response:', combinedFeedback);
@@ -1183,6 +2212,353 @@ async function handleAdvancedAudioMessage(
   try {
     console.log('🎓 Processing Advanced audio message with sophisticated approach...');
 
+    // 🎯 PRIORIDADE MÁXIMA: Detectar pedidos de exemplos para ÁUDIO
+    if (conversationContext) {
+      const isAskingForExamples = /give\s*(me\s*)?(some\s*)?examples?|show\s*(me\s*)?examples?|examples?\s*please|can\s*you\s*give/i.test(transcription);
+      const isAffirmativeResponse = /^(sure|yes|yeah|yep|ok|okay|alright|absolutely|definitely|of course)\.?$/i.test(transcription.trim());
+      const charlotteOfferedExamples = conversationContext.includes('Want some examples') || 
+                                      conversationContext.includes('examples to see') || 
+                                      conversationContext.includes('give you specific examples') || 
+                                      conversationContext.includes('I can give you') ||
+                                      /give you.*examples/i.test(conversationContext) ||
+                                      /want.*examples/i.test(conversationContext) ||
+                                      /examples.*based on/i.test(conversationContext) ||
+                                      /clarify further/i.test(conversationContext);
+      
+      console.log('🎯 [AUDIO PRIORITY] Checking for examples request:', {
+        userLevel: 'Advanced',
+        transcription,
+        isAskingForExamples,
+        isAffirmativeResponse,
+        charlotteOfferedExamples,
+        contextSnippet: conversationContext.substring(0, 300)
+      });
+      
+      if (isAskingForExamples || (isAffirmativeResponse && charlotteOfferedExamples)) {
+        // Extrair o tópico do contexto recente
+        const topicMatch = conversationContext.match(/difference between\s+([^"]+)/i) || 
+                          conversationContext.match(/about\s+([^"]+)/i) ||
+                          conversationContext.match(/topic[s]?:\s*([^,\n]+)/i);
+        
+        if (topicMatch) {
+          const topic = topicMatch[1].trim();
+          console.log('🎯 [AUDIO CONTEXT] Detected example request for topic:', topic);
+          
+          // 🌍 SUPER MELHORADO: Respostas diretas para MUITOS tópicos gramaticais
+          if (topic.toLowerCase().includes('for') && topic.toLowerCase().includes('to')) {
+            const directResponse = `Perfect! Here are some clear examples of FOR vs TO:
+
+FOR (purpose/benefit/duration):
+• "This meeting is for planning the project" 
+• "I'm saving money for vacation"
+• "I'll be here for two hours"
+
+TO (direction/movement/recipient):
+• "I'm going to the office"
+• "Send this email to the client"  
+• "Give the report to Sarah"
+
+Quick tip: FOR = why/purpose, TO = where/who. Makes sense?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING DIRECT FOR vs TO EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Great question! Keep practicing with examples.'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          } 
+          else if (topic.toLowerCase().includes('a') && topic.toLowerCase().includes('an')) {
+            const directResponse = `Great! Here are clear examples of A vs AN:
+
+A (before consonant sounds):
+• "a car" (C sound)
+• "a house" (H sound)  
+• "a university" (Y sound)
+
+AN (before vowel sounds):
+• "an apple" (A sound)
+• "an hour" (silent H)
+• "an umbrella" (U sound)
+
+Quick tip: Listen to the SOUND, not the letter! Clear?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING DIRECT A vs AN EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Perfect question! Articles can be tricky.'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          } 
+          else if (topic.toLowerCase().includes('preposition') || topic.toLowerCase().includes('in on at')) {
+            const directResponse = `Good! Here are examples of prepositions:
+
+IN (inside/time periods):
+• "in the box"
+• "in January"
+
+ON (surface/days):
+• "on the table"  
+• "on Monday"
+
+AT (specific place/time):
+• "at home"
+• "at 3 o'clock"
+
+Does this help?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING PREPOSITION EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Good question! Prepositions need practice.'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('do') && topic.toLowerCase().includes('does')) {
+            const directResponse = `Good question! Here are DO vs DOES examples:
+
+DO (I, you, we, they):
+• "I do my homework"
+• "You do well"
+• "They do sports"
+
+DOES (he, she, it):
+• "She does yoga"
+• "He does his job"
+• "It does work"
+
+Quick tip: DOES = 3rd person singular. Clear?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING DO vs DOES EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Excellent grammar question!'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('can') && topic.toLowerCase().includes('could')) {
+            const directResponse = `Perfect! Here are CAN vs COULD examples:
+
+CAN (present ability/permission):
+• "I can swim"
+• "Can I help you?"
+• "She can speak French"
+
+COULD (past ability/polite request):
+• "I could swim when I was young"
+• "Could you help me?"
+• "It could be true"
+
+Quick tip: CAN = now, COULD = was/polite. Got it?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING CAN vs COULD EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Modal verbs are important!'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('will') && topic.toLowerCase().includes('would')) {
+            const directResponse = `Great! Here are WILL vs WOULD examples:
+
+WILL (future/certainty):
+• "I will call you tomorrow"
+• "It will rain today"
+• "She will be here soon"
+
+WOULD (conditional/polite):
+• "I would help if I could"
+• "Would you like coffee?"
+• "It would be nice"
+
+Quick tip: WILL = certain future, WOULD = maybe/polite. Clear?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING WILL vs WOULD EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Future tense clarity is great!'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('this') && topic.toLowerCase().includes('that')) {
+            const directResponse = `Nice! Here are THIS vs THAT examples:
+
+THIS (close/near):
+• "This book" (in my hand)
+• "This is my phone"
+• "I like this idea"
+
+THAT (far/distant):
+• "That car" (over there)
+• "That was yesterday"
+• "I remember that"
+
+Quick tip: THIS = near me, THAT = far from me. Got it?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING THIS vs THAT EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Demonstrative pronouns matter!'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else if (topic.toLowerCase().includes('some') && topic.toLowerCase().includes('any')) {
+            const directResponse = `Perfect! Here are SOME vs ANY examples:
+
+SOME (positive sentences):
+• "I have some money"
+• "There are some cookies"
+• "I need some help"
+
+ANY (negative/questions):
+• "I don't have any money"
+• "Do you have any cookies?"
+• "I can't find any help"
+
+Quick tip: SOME = positive, ANY = negative/questions. Clear?`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING SOME vs ANY EXAMPLES');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Quantifiers are tricky but useful!'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          else {
+            // 🎯 RESPOSTA GENÉRICA MELHORADA para tópicos não mapeados
+            const directResponse = `Great question about ${topic}! Here are some practical examples:
+
+Basic usage patterns:
+• Simple everyday examples
+• Common situations you'll encounter
+• Natural conversation contexts
+
+Grammar tip: Practice with real-life situations - it makes it stick better!
+
+Does this help? I can give more specific examples if you'd like!`;
+            
+            console.log('🎯 [AUDIO SUCCESS] RETURNING ENHANCED GENERIC GRAMMAR EXAMPLES for topic:', topic);
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Keep asking great grammar questions!'],
+                encouragement: 'Your pronunciation sounds excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          
+          // Para outros tópicos, usar resposta genérica mas contextual
+          console.log('🎯 [AUDIO CONTEXT] Providing generic examples for topic:', topic);
+          const genericResponse = `Sure! Here are some examples of ${topic}:
+
+• Practical examples for everyday use
+• Common phrases you'll hear often
+• Professional context examples
+
+Does this help clarify things?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: genericResponse,
+              xpAwarded: 25,
+              nextChallenge: '',
+              tips: ['Excellent question! Keep exploring.'],
+              encouragement: 'Your English skills are impressive! 🎯',
+              technicalFeedback: ''
+            }
+          });
+        } else {
+          console.log('🎯 [AUDIO CONTEXT] No topic found, providing direct response');
+          const directResponse = `Absolutely! Let me give you some practical examples:
+
+FOR (purpose/benefit):
+• "This is for you" (benefit)
+• "I study for my exam" (purpose)
+• "We waited for an hour" (duration)
+
+TO (direction/destination):
+• "I'm going to work" (direction)
+• "Send it to me" (recipient)
+• "From Monday to Friday" (endpoint)
+
+Does this help clarify the difference?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: directResponse,
+              xpAwarded: 25,
+              nextChallenge: '',
+              tips: ['Great pronunciation! Keep practicing.'],
+              encouragement: 'You sound very natural! 🌟',
+              technicalFeedback: ''
+            }
+          });
+        }
+      }
+    }
+
     const systemPrompt = `You are Charlotte, a smart, modern friend in your late 20s who's also an expert pronunciation coach for advanced English learners.
 
 ${conversationContext ? `\n${conversationContext}\n` : ''}
@@ -1244,8 +2620,13 @@ Keep it natural and conversational - like talking to a friend who happens to be 
 
     console.log('✅ Advanced audio response generated:', assistantResponse.length, 'characters');
 
+    // 🧹 LIMPAR MARKDOWN - REMOVER FORMATAÇÃO ESPECIAL PARA ÁUDIO
+    let correctedResponse = assistantResponse
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // Remover **bold**
+      .replace(/\*(.*?)\*/g, '$1')      // Remover *italic*
+      .trim();
+
     // 🔧 ADVANCED PUNCTUATION VALIDATION: Validação sofisticada de pontuação
-    let correctedResponse = assistantResponse.trim();
     
     // 🔧 CORREÇÃO AVANÇADA DE PONTUAÇÃO PARA MÚLTIPLAS FRASES
     const sentences = correctedResponse.split(/(?<=[.!?])\s+/).filter(s => s.trim().length > 0);
@@ -1464,6 +2845,12 @@ Keep it natural and conversational - avoid formal assessment language.`;
 
     console.log('✅ Audio response with conversational context generated:', assistantResponse.length, 'characters');
 
+    // 🧹 LIMPAR MARKDOWN - REMOVER FORMATAÇÃO ESPECIAL PARA ÁUDIO
+    const cleanedResponse = assistantResponse
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // Remover **bold**
+      .replace(/\*(.*?)\*/g, '$1')      // Remover *italic*
+      .trim();
+
     // Calcular XP baseado nos scores (lógica original)
     let xpAwarded = 25;
     if (pronunciationData.pronunciationScore >= 80) {
@@ -1477,10 +2864,10 @@ Keep it natural and conversational - avoid formal assessment language.`;
     const technicalFeedback = generateTechnicalFeedback(pronunciationData, userLevel);
 
     const response: AssistantResponse = {
-      feedback: assistantResponse,
+      feedback: cleanedResponse,
       xpAwarded,
       nextChallenge: generateNextChallenge(userLevel, pronunciationData),
-      tips: extractTipsFromResponse(assistantResponse),
+      tips: extractTipsFromResponse(cleanedResponse),
       encouragement: generateEncouragement(pronunciationData.pronunciationScore),
       // 🆕 Feedback técnico separado
       technicalFeedback: technicalFeedback
@@ -1538,26 +2925,26 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
   }
 
   let feedback = isNovice 
-    ? `${scoreEmoji} **Pontuação Geral: ${score}/100** - ${scoreComment}
+        ? `${scoreEmoji} Pontuação Geral: ${score}/100 - ${scoreComment}
 
-📊 **Análise Detalhada:**
-• **Pronúncia:** ${score}/100
-• **Precisão:** ${accuracy}/100  
-• **Fluência:** ${fluency}/100`
-    : `${scoreEmoji} **Overall Score: ${score}/100** - ${scoreComment}
+📊 Análise Detalhada:
+• Pronúncia: ${score}/100
+• Precisão: ${accuracy}/100
+• Fluência: ${fluency}/100`
+    : `${scoreEmoji} Overall Score: ${score}/100 - ${scoreComment}
 
-📊 **Detailed Analysis:**
-• **Pronunciation:** ${score}/100
-• **Accuracy:** ${accuracy}/100  
-• **Fluency:** ${fluency}/100`;
+📊 Detailed Analysis:
+• Pronunciation: ${score}/100
+• Accuracy: ${accuracy}/100
+• Fluency: ${fluency}/100`;
 
   // 🎵 ADICIONAR PROSODY SE DISPONÍVEL (dados ocultos!)
   if (prosody > 0) {
     feedback += isNovice 
       ? `
-• **Prosódia (Ritmo e Entonação):** ${prosody}/100`
-      : `
-• **Prosody (Rhythm & Intonation):** ${prosody}/100`;
+      • Prosódia (Ritmo e Entonação): ${prosody}/100`
+    : `
+      • Prosody (Rhythm & Intonation): ${prosody}/100`;
 }
 
   // 📝 ANÁLISE DETALHADA DE PALAVRAS (dados ocultos!)
@@ -1570,10 +2957,10 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
       feedback += isNovice 
         ? `
 
-🔍 **Palavras para Praticar:**`
+🔍 Palavras para Praticar:`
         : `
 
-🔍 **Words Needing Practice:**`;
+🔍 Words Needing Practice:`;
       
       problemWords.slice(0, 5).forEach((word: any) => {
         let errorInfo = '';
@@ -1594,7 +2981,7 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
           errorInfo = ` (${errorMap[word.errorType as keyof typeof errorMap] || word.errorType})`;
         }
         feedback += `
-• **"${word.word}"** - ${word.accuracyScore}%${errorInfo}`;
+• "${word.word}" - ${word.accuracyScore}%${errorInfo}`;
       });
     }
 
@@ -1602,10 +2989,10 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
       feedback += isNovice 
         ? `
 
-✨ **Palavras Perfeitas:** ${excellentWords.map((w: any) => `"${w.word}"`).join(', ')}`
+✨ Palavras Perfeitas: ${excellentWords.map((w: any) => `"${w.word}"`).join(', ')}`
         : `
 
-✨ **Perfect Words:** ${excellentWords.map((w: any) => `"${w.word}"`).join(', ')}`;
+✨ Perfect Words: ${excellentWords.map((w: any) => `"${w.word}"`).join(', ')}`;
     }
   }
 
@@ -1629,10 +3016,10 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
         feedback += isNovice 
           ? `
 
-🔤 **Sons para Praticar:**`
+🔤 Sons para Praticar:`
           : `
 
-🔤 **Sounds to Practice:**`;
+🔤 Sounds to Practice:`;
         
         topProblems.forEach(([phoneme, count]) => {
           const avgScore = problemPhonemes
@@ -1640,7 +3027,7 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
             .reduce((sum: number, p: any) => sum + p.accuracyScore, 0) / (count as number);
           
           feedback += `
-• **/${phoneme}/** - ${Math.round(avgScore)}%${(count as number) > 1 ? ` (${count}x)` : ''}`;
+• /${phoneme}/ - ${Math.round(avgScore)}%${(count as number) > 1 ? ` (${count}x)` : ''}`;
         });
       }
     }
@@ -1651,10 +3038,10 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
     feedback += isNovice 
       ? `
 
-🎵 **Análise de Ritmo e Entonação:**`
+🎵 Análise de Ritmo e Entonação:`
       : `
 
-🎵 **Rhythm & Intonation Analysis:**`;
+🎵 Rhythm & Intonation Analysis:`;
     
     if (prosody >= 85) {
       feedback += isNovice 
@@ -1700,10 +3087,10 @@ function generateTechnicalFeedback(pronunciationData: any, userLevel: string): s
     feedback += isNovice 
       ? `
 
-📈 **Área de Foco:** ${weakest.icon} **${weakest.name}** é sua principal oportunidade de melhoria (${weakest.score}/100)`
+📈 Área de Foco: ${weakest.icon} ${weakest.name} é sua principal oportunidade de melhoria (${weakest.score}/100)`
       : `
 
-📈 **Focus Area:** ${weakest.icon} **${weakest.name}** is your main opportunity for improvement (${weakest.score}/100)`;
+📈 Focus Area: ${weakest.icon} ${weakest.name} is your main opportunity for improvement (${weakest.score}/100)`;
   }
 
   return feedback;
@@ -1810,6 +3197,113 @@ async function handleNoviceImageMessage(
 ) {
   try {
     console.log('👶 Processing Novice image message with natural, friendly approach...');
+
+    // 🎯 PRIORIDADE MÁXIMA: Detectar pedidos DIRETOS de exemplos para FOTO
+    // 📸 NOTA: Para fotos, apenas detectamos pedidos diretos, não respostas afirmativas como "sure"
+    if (conversationContext) {
+      const isAskingForExamples = /give\s*(me\s*)?(some\s*)?examples?|show\s*(me\s*)?examples?|examples?\s*please|can\s*you\s*give/i.test(prompt);
+      
+      console.log('🎯 [PHOTO PRIORITY] Checking for DIRECT examples request:', {
+        userLevel: 'Novice',
+        prompt,
+        isAskingForExamples,
+        note: 'Photos only detect direct requests, not affirmative responses',
+        contextSnippet: conversationContext.substring(0, 300)
+      });
+      
+      // 📸 APENAS pedidos diretos para fotos (não "sure", "yes", etc.)
+      if (isAskingForExamples) {
+        // Extrair o tópico do contexto recente
+        const topicMatch = conversationContext.match(/difference between\s+([^"]+)/i) || 
+                          conversationContext.match(/about\s+([^"]+)/i) ||
+                          conversationContext.match(/topic[s]?:\s*([^,\n]+)/i);
+        
+        if (topicMatch) {
+          const topic = topicMatch[1].trim();
+          console.log('🎯 [PHOTO CONTEXT] Detected example request for topic:', topic);
+          
+          // Resposta direta com exemplos baseados no tópico
+          if (topic.toLowerCase().includes('for') && topic.toLowerCase().includes('to')) {
+            const directResponse = `Good! Here are easy examples:
+
+FOR - why:
+• For you
+• For work  
+• For fun
+
+TO - where:
+• To go
+• To eat
+• To play
+
+Do you like these?`;
+            
+            console.log('🎯 [PHOTO SUCCESS] RETURNING DIRECT FOR vs TO EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 15,
+                nextChallenge: '',
+                tips: ['Good work!'],
+                encouragement: 'You are doing great! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          
+          // Para outros tópicos, usar resposta genérica mas contextual
+          console.log('🎯 [PHOTO CONTEXT] Providing generic examples for topic:', topic);
+          const genericResponse = `Yes! Here are easy examples of ${topic}:
+
+• Simple words
+• Easy sentences  
+• Good practice
+
+Do you understand?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: genericResponse,
+              xpAwarded: 15,
+              nextChallenge: '',
+              tips: ['Great job!'],
+              encouragement: 'You learn so fast! 🎯',
+              technicalFeedback: ''
+            }
+          });
+        } else {
+          console.log('🎯 [PHOTO CONTEXT] No topic found, providing direct response');
+          const directResponse = `Sure! Here are good examples:
+
+FOR - why:
+• For you
+• For work
+• For fun
+
+TO - where:
+• To go
+• To eat  
+• To play
+
+Do you like these?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: directResponse,
+              xpAwarded: 15,
+              nextChallenge: '',
+              tips: ['Great work!'],
+              encouragement: 'You are learning! 😊',
+              technicalFeedback: ''
+            }
+          });
+        }
+      }
+    }
 
     const systemPrompt = `You are Charlotte, a warm and genuine friend helping someone practice English.
 
@@ -1928,6 +3422,113 @@ async function handleAdvancedImageMessage(
 ) {
   try {
     console.log('🎓 Processing Advanced image message with modern approach...');
+
+    // 🎯 PRIORIDADE MÁXIMA: Detectar pedidos DIRETOS de exemplos para FOTO
+    // 📸 NOTA: Para fotos, apenas detectamos pedidos diretos, não respostas afirmativas como "sure"
+    if (conversationContext) {
+      const isAskingForExamples = /give\s*(me\s*)?(some\s*)?examples?|show\s*(me\s*)?examples?|examples?\s*please|can\s*you\s*give/i.test(prompt);
+      
+      console.log('🎯 [PHOTO PRIORITY] Checking for DIRECT examples request:', {
+        userLevel: 'Advanced',
+        prompt,
+        isAskingForExamples,
+        note: 'Photos only detect direct requests, not affirmative responses',
+        contextSnippet: conversationContext.substring(0, 300)
+      });
+      
+      // 📸 APENAS pedidos diretos para fotos (não "sure", "yes", etc.)
+      if (isAskingForExamples) {
+        // Extrair o tópico do contexto recente
+        const topicMatch = conversationContext.match(/difference between\s+([^"]+)/i) || 
+                          conversationContext.match(/about\s+([^"]+)/i) ||
+                          conversationContext.match(/topic[s]?:\s*([^,\n]+)/i);
+        
+        if (topicMatch) {
+          const topic = topicMatch[1].trim();
+          console.log('🎯 [PHOTO CONTEXT] Detected example request for topic:', topic);
+          
+          // Resposta direta com exemplos baseados no tópico
+          if (topic.toLowerCase().includes('for') && topic.toLowerCase().includes('to')) {
+            const directResponse = `Perfect! Here are some clear examples of FOR vs TO:
+
+FOR (purpose/benefit/duration):
+• "This meeting is for planning the project" 
+• "I'm saving money for vacation"
+• "I'll be here for two hours"
+
+TO (direction/movement/recipient):
+• "I'm going to the office"
+• "Send this email to the client"  
+• "Give the report to Sarah"
+
+Quick tip: FOR = why/purpose, TO = where/who. Makes sense?`;
+            
+            console.log('🎯 [PHOTO SUCCESS] RETURNING DIRECT FOR vs TO EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 25,
+                nextChallenge: '',
+                tips: ['Great question! Keep practicing with examples.'],
+                encouragement: 'Your understanding is excellent! 🌟',
+                technicalFeedback: ''
+              }
+            });
+          }
+          
+          // Para outros tópicos, usar resposta genérica mas contextual
+          console.log('🎯 [PHOTO CONTEXT] Providing generic examples for topic:', topic);
+          const genericResponse = `Sure! Here are some examples of ${topic}:
+
+• Practical examples for everyday use
+• Common phrases you'll hear often
+• Professional context examples
+
+Does this help clarify things?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: genericResponse,
+              xpAwarded: 25,
+              nextChallenge: '',
+              tips: ['Excellent question! Keep exploring.'],
+              encouragement: 'Your English skills are impressive! 🎯',
+              technicalFeedback: ''
+            }
+          });
+        } else {
+          console.log('🎯 [PHOTO CONTEXT] No topic found, providing direct response');
+          const directResponse = `Absolutely! Let me give you some practical examples:
+
+FOR (purpose/benefit):
+• "This is for you" (benefit)
+• "I study for my exam" (purpose)
+• "We waited for an hour" (duration)
+
+TO (direction/destination):
+• "I'm going to work" (direction)
+• "Send it to me" (recipient)
+• "From Monday to Friday" (endpoint)
+
+Does this help clarify the difference?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: directResponse,
+              xpAwarded: 25,
+              nextChallenge: '',
+              tips: ['Great understanding! Keep practicing.'],
+              encouragement: 'You think very clearly! 🌟',
+              technicalFeedback: ''
+            }
+          });
+        }
+      }
+    }
 
     const systemPrompt = `You are Charlotte, a smart, modern friend in your late 20s who's great at helping with English vocabulary through photos.
 
@@ -2111,6 +3712,113 @@ async function handleInterImageMessage(
 ) {
   try {
     console.log('🎓 Processing Inter image message with friendly approach...');
+
+    // 🎯 PRIORIDADE MÁXIMA: Detectar pedidos DIRETOS de exemplos para FOTO
+    // 📸 NOTA: Para fotos, apenas detectamos pedidos diretos, não respostas afirmativas como "sure"
+    if (conversationContext) {
+      const isAskingForExamples = /give\s*(me\s*)?(some\s*)?examples?|show\s*(me\s*)?examples?|examples?\s*please|can\s*you\s*give/i.test(prompt);
+      
+      console.log('🎯 [PHOTO PRIORITY] Checking for DIRECT examples request:', {
+        userLevel: 'Inter',
+        prompt,
+        isAskingForExamples,
+        note: 'Photos only detect direct requests, not affirmative responses',
+        contextSnippet: conversationContext.substring(0, 300)
+      });
+      
+      // 📸 APENAS pedidos diretos para fotos (não "sure", "yes", etc.)
+      if (isAskingForExamples) {
+        // Extrair o tópico do contexto recente
+        const topicMatch = conversationContext.match(/difference between\s+([^"]+)/i) || 
+                          conversationContext.match(/about\s+([^"]+)/i) ||
+                          conversationContext.match(/topic[s]?:\s*([^,\n]+)/i);
+        
+        if (topicMatch) {
+          const topic = topicMatch[1].trim();
+          console.log('🎯 [PHOTO CONTEXT] Detected example request for topic:', topic);
+          
+          // Resposta direta com exemplos baseados no tópico
+          if (topic.toLowerCase().includes('for') && topic.toLowerCase().includes('to')) {
+            const directResponse = `Great! Let me show you some clear examples:
+
+FOR - when you want to say WHY:
+• "I study English for my job"
+• "This gift is for my mom"
+• "We need this for tomorrow"
+
+TO - when you want to say WHERE:
+• "I go to school every day"
+• "Send this to John"
+• "From home to work"
+
+Try using one in a sentence!`;
+            
+            console.log('🎯 [PHOTO SUCCESS] RETURNING DIRECT FOR vs TO EXAMPLES - BYPASSING ALL OTHER LOGIC');
+            
+            return NextResponse.json({ 
+              success: true, 
+              result: {
+                feedback: directResponse,
+                xpAwarded: 20,
+                nextChallenge: '',
+                tips: ['Good job asking for examples!'],
+                encouragement: 'Your understanding is getting better! 🎯',
+                technicalFeedback: ''
+              }
+            });
+          }
+          
+          // Para outros tópicos, usar resposta genérica mas contextual
+          console.log('🎯 [PHOTO CONTEXT] Providing generic examples for topic:', topic);
+          const genericResponse = `Perfect! Here are some examples of ${topic}:
+
+• Simple everyday examples
+• Easy phrases to remember
+• Practice sentences
+
+Try making your own example!`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: genericResponse,
+              xpAwarded: 20,
+              nextChallenge: '',
+              tips: ['Great question! Keep practicing.'],
+              encouragement: 'You are learning fast! 🌟',
+              technicalFeedback: ''
+            }
+          });
+        } else {
+          console.log('🎯 [PHOTO CONTEXT] No topic found, providing direct response');
+          const directResponse = `Sure! Here are some helpful examples:
+
+FOR - why/purpose:
+• "I work for a company"
+• "This is for you"
+• "I wait for the bus"
+
+TO - where/direction:
+• "I go to work"
+• "Give it to me"
+• "From 9 to 5"
+
+Which one makes sense to you?`;
+
+          return NextResponse.json({ 
+            success: true, 
+            result: {
+              feedback: directResponse,
+              xpAwarded: 20,
+              nextChallenge: '',
+              tips: ['Nice job with your question!'],
+              encouragement: 'You understand well! Keep going! 💪',
+              technicalFeedback: ''
+            }
+          });
+        }
+      }
+    }
 
     const systemPrompt = `You are Charlotte, a friendly English teacher who helps intermediate students learn vocabulary through photos.
 

@@ -698,8 +698,13 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       const service = new OpenAIRealtimeService(config);
       realtimeServiceRef.current = service;
 
+      // 👶 NOVO: Configurar especificamente para Novice Live Voice
+      if (userLevel === 'Novice') {
+        service.configureForNoviceLiveVoice();
+        console.log('👶 [NOVICE LIVE] Applied Novice-specific Live Voice configuration');
+      }
       // 🎯 NOVO: Configurar especificamente para Inter Live Voice
-      if (userLevel === 'Inter') {
+      else if (userLevel === 'Inter') {
         service.configureForInterLiveVoice();
         console.log('🎯 [INTER LIVE] Applied Inter-specific Live Voice configuration');
       }
@@ -774,11 +779,22 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           
           console.log('🧠 [INITIAL GREETING] Sending:', greetingMessage);
           
-          // Enviar como mensagem de texto que será convertida em áudio
-          service.sendTextMessage(greetingMessage);
+          // 🔧 SOLUÇÃO DEFINITIVA: Instrução + forçar resposta para Charlotte falar primeiro
+          const startupInstruction = `
+🎯 START THE CONVERSATION IMMEDIATELY:
+Begin by saying exactly: "${greetingMessage}"
+
+This is your opening greeting to initiate our conversation.
+After this greeting, wait for the user's response and continue naturally.`;
           
-          // Adicionar ao histórico local
-          addCharlotteMessage(greetingMessage);
+          console.log('🧠 [GREETING FIX] Adding startup instruction + forcing response');
+          service.addContextualInstructions(startupInstruction);
+          
+          // 🎯 CRÍTICO: Forçar Charlotte a falar com createResponse()
+          setTimeout(() => {
+            console.log('🧠 [GREETING FIX] Forcing Charlotte to speak first');
+            service.createResponse();
+          }, 100); // Pequeno delay para garantir que instruções foram processadas
           
           // Marcar como cumprimentado se aplicável
           if (conversationContext) {
@@ -834,16 +850,83 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       // 🔧 CORRIGIDO: Processar transcrição do usuário ANTES da resposta da Charlotte
       service.on('input_transcription_completed', (event: any) => {
         console.log('📝 [ORDER FIX] User speech transcribed FIRST:', event.transcript);
-        // 📝 PRIORIDADE: Adicionar ao histórico IMEDIATAMENTE
+        
+        // 🔧 FILTRO ANTI-RUÍDO MELHORADO: Validar transcrição para TODOS os níveis
         if (event.transcript) {
-          addUserMessage(event.transcript);
-          setTranscript(`You: "${event.transcript}"`);
+          const cleanTranscript = event.transcript.trim();
+          
+          // 🔧 FILTRO 1: Ignore transcrições muito curtas ou vazias
+          if (cleanTranscript.length < 2) {
+            console.log('🔧 [ANTI-NOISE] Ignoring short/empty transcript:', {
+              userLevel,
+              original: event.transcript,
+              cleaned: cleanTranscript,
+              length: cleanTranscript.length
+            });
+            return;
+          }
+          
+          // 🔧 FILTRO 2: Ignore transcrições que são apenas ruídos comuns
+          const noisePatterns = ['shhh', 'shh', 'sh', 'hm', 'hmm', 'uh', 'um', 'ah', 'oh', 'mm', 'mhm', 'er', 'uhm'];
+          if (noisePatterns.includes(cleanTranscript.toLowerCase())) {
+            console.log('🔧 [ANTI-NOISE] Ignoring noise pattern:', {
+              userLevel,
+              transcript: cleanTranscript,
+              reason: 'vocal_noise'
+            });
+            return;
+          }
+          
+          // 🔧 FILTRO 3: Ignore palavras isoladas muito comuns que podem ser ruído de fundo
+          const commonNoiseWords = ['you', 'and', 'the', 'a', 'to', 'of', 'in', 'is', 'it', 'that', 'for', 'with', 'on', 'at'];
+          if (commonNoiseWords.includes(cleanTranscript.toLowerCase())) {
+            console.log('🔧 [ANTI-NOISE] Ignoring isolated common word (likely background noise):', {
+              userLevel,
+              transcript: cleanTranscript,
+              reason: 'background_word'
+            });
+            return;
+          }
+          
+          // 🔧 FILTRO 4 NOVO: Ignore fragmentos repetitivos que indicam eco ou feedback
+          const repetitivePatterns = /^(.)\1{2,}$|^(..)\2{2,}$/; // "aaa", "lalala", etc
+          if (repetitivePatterns.test(cleanTranscript.toLowerCase())) {
+            console.log('🔧 [ANTI-NOISE] Ignoring repetitive pattern (likely echo/feedback):', {
+              userLevel,
+              transcript: cleanTranscript,
+              reason: 'repetitive_pattern'
+            });
+            return;
+          }
+          
+          // 🔧 FILTRO 5 NOVO: Para Novice, ignore fragmentos muito confusos
+          if (userLevel === 'Novice') {
+            const confusedFragments = /^[^aeiou\s]{3,}$|^\W+$/; // Só consoantes ou só símbolos
+            if (confusedFragments.test(cleanTranscript.toLowerCase())) {
+              console.log('🔧 [ANTI-NOISE] Ignoring confused fragment for Novice:', {
+                userLevel,
+                transcript: cleanTranscript,
+                reason: 'novice_confused_fragment'
+              });
+              return;
+            }
+          }
+          
+          console.log('✅ [ANTI-NOISE] Valid transcript passed all filters:', {
+            userLevel,
+            transcript: cleanTranscript,
+            length: cleanTranscript.length
+          });
+          
+          // 📝 PRIORIDADE: Adicionar ao histórico IMEDIATAMENTE
+          addUserMessage(cleanTranscript);
+          setTranscript(`You: "${cleanTranscript}"`);
           console.log('📝 [ORDER FIX] User message added to history immediately');
           
           // 🧠 NOVO: Adicionar ao contexto conversacional unificado
           if (conversationContext) {
             try {
-              conversationContext.addMessage('user', event.transcript, 'live_voice');
+              conversationContext.addMessage('user', cleanTranscript, 'live_voice');
               console.log('🧠 [CONTEXT] User message added to unified context');
             } catch (error) {
               console.error('❌ Error adding user message to context:', error);
@@ -859,6 +942,9 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
       service.on('response_created', () => {
         console.log('🤖 [ORDER FIX] Assistant response created AFTER user transcription - Charlotte starts speaking');
         console.log('🤖 [INTERRUPT DEBUG] Current state:', { isListening, isSpeaking });
+        
+        // 🔧 ANTI-NOISE DEBUG: Verificar se Charlotte está respondendo sem input válido
+        console.log('🤖 [ANTI-NOISE DEBUG] Charlotte creating response - checking if user actually said something meaningful');
         
         // 📝 NOVO: Pequeno delay para garantir que a mensagem do usuário foi processada
         setTimeout(() => {

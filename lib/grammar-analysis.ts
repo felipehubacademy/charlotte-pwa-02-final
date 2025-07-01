@@ -95,6 +95,28 @@ export class GrammarAnalysisService {
     userLevel: string
   ): Promise<GrammarAnalysis> {
     
+    // 🎯 ADVANCED: Respostas casuais são aceitas sem correção rigorosa
+    if (userLevel === 'Advanced') {
+      const casualResponses = /^(sure|yes|yeah|yep|ok|okay|alright|absolutely|definitely|of course|great|perfect|exactly|right|correct|true|false|no|nope|maybe|perhaps)\.?$/i;
+      const isShortCasual = text.trim().split(' ').length <= 3 && casualResponses.test(text.trim());
+      
+      if (isShortCasual) {
+        console.log('🎯 [ADVANCED] Detected casual response, skipping rigid grammar analysis:', text);
+        return {
+          text,
+          overallScore: 85, // Boa pontuação para respostas casuais
+          errors: [], // Sem erros para respostas casuais aceitas
+          strengths: ["Clear and appropriate response"],
+          suggestions: [],
+          complexity: 'simple',
+          wordCount: text.split(' ').length,
+          sentenceCount: 1,
+          readabilityScore: 90,
+          levelAppropriate: true
+        };
+      }
+    }
+    
     const levelInstructions = {
       'Novice': 'Focus on basic grammar, simple sentence structure, and common vocabulary. Be very encouraging and explain concepts simply using clear, basic English.',
       'Intermediate': 'Analyze intermediate grammar, business English usage, and more complex sentence structures. Focus on practical communication skills.',
