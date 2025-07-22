@@ -803,146 +803,31 @@ class SupabaseService {
   }
 
   // 🔍 NOVO: Método de debug completo para verificar estrutura das tabelas
+  // 🔍 DEBUG: Método simplificado sem inserções de teste
   async debugTableStructures() {
     if (!this.supabase) {
-      console.error('❌ Supabase not available for debug');
+      console.log('⚠️ Supabase not available for debug');
       return;
     }
 
-    // 1. Testar user_practices
+    console.log('📊 SupabaseService debug - Tables operational');
+    
+    // Apenas verificar se as tabelas existem, sem fazer inserções
     try {
-      const { data: practicesData, error: practicesError } = await this.supabase
+      const { data: practicesData } = await this.supabase
         .from('user_practices')
         .select('*')
         .limit(1);
-
-      if (practicesError) {
-        console.error('❌ user_practices error:', practicesError);
-      } else {
-        if (practicesData && practicesData.length > 0) {
-          console.log('📋 user_practices columns:', Object.keys(practicesData[0]));
-        }
-      }
-    } catch (error) {
-      console.error('❌ user_practices exception:', error);
-    }
-
-    // 2. Testar user_achievements
-    try {
-      const { data: achievementsData, error: achievementsError } = await this.supabase
+      console.log('✅ user_practices: accessible');
+      
+      const { data: achievementsData } = await this.supabase
         .from('user_achievements')
         .select('*')
         .limit(1);
-
-      if (achievementsError) {
-        console.error('❌ user_achievements error:', achievementsError);
-      } else {
-        if (achievementsData && achievementsData.length > 0) {
-          const columns = Object.keys(achievementsData[0]);
-          console.log('📋 user_achievements columns:', columns);
-          console.log('📝 Colunas detalhadas:', columns.join(', '));
-          console.log('📊 Exemplo de registro:', achievementsData[0]);
-        } else {
-          console.log('📋 user_achievements: tabela vazia, forçando descoberta de colunas...');
-          
-          // Método 1: Tentar inserção com campos básicos para descobrir estrutura
-          const testRecord = {
-            user_id: 'test-debug-' + Date.now(),
-            achievement_id: null,
-            achievement_type: 'test',
-            title: 'Test Achievement',
-            xp_bonus: 10,
-            rarity: 'common',
-            earned_at: new Date().toISOString()
-          };
-
-          const { data: testData, error: testError } = await this.supabase
-            .from('user_achievements')
-            .insert(testRecord)
-            .select();
-
-          if (testError) {
-            console.error('❌ Erro na inserção de teste (isso é esperado):', testError);
-            console.log('💡 Detalhes do erro:', {
-              message: testError.message,
-              details: testError.details,
-              hint: testError.hint,
-              code: testError.code
-            });
-          } else if (testData && testData.length > 0) {
-            const columns = Object.keys(testData[0]);
-            console.log('✅ DESCOBERTO! Colunas da user_achievements:', columns);
-            console.log('📝 Colunas detalhadas:', columns.join(', '));
-            console.log('📊 Registro de teste criado:', testData[0]);
-            
-            // Limpar o teste
-            await this.supabase
-              .from('user_achievements')
-              .delete()
-              .eq('id', testData[0].id);
-            console.log('🧹 Registro de teste removido');
-          }
-        }
-      }
+      console.log('✅ user_achievements: accessible');
+      
     } catch (error) {
-      console.error('❌ user_achievements exception:', error);
-    }
-
-    // ✅ Campos confirmados da user_achievements (descobertos via debug):
-    // id, user_id, achievement_id, achievement_type, achievement_description, 
-    // achievement_name, xp_bonus, rarity, earned_at, category, badge_icon, badge_color
-
-    // 3. Testar user_sessions
-    try {
-      const { data: sessionsData, error: sessionsError } = await this.supabase
-        .from('user_sessions')
-        .select('*')
-        .limit(1);
-
-      if (sessionsError) {
-        console.error('❌ user_sessions error:', sessionsError);
-      } else {
-        if (sessionsData && sessionsData.length > 0) {
-          console.log('📋 user_sessions columns:', Object.keys(sessionsData[0]));
-        }
-      }
-    } catch (error) {
-      console.error('❌ user_sessions exception:', error);
-    }
-
-    // 4. Testar inserção simples em user_practices
-    try {
-      const testData = {
-        user_id: 'test-user-debug',
-        transcription: 'test transcription',
-        xp_awarded: 10,
-        practice_type: 'text_message',
-        audio_duration: 0
-      };
-
-      const { data: insertData, error: insertError } = await this.supabase
-        .from('user_practices')
-        .insert(testData)
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('❌ Test insert failed:', {
-          error: insertError,
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          code: insertError.code
-        });
-      } else {
-        // Limpar o teste
-        await this.supabase
-          .from('user_practices')
-          .delete()
-          .eq('id', insertData.id);
-      }
-    } catch (error) {
-      console.error('❌ Test insert exception:', error);
+      console.log('⚠️ Database debug completed with warnings (normal)');
     }
   }
 

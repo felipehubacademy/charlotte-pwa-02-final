@@ -1047,9 +1047,9 @@ export default function ChatPage() {
     if (user?.entra_id && supabaseService.isAvailable()) {
       loadUserStats();
       
-      // 🔍 DEBUG: Verificar estrutura das tabelas
-      console.log('🔍 Running table structure debug...');
-      supabaseService.debugTableStructures();
+      // 🔍 DEBUG: Verificar estrutura das tabelas (DESABILITADO)
+      // console.log('🔍 Running table structure debug...');
+      // supabaseService.debugTableStructures();
       
       // 🔧 FORCE: Atualizar cache do leaderboard para corrigir nomes
       console.log('🔄 Force refreshing leaderboard cache...');

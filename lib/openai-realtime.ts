@@ -1923,9 +1923,9 @@ GOAL: Be a helpful mini-teacher who makes English simple and less scary!`;
 
   // 👶 NOVO: Configuração de temperatura para Novice Live Voice
   private getNoviceLiveVoiceTemperature(): number {
-    const temperature = 0.3; // Baixa para respostas mais previsíveis e simples
+    const temperature = 0.6; // CORRIGIDO: OpenAI mudou mínimo para 0.6
     
-    console.log(`👶 [NOVICE LIVE] Setting temperature to ${temperature} for consistent, simple responses`);
+    console.log(`👶 [NOVICE LIVE] Setting temperature to ${temperature} for consistent, simple responses (OpenAI minimum)`);
     
     return temperature;
   }

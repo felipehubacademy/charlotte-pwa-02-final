@@ -631,10 +631,10 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
     if (!userId) return;
     
     try {
-      console.log('🏆 Loading real achievements from Supabase...');
+      // console.log('🏆 Loading real achievements from Supabase...');
       const userAchievements = await supabaseService.getUserAchievements(userId, 50);
       
-      console.log('📋 Raw achievements from Supabase:', userAchievements);
+      // console.log('📋 Raw achievements from Supabase:', userAchievements);
       
       if (userAchievements && userAchievements.length > 0) {
         // ✅ CORRIGIDO: Converter dados do Supabase para formato Achievement com mapeamento robusto
@@ -661,15 +661,8 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
                          ach.xp_reward || 
                          0;
           
-          console.log(`🔍 Processing achievement ${index + 1}:`, {
-            raw: ach,
-            mapped: {
-              title,
-              description,
-              icon,
-              xpBonus
-            }
-          });
+          // Debug logging reduced for performance
+          // console.log(`🔍 Processing achievement ${index + 1}`);
           
           return {
             id: ach.achievement_id || ach.id || `ach-${index}`,
@@ -685,8 +678,8 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
         });
         
         setRealAchievements(formattedAchievements);
-        console.log('✅ Real achievements loaded and formatted:', formattedAchievements.length);
-        console.log('📊 Formatted achievements:', formattedAchievements);
+        console.log('✅ Real achievements loaded:', formattedAchievements.length);
+        // console.log('📊 Formatted achievements:', formattedAchievements);
       } else {
         setRealAchievements([]);
         console.log('📝 No achievements found for user');

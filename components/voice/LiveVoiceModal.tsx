@@ -700,8 +700,14 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
       // 👶 NOVO: Configurar especificamente para Novice Live Voice
       if (userLevel === 'Novice') {
-        service.configureForNoviceLiveVoice();
-        console.log('👶 [NOVICE LIVE] Applied Novice-specific Live Voice configuration');
+        console.log('👶 [NOVICE LIVE] Starting Novice-specific configuration...');
+        try {
+          service.configureForNoviceLiveVoice();
+          console.log('👶 [NOVICE LIVE] ✅ Applied Novice-specific Live Voice configuration successfully');
+        } catch (configError) {
+          console.error('👶 [NOVICE LIVE] ❌ Error in Novice configuration:', configError);
+          // Continuar com configuração padrão se der erro
+        }
       }
       // 🎯 NOVO: Configurar especificamente para Inter Live Voice
       else if (userLevel === 'Inter') {
@@ -1105,29 +1111,54 @@ After this greeting, wait for the user's response and continue naturally.`;
         console.error('❌ Realtime API error:', event.error);
         console.error('❌ Full error event:', event);
         console.error('❌ Error details:', JSON.stringify(event, null, 2));
-        setConnectionStatus('error');
         
-        // Mensagens de erro específicas para problemas de WebSocket
-        let errorMessage = '';
+        // 🔧 NOVICE FIX: Verificar se é erro crítico antes de mostrar "indisponível"
+        const isCriticalError = event.error?.message?.includes('Missing bearer or basic authentication') ||
+                               event.error?.message?.includes('insufficient_quota') ||
+                               event.error?.message?.includes('quota') ||
+                               event.error?.message?.includes('model_not_found') ||
+                               event.error?.message?.includes('realtime') ||
+                               event.error?.message?.includes('access denied') ||
+                               event.error?.message?.includes('unauthorized') ||
+                               event.error?.code === 'invalid_api_key' ||
+                               event.error?.code === 'model_access_denied';
         
-        if (event.error?.message?.includes('Missing bearer or basic authentication')) {
-          errorMessage = 'Authentication failed. Your OpenAI account may not have access to the Realtime API yet.';
-        } else if (event.error?.message?.includes('insufficient_quota') || event.error?.message?.includes('quota')) {
-          errorMessage = 'Your OpenAI account has insufficient quota. Please check your billing settings.';
-        } else if (event.error?.message?.includes('model_not_found') || event.error?.message?.includes('realtime')) {
-          errorMessage = 'Realtime API access denied. Your account may not have access to this feature yet.';
-        } else {
-          // Mensagem de erro baseada no nível do usuário
-          const errorMessages = {
-            'Novice': 'Oops! Charlotte está indisponível no momento. Tente novamente mais tarde. (Charlotte is unavailable right now. Please try again later.)',
-            'Inter': 'Sorry! The voice chat service is temporarily unavailable. Please try again in a few minutes.',
-            'Advanced': 'The real-time conversation service is currently experiencing technical difficulties. Please attempt to reconnect shortly.'
-          };
+        console.log('🔍 Error analysis:', {
+          errorMessage: event.error?.message,
+          errorCode: event.error?.code,
+          isCriticalError,
+          userLevel
+        });
+        
+        // Só mostrar erro se for crítico
+        if (isCriticalError) {
+          setConnectionStatus('error');
           
-          errorMessage = errorMessages[userLevel] || errorMessages['Inter'];
+          let errorMessage = '';
+          
+          if (event.error?.message?.includes('Missing bearer or basic authentication')) {
+            errorMessage = 'Authentication failed. Your OpenAI account may not have access to the Realtime API yet.';
+          } else if (event.error?.message?.includes('insufficient_quota') || event.error?.message?.includes('quota')) {
+            errorMessage = 'Your OpenAI account has insufficient quota. Please check your billing settings.';
+          } else if (event.error?.message?.includes('model_not_found') || event.error?.message?.includes('realtime')) {
+            errorMessage = 'Realtime API access denied. Your account may not have access to this feature yet.';
+          } else {
+            // Mensagem de erro baseada no nível do usuário APENAS para erros críticos
+            const errorMessages = {
+              'Novice': 'Oops! Charlotte está indisponível no momento. Tente novamente mais tarde. (Charlotte is unavailable right now. Please try again later.)',
+              'Inter': 'Sorry! The voice chat service is temporarily unavailable. Please try again in a few minutes.',
+              'Advanced': 'The real-time conversation service is currently experiencing technical difficulties. Please attempt to reconnect shortly.'
+            };
+            
+            errorMessage = errorMessages[userLevel] || errorMessages['Inter'];
+          }
+          
+          setErrorMessage(errorMessage);
+        } else {
+          // 🔧 NOVICE FIX: Para erros menores, apenas log sem afetar a UI
+          console.warn('⚠️ Non-critical error ignored:', event.error?.message || 'Unknown error');
+          // Não definir connectionStatus como 'error' nem mostrar mensagem para usuário
         }
-        
-        setErrorMessage(errorMessage);
       });
 
       service.on('disconnected', () => {
