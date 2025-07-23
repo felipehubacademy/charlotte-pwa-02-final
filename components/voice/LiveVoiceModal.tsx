@@ -1132,28 +1132,28 @@ After this greeting, wait for the user's response and continue naturally.`;
         
         // Só mostrar erro se for crítico
         if (isCriticalError) {
-          setConnectionStatus('error');
-          
-          let errorMessage = '';
-          
-          if (event.error?.message?.includes('Missing bearer or basic authentication')) {
-            errorMessage = 'Authentication failed. Your OpenAI account may not have access to the Realtime API yet.';
-          } else if (event.error?.message?.includes('insufficient_quota') || event.error?.message?.includes('quota')) {
-            errorMessage = 'Your OpenAI account has insufficient quota. Please check your billing settings.';
-          } else if (event.error?.message?.includes('model_not_found') || event.error?.message?.includes('realtime')) {
-            errorMessage = 'Realtime API access denied. Your account may not have access to this feature yet.';
-          } else {
+        setConnectionStatus('error');
+        
+        let errorMessage = '';
+        
+        if (event.error?.message?.includes('Missing bearer or basic authentication')) {
+          errorMessage = 'Authentication failed. Your OpenAI account may not have access to the Realtime API yet.';
+        } else if (event.error?.message?.includes('insufficient_quota') || event.error?.message?.includes('quota')) {
+          errorMessage = 'Your OpenAI account has insufficient quota. Please check your billing settings.';
+        } else if (event.error?.message?.includes('model_not_found') || event.error?.message?.includes('realtime')) {
+          errorMessage = 'Realtime API access denied. Your account may not have access to this feature yet.';
+        } else {
             // Mensagem de erro baseada no nível do usuário APENAS para erros críticos
-            const errorMessages = {
-              'Novice': 'Oops! Charlotte está indisponível no momento. Tente novamente mais tarde. (Charlotte is unavailable right now. Please try again later.)',
-              'Inter': 'Sorry! The voice chat service is temporarily unavailable. Please try again in a few minutes.',
-              'Advanced': 'The real-time conversation service is currently experiencing technical difficulties. Please attempt to reconnect shortly.'
-            };
-            
-            errorMessage = errorMessages[userLevel] || errorMessages['Inter'];
-          }
+          const errorMessages = {
+            'Novice': 'Oops! Charlotte está indisponível no momento. Tente novamente mais tarde. (Charlotte is unavailable right now. Please try again later.)',
+            'Inter': 'Sorry! The voice chat service is temporarily unavailable. Please try again in a few minutes.',
+            'Advanced': 'The real-time conversation service is currently experiencing technical difficulties. Please attempt to reconnect shortly.'
+          };
           
-          setErrorMessage(errorMessage);
+          errorMessage = errorMessages[userLevel] || errorMessages['Inter'];
+        }
+        
+        setErrorMessage(errorMessage);
         } else {
           // 🔧 NOVICE FIX: Para erros menores, apenas log sem afetar a UI
           console.warn('⚠️ Non-critical error ignored:', event.error?.message || 'Unknown error');

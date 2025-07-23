@@ -17,6 +17,7 @@ import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-ac
 import ChatHeader from '@/components/ChatHeader';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
+import NotificationManager from '@/components/notifications/NotificationManager';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -2153,6 +2154,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         achievements={newAchievements}
         onDismiss={handleAchievementsDismissed}
       />
+
+      {/* 🔔 Notification Manager - Only shown when needed */}
+      <div className="fixed bottom-24 left-4 z-[60] max-w-xs">
+        <NotificationManager className="w-full" />
+      </div>
+
+
 
       {/* 🎓 NOVO: Onboarding Tour */}
       <OnboardingTour

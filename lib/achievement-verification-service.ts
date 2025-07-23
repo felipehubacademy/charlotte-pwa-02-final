@@ -89,6 +89,9 @@ export class AchievementVerificationService {
       if (achievementsToAward.length > 0) {
         await this.saveNewAchievements(userId, achievementsToAward);
         console.log('✅ Awarded achievements:', achievementsToAward.map(a => a.name));
+        
+        // 🆕 6. Enviar notificações FCM para achievements conquistados
+        await this.sendAchievementNotifications(userId, achievementsToAward);
       }
 
       return achievementsToAward;
@@ -276,6 +279,125 @@ export class AchievementVerificationService {
     } catch (error) {
       console.error('❌ Error in getRecentAchievements:', error);
       return [];
+    }
+  }
+
+  /**
+   * 🔔 Enviar notificações FCM para achievements conquistados
+   */
+  private static async sendAchievementNotifications(userId: string, achievements: AchievementToAward[]): Promise<void> {
+    try {
+      console.log('🔔 Sending achievement notifications for user:', userId);
+      
+      // Buscar nível do usuário para personalizar idioma
+      const userLevel = await this.getUserLevel(userId);
+      
+      // Se há múltiplos achievements, enviar uma notificação consolidada
+      if (achievements.length > 1) {
+        const totalXP = achievements.reduce((sum, ach) => sum + ach.xp_reward, 0);
+        
+        const payload = this.getLocalizedMultipleAchievementPayload(achievements.length, totalXP, userLevel, userId);
+        await this.sendFCMNotification(userId, payload);
+      } else if (achievements.length === 1) {
+        // Enviar notificação para achievement único
+        const achievement = achievements[0];
+        const payload = this.getLocalizedSingleAchievementPayload(achievement, userLevel, userId);
+        await this.sendFCMNotification(userId, payload);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error sending achievement notifications:', error);
+      // Não quebrar o fluxo se notificação falhar
+    }
+  }
+
+  /**
+   * 🌐 Buscar nível do usuário
+   */
+  private static async getUserLevel(userId: string): Promise<'Novice' | 'Inter' | 'Advanced'> {
+    // Simplificar: assumir que a maioria é Inter, Advanced é minoria
+    // Futuramente pode ser melhorado com lookup real no banco
+    try {
+      // Por enquanto, assumir que a maioria dos usuários são Inter
+      // Advanced é uma pequena minoria que pode ser configurada via feature flag
+      return 'Inter';
+    } catch (error) {
+      console.warn('⚠️ Could not get user level, defaulting to Inter:', error);
+      return 'Inter';
+    }
+  }
+
+  /**
+   * 🗣️ Localizar notificação de múltiplos achievements
+   */
+  private static getLocalizedMultipleAchievementPayload(count: number, totalXP: number, userLevel: string, userId: string) {
+    const isAdvanced = userLevel === 'Advanced';
+    
+    return {
+      title: isAdvanced 
+        ? `🏆 ${count} New Achievements!`
+        : `🏆 ${count} Novas Conquistas!`,
+      body: isAdvanced
+        ? `You earned ${totalXP} bonus XP! Keep it up!`
+        : `Você ganhou ${totalXP} XP bônus! Continue assim!`,
+      data: {
+        type: 'multiple_achievements',
+        count: count.toString(),
+        totalXP: totalXP.toString(),
+        userId: userId
+      }
+    };
+  }
+
+  /**
+   * 🗣️ Localizar notificação de achievement único
+   */
+  private static getLocalizedSingleAchievementPayload(achievement: AchievementToAward, userLevel: string, userId: string) {
+    const isAdvanced = userLevel === 'Advanced';
+    
+    return {
+      title: `${achievement.badge_icon} ${achievement.name}`,
+      body: isAdvanced
+        ? `${achievement.description} (+${achievement.xp_reward} XP)`
+        : `${achievement.description} (+${achievement.xp_reward} XP)`, // Manter em inglês por enquanto, pode localizar depois
+      data: {
+        type: 'achievement',
+        code: achievement.code,
+        name: achievement.name,
+        xpReward: achievement.xp_reward.toString(),
+        rarity: achievement.rarity,
+        userId: userId
+      }
+    };
+  }
+
+  /**
+   * 📱 Enviar notificação FCM para um usuário
+   */
+  private static async sendFCMNotification(userId: string, payload: {
+    title: string;
+    body: string;
+    data?: Record<string, string>;
+  }): Promise<void> {
+    try {
+      const response = await fetch('/api/notifications/send-achievement', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: userId,
+          notification: payload
+        }),
+      });
+
+      if (response.ok) {
+        console.log('✅ Achievement notification sent successfully');
+      } else {
+        console.warn('⚠️ Failed to send achievement notification:', await response.text());
+      }
+    } catch (error) {
+      console.error('❌ Error calling notification API:', error);
     }
   }
 } 

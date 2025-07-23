@@ -261,33 +261,32 @@ class SupabaseService {
 
       // 🏆 NEW: Verificar e conceder achievements automaticamente
       try {
-        // ✅ DISABLED: Sistema antigo de achievements que está causando erro 401
-        // const { AchievementVerificationService } = await import('./achievement-verification-service');
-        // 
-        // const newAchievements = await AchievementVerificationService.verifyAndAwardAchievements(
-        //   data.user_id,
-        //   {
-        //     practice_type: data.practice_type,
-        //     accuracy_score: data.accuracy_score || undefined,
-        //     grammar_score: data.grammar_score || undefined,
-        //     pronunciation_score: data.pronunciation_score || undefined,
-        //     xp_awarded: data.xp_awarded,
-        //     duration: data.audio_duration
-        //   }
-        // );
-
-        // if (newAchievements.length > 0) {
-        //   console.log('🏆 New achievements awarded:', newAchievements.map(a => a.name));
-        //   
-        //   // Adicionar XP dos achievements ao progresso do usuário
-        //   const achievementXP = newAchievements.reduce((sum, a) => sum + a.xp_reward, 0);
-        //   if (achievementXP > 0) {
-        //     await this.updateUserProgress(data.user_id, achievementXP, 'achievement_bonus');
-        //     console.log('✨ Achievement bonus XP awarded:', achievementXP);
-        //   }
-        // }
+        const { AchievementVerificationService } = await import('./achievement-verification-service');
         
-        console.log('🏆 Achievement verification temporarily disabled to fix errors');
+        const newAchievements = await AchievementVerificationService.verifyAndAwardAchievements(
+          data.user_id,
+          {
+            practice_type: data.practice_type,
+            accuracy_score: data.accuracy_score || undefined,
+            grammar_score: data.grammar_score || undefined,
+            pronunciation_score: data.pronunciation_score || undefined,
+            xp_awarded: data.xp_awarded,
+            duration: data.audio_duration
+          }
+        );
+
+        if (newAchievements.length > 0) {
+          console.log('🏆 New achievements awarded:', newAchievements.map(a => a.name));
+          
+          // Adicionar XP dos achievements ao progresso do usuário
+          const achievementXP = newAchievements.reduce((sum, a) => sum + a.xp_reward, 0);
+          if (achievementXP > 0) {
+            await this.updateUserProgress(data.user_id, achievementXP, 'achievement_bonus');
+            console.log('✨ Achievement bonus XP awarded:', achievementXP);
+          }
+        }
+        
+        console.log('🏆 Achievement verification completed successfully');
       } catch (achievementError) {
         console.warn('⚠️ Achievement verification failed, continuing without achievements:', achievementError);
       }

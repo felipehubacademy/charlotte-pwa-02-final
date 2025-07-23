@@ -248,6 +248,88 @@ function isAllowedExternalDomain(origin) {
   return allowedDomains.includes(origin);
 }
 
+// Push notification event listener
+self.addEventListener('push', (event) => {
+  console.log('📨 [SW] Push message received');
+  
+  let notificationData = {
+    title: 'Charlotte',
+    body: 'Nova mensagem!',
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-72x72.png',
+    data: { url: '/chat' }
+  };
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      
+      // Support for declarative web push (iOS 18.4+)
+      if (data.web_push && data.notification) {
+        notificationData = {
+          title: data.notification.title,
+          body: data.notification.body || '',
+          icon: data.notification.icon || '/icons/icon-192x192.png',
+          badge: data.notification.badge || '/icons/icon-72x72.png',
+          data: { url: data.notification.navigate || '/chat' }
+        };
+      } else {
+        // Standard push message format
+        notificationData = {
+          title: data.title || notificationData.title,
+          body: data.body || data.message || notificationData.body,
+          icon: data.icon || notificationData.icon,
+          badge: data.badge || notificationData.badge,
+          data: { url: data.url || '/chat', ...data.data }
+        };
+      }
+    } catch (error) {
+      console.error('❌ [SW] Error parsing push data:', error);
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(notificationData.title, {
+      body: notificationData.body,
+      icon: notificationData.icon,
+      badge: notificationData.badge,
+      data: notificationData.data,
+      tag: 'charlotte-notification',
+      requireInteraction: false,
+      silent: false
+    })
+  );
+});
+
+// Notification click event listener
+self.addEventListener('notificationclick', (event) => {
+  console.log('🔔 [SW] Notification clicked');
+  
+  event.notification.close();
+  
+  const urlToOpen = event.notification.data?.url || '/chat';
+  
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        // Check if there's already a tab/window open with the app
+        for (const client of clientList) {
+          if (client.url.includes(urlToOpen) && 'focus' in client) {
+            return client.focus();
+          }
+        }
+        
+        // If no window/tab is open, open a new one
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
+      })
+      .catch((error) => {
+        console.error('❌ [SW] Error handling notification click:', error);
+      })
+  );
+});
+
 // Mensagens do cliente
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
