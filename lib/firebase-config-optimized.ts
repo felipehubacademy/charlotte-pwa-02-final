@@ -36,6 +36,16 @@ const validateFirebaseConfig = (): FirebaseConfig => {
   return config as FirebaseConfig;
 };
 
+// Check if Firebase is configured
+export const isFirebaseConfigured = (): boolean => {
+  try {
+    validateFirebaseConfig();
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 // Singleton Firebase app instance
 let firebaseApp: FirebaseApp | null = null;
 let messaging: Messaging | null = null;
@@ -128,6 +138,22 @@ const setupForegroundMessageHandler = (messaging: Messaging): void => {
     } else {
       console.log('🚫 [FOREGROUND] App not visible, letting service worker handle');
     }
+  });
+};
+
+// Setup foreground listener for external use
+export const setupForegroundListener = (callback: (payload: any) => void): void => {
+  if (typeof window === 'undefined') return;
+
+  getFirebaseMessaging().then(messagingInstance => {
+    if (messagingInstance) {
+      onMessage(messagingInstance, (payload) => {
+        console.log('📨 [EXTERNAL] FCM Message received:', payload);
+        callback(payload);
+      });
+    }
+  }).catch(error => {
+    console.error('❌ Error setting up foreground listener:', error);
   });
 };
 
