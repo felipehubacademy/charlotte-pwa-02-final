@@ -90,8 +90,9 @@ export class AchievementVerificationService {
         await this.saveNewAchievements(userId, achievementsToAward);
         console.log('✅ Awarded achievements:', achievementsToAward.map(a => a.name));
         
-        // 🆕 6. Enviar notificações FCM para achievements conquistados
-        await this.sendAchievementNotifications(userId, achievementsToAward);
+        // 🎨 Achievements são mostrados via cards in-app (não push notifications)
+        // Push notifications são reservadas para reengajamento, lembretes, etc.
+        console.log('🎨 Achievements will be displayed as in-app cards with animations');
       }
 
       return achievementsToAward;
@@ -233,28 +234,35 @@ export class AchievementVerificationService {
     try {
       const achievementRecords = achievements.map(achievement => ({
         user_id: userId,
-        achievement_code: achievement.code,
-        achievement_name: achievement.name,
-        achievement_description: achievement.description,
-        xp_bonus: achievement.xp_reward,
-        rarity: achievement.rarity,
-        category: achievement.category,
-        badge_icon: achievement.badge_icon,
-        badge_color: achievement.badge_color,
+        achievement_id: null, // Permitir NULL para achievements dinâmicos
+        achievement_type: 'dynamic', // Tipo padrão para achievements dinâmicos
+        achievement_name: achievement.name || 'Achievement', // ✅ Campo correto na tabela
+        achievement_description: achievement.description || 'Achievement earned!', // ✅ Campo correto na tabela
+        achievement_code: achievement.code || `dynamic-${Date.now()}`, // ✅ Campo correto na tabela
+        category: achievement.category || 'general', // ✅ Campo correto na tabela
+        badge_icon: achievement.badge_icon || '🏆', // ✅ Campo correto na tabela
+        badge_color: achievement.badge_color || '#4CAF50', // ✅ Campo correto na tabela
+        xp_bonus: achievement.xp_reward || 0,
+        rarity: achievement.rarity || 'common',
         earned_at: new Date().toISOString()
       }));
+
+      console.log('🔍 Attempting to save achievements:', achievementRecords.length);
+      console.log('🔍 Sample achievement data:', achievementRecords[0]);
+      console.log('🔍 DEBUG: Using saveNewAchievements method (CORRECTED VERSION)');
 
       const success = await supabaseService.saveNewAchievements(userId, achievementRecords);
 
       if (!success) {
-        throw new Error('Failed to save achievements');
+        throw new Error('Failed to save achievements to database');
       }
 
       console.log('✅ New achievements saved successfully');
 
     } catch (error) {
       console.error('❌ Exception saving new achievements:', error);
-      throw error;
+      // Não quebrar o fluxo - achievements são um nice-to-have
+      console.warn('⚠️ Continuing without saving achievements...');
     }
   }
 
@@ -283,33 +291,17 @@ export class AchievementVerificationService {
   }
 
   /**
-   * 🔔 Enviar notificações FCM para achievements conquistados
+   * 🎨 Achievements são exibidos como cards in-app animados
+   * Esta função foi removida - achievements não precisam de push notifications
+   * 
+   * Push notifications são reservadas para:
+   * - 🔥 Lembretes de streak
+   * - 💪 Desafios semanais  
+   * - 👥 Convites sociais
+   * - ⏰ Lembretes de prática
+   * - 🎯 Metas personalizadas
    */
-  private static async sendAchievementNotifications(userId: string, achievements: AchievementToAward[]): Promise<void> {
-    try {
-      console.log('🔔 Sending achievement notifications for user:', userId);
-      
-      // Buscar nível do usuário para personalizar idioma
-      const userLevel = await this.getUserLevel(userId);
-      
-      // Se há múltiplos achievements, enviar uma notificação consolidada
-      if (achievements.length > 1) {
-        const totalXP = achievements.reduce((sum, ach) => sum + ach.xp_reward, 0);
-        
-        const payload = this.getLocalizedMultipleAchievementPayload(achievements.length, totalXP, userLevel, userId);
-        await this.sendFCMNotification(userId, payload);
-      } else if (achievements.length === 1) {
-        // Enviar notificação para achievement único
-        const achievement = achievements[0];
-        const payload = this.getLocalizedSingleAchievementPayload(achievement, userLevel, userId);
-        await this.sendFCMNotification(userId, payload);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error sending achievement notifications:', error);
-      // Não quebrar o fluxo se notificação falhar
-    }
-  }
+  // REMOVED: sendAchievementNotifications() - achievements are now in-app only
 
   /**
    * 🌐 Buscar nível do usuário
@@ -327,77 +319,20 @@ export class AchievementVerificationService {
     }
   }
 
+  // REMOVED: getLocalizedMultipleAchievementPayload() - achievements are now in-app only
+  // REMOVED: getLocalizedSingleAchievementPayload() - achievements are now in-app only  
+  // REMOVED: sendFCMNotification() - achievements are now in-app only
+  
   /**
-   * 🗣️ Localizar notificação de múltiplos achievements
+   * 🎨 Achievement display is now handled by in-app components:
+   * - components/achievements/AchievementNotification.tsx (animated cards)
+   * - Enhanced XP counter with achievement celebration
+   * - Confetti and visual feedback during app usage
+   * 
+   * This provides better UX than push notifications for achievements since:
+   * - Users earn achievements while actively using the app
+   * - Immediate visual feedback is more rewarding
+   * - Animations and celebration enhance the experience
+   * - No interruption when user is not using the app
    */
-  private static getLocalizedMultipleAchievementPayload(count: number, totalXP: number, userLevel: string, userId: string) {
-    const isAdvanced = userLevel === 'Advanced';
-    
-    return {
-      title: isAdvanced 
-        ? `🏆 ${count} New Achievements!`
-        : `🏆 ${count} Novas Conquistas!`,
-      body: isAdvanced
-        ? `You earned ${totalXP} bonus XP! Keep it up!`
-        : `Você ganhou ${totalXP} XP bônus! Continue assim!`,
-      data: {
-        type: 'multiple_achievements',
-        count: count.toString(),
-        totalXP: totalXP.toString(),
-        userId: userId
-      }
-    };
-  }
-
-  /**
-   * 🗣️ Localizar notificação de achievement único
-   */
-  private static getLocalizedSingleAchievementPayload(achievement: AchievementToAward, userLevel: string, userId: string) {
-    const isAdvanced = userLevel === 'Advanced';
-    
-    return {
-      title: `${achievement.badge_icon} ${achievement.name}`,
-      body: isAdvanced
-        ? `${achievement.description} (+${achievement.xp_reward} XP)`
-        : `${achievement.description} (+${achievement.xp_reward} XP)`, // Manter em inglês por enquanto, pode localizar depois
-      data: {
-        type: 'achievement',
-        code: achievement.code,
-        name: achievement.name,
-        xpReward: achievement.xp_reward.toString(),
-        rarity: achievement.rarity,
-        userId: userId
-      }
-    };
-  }
-
-  /**
-   * 📱 Enviar notificação FCM para um usuário
-   */
-  private static async sendFCMNotification(userId: string, payload: {
-    title: string;
-    body: string;
-    data?: Record<string, string>;
-  }): Promise<void> {
-    try {
-      const response = await fetch('/api/notifications/send-achievement', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: userId,
-          notification: payload
-        }),
-      });
-
-      if (response.ok) {
-        console.log('✅ Achievement notification sent successfully');
-      } else {
-        console.warn('⚠️ Failed to send achievement notification:', await response.text());
-      }
-    } catch (error) {
-      console.error('❌ Error calling notification API:', error);
-    }
-  }
 } 

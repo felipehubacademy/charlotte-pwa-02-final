@@ -53,8 +53,15 @@ class FirebaseAdminService {
         return false;
       }
 
-      // Get user's FCM tokens from database
-      const tokens = await this.getUserTokens(userId);
+      // Get user's FCM tokens from database with retry for fresh tokens
+      let tokens = await this.getUserTokens(userId);
+      
+      // If no tokens found, wait a bit and try again (for fresh tokens)
+      if (tokens.length === 0) {
+        console.log('📭 No FCM tokens found initially, retrying in 500ms...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        tokens = await this.getUserTokens(userId);
+      }
       
       if (tokens.length === 0) {
         console.log('📭 No FCM tokens found for user:', userId);
@@ -141,7 +148,12 @@ class FirebaseAdminService {
   private async getUserTokens(userId: string): Promise<any[]> {
     try {
       const supabase = getSupabase();
-      if (!supabase) return [];
+      if (!supabase) {
+        console.log('❌ No Supabase client available');
+        return [];
+      }
+
+      console.log('🔍 Searching for FCM tokens for user:', userId);
 
       const { data, error } = await supabase
         .from('push_subscriptions')
@@ -154,6 +166,14 @@ class FirebaseAdminService {
         console.error('❌ Error fetching FCM tokens:', error);
         return [];
       }
+
+      console.log('🔍 FCM tokens found:', data?.length || 0);
+      console.log('🔍 Sample token data:', data?.[0] ? {
+        id: data[0].id,
+        platform: data[0].platform,
+        created_at: data[0].created_at,
+        endpoint_preview: data[0].endpoint?.substring(0, 50) + '...'
+      } : 'No tokens');
 
       return data || [];
     } catch (error) {

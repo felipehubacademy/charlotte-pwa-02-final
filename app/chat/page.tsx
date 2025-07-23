@@ -18,6 +18,9 @@ import ChatHeader from '@/components/ChatHeader';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import NotificationManager from '@/components/notifications/NotificationManager';
+// import ReengagementTest from '@/components/notifications/ReengagementTest';
+// import DebugFCMTokens from '@/components/notifications/DebugFCMTokens';
+// import TestFCMSending from '@/components/notifications/TestFCMSending';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -2159,6 +2162,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
       <div className="fixed bottom-24 left-4 z-[60] max-w-xs">
         <NotificationManager className="w-full" />
       </div>
+
+      {/* 🧪 Test components removed for production */}
 
 
 

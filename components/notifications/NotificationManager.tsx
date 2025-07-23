@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Bell, BellOff, Smartphone, Download } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import NotificationService from '@/lib/notification-service';
+import { getFCMToken } from '@/lib/firebase-config-optimized';
 
 interface NotificationManagerProps {
   className?: string;
@@ -21,17 +22,33 @@ export default function NotificationManager({ className = '' }: NotificationMana
   const [platform, setPlatform] = useState<'ios' | 'android' | 'desktop'>('desktop');
   const [isPWAInstalled, setIsPWAInstalled] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [hasFCMToken, setHasFCMToken] = useState(false);
 
   // Check initial state
   useEffect(() => {
-    checkNotificationState();
-    detectPlatform();
-    checkPWAInstallation();
-    
-    // Check if user has already dismissed notification setup
-    const dismissed = localStorage.getItem('notification-setup-dismissed');
-    setIsDismissed(dismissed === 'true');
+    initializeNotificationState();
   }, []);
+
+  const initializeNotificationState = async () => {
+    try {
+      setIsInitializing(true);
+      
+      // Aguardar a verificação de estado do service
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      await checkNotificationState();
+      await checkFCMTokenStatus();
+      detectPlatform();
+      checkPWAInstallation();
+      
+      // Check if user has already dismissed notification setup
+      const dismissed = localStorage.getItem('notification-setup-dismissed');
+      setIsDismissed(dismissed === 'true');
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   const checkNotificationState = async () => {
     const supported = notificationService.supported;
@@ -45,8 +62,37 @@ export default function NotificationManager({ className = '' }: NotificationMana
     console.log('🔔 Notification state:', {
       supported,
       permission: currentPermission,
-      subscribed
+      subscribed,
+      isDismissed: localStorage.getItem('notification-setup-dismissed') === 'true'
     });
+  };
+
+  const checkFCMTokenStatus = async () => {
+    if (!user) {
+      setHasFCMToken(false);
+      return;
+    }
+
+    try {
+      // Verificar se há FCM token no banco de dados
+      const response = await fetch('/api/notifications/check-fcm-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.entra_id })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setHasFCMToken(result.hasFCMToken || false);
+        console.log('🔥 FCM token status:', result.hasFCMToken ? 'Found' : 'Not found');
+      } else {
+        setHasFCMToken(false);
+        console.log('❌ Failed to check FCM token status');
+      }
+    } catch (error) {
+      console.error('❌ Error checking FCM token:', error);
+      setHasFCMToken(false);
+    }
   };
 
   const detectPlatform = () => {
@@ -65,6 +111,49 @@ export default function NotificationManager({ className = '' }: NotificationMana
     const isInstalled = window.matchMedia('(display-mode: standalone)').matches || 
                        (navigator as any).standalone === true;
     setIsPWAInstalled(isInstalled);
+  };
+
+  const setupFCMToken = async (userId: string): Promise<boolean> => {
+    try {
+      console.log('🔥 Setting up FCM token...');
+      
+      // Get FCM token
+      const fcmToken = await getFCMToken();
+      
+      if (!fcmToken) {
+        console.log('❌ Failed to get FCM token');
+        return false;
+      }
+
+      console.log('✅ FCM token received:', fcmToken.substring(0, 20) + '...');
+
+      // Save FCM token to database
+      const response = await fetch('/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: fcmToken,
+          keys: {
+            p256dh: 'fcm-placeholder-p256dh',
+            auth: 'fcm-placeholder-auth'
+          },
+          platform: platform,
+          user_id: userId,
+          subscription_type: 'fcm'
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ FCM token saved to database');
+        return true;
+      } else {
+        console.error('❌ Failed to save FCM token to database');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error setting up FCM token:', error);
+      return false;
+    }
   };
 
   const handleEnableNotifications = async () => {
@@ -87,18 +176,34 @@ export default function NotificationManager({ className = '' }: NotificationMana
 
       setPermission('granted');
 
-      // Create subscription
-      const subscription = await notificationService.subscribe(user.entra_id);
-      
-      if (subscription) {
-        setIsSubscribed(true);
+      // Setup dual notification system: Web Push + FCM
+      const results = await Promise.allSettled([
+        // 1. Setup Web Push subscription
+        notificationService.subscribe(user.entra_id),
+        // 2. Setup FCM token
+        setupFCMToken(user.entra_id)
+      ]);
+
+      const webPushSuccess = results[0].status === 'fulfilled' && results[0].value;
+      const fcmSuccess = results[1].status === 'fulfilled' && results[1].value;
+
+      console.log('📊 Notification setup results:', {
+        webPush: webPushSuccess ? 'success' : 'failed',
+        fcm: fcmSuccess ? 'success' : 'failed'
+      });
+
+      if (webPushSuccess || fcmSuccess) {
+        setIsSubscribed(!!webPushSuccess);
+        setHasFCMToken(!!fcmSuccess);
         
         // Show success notification
         await notificationService.sendLocalNotification({
           title: '🔔 Notifications Enabled!',
-          body: 'You\'ll now receive updates from Charlotte',
+          body: `${fcmSuccess ? 'FCM + ' : ''}${webPushSuccess ? 'Web Push' : 'Basic'} notifications configured`,
           url: '/chat'
         });
+      } else {
+        console.error('❌ Both notification systems failed');
       }
 
     } catch (error) {
@@ -183,8 +288,16 @@ export default function NotificationManager({ className = '' }: NotificationMana
     );
   }
 
+  // Don't render anything while initializing
+  if (isInitializing) {
+    return null;
+  }
+
   // Only show when user needs to enable notifications
-  if (!isSupported || (permission === 'granted' && isSubscribed) || isDismissed) {
+  // Show if: not supported OR (both web push AND FCM are configured) OR dismissed
+  const hasCompleteNotificationSetup = (permission === 'granted' && isSubscribed && hasFCMToken);
+  
+  if (!isSupported || hasCompleteNotificationSetup || isDismissed) {
     return null;
   }
 
@@ -192,6 +305,34 @@ export default function NotificationManager({ className = '' }: NotificationMana
     setIsDismissed(true);
     localStorage.setItem('notification-setup-dismissed', 'true');
   };
+
+  const handleResetDismiss = () => {
+    setIsDismissed(false);
+    localStorage.removeItem('notification-setup-dismissed');
+  };
+
+  // Debug helper - expor no console para facilitar debug
+  if (typeof window !== 'undefined') {
+    (window as any).debugNotifications = {
+      state: {
+        isSupported,
+        permission,
+        isSubscribed,
+        hasFCMToken,
+        hasCompleteSetup: (permission === 'granted' && isSubscribed && hasFCMToken),
+        isDismissed,
+        isInitializing,
+        platform,
+        isPWAInstalled
+      },
+      actions: {
+        resetDismiss: handleResetDismiss,
+        checkState: checkNotificationState,
+        checkFCM: checkFCMTokenStatus,
+        forceShow: () => setIsDismissed(false)
+      }
+    };
+  }
 
   return (
     <div className={`bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200 overflow-hidden ${className}`}>
@@ -235,7 +376,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
                   : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
               } disabled:opacity-50 disabled:transform-none`}
             >
-              {isLoading ? '🔄 Processando...' : isSubscribed ? '🔕 Desativar' : '🔔 Ativar'}
+              {isLoading ? '🔄 Configurando FCM + Web Push...' : isSubscribed ? '🔕 Desativar' : '🔔 Ativar Notificações'}
             </button>
           ) : permission === 'denied' ? (
             <div className="w-full px-6 py-3 bg-gradient-to-r from-red-100 to-orange-100 text-red-700 rounded-lg text-center font-medium border border-red-200">
@@ -247,7 +388,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
               disabled={isLoading}
               className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:transform-none shadow-lg"
             >
-              {isLoading ? '🔄 Solicitando...' : '🔔 Ativar Notificações'}
+              {isLoading ? '🔄 Configurando FCM + Web Push...' : '🔔 Ativar Notificações'}
             </button>
           )}
         </div>

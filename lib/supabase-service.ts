@@ -927,19 +927,20 @@ class SupabaseService {
                        achievement.xpBonus || 
                        0;
         
-        // ✅ MAPEAMENTO CORRETO: Usar apenas campos que EXISTEM na tabela (confirmado pelos logs)
+        // ✅ MAPEAMENTO CORRETO: Usar campos que EXISTEM na tabela real
         const mappedData = {
           user_id: userId,
           achievement_id: null, // Deixar NULL para achievements dinâmicos
           earned_at: new Date().toISOString(),
           achievement_type: achievement.type || 'general',
-          achievement_name: title, // ✅ Campo correto confirmado
-          achievement_description: description, // ✅ Campo correto confirmado
-          category: achievement.category || 'general', // ✅ Campo correto confirmado
-          badge_icon: icon, // ✅ Campo correto confirmado
-          badge_color: achievement.badge_color || '#A3FF3C', // ✅ Campo correto confirmado
-          xp_bonus: xpBonus, // ✅ Campo correto confirmado
-          rarity: achievement.rarity || 'common' // ✅ Campo correto confirmado
+          achievement_name: title, // ✅ Campo correto na tabela
+          achievement_description: description, // ✅ Campo correto na tabela
+          achievement_code: achievement.code || `manual-${Date.now()}`, // ✅ Campo correto na tabela
+          category: achievement.category || 'general', // ✅ Campo correto na tabela
+          badge_icon: icon, // ✅ Campo correto na tabela
+          badge_color: achievement.badge_color || '#4CAF50', // ✅ Campo correto na tabela
+          xp_bonus: xpBonus, // ✅ Campo correto na tabela  
+          rarity: achievement.rarity || 'common' // ✅ Campo correto na tabela
         };
         
         console.log(`📝 Mapped achievement ${index + 1}:`, mappedData);
@@ -1834,19 +1835,38 @@ class SupabaseService {
       return false;
     }
 
+    // Verificar se há achievements para salvar
+    if (!achievements || achievements.length === 0) {
+      console.log('ℹ️ No achievements to save');
+      return true;
+    }
+
     try {
-      const { error } = await this.supabase
+      console.log('💾 Saving achievements to database:', achievements.length);
+      console.log('🔍 Sample achievement:', JSON.stringify(achievements[0], null, 2));
+
+      const { data, error } = await this.supabase
         .from('user_achievements')
-        .insert(achievements);
+        .insert(achievements)
+        .select();
 
       if (error) {
-        console.error('❌ Error saving new achievements:', error);
+        console.error('❌ Supabase error saving achievements:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         return false;
       }
 
+      console.log('✅ Achievements saved successfully:', data?.length || 0);
       return true;
     } catch (error) {
-      console.error('❌ Exception saving new achievements:', error);
+      console.error('❌ Exception saving new achievements:', {
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       return false;
     }
   }

@@ -13,7 +13,7 @@ interface FirebaseConfig {
   measurementId?: string;
 }
 
-// Environment variables validation
+// Validate Firebase configuration
 const validateFirebaseConfig = (): FirebaseConfig => {
   const config = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -25,12 +25,12 @@ const validateFirebaseConfig = (): FirebaseConfig => {
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
   };
 
-  // Validate required fields
-  const requiredFields = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
+  // Check required fields
+  const requiredFields = ['apiKey', 'authDomain', 'projectId', 'messagingSenderId', 'appId'];
   const missingFields = requiredFields.filter(field => !config[field as keyof typeof config]);
 
   if (missingFields.length > 0) {
-    throw new Error(`Missing Firebase environment variables: ${missingFields.join(', ')}`);
+    throw new Error(`Missing Firebase config: ${missingFields.join(', ')}`);
   }
 
   return config as FirebaseConfig;
@@ -84,11 +84,99 @@ export const getFirebaseMessaging = async (): Promise<Messaging | null> => {
     const app = getFirebaseApp();
     messaging = getMessaging(app);
 
+    // Set up foreground message listener to prevent duplicates
+    setupForegroundMessageHandler(messaging);
+
     console.log('✅ Firebase Messaging initialized successfully');
     return messaging;
   } catch (error) {
     console.error('❌ Firebase Messaging initialization failed:', error);
     return null;
+  }
+};
+
+// Debounce mechanism for foreground notifications
+let lastNotificationId: string | null = null;
+const DEBOUNCE_TIME = 1000; // 1 second
+
+// Set up foreground message handler
+const setupForegroundMessageHandler = (messaging: Messaging): void => {
+  onMessage(messaging, (payload) => {
+    console.log('📨 [FOREGROUND] FCM Message received:', payload);
+
+    // Check for duplicate based on message ID
+    const messageId = payload.messageId || (payload as any).fcmMessageId;
+    if (messageId && messageId === lastNotificationId) {
+      console.log('🚫 [FOREGROUND] Duplicate message, skipping');
+      return;
+    }
+
+    lastNotificationId = messageId || null;
+
+    // Clear debounce after timeout
+    setTimeout(() => {
+      if (lastNotificationId === messageId) {
+        lastNotificationId = null;
+      }
+    }, DEBOUNCE_TIME);
+
+    // Only show in-app notification for foreground messages
+    // Background messages are handled by service worker
+    if (document.visibilityState === 'visible') {
+      console.log('✅ [FOREGROUND] Showing in-app notification');
+      showInAppNotification(payload);
+    } else {
+      console.log('🚫 [FOREGROUND] App not visible, letting service worker handle');
+    }
+  });
+};
+
+// Show in-app notification (não push banner)
+const showInAppNotification = (payload: any): void => {
+  try {
+    const title = payload.notification?.title || payload.data?.title || 'Charlotte';
+    const body = payload.notification?.body || payload.data?.body || 'New message';
+
+    // Create in-app toast/alert instead of push notification
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #1f2937;
+      color: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 10000;
+      max-width: 300px;
+      border: 1px solid #374151;
+    `;
+    
+    notification.innerHTML = `
+      <div style="font-weight: bold; margin-bottom: 4px;">${title}</div>
+      <div style="font-size: 14px; opacity: 0.9;">${body}</div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 5000);
+
+    // Remove on click
+    notification.addEventListener('click', () => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    });
+
+    console.log('✅ In-app notification shown');
+  } catch (error) {
+    console.error('❌ Error showing in-app notification:', error);
   }
 };
 
@@ -126,35 +214,14 @@ export const getFCMToken = async (): Promise<string | null> => {
   }
 };
 
-// Setup foreground message listener
-export const setupForegroundListener = async (
-  callback: (payload: any) => void
-): Promise<void> => {
-  try {
-    const messagingInstance = await getFirebaseMessaging();
-    if (!messagingInstance) return;
-
-    onMessage(messagingInstance, (payload) => {
-      console.log('📨 Foreground message received:', payload);
-      callback(payload);
-    });
-
-    console.log('✅ Foreground message listener setup complete');
-  } catch (error) {
-    console.error('❌ Error setting up foreground listener:', error);
-  }
+// Clean up function
+export const cleanupFirebaseMessaging = (): void => {
+  messaging = null;
+  lastNotificationId = null;
+  console.log('🧹 Firebase Messaging cleaned up');
 };
 
-// Utility functions
-export const isFirebaseConfigured = (): boolean => {
-  try {
-    validateFirebaseConfig();
-    return true;
-  } catch {
-    return false;
-  }
-};
-
+// Configuration getter
 export const getFirebaseConfig = (): FirebaseConfig | null => {
   try {
     return validateFirebaseConfig();

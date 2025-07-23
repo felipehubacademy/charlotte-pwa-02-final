@@ -35,6 +35,7 @@ export class NotificationService {
 
   constructor() {
     this.checkSupport();
+    this.initializeSubscriptionState();
   }
 
   static getInstance(): NotificationService {
@@ -42,6 +43,34 @@ export class NotificationService {
       this.instance = new NotificationService();
     }
     return this.instance;
+  }
+
+  /**
+   * Inicializa o estado de subscription verificando se já existe
+   */
+  private async initializeSubscriptionState(): Promise<void> {
+    if (!this.isSupported || typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const existingSubscription = await registration.pushManager.getSubscription();
+
+      if (existingSubscription) {
+        this.subscription = existingSubscription;
+        this.isSubscribed = true;
+        console.log('✅ Found existing push subscription');
+      } else {
+        this.subscription = null;
+        this.isSubscribed = false;
+        console.log('📭 No existing push subscription found');
+      }
+    } catch (error) {
+      console.error('❌ Error checking subscription state:', error);
+      this.subscription = null;
+      this.isSubscribed = false;
+    }
   }
 
   /**

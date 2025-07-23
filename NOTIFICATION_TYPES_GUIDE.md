@@ -1,48 +1,127 @@
 # 🔔 Guia de Tipos de Notificação - Charlotte
 
-## 📋 **Tipos de Notificação Atuais**
+## 🎯 **Estratégia de Notificações**
 
-### 1. **🏆 Achievement Notifications** 
-Enviadas automaticamente quando o usuário conquista achievements.
+### **🎨 Achievements → In-App Cards (NÃO push notifications)**
+- **Feedback imediato** durante uso ativo da app
+- **Cards animados** com confetes e celebrações  
+- **Melhor UX** - usuário está ativo e receptivo
+- **Componente:** `components/achievements/AchievementNotification.tsx`
+
+### **📱 Push Notifications → Reengajamento & Lembretes**
+- **Usuários inativos** - trazê-los de volta
+- **Lembretes importantes** - streaks, metas, desafios
+- **Interações sociais** - convites, competições
+- **Horários estratégicos** - quando usuário não está na app
+
+---
+
+## 📋 **Tipos de Push Notification Atuais**
+
+### 1. **🔥 Streak Reminders**
+Enviadas quando streak está em risco.
 
 **Quando são enviadas:**
-- Após completar uma prática (áudio, texto, live voice)
-- Quando critérios de achievement são atendidos
-- Sistema automático via `achievement-verification-service.ts`
+- 20-22h se usuário não praticou hoje
+- Baseado no último horário de prática do usuário
+- Apenas se streak > 0 dias
 
-**Exemplos:**
+**Exemplo:**
 ```typescript
-// Achievement único
 {
-  title: "🎯 Perfect Practice!",
-  body: "Achieved 95%+ accuracy (+10 XP)",
+  title: "🔥 Your 7-day streak is at risk!",
+  body: "Don't break the chain! Practice for just 5 minutes to keep your streak alive.",
   data: {
-    type: "achievement",
-    code: "perfect-practice",
-    xpReward: "10",
-    rarity: "rare"
-  }
-}
-
-// Múltiplos achievements
-{
-  title: "🏆 3 New Achievements!",
-  body: "You earned 45 bonus XP! Keep it up!",
-  data: {
-    type: "multiple_achievements",
-    count: "3",
-    totalXP: "45"
+    type: "streak_reminder",
+    streakDays: "7",
+    urgency: "high"
   }
 }
 ```
 
-### 2. **🧪 Test Notifications**
-Para teste e desenvolvimento (removidas da produção).
+### 2. **💪 Weekly Challenges**
+Enviadas para anunciar novos desafios semanais.
 
-**Tipos removidos:**
-- FCM Test
-- Simple Notification Test
-- Achievement Notification Test
+**Quando são enviadas:**
+- Segundas-feiras, 9h (horário local)
+- Apenas para usuários ativos na última semana
+- Baseado no nível do usuário
+
+**Exemplo:**
+```typescript
+{
+  title: "💪 New Weekly Challenge: Pronunciation Master",
+  body: "Join hundreds of learners in this week's challenge. Are you up for it?",
+  data: {
+    type: "weekly_challenge",
+    challenge: "Pronunciation Master",
+    duration: "week"
+  }
+}
+```
+
+### 3. **⏰ Practice Reminders**
+Lembretes personalizados baseados no horário preferido do usuário.
+
+**Quando são enviadas:**
+- Horário definido pelo usuário nas configurações
+- Apenas se não praticou nas últimas 24h
+- Mensagem varia conforme o horário do dia
+
+**Exemplo:**
+```typescript
+{
+  title: "⏰ Good morning! Ready to practice?",
+  body: "Start your day with a quick English practice session. Your brain is most receptive now!",
+  data: {
+    type: "practice_reminder",
+    preferredTime: "09:00",
+    timeSlot: "morning"
+  }
+}
+```
+
+### 4. **👥 Social Invites**
+Convites para competições e atividades sociais.
+
+**Quando são enviadas:**
+- Quando outro usuário envia convite
+- Para participar em competições
+- Desafios entre amigos
+
+**Exemplo:**
+```typescript
+{
+  title: "👥 Maria invited you to compete!",
+  body: "Join Maria in a pronunciation challenge. Show them what you've got!",
+  data: {
+    type: "social_invite",
+    inviter: "Maria",
+    activity: "pronunciation challenge"
+  }
+}
+```
+
+### 5. **🎯 Goal Reminders**
+Lembretes sobre metas pessoais e progresso.
+
+**Quando são enviadas:**
+- Quando próximo de atingir uma meta
+- Lembretes semanais de progresso
+- Motivação para metas em atraso
+
+**Exemplo:**
+```typescript
+{
+  title: "🎯 You're 85% closer to your weekly XP goal!",
+  body: "Just a few more practices and you'll reach your target. Don't give up now!",
+  data: {
+    type: "goal_reminder",
+    goalType: "weekly_xp",
+    progress: "85"
+  }
+}
+```
 
 ### 3. **🔔 System Notifications**
 Notificações básicas do sistema.
