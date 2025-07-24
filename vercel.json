@@ -48,11 +48,5 @@
     "app/api/*/route.ts": {
       "maxDuration": 30
     }
-  },
-  "cron": [
-    {
-      "path": "/api/notifications/scheduler",
-      "schedule": "0 12 * * *"
-    }
-  ]
+  }
 } 
