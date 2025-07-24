@@ -138,6 +138,12 @@ export class NotificationScheduler {
       console.log(`🕐 Current time: ${currentTimeString}, Day: ${dayOfWeek}`);
 
       // Buscar usuários que devem receber notificações agora
+      // Janela flexível: busca usuários que deveriam ter recebido na última hora
+      const windowStart = `${currentHour}:00:00`;
+      const windowEnd = `${currentHour}:59:59`;
+
+      console.log(`🕐 Checking reminders window: ${windowStart} - ${windowEnd}`);
+
       const { data: eligibleUsers, error } = await supabase
         .from('users')
         .select(`
@@ -152,8 +158,8 @@ export class NotificationScheduler {
         `)
         .eq('notification_preferences.practice_reminders', true) // Apenas quem quer receber
         .neq('reminder_frequency', 'disabled') // Não enviar para quem desabilitou
-        .gte('preferred_reminder_time', `${currentHour}:${currentMinute}:00`) // Horário próximo
-        .lte('preferred_reminder_time', `${currentHour}:${currentMinute + 5}:00`); // Janela de 5 minutos
+        .gte('preferred_reminder_time', windowStart) // Início da hora atual
+        .lte('preferred_reminder_time', windowEnd); // Fim da hora atual
 
       if (error) {
         console.error('❌ Error fetching eligible users:', error);
@@ -212,6 +218,28 @@ export class NotificationScheduler {
 
         if (todayPractice && todayPractice.length > 0) {
           console.log(`✅ User ${user.entra_id} already practiced today - skipping`);
+          continue;
+        }
+
+        // Verificar se já recebeu notificação na última hora para evitar spam
+        const oneHourAgo = new Date();
+        oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+        
+        const { data: recentNotification, error: notificationError } = await supabase
+          .from('notification_logs')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('notification_type', 'practice_reminder')
+          .gte('created_at', oneHourAgo.toISOString())
+          .limit(1);
+
+        if (notificationError) {
+          console.error(`❌ Error checking recent notifications for user ${user.entra_id}:`, notificationError);
+          continue;
+        }
+
+        if (recentNotification && recentNotification.length > 0) {
+          console.log(`⏭️ User ${user.entra_id} already received reminder in last hour - skipping`);
           continue;
         }
 
