@@ -9,13 +9,11 @@ export async function POST(request: NextRequest) {
   try {
     console.log('📋 [SCHEDULER API] Starting scheduled notification tasks...');
     
-    // Verificar se é uma requisição autorizada (produção deve usar auth)
+    // Validação do CRON_SECRET
     const authHeader = request.headers.get('authorization');
-    
-    // TODO: Em produção, implementar verificação de token/chave API
-    // if (!authHeader || authHeader !== `Bearer ${process.env.SCHEDULER_API_KEY}`) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const body = await request.json().catch(() => ({}));
     const { taskType } = body;
@@ -64,8 +62,14 @@ export async function POST(request: NextRequest) {
 /**
  * 📊 GET - Status do scheduler e próximas execuções
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    // Validação do CRON_SECRET
+    const authHeader = request.headers.get('authorization');
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const now = new Date();
     const hour = now.getHours();
     const dayOfWeek = now.getDay();
