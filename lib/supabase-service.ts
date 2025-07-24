@@ -1651,9 +1651,8 @@ class SupabaseService {
         if (graphResult.avatarUrl) {
           console.log('✅ Successfully loaded avatar from Microsoft Graph for:', user.name);
           return graphResult;
-        } else {
-          console.log('📷 No photo found in Graph, using fallback for:', user.name);
         }
+        // Fallback silencioso para usuários sem foto de perfil
       } catch (graphError) {
         console.warn('⚠️ Microsoft Graph API not available, using fallback:', graphError);
       }
@@ -1845,7 +1844,13 @@ class SupabaseService {
       console.log('💾 Saving achievements to database:', achievements.length);
       console.log('🔍 Sample achievement:', JSON.stringify(achievements[0], null, 2));
 
-      const { data, error } = await this.supabase
+      // ✅ CORRIGIDO: Usar service role key para operações de achievements
+      const supabaseAdmin = getSupabaseClient();
+      if (!supabaseAdmin) {
+        throw new Error('Failed to initialize Supabase admin client');
+      }
+
+      const { data, error } = await supabaseAdmin
         .from('user_achievements')
         .insert(achievements)
         .select();

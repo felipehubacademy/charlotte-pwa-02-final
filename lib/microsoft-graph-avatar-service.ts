@@ -99,7 +99,12 @@ class MicrosoftGraphAvatarService {
       });
 
       if (!metadataResponse.ok) {
-        console.log('No photo metadata found for user:', userId);
+        // 404 é normal quando usuário não tem foto de perfil
+        if (metadataResponse.status === 404) {
+          console.debug('📷 User has no profile photo configured:', userId);
+        } else {
+          console.warn(`⚠️ Graph API photo metadata error (${metadataResponse.status}):`, userId);
+        }
         return null;
       }
 
@@ -111,7 +116,11 @@ class MicrosoftGraphAvatarService {
       });
 
       if (!photoResponse.ok) {
-        console.log('No photo data found for user:', userId);
+        if (photoResponse.status === 404) {
+          console.debug('📷 User photo data not accessible:', userId);
+        } else {
+          console.warn(`⚠️ Graph API photo data error (${photoResponse.status}):`, userId);
+        }
         return null;
       }
 
@@ -123,7 +132,7 @@ class MicrosoftGraphAvatarService {
       return photoDataUrl;
 
     } catch (error) {
-      console.error('Error fetching photo from Graph API:', error);
+      console.error('🚨 Unexpected error fetching photo from Graph API:', error);
       return null;
     }
   }

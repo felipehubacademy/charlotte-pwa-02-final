@@ -2158,8 +2158,10 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onDismiss={handleAchievementsDismissed}
       />
 
-      {/* 🔔 Notification Manager - Only shown when needed */}
-      <div className="fixed bottom-24 left-4 z-[60] max-w-xs">
+      {/* 🔔 Notification Manager - Redesigned positioning */}
+      <div className="fixed bottom-4 left-4 right-4 z-[60] 
+                      sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm
+                      lg:bottom-8 lg:left-8 lg:max-w-md">
         <NotificationManager className="w-full" />
       </div>
 

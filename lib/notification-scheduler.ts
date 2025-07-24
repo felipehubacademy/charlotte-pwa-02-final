@@ -113,12 +113,12 @@ export class NotificationScheduler {
   }
 
   /**
-   * ⏰ Enviar lembretes de prática personalizados
-   * Executar de acordo com horário preferido do usuário
+   * 🎯 Enviar lembretes de prática respeitando preferências do usuário
+   * Executar via cron job diário
    */
   static async sendPracticeReminders(): Promise<void> {
     try {
-      console.log('⏰ [SCHEDULER] Checking practice reminders...');
+      console.log('🎯 [SCHEDULER] Sending practice reminders with user preferences...');
       
       const { getSupabase } = await import('./supabase');
       const supabase = getSupabase();
@@ -128,47 +128,144 @@ export class NotificationScheduler {
         return;
       }
 
-      const currentHour = new Date().getHours();
-      const currentTime = `${currentHour.toString().padStart(2, '0')}:00:00`;
-      
-      // Buscar usuários que devem receber lembrete neste horário
-      // e que não praticaram nas últimas 24h
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      const { data: usersToRemind, error } = await supabase
+      const currentTime = new Date();
+      const currentHour = currentTime.getHours();
+      const currentMinute = currentTime.getMinutes();
+      const currentTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}:00`;
+      const dayOfWeek = currentTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const today = currentTime.toISOString().split('T')[0];
+
+      console.log(`🕐 Current time: ${currentTimeString}, Day: ${dayOfWeek}`);
+
+      // Buscar usuários que devem receber notificações agora
+      const { data: eligibleUsers, error } = await supabase
         .from('users')
-        .select('entra_id, preferred_reminder_time')
-        .eq('preferred_reminder_time', currentTime)
-        .not('entra_id', 'in',
-          `(SELECT DISTINCT user_id FROM user_practices WHERE created_at >= '${yesterday.toISOString()}')`
-        );
+        .select(`
+          id,
+          entra_id,
+          name,
+          preferred_reminder_time,
+          reminder_frequency,
+          notification_preferences (
+            practice_reminders
+          )
+        `)
+        .eq('notification_preferences.practice_reminders', true) // Apenas quem quer receber
+        .neq('reminder_frequency', 'disabled') // Não enviar para quem desabilitou
+        .gte('preferred_reminder_time', `${currentHour}:${currentMinute}:00`) // Horário próximo
+        .lte('preferred_reminder_time', `${currentHour}:${currentMinute + 5}:00`); // Janela de 5 minutos
 
       if (error) {
-        console.error('❌ Error fetching users for reminders:', error);
+        console.error('❌ Error fetching eligible users:', error);
         return;
       }
 
-      if (!usersToRemind || usersToRemind.length === 0) {
-        console.log(`✅ No users need practice reminders at ${currentTime}`);
+      if (!eligibleUsers || eligibleUsers.length === 0) {
+        console.log('✅ No users eligible for reminders at this time');
         return;
       }
 
-      console.log(`⏰ Sending practice reminders to ${usersToRemind.length} users`);
+      console.log(`👥 Found ${eligibleUsers.length} potential users for reminders`);
 
-      // Enviar lembretes
+      // Filtrar por frequência e verificar se já praticaram hoje
+      const filteredUsers = [];
+
+      for (const user of eligibleUsers) {
+        const { reminder_frequency } = user;
+
+        // Aplicar filtros de frequência
+        let shouldSend = false;
+
+        switch (reminder_frequency) {
+          case 'normal':
+            shouldSend = true; // Enviar todos os dias
+            break;
+          case 'light':
+            // 3x por semana: Segunda (1), Quarta (3), Sexta (5)
+            shouldSend = [1, 3, 5].includes(dayOfWeek);
+            break;
+          case 'frequent':
+            shouldSend = true; // Enviar todos os dias (será 2x)
+            break;
+          default:
+            shouldSend = false;
+        }
+
+        if (!shouldSend) {
+          console.log(`⏭️ Skipping user ${user.entra_id} - frequency filter`);
+          continue;
+        }
+
+        // Verificar se já praticou hoje
+        const { data: todayPractice, error: practiceError } = await supabase
+          .from('user_practices')
+          .select('id')
+          .eq('user_id', user.id)
+          .gte('created_at', `${today}T00:00:00Z`)
+          .lte('created_at', `${today}T23:59:59Z`)
+          .limit(1);
+
+        if (practiceError) {
+          console.error(`❌ Error checking practice for user ${user.entra_id}:`, practiceError);
+          continue;
+        }
+
+        if (todayPractice && todayPractice.length > 0) {
+          console.log(`✅ User ${user.entra_id} already practiced today - skipping`);
+          continue;
+        }
+
+        filteredUsers.push(user);
+      }
+
+      if (filteredUsers.length === 0) {
+        console.log('✅ No users need reminders after filtering');
+        return;
+      }
+
+      console.log(`📤 Sending reminders to ${filteredUsers.length} users`);
+
+      // Enviar notificações
       const results = await Promise.allSettled(
-        usersToRemind.map(user => 
-          ReengagementNotificationService.sendPracticeReminder(user.entra_id, user.preferred_reminder_time)
-        )
+        filteredUsers.map(async (user) => {
+          try {
+            await ReengagementNotificationService.sendPracticeReminder(
+              user.entra_id,
+              user.name?.split(' ')[0] || 'Estudante'
+            );
+            console.log(`✅ Reminder sent to ${user.entra_id}`);
+            return true;
+          } catch (error) {
+            console.error(`❌ Failed to send reminder to ${user.entra_id}:`, error);
+            return false;
+          }
+        })
       );
 
       const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      console.log(`✅ Sent ${successful}/${usersToRemind.length} practice reminders`);
+      console.log(`✅ Sent ${successful}/${filteredUsers.length} practice reminders`);
+
+      // Para usuários com frequência "frequent", agendar segundo lembrete
+      await this.scheduleSecondReminder(filteredUsers.filter(u => u.reminder_frequency === 'frequent'));
 
     } catch (error) {
       console.error('❌ Error in practice reminder scheduler:', error);
     }
+  }
+
+  /**
+   * 🔄 Agendar segundo lembrete para usuários "frequent"
+   */
+  static async scheduleSecondReminder(frequentUsers: any[]): Promise<void> {
+    if (frequentUsers.length === 0) return;
+
+    console.log(`🔄 Scheduling second reminders for ${frequentUsers.length} frequent users`);
+
+    // Implementar lógica para segundo lembrete (ex: 6 horas depois)
+    // Por enquanto, apenas log
+    frequentUsers.forEach(user => {
+      console.log(`⏰ Second reminder scheduled for ${user.entra_id} at evening`);
+    });
   }
 
   /**

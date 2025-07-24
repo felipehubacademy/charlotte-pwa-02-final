@@ -242,15 +242,17 @@ export default function NotificationManager({ className = '' }: NotificationMana
 
   // iOS specific guidance component
   const IOSGuidance = () => (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+    <div className="bg-secondary/60 backdrop-blur-md border border-white/10 rounded-xl p-4 mb-4">
       <div className="flex items-start space-x-3">
-        <Smartphone className="w-5 h-5 text-blue-600 mt-0.5" />
+        <div className="bg-primary/20 p-2 rounded-lg">
+          <Smartphone className="w-5 h-5 text-primary" />
+        </div>
         <div>
-          <h4 className="font-medium text-blue-900">Configuração iOS Necessária</h4>
-          <p className="text-sm text-blue-700 mt-1">
+          <h4 className="font-medium text-white">Configuração iOS Necessária</h4>
+          <p className="text-sm text-white/70 mt-1">
             Para receber notificações push no iOS, você precisa:
           </p>
-          <ol className="text-sm text-blue-700 mt-2 space-y-1 list-decimal list-inside">
+          <ol className="text-sm text-white/60 mt-2 space-y-1 list-decimal list-inside">
             <li>Adicionar Charlotte à sua Tela Inicial primeiro</li>
             <li>Abrir Safari → botão Compartilhar → "Adicionar à Tela Inicial"</li>
             <li>Depois ativar notificações do app instalado</li>
@@ -264,12 +266,16 @@ export default function NotificationManager({ className = '' }: NotificationMana
   if (!isSupported && platform === 'ios' && !isPWAInstalled) {
     return (
       <div className={`notification-manager ${className}`}>
-        <IOSGuidance />
-        <div className="text-center">
-          <Download className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-          <p className="text-sm text-gray-600">
-            Instale Charlotte como um app para ativar notificações
-          </p>
+        <div className="bg-secondary/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl">
+          <IOSGuidance />
+          <div className="text-center">
+            <div className="bg-white/10 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+              <Download className="w-6 h-6 text-white/60" />
+            </div>
+            <p className="text-sm text-white/70">
+              Instale Charlotte como um app para ativar notificações
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -278,11 +284,15 @@ export default function NotificationManager({ className = '' }: NotificationMana
   if (!isSupported) {
     return (
       <div className={`notification-manager ${className}`}>
-        <div className="text-center">
-          <BellOff className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-          <p className="text-sm text-gray-600">
-            Notificações push não são suportadas neste dispositivo
-          </p>
+        <div className="bg-secondary/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl">
+          <div className="text-center">
+            <div className="bg-white/10 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+              <BellOff className="w-6 h-6 text-white/60" />
+            </div>
+            <p className="text-sm text-white/70">
+              Notificações push não são suportadas neste dispositivo
+            </p>
+          </div>
         </div>
       </div>
     );
@@ -335,26 +345,32 @@ export default function NotificationManager({ className = '' }: NotificationMana
   }
 
   return (
-    <div className={`bg-gradient-to-br from-white to-gray-50 rounded-xl shadow-xl border border-gray-200 overflow-hidden ${className}`}>
+    <div 
+      className={`bg-secondary/90 backdrop-blur-md border border-white/10 rounded-2xl shadow-2xl overflow-hidden ${className}`}
+      style={{
+        // Garantir que o banner funciona bem em PWA iOS
+        marginBottom: platform === 'ios' && isPWAInstalled ? 'env(safe-area-inset-bottom)' : '0'
+      }}
+    >
       {platform === 'ios' && <IOSGuidance />}
       
-      {/* Header com gradiente */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-4 text-white">
+      {/* Header redesenhado com gradiente da marca */}
+      <div className="bg-gradient-to-r from-primary/80 via-primary to-primary/80 p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="bg-white/20 rounded-full p-2">
-              <Bell className="w-5 h-5" />
+            <div className="bg-white/20 backdrop-blur-sm rounded-full p-2.5 border border-white/20 flex-shrink-0">
+              <Bell className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h3 className="font-semibold">Ativar Notificações</h3>
-              <p className="text-sm text-blue-100">
+            <div className="min-w-0 flex-1">
+              <h3 className="font-semibold text-white text-base sm:text-lg">Ativar Notificações</h3>
+              <p className="text-sm text-white/80 truncate">
                 Receba conquistas em tempo real!
               </p>
             </div>
           </div>
           <button
             onClick={handleDismiss}
-            className="text-white/80 hover:text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition-all duration-200"
+            className="text-white/60 hover:text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition-all duration-200 text-lg font-light flex-shrink-0 ml-2"
             title="Fechar"
           >
             ×
@@ -362,60 +378,79 @@ export default function NotificationManager({ className = '' }: NotificationMana
         </div>
       </div>
       
-      {/* Content */}
-      <div className="p-4">
-        <div className="flex justify-center">{/* Action Button */}
-          
+      {/* Content redesenhado */}
+      <div className="p-4 sm:p-5">
+        <div className="flex justify-center">
           {permission === 'granted' ? (
             <button
               onClick={isSubscribed ? handleDisableNotifications : handleEnableNotifications}
               disabled={isLoading}
-              className={`w-full px-6 py-3 rounded-lg font-medium transition-all duration-200 transform hover:scale-[1.02] shadow-lg ${
+              className={`w-full px-6 py-3 sm:py-4 rounded-xl font-medium transition-all duration-300 transform hover:scale-[1.02] shadow-lg backdrop-blur-sm border text-sm sm:text-base ${
                 isSubscribed
-                  ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white hover:from-red-600 hover:to-orange-600'
-                  : 'bg-gradient-to-r from-blue-500 to-purple-600 text-white hover:from-blue-600 hover:to-purple-700'
-              } disabled:opacity-50 disabled:transform-none`}
+                  ? 'bg-gradient-to-r from-red-500/80 to-orange-500/80 text-white hover:from-red-600/90 hover:to-orange-600/90 border-red-500/30'
+                  : 'bg-gradient-to-r from-primary/80 to-primary text-white hover:from-primary hover:to-primary/90 border-primary/30'
+              } disabled:opacity-50 disabled:transform-none disabled:cursor-not-allowed`}
             >
-              {isLoading ? '🔄 Configurando FCM + Web Push...' : isSubscribed ? '🔕 Desativar' : '🔔 Ativar Notificações'}
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span className="hidden sm:inline">Configurando...</span>
+                  <span className="sm:hidden">⚙️</span>
+                </div>
+              ) : isSubscribed ? '🔕 Desativar' : '🔔 Ativar Notificações'}
             </button>
           ) : permission === 'denied' ? (
-            <div className="w-full px-6 py-3 bg-gradient-to-r from-red-100 to-orange-100 text-red-700 rounded-lg text-center font-medium border border-red-200">
+            <div className="w-full px-6 py-3 sm:py-4 bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl text-center font-medium backdrop-blur-sm text-sm sm:text-base">
               🚫 Permissão negada
             </div>
           ) : (
             <button
               onClick={handleEnableNotifications}
               disabled={isLoading}
-              className="w-full px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-medium hover:from-blue-600 hover:to-purple-700 transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:transform-none shadow-lg"
+              className="w-full px-6 py-3 sm:py-4 bg-gradient-to-r from-primary/80 to-primary text-white rounded-xl font-medium hover:from-primary hover:to-primary/90 transform hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:transform-none disabled:cursor-not-allowed shadow-lg backdrop-blur-sm border border-primary/30 text-sm sm:text-base"
             >
-              {isLoading ? '🔄 Configurando FCM + Web Push...' : '🔔 Ativar Notificações'}
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span className="hidden sm:inline">Configurando...</span>
+                  <span className="sm:hidden">⚙️</span>
+                </div>
+              ) : '🔔 Ativar Notificações'}
             </button>
           )}
         </div>
 
-        {/* Success message when enabled */}
+        {/* Success message redesenhado */}
         {isSubscribed && (
-          <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
-            <div className="flex items-center space-x-2 text-green-700">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">✅ Notificações ativadas!</span>
+          <div className="mt-4 p-4 bg-green-500/20 border border-green-500/30 rounded-xl backdrop-blur-sm">
+            <div className="flex items-center space-x-2 text-green-300">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
+              <span className="font-medium text-sm sm:text-base">✅ Notificações ativadas!</span>
             </div>
-            <p className="text-sm text-green-600 mt-1">
+            <p className="text-xs sm:text-sm text-green-300/80 mt-1">
               Você receberá notificações sobre suas conquistas
             </p>
           </div>
         )}
       </div>
       
-      {/* Footer com info */}
-      <div className="bg-gray-50 px-4 py-3 text-xs text-gray-500 border-t border-gray-100">
-        {platform === 'ios' && (
-          <p>📱 iOS 16.4+ necessário para notificações push</p>
-        )}
-        {platform === 'android' && (
-          <p>🤖 Funciona em todos os navegadores Android</p>
-        )}
-                 <p className="mt-1">Seja notificado sobre conquistas e progressos!</p>
+      {/* Footer redesenhado */}
+      <div className="bg-secondary/60 backdrop-blur-sm px-4 py-3 text-xs text-white/50 border-t border-white/10">
+        <div className="flex items-center space-x-2">
+          {platform === 'ios' && (
+            <>
+              <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
+              <p className="truncate">iOS 16.4+ necessário para notificações push</p>
+            </>
+          )}
+          {platform === 'android' && (
+            <>
+              <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
+              <p className="truncate">Funciona em todos os navegadores Android</p>
+            </>
+          )}
+        </div>
+        <p className="mt-1 text-white/40 text-xs">Seja notificado sobre conquistas e progressos!</p>
       </div>
     </div>
   );

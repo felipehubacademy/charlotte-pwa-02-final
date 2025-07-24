@@ -2,6 +2,7 @@
 // Push notifications para manter usuários engajados (não achievements)
 
 import { getFirebaseAdminService } from './firebase-admin-service';
+import { NotificationLogger, NotificationLogType } from './notification-logger';
 
 export interface ReengagementNotification {
   type: 'streak_reminder' | 'weekly_challenge' | 'practice_reminder' | 'social_invite' | 'goal_reminder';
@@ -37,7 +38,23 @@ export class ReengagementNotificationService {
       }
     };
 
-    return this.sendNotification(userId, notification);
+    const success = await this.sendNotification(userId, notification);
+    
+    // Log the notification attempt
+    await NotificationLogger.logNotificationSent({
+      user_id: userId,
+      notification_type: 'streak_reminder',
+      status: success ? 'sent' : 'failed',
+      message_title: notification.title,
+      message_body: notification.body,
+      metadata: {
+        streakDays,
+        userLevel,
+        urgency: 'high'
+      }
+    });
+    
+    return success;
   }
 
   /**
@@ -49,45 +66,77 @@ export class ReengagementNotificationService {
     
     const notification: ReengagementNotification = {
       type: 'weekly_challenge',
-      title: isNovice
-        ? `💪 Novo Desafio Semanal: ${challengeTitle}`
-        : `💪 New Weekly Challenge: ${challengeTitle}`,
+      title: isNovice 
+        ? `💪 Novo desafio: ${challengeTitle}`
+        : `💪 New Challenge: ${challengeTitle}`,
       body: isNovice
-        ? `Junte-se a centenas de estudantes neste desafio. Você topa?`
-        : `Join hundreds of learners in this week's challenge. Are you up for it?`,
-      url: '/challenges',
+        ? `Esta semana, desafie-se a melhorar ainda mais! Vamos lá?`
+        : `This week, challenge yourself to improve even more! Are you in?`,
+      url: '/chat',
       data: {
         type: 'weekly_challenge',
-        challenge: challengeTitle,
-        duration: 'week',
+        challengeTitle,
         userLevel
       }
     };
 
-    return this.sendNotification(userId, notification);
+    const success = await this.sendNotification(userId, notification);
+    
+    // Log the notification attempt
+    await NotificationLogger.logNotificationSent({
+      user_id: userId,
+      notification_type: 'weekly_challenge',
+      status: success ? 'sent' : 'failed',
+      message_title: notification.title,
+      message_body: notification.body,
+      metadata: {
+        challengeTitle,
+        userLevel
+      }
+    });
+    
+    return success;
   }
 
   /**
-   * ⏰ Lembrete personalizado de prática
+   * ⏰ Lembrete de prática personalizado
    */
-  static async sendPracticeReminder(userId: string, preferredTime?: string): Promise<boolean> {
+  static async sendPracticeReminder(userId: string, userName: string): Promise<boolean> {
     const userLevel = await this.getUserLevel(userId);
-    const timeBasedMessage = this.getTimeBasedMessage(userLevel);
+    const isNovice = userLevel === 'Novice';
     
     const notification: ReengagementNotification = {
       type: 'practice_reminder',
-      title: `⏰ ${timeBasedMessage.title}`,
-      body: timeBasedMessage.body,
+      title: isNovice 
+        ? `⏰ Olá ${userName}! Hora de praticar!`
+        : `⏰ Hi ${userName}! Time to practice!`,
+      body: isNovice
+        ? `Que tal uma sessão rápida de inglês? Charlotte está esperando por você! 🎯`
+        : `How about a quick English session? Charlotte is waiting for you! 🎯`,
       url: '/chat',
       data: {
         type: 'practice_reminder',
-        preferredTime: preferredTime || 'any',
-        timeSlot: this.getCurrentTimeSlot(),
+        userName,
         userLevel
       }
     };
 
-    return this.sendNotification(userId, notification);
+    const success = await this.sendNotification(userId, notification);
+    
+    // Log the notification attempt
+    await NotificationLogger.logNotificationSent({
+      user_id: userId,
+      notification_type: 'practice_reminder',
+      status: success ? 'sent' : 'failed',
+      message_title: notification.title,
+      message_body: notification.body,
+      metadata: {
+        userName,
+        userLevel
+      }
+    });
+    
+    return success;
   }
 
   /**
