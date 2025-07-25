@@ -230,10 +230,16 @@ export default function NotificationPreferences() {
             <div className="flex items-center space-x-2">
               <Clock size={16} className="text-primary" />
               <span className="text-white/80 text-sm">Horário preferido:</span>
-              <select value={horario} onChange={e => setHorario(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary">
-                <option value="08:00" className="bg-gray-800">08:00</option>
-                <option value="14:00" className="bg-gray-800">14:00 (teste)</option>
-                <option value="20:00" className="bg-gray-800">20:00</option>
+              <select
+                value={horario}
+                onChange={(e) => setHorario(e.target.value)}
+                className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg 
+                         text-white placeholder-white/50 focus:outline-none focus:border-white/40 
+                         focus:ring-1 focus:ring-white/20"
+              >
+                <option value="08:00" className="bg-gray-800 text-white">08:00</option>
+                <option value="14:30" className="bg-gray-800 text-white">14:30 (teste)</option>
+                <option value="20:00" className="bg-gray-800 text-white">20:00</option>
               </select>
             </div>
             <div className="flex items-center space-x-2">

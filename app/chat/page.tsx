@@ -2185,10 +2185,12 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onDismiss={handleAchievementsDismissed}
       />
 
-      {/* 🔔 Notification Manager - Redesigned positioning */}
-      <div className="fixed bottom-4 left-4 right-4 z-[60] sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm lg:bottom-8 lg:left-8 lg:max-w-md">
-        <NotificationManager className="w-full" />
-      </div>
+      {/* 🔔 Notification Manager - Aparece apenas DEPOIS do onboarding */}
+      {!showMainTour && (
+        <div className="fixed bottom-4 left-4 right-4 z-[60] sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm lg:bottom-8 lg:left-8 lg:max-w-md">
+          <NotificationManager className="w-full" />
+        </div>
+      )}
 
       {/* 🎓 NOVO: Onboarding Tour */}
       <OnboardingTour
