@@ -186,10 +186,6 @@ export class NotificationScheduler {
           case 'normal':
             shouldSend = true; // Enviar todos os dias
             break;
-          case 'light':
-            // 3x por semana: Segunda (1), Quarta (3), Sexta (5)
-            shouldSend = [1, 3, 5].includes(dayOfWeek);
-            break;
           case 'frequent':
             shouldSend = true; // Enviar todos os dias (será 2x)
             break;

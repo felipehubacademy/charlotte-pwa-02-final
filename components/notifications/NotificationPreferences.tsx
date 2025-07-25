@@ -13,7 +13,7 @@ const supabase = createClient(
 export default function NotificationPreferences() {
   const { user } = useAuth(); // Usar o AuthProvider do projeto
   const [prefs, setPrefs] = useState({ practice_reminders: true, marketing: false });
-  const [horario, setHorario] = useState('19:00');
+  const [horario, setHorario] = useState('08:00');
   const [frequencia, setFrequencia] = useState('normal'); // Mudado de 'diaria' para 'normal'
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
@@ -72,7 +72,7 @@ export default function NotificationPreferences() {
 
         if (userData) {
           console.log('✅ Dados do usuário encontrados:', userData);
-          setHorario(userData.preferred_reminder_time?.slice(0,5) || '19:00');
+          setHorario(userData.preferred_reminder_time?.slice(0,5) || '08:00');
           setFrequencia(userData.reminder_frequency || 'normal'); // Mudado de 'diaria' para 'normal'
         } else {
           console.log('ℹ️ Nenhum dado de usuário encontrado, usando padrões');
@@ -137,6 +137,12 @@ export default function NotificationPreferences() {
 
       // Update users usando UUID
       console.log('📝 Step 2: Atualizando dados do usuário...');
+      console.log('🔍 Dados que serão enviados:', {
+        preferred_reminder_time: horario + ':00',
+        reminder_frequency: frequencia,
+        user_id: user.id
+      });
+      
       const { data: userData, error: userError } = await supabase
         .from('users')
         .update({
@@ -224,23 +230,17 @@ export default function NotificationPreferences() {
             <div className="flex items-center space-x-2">
               <Clock size={16} className="text-primary" />
               <span className="text-white/80 text-sm">Horário preferido:</span>
-              <input 
-                type="time" 
-                value={horario} 
-                onChange={e => setHorario(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary"
-              />
+              <select value={horario} onChange={e => setHorario(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary">
+                <option value="08:00" className="bg-gray-800">08:00</option>
+                <option value="14:00" className="bg-gray-800">14:00 (teste)</option>
+                <option value="20:00" className="bg-gray-800">20:00</option>
+              </select>
             </div>
             <div className="flex items-center space-x-2">
               <Settings size={16} className="text-primary" />
               <span className="text-white/80 text-sm">Frequência:</span>
-              <select 
-                value={frequencia} 
-                onChange={e => setFrequencia(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary"
-              >
+              <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary">
                 <option value="normal" className="bg-gray-800">Normal (1x por dia)</option>
-                <option value="light" className="bg-gray-800">Leve (3x por semana)</option>
                 <option value="frequent" className="bg-gray-800">Frequente (2x por dia)</option>
                 <option value="disabled" className="bg-gray-800">Desabilitado</option>
               </select>

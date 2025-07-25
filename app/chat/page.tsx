@@ -18,9 +18,7 @@ import ChatHeader from '@/components/ChatHeader';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import NotificationManager from '@/components/notifications/NotificationManager';
-// import ReengagementTest from '@/components/notifications/ReengagementTest';
-// import DebugFCMTokens from '@/components/notifications/DebugFCMTokens';
-// import TestFCMSending from '@/components/notifications/TestFCMSending';
+// import SimpleAchievementTest from '@/components/notifications/SimpleAchievementTest';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -408,39 +406,27 @@ export default function ChatPage() {
   // ✅ ANDROID FIX: Cache de IDs processados fora do callback
   const processedAchievementIds = useRef(new Set<string>());
 
-  // Handle achievement notifications
+  // Handle achievement notifications - SIMPLIFIED
   const handleNewAchievements = useCallback((newAchievements: Achievement[]) => {
-    if (newAchievements.length > 0) {
-      setNewAchievements(prev => {
-        const currentIds = new Set([...prev.map(a => a.id), ...achievements.map(a => a.id)]);
-        
-        const uniqueNewAchievements = newAchievements.filter(a => {
-          // Verificar se já foi processado
-          if (processedAchievementIds.current.has(a.id)) {
-            console.log('🚫 Achievement already processed:', a.title);
-            return false;
-          }
-          // Verificar se já existe
-          if (currentIds.has(a.id)) {
-            console.log('🚫 Achievement already exists:', a.title);
-            return false;
-          }
-          // Marcar como processado
-          processedAchievementIds.current.add(a.id);
-          return true;
-        });
-        
-        if (uniqueNewAchievements.length > 0) {
-          console.log('🏆 Adding unique achievements:', uniqueNewAchievements.map(a => a.title));
-          // Adicionar aos achievements permanentes apenas uma vez
-          setAchievements(prevAch => [...prevAch, ...uniqueNewAchievements]);
-          return [...prev, ...uniqueNewAchievements];
-        }
-        
-        return prev;
-      });
-    }
-  }, [achievements]); // ✅ Manter dependência para acessar achievements atuais
+    if (newAchievements.length === 0) return;
+
+    // Filtrar apenas achievements que não foram processados
+    const uniqueAchievements = newAchievements.filter(a => {
+      if (processedAchievementIds.current.has(a.id)) {
+        return false;
+      }
+      processedAchievementIds.current.add(a.id);
+      return true;
+    });
+
+    if (uniqueAchievements.length === 0) return;
+
+    // Mostrar achievements na UI
+    setNewAchievements(prev => [...prev, ...uniqueAchievements]);
+    
+    // Adicionar aos achievements permanentes
+    setAchievements(prev => [...prev, ...uniqueAchievements]);
+  }, []);
 
   const handleAchievementsDismissed = useCallback((achievementId: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== achievementId));
@@ -651,33 +637,58 @@ export default function ChatPage() {
           // ✅ NEW: Save achievements if any were earned (combinar ambos os sistemas)
           const allAchievements = [...xpResult.achievements, ...audioAchievements];
           if (allAchievements.length > 0) {
+            console.log('✅ INSIDE achievement save condition!');
             try {
-            // ✅ Usar API route em vez de chamar diretamente
-            const response = await fetch('/api/achievements', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
+              console.log('🔍 About to save achievements:', {
                 userId: user.entra_id,
-                achievements: allAchievements
-              })
-            });
+                achievementsCount: allAchievements.length,
+                achievements: allAchievements.map(a => ({
+                  id: a.id,
+                  title: a.title,
+                  type: typeof a,
+                  keys: Object.keys(a)
+                }))
+              });
+              
+              // ✅ Usar API route em vez de chamar diretamente
+              console.log('🚀 Making API call to /api/achievements...');
+              
+              const response = await fetch('/api/achievements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: user.entra_id,
+                  achievements: allAchievements
+                })
+              });
 
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
+              console.log('📡 API Response received:', {
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok
+              });
 
-            const result = await response.json();
-            if (!result.success) {
-              throw new Error(result.error || 'Failed to save achievements');
-            }
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ API Error response:', errorText);
+                throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
+              }
 
-            handleNewAchievements(allAchievements);
+              const result = await response.json();
+              console.log('✅ API Success result:', result);
+              
+              if (!result.success) {
+                throw new Error(result.error || 'Failed to save achievements');
+              }
+
+              console.log('✅ Achievements saved successfully, showing in UI...');
             } catch (error) {
               // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
               console.warn('⚠️ Failed to save achievements to database, but continuing...', error);
-              // Ainda mostrar achievements na UI mesmo se falhou salvar no banco
-              handleNewAchievements(allAchievements);
             }
+            
+            // 🎯 Mostrar achievements na UI independente do resultado do salvamento
+            handleNewAchievements(allAchievements);
           }
           
           setSessionXP(prev => prev + xpResult.totalXP + achievementBonusXP);
@@ -1803,13 +1814,14 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               throw new Error(result.error || 'Failed to save achievements');
             }
 
-            handleNewAchievements(textAchievements);
+            console.log('✅ Text achievements saved successfully, showing in UI...');
           } catch (error) {
             // 🛡️ PROTEÇÃO: Log erro mas não quebrar o fluxo principal
             console.warn('⚠️ Failed to save achievements to database, but continuing...', error);
-            // Ainda mostrar achievements na UI mesmo se falhou salvar no banco
-            handleNewAchievements(textAchievements);
           }
+          
+          // 🎯 Mostrar achievements na UI independente do resultado do salvamento
+          handleNewAchievements(textAchievements);
         }
           
         setSessionXP(prev => prev + assistantResult.xpAwarded + achievementBonusXP);
@@ -2164,10 +2176,6 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                       lg:bottom-8 lg:left-8 lg:max-w-md">
         <NotificationManager className="w-full" />
       </div>
-
-      {/* 🧪 Test components removed for production */}
-
-
 
       {/* 🎓 NOVO: Onboarding Tour */}
       <OnboardingTour

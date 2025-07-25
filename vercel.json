@@ -45,14 +45,22 @@
     }
   ],
   "functions": {
-    "app/api/*/route.ts": {
-      "maxDuration": 30
+    "app/api/**/*": {
+      "maxDuration": 60
     }
   },
   "crons": [
     {
       "path": "/api/notifications/scheduler",
-      "schedule": "0 * * * *"
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/notifications/scheduler",
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/notifications/scheduler",
+      "schedule": "0 20 * * *"
     }
   ]
 } 

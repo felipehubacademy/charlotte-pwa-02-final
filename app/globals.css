@@ -412,13 +412,7 @@ input, textarea, select {
   z-index: 70; /* Above footer and PWA banner */
 }
 
-/* Achievement notifications positioning */
-.achievement-notifications {
-  position: fixed;
-  right: 1rem;
-  z-index: 80; /* Critical notifications layer - above PWA banner */
-  top: calc(env(safe-area-inset-top) + 80px); /* Safe area + header height */
-}
+/* Achievement notifications positioning - REMOVED: now handled inline in component */
 
 /* ✅ FORCE: Footer always fixed at bottom - UPDATED with iOS PWA pattern */
 .fixed-footer {
