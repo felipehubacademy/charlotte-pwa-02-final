@@ -61,10 +61,30 @@ export async function POST(request: NextRequest) {
 
 /**
  * 📊 GET - Status do scheduler e próximas execuções
+ * Também executa tarefas quando chamado pelo Vercel Cron
  */
 export async function GET(request: NextRequest) {
   try {
-    // Validação do CRON_SECRET
+    const userAgent = request.headers.get('user-agent') || '';
+    const isVercelCron = userAgent.includes('vercel-cron');
+    
+    console.log(`🕐 [SCHEDULER API] GET request - User-Agent: ${userAgent}, isVercelCron: ${isVercelCron}`);
+    
+    // Se for chamada do Vercel Cron, executar tarefas
+    if (isVercelCron) {
+      console.log('🕐 [SCHEDULER API] Vercel Cron detected, executing scheduled tasks...');
+      
+      await NotificationScheduler.runScheduledTasks();
+      
+      return NextResponse.json({
+        success: true,
+        message: '✅ Vercel Cron: Scheduled tasks completed successfully',
+        timestamp: new Date().toISOString(),
+        source: 'vercel-cron'
+      });
+    }
+    
+    // Para outras chamadas GET, exigir autenticação
     const authHeader = request.headers.get('authorization');
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
