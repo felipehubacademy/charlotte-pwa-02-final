@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Achievement } from '@/lib/improved-audio-xp-service';
+import { PWABadgeService } from '@/lib/pwa-badge-service';
 
 interface AchievementNotificationProps {
   achievements: Achievement[];
@@ -19,11 +20,18 @@ const SingleAchievement: React.FC<{
     // Mostrar após delay
     const showTimer = setTimeout(() => {
       setIsVisible(true);
+      // Incrementar badge quando achievement aparece
+      PWABadgeService.incrementBadge();
     }, delay);
 
     // Esconder após 4s do show
     const hideTimer = setTimeout(() => {
       setIsVisible(false);
+      // Decrementar badge quando achievement sai
+      const currentBadge = PWABadgeService.getBadgeCount();
+      if (currentBadge > 0) {
+        PWABadgeService.setBadge(currentBadge - 1);
+      }
       setTimeout(() => onDismiss(achievement.id), 300); // Aguardar animação
     }, delay + 4000);
 
