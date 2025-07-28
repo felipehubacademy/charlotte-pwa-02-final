@@ -277,7 +277,7 @@ export class NotificationService {
 
       const subscriptionOptions: PushSubscriptionOptions = {
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey).buffer
+        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey)
       };
 
       // Para iOS, adicionar configurações específicas se disponíveis
@@ -349,10 +349,10 @@ export class NotificationService {
 
       // iOS tem limitações com actions
       if (message.actions && !this.iosCapabilities.isIOS) {
-        notificationOptions.actions = message.actions;
+        (notificationOptions as any).actions = message.actions;
       } else if (this.iosCapabilities.isIOS && message.actions) {
         // iOS suporta apenas 1-2 actions simples
-        notificationOptions.actions = message.actions.slice(0, 1);
+        (notificationOptions as any).actions = message.actions.slice(0, 1);
       }
 
       await registration.showNotification(message.title, notificationOptions);
