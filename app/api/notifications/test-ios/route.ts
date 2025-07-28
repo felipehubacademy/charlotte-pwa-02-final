@@ -7,50 +7,35 @@ export async function POST(request: NextRequest) {
     const { user_id, test_type = 'basic' } = body;
 
     if (!user_id) {
-      return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     }
 
     const supabase = getSupabase();
     if (!supabase) {
-      return NextResponse.json(
-        { error: 'Database not available' },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: 'Database not available' }, { status: 503 });
     }
 
-    // Buscar subscriptions do usuário (Web Push e FCM)
+    // Buscar subscriptions iOS
     const { data: subscriptions, error: fetchError } = await supabase
       .from('push_subscriptions')
       .select('*')
       .eq('user_id', user_id)
+      .eq('platform', 'ios')
+      .eq('subscription_type', 'web_push')
       .eq('is_active', true);
 
-    if (fetchError) {
-      console.error('❌ Error fetching subscriptions:', fetchError);
-      return NextResponse.json(
-        { error: 'Failed to fetch subscriptions' },
-        { status: 500 }
-      );
+    if (fetchError || !subscriptions || subscriptions.length === 0) {
+      return NextResponse.json({ error: 'No iOS subscriptions found' }, { status: 404 });
     }
 
-    if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json(
-        { error: 'No active subscriptions found' },
-        { status: 404 }
-      );
-    }
+    console.log('📱 Found iOS subscriptions:', subscriptions.length);
 
     const results = [];
-    const iosSubscriptions = subscriptions.filter(sub => sub.platform === 'ios');
-    const fcmSubscriptions = subscriptions.filter(sub => sub.subscription_type === 'fcm');
 
-    // Teste para Web Push (iOS)
-    for (const subscription of iosSubscriptions) {
+    // Teste para Web Push (iOS) com TIMEOUT FIX
+    for (const subscription of subscriptions) {
       try {
-        const webPushResult = await sendIOSWebPushTest(subscription, test_type);
+        const webPushResult = await sendIOSWebPushWithTimeout(subscription, test_type);
         results.push({
           type: 'web_push',
           platform: 'ios',
@@ -67,21 +52,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Log do teste
-    await supabase
-      .from('notification_logs')
-      .insert({
-        user_id,
-        type: 'test_ios',
-        platform: 'ios',
-        success: results.some(r => r.success),
-        metadata: {
-          test_type,
-          results,
-          timestamp: new Date().toISOString()
-        }
-      });
-
     return NextResponse.json({
       success: true,
       message: 'iOS notification test completed',
@@ -95,19 +65,16 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('❌ iOS test API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-async function sendIOSWebPushTest(subscription: any, testType: string) {
+async function sendIOSWebPushWithTimeout(subscription: any, testType: string) {
   const webpush = require('web-push');
   
-  // Configurar VAPID keys - EMAIL CORRETO
+  // Configurar VAPID keys
   webpush.setVapidDetails(
-    'mailto:felipe.xavier1987@gmail.com',  // ← CORRIGIDO: email real
+    'mailto:felipe.xavier1987@gmail.com',
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
     process.env.VAPID_PRIVATE_KEY!
   );
@@ -122,57 +89,50 @@ async function sendIOSWebPushTest(subscription: any, testType: string) {
   switch (testType) {
     case 'achievement':
       payload = JSON.stringify({
-        title: '🎉 Conquista Desbloqueada!',
-        body: 'Você completou sua primeira lição no iOS!',
+        title: '🎉 Conquista iOS!',
+        body: 'Push notification finalmente funcionando!',
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-72x72.png',
-        url: '/chat?achievement=first-ios-notification',
-        data: {
-          type: 'achievement',
-          platform: 'ios',
-          test: true
-        }
+        url: '/chat'
       });
       break;
-      
-    case 'reminder':
-      payload = JSON.stringify({
-        title: '⏰ Hora de Praticar!',
-        body: 'Que tal uma conversa rápida com Charlotte?',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        url: '/chat',
-        data: {
-          type: 'reminder',
-          platform: 'ios',
-          test: true
-        }
-      });
-      break;
-      
     default:
       payload = JSON.stringify({
-        title: '🧪 Teste iOS',
-        body: 'Push notifications funcionando no iPhone!',
+        title: '🚀 Teste iOS Funciona!',
+        body: 'Timeout fix aplicado com sucesso!',
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-72x72.png',
-        url: '/chat',
-        data: {
-          type: 'test',
-          platform: 'ios',
-          test: true
-        }
+        url: '/chat'
       });
   }
 
   try {
-    await webpush.sendNotification(pushSubscription, payload);
+    console.log('📤 Sending to iOS with timeout protection...');
+    
+    // TIMEOUT FIX: Promise race com timeout de 8 segundos
+    const pushPromise = webpush.sendNotification(pushSubscription, payload);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Push timeout after 8 seconds')), 8000);
+    });
+
+    await Promise.race([pushPromise, timeoutPromise]);
+    
+    console.log('✅ iOS push sent successfully!');
     return {
       success: true,
       message: 'iOS Web Push notification sent successfully'
     };
+    
   } catch (error) {
     console.error('❌ iOS Web Push error:', error);
+    
+    if (error instanceof Error && error.message.includes('timeout')) {
+      return {
+        success: false,
+        message: 'iOS Web Push timeout - Apple Push Service not responding'
+      };
+    }
+    
     return {
       success: false,
       message: `iOS Web Push failed: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -180,15 +140,11 @@ async function sendIOSWebPushTest(subscription: any, testType: string) {
   }
 }
 
-// GET method para testar endpoint
 export async function GET() {
   return NextResponse.json({
-    message: 'iOS notification test endpoint',
-    usage: 'POST with { user_id: string, test_type?: "basic" | "achievement" | "reminder" }',
-    requirements: [
-      'iOS 16.4+',
-      'PWA installed via "Add to Home Screen"',
-      'Active push subscriptions in database'
-    ]
+    message: 'iOS notification test endpoint with timeout fix',
+    status: 'operational',
+    timeout: '8 seconds max',
+    timestamp: new Date().toISOString()
   });
 }
