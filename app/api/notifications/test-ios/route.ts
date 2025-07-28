@@ -141,9 +141,6 @@ async function sendIOSFirebasePush(subscription: any, testType: string) {
           'mutable-content': 1,
         },
       },
-      fcmOptions: {
-        link: 'https://charlotte-ai.com',
-      },
     },
   };
 
