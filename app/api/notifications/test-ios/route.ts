@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
 
     const results = [];
 
-    // Teste para Web Push (iOS) com TIMEOUT FIX
+    // Teste para Web Push (iOS) com PAYLOAD APPLE-COMPATIBLE
     for (const subscription of subscriptions) {
       try {
-        const webPushResult = await sendIOSWebPushWithTimeout(subscription, test_type);
+        const webPushResult = await sendIOSWebPushAppleCompatible(subscription, test_type);
         results.push({
           type: 'web_push',
           platform: 'ios',
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function sendIOSWebPushWithTimeout(subscription: any, testType: string) {
+async function sendIOSWebPushAppleCompatible(subscription: any, testType: string) {
   const webpush = require('web-push');
   
   // Configurar VAPID keys
@@ -84,43 +84,49 @@ async function sendIOSWebPushWithTimeout(subscription: any, testType: string) {
     keys: subscription.keys
   };
 
+  // PAYLOAD SIMPLIFICADO PARA APPLE - só o essencial
   let payload;
   
   switch (testType) {
     case 'achievement':
       payload = JSON.stringify({
-        title: '🎉 Conquista iOS!',
-        body: 'Push notification finalmente funcionando!',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        url: '/chat'
+        title: '🎉 iOS Success!',
+        body: 'Apple aceita este formato!',
+        icon: '/icons/icon-192x192.png'
       });
       break;
     default:
       payload = JSON.stringify({
-        title: '🚀 Teste iOS Funciona!',
-        body: 'Timeout fix aplicado com sucesso!',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        url: '/chat'
+        title: '🚀 iOS Push Works!',
+        body: 'Payload Apple-compatible!',
+        icon: '/icons/icon-192x192.png'
       });
   }
 
+  // OPTIONS ESPECÍFICAS PARA iOS
+  const options = {
+    TTL: 60, // 1 minuto
+    headers: {
+      'Urgency': 'normal'
+    }
+  };
+
   try {
-    console.log('📤 Sending to iOS with timeout protection...');
+    console.log('📤 Sending to iOS with Apple-compatible payload...');
+    console.log('Endpoint:', subscription.endpoint.substring(0, 50) + '...');
     
     // TIMEOUT FIX: Promise race com timeout de 8 segundos
-    const pushPromise = webpush.sendNotification(pushSubscription, payload);
+    const pushPromise = webpush.sendNotification(pushSubscription, payload, options);
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Push timeout after 8 seconds')), 8000);
     });
 
     await Promise.race([pushPromise, timeoutPromise]);
     
-    console.log('✅ iOS push sent successfully!');
+    console.log('✅ iOS push sent successfully with Apple-compatible format!');
     return {
       success: true,
-      message: 'iOS Web Push notification sent successfully'
+      message: '🍎 iOS Web Push sent with Apple-compatible payload!'
     };
     
   } catch (error) {
@@ -133,18 +139,23 @@ async function sendIOSWebPushWithTimeout(subscription: any, testType: string) {
       };
     }
     
+    // Log do erro específico para debug
+    const errorDetails = error instanceof Error ? error.message : 'Unknown error';
+    console.log('🔍 Apple rejection details:', errorDetails);
+    
     return {
       success: false,
-      message: `iOS Web Push failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+      message: `iOS Web Push failed: ${errorDetails}`
     };
   }
 }
 
 export async function GET() {
   return NextResponse.json({
-    message: 'iOS notification test endpoint with timeout fix',
+    message: 'iOS notification test endpoint with Apple-compatible payload',
     status: 'operational',
     timeout: '8 seconds max',
+    payload_format: 'Apple-optimized',
     timestamp: new Date().toISOString()
   });
 }
