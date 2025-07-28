@@ -107,7 +107,7 @@ async function sendIOSWebPushTest(subscription: any, testType: string) {
   
   // Configurar VAPID keys - EMAIL CORRETO
   webpush.setVapidDetails(
-    'mailto:falecom@hubacademybr.com',  // ← CORRIGIDO: email real
+    'mailto:felipe.xavier1987@gmail.com',  // ← CORRIGIDO: email real
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
     process.env.VAPID_PRIVATE_KEY!
   );
