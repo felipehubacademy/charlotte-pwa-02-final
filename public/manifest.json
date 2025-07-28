@@ -91,7 +91,7 @@
       "url": "/chat",
       "icons": [
         {
-          "src": "/icons/shortcut-chat.png",
+          "src": "/icons/icon-96x96.png",
           "sizes": "96x96",
           "type": "image/png"
         }
@@ -104,7 +104,7 @@
       "url": "/chat?mode=voice",
       "icons": [
         {
-          "src": "/icons/shortcut-voice.png",
+          "src": "/icons/icon-96x96.png",
           "sizes": "96x96",
           "type": "image/png"
         }
@@ -119,4 +119,4 @@
   "launch_handler": {
     "client_mode": "navigate-existing"
   }
-} 
+}

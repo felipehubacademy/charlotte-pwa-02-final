@@ -1,3 +1,4 @@
+// Enhanced Notification Service with iOS 16.4+ Support
 export interface NotificationAction {
   action: string;
   title: string;
@@ -27,13 +28,24 @@ export interface NotificationSubscription {
   is_active: boolean;
 }
 
+export interface IOSCapabilities {
+  isIOS: boolean;
+  isIPadOS: boolean;
+  version: number;
+  isPWAInstalled: boolean;
+  supportsNotifications: boolean;
+  supportsWebPush: boolean;
+}
+
 export class NotificationService {
   private static instance: NotificationService;
   private isSupported: boolean = false;
   private isSubscribed: boolean = false;
   private subscription: PushSubscription | null = null;
+  private iosCapabilities: IOSCapabilities;
 
   constructor() {
+    this.iosCapabilities = this.detectIOSCapabilities();
     this.checkSupport();
     this.initializeSubscriptionState();
   }
@@ -46,7 +58,91 @@ export class NotificationService {
   }
 
   /**
-   * Inicializa o estado de subscription verificando se já existe
+   * Detecta capacidades específicas do iOS
+   */
+  private detectIOSCapabilities(): IOSCapabilities {
+    if (typeof window === 'undefined') {
+      return {
+        isIOS: false,
+        isIPadOS: false,
+        version: 0,
+        isPWAInstalled: false,
+        supportsNotifications: false,
+        supportsWebPush: false
+      };
+    }
+
+    const userAgent = navigator.userAgent;
+    const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+    const isIPadOS = /iPad/.test(userAgent) || 
+                     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    // Detectar versão do iOS
+    let version = 0;
+    if (isIOS || isIPadOS) {
+      const match = userAgent.match(/OS (\d+)_(\d+)/);
+      if (match) {
+        version = parseFloat(`${match[1]}.${match[2]}`);
+      }
+    }
+
+    // Verificar se PWA foi instalado
+    const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                          (navigator as any).standalone === true;
+
+    // iOS 16.4+ é necessário para push notifications
+    const supportsNotifications = (isIOS || isIPadOS) && version >= 16.4 && isPWAInstalled;
+    const supportsWebPush = supportsNotifications;
+
+    const capabilities = {
+      isIOS: isIOS || isIPadOS,
+      isIPadOS,
+      version,
+      isPWAInstalled,
+      supportsNotifications,
+      supportsWebPush
+    };
+
+    console.log('🍎 iOS Capabilities detected:', capabilities);
+    return capabilities;
+  }
+
+  /**
+   * Verifica suporte para notificações
+   */
+  private checkSupport(): void {
+    if (typeof window === 'undefined') {
+      this.isSupported = false;
+      return;
+    }
+
+    const hasServiceWorker = 'serviceWorker' in navigator;
+    const hasPushManager = 'PushManager' in window;
+    const hasNotifications = 'Notification' in window;
+
+    // Para iOS, requer PWA instalado
+    if (this.iosCapabilities.isIOS) {
+      this.isSupported = this.iosCapabilities.supportsNotifications && 
+                        hasServiceWorker && 
+                        hasPushManager && 
+                        hasNotifications;
+      
+      console.log('🍎 iOS Support check:', {
+        hasServiceWorker,
+        hasPushManager,
+        hasNotifications,
+        iosVersion: this.iosCapabilities.version,
+        isPWAInstalled: this.iosCapabilities.isPWAInstalled,
+        finalSupport: this.isSupported
+      });
+    } else {
+      // Para outras plataformas
+      this.isSupported = hasServiceWorker && hasPushManager && hasNotifications;
+    }
+  }
+
+  /**
+   * Inicializa estado de subscription
    */
   private async initializeSubscriptionState(): Promise<void> {
     if (!this.isSupported || typeof window === 'undefined') {
@@ -61,6 +157,11 @@ export class NotificationService {
         this.subscription = existingSubscription;
         this.isSubscribed = true;
         console.log('✅ Found existing push subscription');
+        
+        // Para iOS, verificar se subscription ainda é válida
+        if (this.iosCapabilities.isIOS) {
+          await this.validateIOSSubscription(existingSubscription);
+        }
       } else {
         this.subscription = null;
         this.isSubscribed = false;
@@ -74,43 +175,36 @@ export class NotificationService {
   }
 
   /**
-   * Verifica se push notifications são suportadas no dispositivo atual
+   * Valida subscription específica para iOS
    */
-  private checkSupport(): void {
-    if (typeof window === 'undefined') {
-      this.isSupported = false;
-      return;
+  private async validateIOSSubscription(subscription: PushSubscription): Promise<void> {
+    try {
+      // Para iOS, podemos tentar fazer um teste simples
+      const response = await fetch('/api/notifications/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: subscription.toJSON(),
+          platform: 'ios',
+          test: true
+        })
+      });
+
+      if (!response.ok) {
+        console.log('🍎 iOS subscription validation failed, will recreate');
+        await subscription.unsubscribe();
+        this.subscription = null;
+        this.isSubscribed = false;
+      } else {
+        console.log('🍎 iOS subscription validated successfully');
+      }
+    } catch (error) {
+      console.error('🍎 iOS subscription validation error:', error);
     }
-
-    // Verificação abrangente de suporte
-    const hasServiceWorker = 'serviceWorker' in navigator;
-    const hasPushManager = 'PushManager' in window;
-    const hasNotifications = 'Notification' in window;
-
-    // iOS específico: apenas funciona se PWA foi instalado (A2HS)
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
-                          (navigator as any).standalone === true;
-
-    if (isIOS && !isPWAInstalled) {
-      console.log('🍎 iOS detected: Push notifications require Add to Home Screen first');
-      this.isSupported = false;
-      return;
-    }
-
-    this.isSupported = hasServiceWorker && hasPushManager && hasNotifications;
-    console.log('📱 Push notification support:', {
-      hasServiceWorker,
-      hasPushManager, 
-      hasNotifications,
-      isIOS,
-      isPWAInstalled,
-      supported: this.isSupported
-    });
   }
 
   /**
-   * Verifica se o usuário já deu permissão
+   * Verifica permissão atual
    */
   async checkPermission(): Promise<NotificationPermission> {
     if (!this.isSupported) {
@@ -120,16 +214,25 @@ export class NotificationService {
   }
 
   /**
-   * Solicita permissão para notificações
+   * Solicita permissão - versão iOS otimizada
    */
   async requestPermission(): Promise<boolean> {
     if (!this.isSupported) {
-      throw new Error('Push notifications not supported on this device');
+      if (this.iosCapabilities.isIOS && !this.iosCapabilities.isPWAInstalled) {
+        throw new Error('iOS requires PWA installation first');
+      }
+      throw new Error('Push notifications not supported');
     }
 
     try {
+      // Para iOS, mostrar guidance antes de solicitar
+      if (this.iosCapabilities.isIOS) {
+        console.log('🍎 Requesting permission on iOS 16.4+');
+      }
+
       const permission = await Notification.requestPermission();
-      console.log('🔔 Permission request result:', permission);
+      console.log('🔔 Permission result:', permission);
+      
       return permission === 'granted';
     } catch (error) {
       console.error('❌ Permission request failed:', error);
@@ -138,7 +241,7 @@ export class NotificationService {
   }
 
   /**
-   * Cria uma subscription para push notifications
+   * Cria subscription - versão iOS otimizada
    */
   async subscribe(userId?: string): Promise<PushSubscription | null> {
     if (!this.isSupported) {
@@ -146,16 +249,19 @@ export class NotificationService {
     }
 
     try {
-      // Verificar se já tem subscription ativa
       const registration = await navigator.serviceWorker.ready;
-      const existingSubscription = await registration.pushManager.getSubscription();
+      
+      // Para iOS, verificar se ainda temos suporte
+      if (this.iosCapabilities.isIOS && !this.iosCapabilities.isPWAInstalled) {
+        throw new Error('iOS PWA not properly installed');
+      }
 
+      // Verificar subscription existente
+      const existingSubscription = await registration.pushManager.getSubscription();
       if (existingSubscription) {
         this.subscription = existingSubscription;
         this.isSubscribed = true;
-        console.log('✅ Using existing subscription');
         
-        // Update subscription on server if userId provided
         if (userId) {
           await this.saveSubscriptionToServer(existingSubscription, userId);
         }
@@ -169,24 +275,31 @@ export class NotificationService {
         throw new Error('VAPID public key not configured');
       }
 
-      const subscription = await registration.pushManager.subscribe({
+      const subscriptionOptions: PushSubscriptionOptions = {
         userVisibleOnly: true,
         applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey)
-      });
+      };
+
+      // Para iOS, adicionar configurações específicas se disponíveis
+      if (this.iosCapabilities.isIOS) {
+        console.log('🍎 Creating iOS-optimized subscription');
+        // iOS não suporta parâmetros extras, manter simples
+      }
+
+      const subscription = await registration.pushManager.subscribe(subscriptionOptions);
 
       this.subscription = subscription;
       this.isSubscribed = true;
 
-      // Salvar subscription no backend
       if (userId) {
         await this.saveSubscriptionToServer(subscription, userId);
       }
 
-      console.log('✅ Push subscription created:', subscription);
+      console.log('✅ Push subscription created for iOS:', subscription.endpoint.substring(0, 50) + '...');
       return subscription;
 
     } catch (error) {
-      console.error('❌ Subscription failed:', error);
+      console.error('❌ iOS subscription failed:', error);
       return null;
     }
   }
@@ -212,7 +325,7 @@ export class NotificationService {
   }
 
   /**
-   * Envia notificação local (fallback)
+   * Envia notificação local - iOS otimizada
    */
   async sendLocalNotification(message: NotificationMessage): Promise<void> {
     if (!this.isSupported || Notification.permission !== 'granted') {
@@ -222,22 +335,35 @@ export class NotificationService {
 
     try {
       const registration = await navigator.serviceWorker.ready;
-      await registration.showNotification(message.title, {
+      
+      // Configurações iOS-específicas
+      const notificationOptions: NotificationOptions = {
         body: message.body,
         icon: message.icon || '/icons/icon-192x192.png',
         badge: message.badge || '/icons/icon-72x72.png',
-        data: { url: message.url, ...message.data },
+        data: { url: message.url, platform: 'ios', ...message.data },
         tag: 'charlotte-notification',
-        requireInteraction: false,
+        requireInteraction: this.iosCapabilities.isIOS, // iOS precisa de interação
         silent: false
-      });
+      };
+
+      // iOS tem limitações com actions
+      if (message.actions && !this.iosCapabilities.isIOS) {
+        notificationOptions.actions = message.actions;
+      } else if (this.iosCapabilities.isIOS && message.actions) {
+        // iOS suporta apenas 1-2 actions simples
+        notificationOptions.actions = message.actions.slice(0, 1);
+      }
+
+      await registration.showNotification(message.title, notificationOptions);
+      console.log('🍎 iOS notification sent');
     } catch (error) {
-      console.error('❌ Local notification failed:', error);
+      console.error('❌ iOS local notification failed:', error);
     }
   }
 
   /**
-   * Utilitário para converter VAPID key
+   * Utilitários
    */
   private urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -255,11 +381,8 @@ export class NotificationService {
     return outputArray;
   }
 
-  /**
-   * Salva subscription no backend
-   */
   private async saveSubscriptionToServer(subscription: PushSubscription, userId: string): Promise<void> {
-    const platform = this.detectPlatform();
+    const platform = this.iosCapabilities.isIOS ? 'ios' : this.detectPlatform();
     
     const subscriptionData = {
       user_id: userId,
@@ -271,7 +394,9 @@ export class NotificationService {
           btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!))) : ''
       },
       platform,
-      is_active: true
+      is_active: true,
+      subscription_type: 'web_push',
+      ios_version: this.iosCapabilities.version
     };
 
     const response = await fetch('/api/notifications/subscribe', {
@@ -281,13 +406,12 @@ export class NotificationService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to save subscription to server');
+      throw new Error('Failed to save iOS subscription to server');
     }
+
+    console.log('🍎 iOS subscription saved to server');
   }
 
-  /**
-   * Remove subscription do backend
-   */
   private async removeSubscriptionFromServer(): Promise<void> {
     await fetch('/api/notifications/unsubscribe', {
       method: 'POST',
@@ -295,19 +419,12 @@ export class NotificationService {
     });
   }
 
-  /**
-   * Detecta platform do usuário
-   */
   private detectPlatform(): 'ios' | 'android' | 'desktop' {
-    const userAgent = navigator.userAgent;
+    if (this.iosCapabilities.isIOS) return 'ios';
     
-    if (/iPad|iPhone|iPod/.test(userAgent)) {
-      return 'ios';
-    } else if (/Android/.test(userAgent)) {
-      return 'android';
-    } else {
-      return 'desktop';
-    }
+    const userAgent = navigator.userAgent;
+    if (/Android/.test(userAgent)) return 'android';
+    return 'desktop';
   }
 
   // Getters
@@ -322,6 +439,31 @@ export class NotificationService {
   get currentSubscription(): PushSubscription | null {
     return this.subscription;
   }
+
+  get isIOSDevice(): boolean {
+    return this.iosCapabilities.isIOS;
+  }
+
+  get iOSCapabilities(): IOSCapabilities {
+    return { ...this.iosCapabilities };
+  }
+
+  /**
+   * Método para debug/teste específico iOS
+   */
+  async testIOSNotification(): Promise<void> {
+    if (!this.iosCapabilities.isIOS) {
+      console.log('❌ Not an iOS device');
+      return;
+    }
+
+    await this.sendLocalNotification({
+      title: '🧪 iOS Test',
+      body: 'Push notifications working on iOS 16.4+!',
+      url: '/chat',
+      data: { test: true, platform: 'ios' }
+    });
+  }
 }
 
-export default NotificationService; 
+export default NotificationService;

@@ -5,6 +5,7 @@ import { Bell, BellOff, Smartphone, Download } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import NotificationService from '@/lib/notification-service';
 import { getFCMToken } from '@/lib/firebase-config-optimized';
+import IOSInstallGuide from '@/components/IOSInstallGuide';
 
 interface NotificationManagerProps {
   className?: string;
@@ -24,6 +25,8 @@ export default function NotificationManager({ className = '' }: NotificationMana
   const [isDismissed, setIsDismissed] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasFCMToken, setHasFCMToken] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  const [iosCapabilities, setIOSCapabilities] = useState<any>(null);
 
   // Check initial state
   useEffect(() => {
@@ -100,6 +103,16 @@ export default function NotificationManager({ className = '' }: NotificationMana
     
     if (/iPad|iPhone|iPod/.test(userAgent)) {
       setPlatform('ios');
+      
+      // Verificar capacidades iOS
+      const capabilities = (notificationService as any).iOSCapabilities;
+      setIOSCapabilities(capabilities);
+      
+      // Mostrar guia se necessário
+      const guideDismissed = localStorage.getItem('ios-install-guide-dismissed');
+      if (!capabilities.isPWAInstalled && !guideDismissed) {
+        setShowIOSGuide(true);
+      }
     } else if (/Android/.test(userAgent)) {
       setPlatform('android');
     } else {
@@ -247,34 +260,83 @@ export default function NotificationManager({ className = '' }: NotificationMana
         <div className="bg-primary/20 p-2 rounded-lg">
           <Smartphone className="w-5 h-5 text-primary" />
         </div>
-        <div>
-          <h4 className="font-medium text-white">Configuração iOS Necessária</h4>
-          <p className="text-sm text-white/70 mt-1">
-            Para receber notificações push no iOS, você precisa:
-          </p>
-          <ol className="text-sm text-white/60 mt-2 space-y-1 list-decimal list-inside">
-            <li>Adicionar Charlotte à sua Tela Inicial primeiro</li>
-            <li>Abrir Safari → botão Compartilhar → "Adicionar à Tela Inicial"</li>
-            <li>Depois ativar notificações do app instalado</li>
-          </ol>
+        <div className="flex-1">
+          <h4 className="font-medium text-white">Push Notifications no iOS</h4>
+          
+          {!isPWAInstalled ? (
+            <div>
+              <p className="text-sm text-white/70 mt-1">
+                Para receber notificações, você precisa instalar Charlotte como PWA:
+              </p>
+              <ol className="text-sm text-white/60 mt-2 space-y-1 list-decimal list-inside">
+                <li>Safari → Compartilhar → "Adicionar à Tela Inicial"</li>
+                <li>Abrir Charlotte da tela inicial (não pelo Safari)</li>
+                <li>Ativar notificações no app instalado</li>
+              </ol>
+              <button
+                onClick={() => setShowIOSGuide(true)}
+                className="mt-2 text-xs bg-primary/20 text-primary px-3 py-1 rounded-lg hover:bg-primary/30 transition-colors"
+              >
+                📖 Ver tutorial completo
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-green-300 mt-1">
+                ✅ PWA instalado! Agora você pode ativar notificações.
+              </p>
+              {iosCapabilities && (
+                <p className="text-xs text-white/50 mt-1">
+                  iOS {iosCapabilities.version} • Push notifications suportadas
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 
-  // Main render
-  if (!isSupported && platform === 'ios' && !isPWAInstalled) {
+  const handleDismiss = () => {
+    setIsDismissed(true);
+    localStorage.setItem('notification-setup-dismissed', 'true');
+  };
+
+  const handleResetDismiss = () => {
+    setIsDismissed(false);
+    localStorage.removeItem('notification-setup-dismissed');
+  };
+
+  // Show iOS Install Guide
+  if (showIOSGuide) {
+    return (
+      <IOSInstallGuide
+        onComplete={() => {
+          setShowIOSGuide(false);
+          setIsPWAInstalled(true);
+          // Recheck capabilities after installation
+          setTimeout(() => {
+            initializeNotificationState();
+          }, 1000);
+        }}
+        onDismiss={() => setShowIOSGuide(false)}
+      />
+    );
+  }
+
+  // Don't render if iOS and not installed as PWA
+  if (platform === 'ios' && !isPWAInstalled && !showIOSGuide) {
     return (
       <div className={`notification-manager ${className}`}>
         <div className="bg-secondary/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl">
           <IOSGuidance />
-          <div className="text-center">
-            <div className="bg-white/10 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
-              <Download className="w-6 h-6 text-white/60" />
-            </div>
-            <p className="text-sm text-white/70">
-              Instale Charlotte como um app para ativar notificações
-            </p>
+          <div className="text-center mt-4">
+            <button
+              onClick={() => setShowIOSGuide(true)}
+              className="px-4 py-2 bg-primary/80 text-white rounded-lg hover:bg-primary transition-colors"
+            >
+              📱 Como instalar no iPhone
+            </button>
           </div>
         </div>
       </div>
@@ -304,22 +366,11 @@ export default function NotificationManager({ className = '' }: NotificationMana
   }
 
   // Only show when user needs to enable notifications
-  // Show if: not supported OR (both web push AND FCM are configured) OR dismissed
   const hasCompleteNotificationSetup = (permission === 'granted' && isSubscribed && hasFCMToken);
   
   if (!isSupported || hasCompleteNotificationSetup || isDismissed) {
     return null;
   }
-
-  const handleDismiss = () => {
-    setIsDismissed(true);
-    localStorage.setItem('notification-setup-dismissed', 'true');
-  };
-
-  const handleResetDismiss = () => {
-    setIsDismissed(false);
-    localStorage.removeItem('notification-setup-dismissed');
-  };
 
   // Debug helper - expor no console para facilitar debug
   if (typeof window !== 'undefined') {
@@ -339,7 +390,8 @@ export default function NotificationManager({ className = '' }: NotificationMana
         resetDismiss: handleResetDismiss,
         checkState: checkNotificationState,
         checkFCM: checkFCMTokenStatus,
-        forceShow: () => setIsDismissed(false)
+        forceShow: () => setIsDismissed(false),
+        showIOSGuide: () => setShowIOSGuide(true)
       }
     };
   }
@@ -454,4 +506,4 @@ export default function NotificationManager({ className = '' }: NotificationMana
       </div>
     </div>
   );
-} 
+}
