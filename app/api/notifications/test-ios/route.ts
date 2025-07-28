@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import admin from 'firebase-admin';
+
+// Inicializar Firebase Admin se ainda não foi inicializado
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      projectId: process.env.FIREBASE_PROJECT_ID,
+      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    }),
+  });
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,19 +44,19 @@ export async function POST(request: NextRequest) {
 
     const results = [];
 
-    // Teste para Web Push (iOS) com PAYLOAD APPLE-COMPATIBLE
+    // Teste para Firebase Push (iOS)
     for (const subscription of subscriptions) {
       try {
-        const webPushResult = await sendIOSWebPushAppleCompatible(subscription, test_type);
+        const firebasePushResult = await sendIOSFirebasePush(subscription, test_type);
         results.push({
-          type: 'web_push',
+          type: 'firebase_push',
           platform: 'ios',
-          success: webPushResult.success,
-          message: webPushResult.message
+          success: firebasePushResult.success,
+          message: firebasePushResult.message
         });
       } catch (error) {
         results.push({
-          type: 'web_push',
+          type: 'firebase_push',
           platform: 'ios',
           success: false,
           error: error instanceof Error ? error.message : 'Unknown error'
@@ -54,7 +66,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'iOS notification test completed',
+      message: 'iOS notification test completed via Firebase',
       results,
       summary: {
         total_attempts: results.length,
@@ -69,93 +81,130 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function sendIOSWebPushAppleCompatible(subscription: any, testType: string) {
-  const webpush = require('web-push');
+async function sendIOSFirebasePush(subscription: any, testType: string) {
+  // Extrair o token FCM do endpoint ou usar o token armazenado
+  // O endpoint do Firebase geralmente contém o token FCM
+  const fcmToken = subscription.fcm_token || extractFCMTokenFromEndpoint(subscription.endpoint);
   
-  // Configurar VAPID keys
-  webpush.setVapidDetails(
-    'mailto:felipe.xavier1987@gmail.com',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  );
+  if (!fcmToken) {
+    return {
+      success: false,
+      message: 'No FCM token found for this subscription'
+    };
+  }
 
-  const pushSubscription = {
-    endpoint: subscription.endpoint,
-    keys: subscription.keys
-  };
-
-  // PAYLOAD SIMPLIFICADO PARA APPLE - só o essencial
-  let payload;
+  // Construir mensagem baseada no tipo de teste
+  let title: string;
+  let body: string;
   
   switch (testType) {
     case 'achievement':
-      payload = JSON.stringify({
-        title: '🎉 iOS Success!',
-        body: 'Apple aceita este formato!',
-        icon: '/icons/icon-192x192.png'
-      });
+      title = '🎉 Achievement Unlocked!';
+      body = 'You\'ve reached a new milestone in Charlotte AI!';
+      break;
+    case 'reminder':
+      title = '⏰ Daily Reminder';
+      body = 'Time to check your AI insights!';
       break;
     default:
-      payload = JSON.stringify({
-        title: '🚀 iOS Push Works!',
-        body: 'Payload Apple-compatible!',
-        icon: '/icons/icon-192x192.png'
-      });
+      title = '🚀 Charlotte AI';
+      body = 'Firebase notification working perfectly on iOS!';
   }
 
-  // OPTIONS ESPECÍFICAS PARA iOS
-  const options = {
-    TTL: 60, // 1 minuto
-    headers: {
-      'Urgency': 'normal'
-    }
+  const message = {
+    token: fcmToken,
+    notification: {
+      title,
+      body,
+    },
+    webpush: {
+      fcmOptions: {
+        link: 'https://charlotte-ai.com',
+      },
+      notification: {
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        vibrate: [200, 100, 200],
+        requireInteraction: true,
+      },
+    },
+    // Configuração específica para iOS/Safari
+    apns: {
+      payload: {
+        aps: {
+          alert: {
+            title,
+            body,
+          },
+          sound: 'default',
+          badge: 1,
+          'mutable-content': 1,
+        },
+      },
+      fcmOptions: {
+        link: 'https://charlotte-ai.com',
+      },
+    },
   };
 
   try {
-    console.log('📤 Sending to iOS with Apple-compatible payload...');
-    console.log('Endpoint:', subscription.endpoint.substring(0, 50) + '...');
+    console.log('📤 Sending iOS notification via Firebase Admin...');
+    console.log('FCM Token:', fcmToken.substring(0, 20) + '...');
     
-    // TIMEOUT FIX: Promise race com timeout de 8 segundos
-    const pushPromise = webpush.sendNotification(pushSubscription, payload, options);
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Push timeout after 8 seconds')), 8000);
-    });
-
-    await Promise.race([pushPromise, timeoutPromise]);
+    const response = await admin.messaging().send(message);
     
-    console.log('✅ iOS push sent successfully with Apple-compatible format!');
+    console.log('✅ iOS Firebase push sent successfully!');
+    console.log('Message ID:', response);
+    
     return {
       success: true,
-      message: '🍎 iOS Web Push sent with Apple-compatible payload!'
+      message: `🍎 iOS Firebase Push sent! Message ID: ${response}`
     };
     
   } catch (error) {
-    console.error('❌ iOS Web Push error:', error);
+    console.error('❌ iOS Firebase Push error:', error);
     
-    if (error instanceof Error && error.message.includes('timeout')) {
-      return {
-        success: false,
-        message: 'iOS Web Push timeout - Apple Push Service not responding'
-      };
+    // Tratamento de erros específicos do Firebase
+    let errorMessage = 'iOS Firebase Push failed';
+    
+    if (error instanceof Error) {
+      if (error.message.includes('invalid-registration-token')) {
+        errorMessage = 'Invalid or expired FCM token';
+      } else if (error.message.includes('not-registered')) {
+        errorMessage = 'Device no longer registered';
+      } else if (error.message.includes('authentication')) {
+        errorMessage = 'Firebase authentication error';
+      } else {
+        errorMessage = error.message;
+      }
     }
-    
-    // Log do erro específico para debug
-    const errorDetails = error instanceof Error ? error.message : 'Unknown error';
-    console.log('🔍 Apple rejection details:', errorDetails);
     
     return {
       success: false,
-      message: `iOS Web Push failed: ${errorDetails}`
+      message: errorMessage
     };
   }
 }
 
+// Helper function para extrair FCM token do endpoint
+function extractFCMTokenFromEndpoint(endpoint: string): string | null {
+  // Firebase endpoints geralmente têm o formato:
+  // https://fcm.googleapis.com/fcm/send/[FCM_TOKEN]
+  const match = endpoint.match(/\/send\/(.+)$/);
+  return match ? match[1] : null;
+}
+
 export async function GET() {
   return NextResponse.json({
-    message: 'iOS notification test endpoint with Apple-compatible payload',
+    message: 'iOS notification test endpoint - Firebase Admin version',
     status: 'operational',
-    timeout: '8 seconds max',
-    payload_format: 'Apple-optimized',
+    service: 'Firebase Cloud Messaging',
+    features: [
+      'Native iOS/Safari support via APNS',
+      'Firebase Admin SDK authentication',
+      'Automatic token management',
+      'Rich notification support'
+    ],
     timestamp: new Date().toISOString()
   });
 }
