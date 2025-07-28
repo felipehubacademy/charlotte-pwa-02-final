@@ -67,26 +67,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Teste para FCM (iOS)
-    for (const subscription of fcmSubscriptions) {
-      try {
-        const fcmResult = await sendIOSFCMTest(subscription, test_type);
-        results.push({
-          type: 'fcm',
-          platform: 'ios',
-          success: fcmResult.success,
-          message: fcmResult.message
-        });
-      } catch (error) {
-        results.push({
-          type: 'fcm',
-          platform: 'ios',
-          success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }
-
     // Log do teste
     await supabase
       .from('notification_logs')
@@ -125,9 +105,9 @@ export async function POST(request: NextRequest) {
 async function sendIOSWebPushTest(subscription: any, testType: string) {
   const webpush = require('web-push');
   
-  // Configurar VAPID keys
+  // Configurar VAPID keys - EMAIL CORRETO
   webpush.setVapidDetails(
-    'mailto:your-email@domain.com',
+    'mailto:falecom@hubacademybr.com',  // ← CORRIGIDO: email real
     process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
     process.env.VAPID_PRIVATE_KEY!
   );
@@ -196,110 +176,6 @@ async function sendIOSWebPushTest(subscription: any, testType: string) {
     return {
       success: false,
       message: `iOS Web Push failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-    };
-  }
-}
-
-async function sendIOSFCMTest(subscription: any, testType: string) {
-  try {
-    // Importar Firebase Admin de forma dinâmica
-    const admin = await import('firebase-admin');
-    
-    // Initialize Firebase Admin se não estiver inicializado
-    if (!admin.apps.length) {
-      const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
-      if (!serviceAccountKey) {
-        throw new Error('Firebase service account key not configured');
-      }
-
-      const serviceAccount = JSON.parse(serviceAccountKey);
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-    }
-
-    let notification;
-    let data;
-
-    switch (testType) {
-      case 'achievement':
-        notification = {
-          title: '🎉 Conquista Desbloqueada!',
-          body: 'Você completou sua primeira lição no iOS!'
-        };
-        data = {
-          type: 'achievement',
-          platform: 'ios',
-          url: '/chat?achievement=first-ios-notification',
-          test: 'true'
-        };
-        break;
-        
-      case 'reminder':
-        notification = {
-          title: '⏰ Hora de Praticar!',
-          body: 'Que tal uma conversa rápida com Charlotte?'
-        };
-        data = {
-          type: 'reminder',
-          platform: 'ios',
-          url: '/chat',
-          test: 'true'
-        };
-        break;
-        
-      default:
-        notification = {
-          title: '🧪 Teste iOS FCM',
-          body: 'Firebase Cloud Messaging funcionando no iPhone!'
-        };
-        data = {
-          type: 'test',
-          platform: 'ios',
-          url: '/chat',
-          test: 'true'
-        };
-    }
-
-    const message = {
-      token: subscription.endpoint, // FCM token
-      notification,
-      data,
-      apns: {
-        // iOS specific configurations
-        headers: {
-          'apns-priority': '10'
-        },
-        payload: {
-          aps: {
-            sound: 'default',
-            badge: 1
-          }
-        }
-      },
-      webpush: {
-        headers: {
-          'TTL': '86400'
-        },
-        notification: {
-          icon: '/icons/icon-192x192.png',
-          badge: '/icons/icon-72x72.png',
-          requireInteraction: true
-        }
-      }
-    };
-
-    const response = await admin.messaging().send(message);
-    return {
-      success: true,
-      message: 'iOS FCM notification sent successfully',
-      messageId: response
-    };
-  } catch (error) {
-    console.error('❌ iOS FCM error:', error);
-    return {
-      success: false,
-      message: `iOS FCM failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     };
   }
 }
