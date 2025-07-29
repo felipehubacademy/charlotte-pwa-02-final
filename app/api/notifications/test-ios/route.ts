@@ -56,22 +56,19 @@ export async function POST(request: NextRequest) {
     const results = [];
     let successCount = 0;
 
-    // Payload otimizado para iOS
-    const payloads: Record<string, { title: string; body: string; icon: string }> = {
+    // Payload ultra-simples para Apple (só texto)
+    const payloads: Record<string, { title: string; body: string }> = {
       basic: {
         title: '🧪 iOS Test',
-        body: 'Notificação funcionando no iPhone!',
-        icon: '/icons/icon-192x192.png'
+        body: 'Notificação funcionando no iPhone!'
       },
       achievement: {
         title: '🎉 Conquista iOS!',
-        body: 'Push notifications funcionando perfeitamente!',
-        icon: '/icons/icon-192x192.png'
+        body: 'Push notifications funcionando!'
       },
       reminder: {
         title: '📚 Lembrete iOS',
-        body: 'Hora de praticar inglês!',
-        icon: '/icons/icon-192x192.png'
+        body: 'Hora de praticar inglês!'
       }
     };
 
@@ -88,13 +85,9 @@ export async function POST(request: NextRequest) {
           keys: subscription.keys
         };
 
-        // Configurações otimizadas para iOS
+        // Configurações mínimas para Apple
         const options: webpush.RequestOptions = {
-          TTL: 86400, // 24 horas
-          urgency: 'normal' as webpush.Urgency,
-          headers: {
-            'Topic': 'com.hubacademy.charlotte'
-          }
+          TTL: 3600 // 1 hora (reduzido)
         };
 
         // Enviar notificação com timeout Promise
