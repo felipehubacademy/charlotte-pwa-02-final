@@ -274,7 +274,7 @@ export class NotificationService {
 
       const subscriptionOptions: PushSubscriptionOptions = {
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey).buffer
+        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey).buffer as ArrayBuffer
       };
 
       // Para iOS, adicionar configurações específicas se disponíveis
