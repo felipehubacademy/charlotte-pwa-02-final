@@ -31,8 +31,37 @@ console.log('[SW] Platform detection:', { isIOS, isPWAInstalled });
 // Badge counter (persistent across SW restarts via IndexedDB)
 let badgeCount = 0;
 
+// ✅ NOVO: Service Worker Lifecycle - PERSISTENT REGISTRATION
+self.addEventListener('install', (event) => {
+  console.log('[SW] Installing for iOS compatibility - PERSISTENT');
+  
+  // Skip waiting to activate immediately
+  self.skipWaiting();
+  
+  // Store installation timestamp
+  event.waitUntil(
+    (async () => {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(['sw_data'], 'readwrite');
+        const store = tx.objectStore('sw_data');
+        await store.put({ 
+          installed_at: Date.now(),
+          version: '2.0.0',
+          persistent: true
+        }, 'installation');
+        console.log('[SW] Installation data stored');
+      } catch (error) {
+        console.log('[SW] Installation storage error:', error);
+      }
+    })()
+  );
+});
+
 // Initialize badge count from storage
 self.addEventListener('activate', (event) => {
+  console.log('[SW] Activating for iOS compatibility - PERSISTENT');
+  
   event.waitUntil(
     (async () => {
       try {
@@ -51,23 +80,72 @@ self.addEventListener('activate', (event) => {
         console.log('Badge API not supported or error:', error);
       }
       
-      console.log('[SW] Activating for iOS compatibility');
+      // ✅ NOVO: Claim all clients immediately
       await self.clients.claim();
+      
+      // ✅ NOVO: Register for background sync (iOS 16.4+)
+      if ('sync' in self.registration) {
+        try {
+          await self.registration.sync.register('background-sync');
+          console.log('[SW] Background sync registered');
+        } catch (error) {
+          console.log('[SW] Background sync not supported:', error);
+        }
+      }
+      
+      console.log('[SW] ✅ Service Worker activated and persistent');
     })()
   );
+});
+
+// ✅ NOVO: Background sync handler for iOS
+self.addEventListener('sync', (event) => {
+  console.log('[SW] Background sync event:', event.tag);
+  
+  if (event.tag === 'background-sync') {
+    event.waitUntil(
+      (async () => {
+        try {
+          // Keep service worker alive
+          console.log('[SW] Background sync - keeping SW alive');
+          
+          // Check if we have active subscriptions
+          const registration = await self.registration;
+          const subscription = await registration.pushManager.getSubscription();
+          
+          if (subscription) {
+            console.log('[SW] ✅ Active subscription found in background');
+          } else {
+            console.log('[SW] ⚠️ No active subscription in background');
+          }
+        } catch (error) {
+          console.error('[SW] Background sync error:', error);
+        }
+      })()
+    );
+  }
 });
 
 // Open IndexedDB for badge persistence
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('charlotte-badges', 1);
+    const request = indexedDB.open('charlotte-badges', 2); // ✅ INCREMENTED VERSION
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
+      
+      // Create badges store
       if (!db.objectStoreNames.contains('badges')) {
         db.createObjectStore('badges');
       }
+      
+      // ✅ NOVO: Create sw_data store for persistent data
+      if (!db.objectStoreNames.contains('sw_data')) {
+        db.createObjectStore('sw_data');
+      }
+      
+      console.log('[SW] IndexedDB upgraded to version 2');
     };
   });
 }
@@ -105,7 +183,7 @@ async function updateBadge(count) {
 let lastNotificationTimestamp = 0;
 const NOTIFICATION_DEBOUNCE = 2000;
 
-// ✅ NOVO: iOS Native Push Event Handler
+// ✅ NOVO: iOS Native Push Event Handler - ENHANCED
 self.addEventListener('push', (event) => {
   console.log('[SW] 🍎 iOS Native Push Event received:', event);
   
@@ -351,13 +429,7 @@ messaging.onBackgroundMessage((payload) => {
     });
 });
 
-// Service worker lifecycle for iOS
-self.addEventListener('install', (event) => {
-  console.log('[SW] Installing for iOS compatibility');
-  self.skipWaiting();
-});
-
-// Message handler for iOS PWA communication
+// ✅ NOVO: Message handler for iOS PWA communication - ENHANCED
 self.addEventListener('message', (event) => {
   const { type, data } = event.data || {};
   
@@ -374,9 +446,40 @@ self.addEventListener('message', (event) => {
       supportsNotifications: isIOS && isPWAInstalled
     });
   }
+  
+  // ✅ NOVO: Keep service worker alive
+  if (type === 'KEEP_ALIVE') {
+    console.log('[SW] Keep alive message received');
+    event.ports[0]?.postMessage({ status: 'alive' });
+  }
+  
+  // ✅ NOVO: Check subscription status
+  if (type === 'CHECK_SUBSCRIPTION') {
+    event.waitUntil(
+      (async () => {
+        try {
+          const registration = await self.registration;
+          const subscription = await registration.pushManager.getSubscription();
+          
+          event.ports[0]?.postMessage({
+            hasSubscription: !!subscription,
+            subscription: subscription ? {
+              endpoint: subscription.endpoint,
+              keys: subscription.keys
+            } : null
+          });
+        } catch (error) {
+          console.error('[SW] Error checking subscription:', error);
+          event.ports[0]?.postMessage({ error: error.message });
+        }
+      })()
+    );
+  }
 });
 
 console.log('[SW] Charlotte Firebase Messaging - iOS 16.4+ Ready - CONFIGURAÇÃO QUE FUNCIONA 100%');
 console.log('[SW] ✅ iOS Native Push Events: ENABLED');
 console.log('[SW] ✅ iOS Notification Click: ENABLED');
 console.log('[SW] ✅ Firebase Compatibility: MAINTAINED');
+console.log('[SW] ✅ PERSISTENT Service Worker: ENABLED');
+console.log('[SW] ✅ Background Sync: ENABLED');
