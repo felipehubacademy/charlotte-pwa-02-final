@@ -53,6 +53,39 @@ export default function NotificationManager({ className = '' }: NotificationMana
     return () => clearInterval(interval);
   }, [user?.entra_id]);
 
+  // ✅ NOVO: Heartbeat system para manter service worker ativo
+  useEffect(() => {
+    if (!user?.entra_id || !isSubscribed) return;
+
+    // Heartbeat a cada 30 segundos para manter service worker ativo
+    const heartbeatInterval = setInterval(() => {
+      sendHeartbeat();
+    }, 30000); // 30 segundos
+
+    return () => clearInterval(heartbeatInterval);
+  }, [user?.entra_id, isSubscribed]);
+
+  // ✅ NOVO: Função para enviar heartbeat
+  const sendHeartbeat = async () => {
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        const channel = new MessageChannel();
+        
+        channel.port1.onmessage = (event) => {
+          if (event.data.status === 'heartbeat_updated') {
+            console.log('💓 Heartbeat sent successfully');
+          }
+        };
+
+        navigator.serviceWorker.controller.postMessage({
+          type: 'HEARTBEAT'
+        }, [channel.port2]);
+      }
+    } catch (error) {
+      console.log('💓 Heartbeat error:', error);
+    }
+  };
+
   const initializeNotificationState = async () => {
     try {
       setIsInitializing(true);

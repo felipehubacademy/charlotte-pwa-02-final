@@ -47,8 +47,9 @@ self.addEventListener('install', (event) => {
         const store = tx.objectStore('sw_data');
         await store.put({ 
           installed_at: Date.now(),
-          version: '2.0.0',
-          persistent: true
+          version: '2.1.0',
+          persistent: true,
+          last_heartbeat: Date.now()
         }, 'installation');
         console.log('[SW] Installation data stored');
       } catch (error) {
@@ -93,6 +94,18 @@ self.addEventListener('activate', (event) => {
         }
       }
       
+      // ✅ NOVO: Register periodic sync for iOS (if supported)
+      if ('periodicSync' in self.registration) {
+        try {
+          await self.registration.periodicSync.register('heartbeat-sync', {
+            minInterval: 24 * 60 * 60 * 1000 // 24 hours minimum
+          });
+          console.log('[SW] Periodic sync registered');
+        } catch (error) {
+          console.log('[SW] Periodic sync not supported:', error);
+        }
+      }
+      
       console.log('[SW] ✅ Service Worker activated and persistent');
     })()
   );
@@ -108,6 +121,15 @@ self.addEventListener('sync', (event) => {
         try {
           // Keep service worker alive
           console.log('[SW] Background sync - keeping SW alive');
+          
+          // Update heartbeat
+          const db = await openDB();
+          const tx = db.transaction(['sw_data'], 'readwrite');
+          const store = tx.objectStore('sw_data');
+          await store.put({ 
+            last_heartbeat: Date.now(),
+            last_sync: Date.now()
+          }, 'heartbeat');
           
           // Check if we have active subscriptions
           const registration = await self.registration;
@@ -126,10 +148,46 @@ self.addEventListener('sync', (event) => {
   }
 });
 
+// ✅ NOVO: Periodic sync handler for iOS
+self.addEventListener('periodicsync', (event) => {
+  console.log('[SW] Periodic sync event:', event.tag);
+  
+  if (event.tag === 'heartbeat-sync') {
+    event.waitUntil(
+      (async () => {
+        try {
+          console.log('[SW] Heartbeat sync - maintaining persistence');
+          
+          // Update heartbeat timestamp
+          const db = await openDB();
+          const tx = db.transaction(['sw_data'], 'readwrite');
+          const store = tx.objectStore('sw_data');
+          await store.put({ 
+            last_heartbeat: Date.now(),
+            last_periodic_sync: Date.now()
+          }, 'heartbeat');
+          
+          // Verify subscription is still active
+          const registration = await self.registration;
+          const subscription = await registration.pushManager.getSubscription();
+          
+          if (subscription) {
+            console.log('[SW] ✅ Subscription still active in periodic sync');
+          } else {
+            console.log('[SW] ⚠️ Subscription lost in periodic sync');
+          }
+        } catch (error) {
+          console.error('[SW] Periodic sync error:', error);
+        }
+      })()
+    );
+  }
+});
+
 // Open IndexedDB for badge persistence
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('charlotte-badges', 2); // ✅ INCREMENTED VERSION
+    const request = indexedDB.open('charlotte-badges', 3); // ✅ INCREMENTED VERSION
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
@@ -145,7 +203,12 @@ async function openDB() {
         db.createObjectStore('sw_data');
       }
       
-      console.log('[SW] IndexedDB upgraded to version 2');
+      // ✅ NOVO: Create heartbeat store for persistence tracking
+      if (!db.objectStoreNames.contains('heartbeat')) {
+        db.createObjectStore('heartbeat');
+      }
+      
+      console.log('[SW] IndexedDB upgraded to version 3');
     };
   });
 }
@@ -475,6 +538,29 @@ self.addEventListener('message', (event) => {
       })()
     );
   }
+  
+  // ✅ NOVO: Heartbeat to maintain persistence
+  if (type === 'HEARTBEAT') {
+    event.waitUntil(
+      (async () => {
+        try {
+          const db = await openDB();
+          const tx = db.transaction(['heartbeat'], 'readwrite');
+          const store = tx.objectStore('heartbeat');
+          await store.put({ 
+            last_heartbeat: Date.now(),
+            timestamp: Date.now()
+          }, 'heartbeat');
+          
+          console.log('[SW] Heartbeat updated');
+          event.ports[0]?.postMessage({ status: 'heartbeat_updated' });
+        } catch (error) {
+          console.error('[SW] Heartbeat error:', error);
+          event.ports[0]?.postMessage({ error: error.message });
+        }
+      })()
+    );
+  }
 });
 
 console.log('[SW] Charlotte Firebase Messaging - iOS 16.4+ Ready - CONFIGURAÇÃO QUE FUNCIONA 100%');
@@ -483,3 +569,5 @@ console.log('[SW] ✅ iOS Notification Click: ENABLED');
 console.log('[SW] ✅ Firebase Compatibility: MAINTAINED');
 console.log('[SW] ✅ PERSISTENT Service Worker: ENABLED');
 console.log('[SW] ✅ Background Sync: ENABLED');
+console.log('[SW] ✅ Periodic Sync: ENABLED');
+console.log('[SW] ✅ Heartbeat System: ENABLED');
