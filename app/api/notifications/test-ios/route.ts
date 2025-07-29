@@ -5,7 +5,7 @@ import webpush from 'web-push';
 // Configurar VAPID com suas keys Firebase
 webpush.setVapidDetails(
   'mailto:felipe.xavier1987@gmail.com', // Email do projeto Firebase
-  'BJ87VjvmFct3Gp1NksZJzl2j80MIdXb1re6CJdHI3vxtJMfr_mmiR0TJdLip64ancQxYJA-7PFdTG8iNSNPxVh4', // Sua Firebase VAPID public key
+  'BJ87VjvmFct3Gp1NkTlViywwyT04g7vuHkhvuICQarrOq2iKnJNld2cJ2o7BD-hvYRNtKJeBL92dygxbjNOMyuA', // Sua Firebase VAPID public key CORRETA
   'cTlw_6Ex7Ldo3Ra5YJDiLzOnZ0HE29NmpIZhMb1uNdU' // Sua Firebase VAPID private key
 );
 
