@@ -27,6 +27,12 @@ charlotte-v2/
 │   │   │   │   └── route.ts
 │   │   │   ├── 📁 test-1530/        # 15:30 test endpoint
 │   │   │   │   └── route.ts
+│   │   │   ├── 📁 test-ios/         # iOS-specific tests
+│   │   │   │   └── route.ts
+│   │   │   ├── 📁 test-simple/      # Simple iOS test (no timeout)
+│   │   │   │   └── route.ts
+│   │   │   ├── 📁 test-working/     # Working iOS push (direct Apple)
+│   │   │   │   └── route.ts
 │   │   │   └── 📁 unsubscribe/      # Push unsubscription
 │   │   │       └── route.ts
 │   │   ├── 📁 pronunciation/        # Pronunciation analysis
@@ -93,7 +99,7 @@ charlotte-v2/
 │   ├── microsoft-graph-avatar-service.ts
 │   ├── notification-logger.ts
 │   ├── notification-scheduler.ts
-│   ├── notification-service.ts
+│   ├── notification-service.ts       # Enhanced iOS support
 │   ├── openai-realtime.ts
 │   ├── pronunciation.ts
 │   ├── push-notification-server.ts
@@ -173,7 +179,7 @@ charlotte-v2/
 ├── 📄 check-rls-policies.sql         # RLS policies
 ├── 📄 debug-achievements.js          # Achievement debugger
 ├── 📄 debug-table-structure.sql      # Table structure debug
-├── 📄 eslint.config.mjs              # ESLint config
+├── 📄 eslint.config.js               # ESLint config (simplified)
 ├── 📄 find-vocabulary.js             # Vocabulary finder
 ├── 📄 fix-achievements-manual.sql    # Achievement fixes
 ├── 📄 fix-rls-policies.sql           # RLS policy fixes
@@ -199,12 +205,17 @@ charlotte-v2/
 - **Leaderboard**: Ranking de usuários por nível
 - **PWA Support**: Progressive Web App completo
 
-### 🔔 **Notification System**
-- **Push Notifications**: FCM + Web Push
+### 🔔 **Notification System** (Enhanced)
+- **Push Notifications**: FCM + Web Push + Apple Push Service
+- **iOS 16.4+ Support**: Native iOS push notifications
 - **Badge PWA**: Badges no ícone do app
 - **Scheduled Notifications**: Cron jobs para re-engagement
 - **User Preferences**: Configuração de horários e frequência
 - **Analytics**: Logs e métricas de notificações
+- **Test Endpoints**: 
+  - `/api/notifications/test-simple/` - Teste simples sem timeout
+  - `/api/notifications/test-working/` - Push direto via Apple
+  - `/api/notifications/test-ios/` - Testes específicos iOS
 
 ### 🎓 **Onboarding & UX**
 - **Tour Guide**: Tutorial interativo para novos usuários
@@ -266,6 +277,7 @@ charlotte-v2/
 - `tailwind.config.js`: CSS framework
 - `vercel.json`: Deployment settings
 - `tsconfig.json`: TypeScript settings
+- `eslint.config.js`: ESLint configuration (simplified)
 
 ## 📚 **Documentation**
 
@@ -294,6 +306,22 @@ charlotte-v2/
 - Desktop enhancements
 - PWA-specific adjustments
 
+## 🍎 **iOS Push Notifications**
+
+### **Enhanced iOS Support**
+- **iOS 16.4+**: Native push notification support
+- **PWA Installation**: Required for iOS push
+- **Apple Push Service**: Direct integration
+- **VAPID Keys**: Web push fallback
+- **Badge Support**: App icon badges
+- **Test Endpoints**: Multiple testing options
+
+### **iOS-Specific Features**
+- **Capability Detection**: iOS version and PWA status
+- **Subscription Validation**: iOS-specific validation
+- **Platform Detection**: iOS vs Android vs Desktop
+- **Error Handling**: iOS-specific error messages
+
 ---
 
-**Charlotte v2** - English Learning AI Assistant with Gamification & Push Notifications 
+**Charlotte v2** - English Learning AI Assistant with Gamification & Enhanced iOS Push Notifications 
