@@ -105,9 +105,147 @@ async function updateBadge(count) {
 let lastNotificationTimestamp = 0;
 const NOTIFICATION_DEBOUNCE = 2000;
 
-// Enhanced background message handler for iOS
+// ✅ NOVO: iOS Native Push Event Handler
+self.addEventListener('push', (event) => {
+  console.log('[SW] 🍎 iOS Native Push Event received:', event);
+  
+  if (!event.data) {
+    console.log('[SW] No data in push event');
+    return;
+  }
+
+  try {
+    const data = event.data.json();
+    console.log('[SW] Push data parsed:', data);
+
+    // Handle iOS-compatible payload format
+    if (data.notification) {
+      const notificationData = data.notification;
+      const customData = data.data || {};
+      
+      console.log('[SW] Processing iOS notification:', notificationData);
+      
+      // Increment badge
+      updateBadge(badgeCount + 1);
+      
+      const notificationOptions = {
+        body: notificationData.body || 'Nova mensagem!',
+        icon: notificationData.icon || '/icons/icon-192x192.png',
+        badge: notificationData.badge || '/icons/icon-72x72.png',
+        tag: notificationData.tag || 'charlotte-ios-push',
+        requireInteraction: true,
+        silent: false,
+        data: {
+          url: customData.url || '/chat',
+          click_action: customData.click_action || '/chat',
+          platform: 'ios',
+          test_type: customData.test_type || 'basic',
+          ...customData
+        }
+      };
+
+      event.waitUntil(
+        self.registration.showNotification(
+          notificationData.title || 'Charlotte',
+          notificationOptions
+        )
+      );
+      
+      console.log('[SW] ✅ iOS notification displayed successfully');
+    } else {
+      console.log('[SW] No notification data in payload');
+    }
+    
+  } catch (error) {
+    console.error('[SW] ❌ Error processing iOS push event:', error);
+    
+    // Fallback notification for iOS
+    event.waitUntil(
+      self.registration.showNotification('Charlotte', {
+        body: 'Nova mensagem recebida!',
+        icon: '/icons/icon-192x192.png',
+        badge: '/icons/icon-72x72.png',
+        tag: 'charlotte-fallback',
+        requireInteraction: true,
+        data: {
+          url: '/chat',
+          platform: 'ios'
+        }
+      })
+    );
+  }
+});
+
+// ✅ NOVO: Enhanced Notification Click Handler for iOS
+self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] 🍎 iOS Notification Click Event:', event);
+  
+  const notification = event.notification;
+  const action = event.action;
+  const data = notification.data || {};
+
+  notification.close();
+
+  // Decrement badge when notification is clicked
+  updateBadge(Math.max(0, badgeCount - 1));
+
+  if (action === 'close') {
+    console.log('[SW] Notification dismissed by user');
+    return;
+  }
+
+  let urlToOpen = data.url || '/chat';
+  console.log('[SW] Opening URL:', urlToOpen);
+
+  // iOS-specific window handling
+  event.waitUntil(
+    self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then((clientList) => {
+      console.log('[SW] Found clients:', clientList.length);
+      
+      // For iOS PWA, try to focus existing client first
+      for (let client of clientList) {
+        const clientUrl = new URL(client.url);
+        
+        if (clientUrl.origin === self.location.origin) {
+          console.log('[SW] Focusing existing client');
+          
+          // Send message to existing client
+          client.postMessage({
+            type: 'NOTIFICATION_CLICK',
+            url: urlToOpen,
+            data: data,
+            platform: 'ios'
+          });
+          
+          return client.focus();
+        }
+      }
+      
+      // Open new window/tab for iOS
+      console.log('[SW] Opening new window for iOS');
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
+      }
+    }).catch((error) => {
+      console.error('[SW] ❌ Error handling iOS notification click:', error);
+    })
+  );
+});
+
+// ✅ NOVO: Handle notification close (when dismissed without clicking)
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW] ❌ iOS Notification dismissed');
+  
+  // Decrement badge when notification is dismissed
+  updateBadge(Math.max(0, badgeCount - 1));
+});
+
+// Enhanced background message handler for Firebase (maintains compatibility)
 messaging.onBackgroundMessage((payload) => {
-  console.log('[SW] Background message received:', payload);
+  console.log('[SW] Firebase background message received:', payload);
 
   const now = Date.now();
   if (now - lastNotificationTimestamp < NOTIFICATION_DEBOUNCE) {
@@ -184,7 +322,7 @@ messaging.onBackgroundMessage((payload) => {
           notificationOptions.body = `⏰ ${notificationOptions.body}`;
         }
 
-        console.log('[SW] Showing notification for iOS:', notificationOptions);
+        console.log('[SW] Showing Firebase notification for iOS:', notificationOptions);
 
         // Increment badge when showing notification
         updateBadge(badgeCount + 1);
@@ -213,111 +351,6 @@ messaging.onBackgroundMessage((payload) => {
     });
 });
 
-// Enhanced notification click handler for iOS
-self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked on iOS:', event);
-
-  const notification = event.notification;
-  const action = event.action;
-  const data = notification.data || {};
-
-  notification.close();
-
-  // Decrement badge when notification is clicked
-  updateBadge(Math.max(0, badgeCount - 1));
-
-  if (action === 'close') {
-    return; // Just close, don't open app
-  }
-
-  let urlToOpen = data.url || '/chat';
-
-  // Handle iOS-specific actions
-  if (action === 'practice') {
-    urlToOpen = '/chat?startPractice=true';
-  }
-
-  // iOS-specific window handling
-  event.waitUntil(
-    self.clients.matchAll({
-      type: 'window',
-      includeUncontrolled: true
-    }).then((clientList) => {
-      // For iOS PWA, we need to be more careful about navigation
-      for (let client of clientList) {
-        const clientUrl = new URL(client.url);
-        
-        if (clientUrl.origin === self.location.origin) {
-          // Send message to existing client
-          client.postMessage({
-            type: 'NOTIFICATION_CLICK',
-            url: urlToOpen,
-            data: data,
-            platform: 'ios'
-          });
-          
-          return client.focus();
-        }
-      }
-      
-      // Open new window/tab for iOS
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
-      }
-    }).catch((error) => {
-      console.error('[SW] Error handling iOS notification click:', error);
-    })
-  );
-});
-
-// Handle notification close (when dismissed without clicking)
-self.addEventListener('notificationclose', (event) => {
-  console.log('[SW] ❌ Notification dismissed');
-  
-  // Decrement badge when notification is dismissed
-  updateBadge(Math.max(0, badgeCount - 1));
-});
-
-// iOS-specific push event handler
-self.addEventListener('push', (event) => {
-  console.log('[SW] Push event on iOS:', event);
-  
-  // iOS 16.4+ supports declarative web push
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      
-      // Handle iOS 16.4+ declarative format - PAYLOAD SIMPLES QUE FUNCIONA
-      if (data.web_push && data.notification) {
-        const notificationData = {
-          title: data.notification.title || 'Charlotte',
-          body: data.notification.body || 'Nova mensagem!',
-          icon: data.notification.icon || '/icons/icon-192x192.png',
-          badge: '/icons/icon-72x72.png',
-          data: { 
-            url: data.notification.navigate || '/chat',
-            platform: 'ios'
-          }
-        };
-
-        event.waitUntil(
-          self.registration.showNotification(notificationData.title, {
-            body: notificationData.body,
-            icon: notificationData.icon,
-            badge: notificationData.badge,
-            data: notificationData.data,
-            tag: 'charlotte-ios-push',
-            requireInteraction: true
-          })
-        );
-        return;
-      }
-    } catch (error) {
-      console.error('[SW] Error parsing iOS push data:', error);
-    }
-  }
-});
-
 // Service worker lifecycle for iOS
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing for iOS compatibility');
@@ -344,3 +377,6 @@ self.addEventListener('message', (event) => {
 });
 
 console.log('[SW] Charlotte Firebase Messaging - iOS 16.4+ Ready - CONFIGURAÇÃO QUE FUNCIONA 100%');
+console.log('[SW] ✅ iOS Native Push Events: ENABLED');
+console.log('[SW] ✅ iOS Notification Click: ENABLED');
+console.log('[SW] ✅ Firebase Compatibility: MAINTAINED');

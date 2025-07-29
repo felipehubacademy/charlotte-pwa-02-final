@@ -53,19 +53,58 @@ export async function POST(request: NextRequest) {
 
     console.log(`📱 Found iOS subscriptions: ${subscriptions.length}`);
 
-    // Payload ultra-simples para Apple (só texto)
-    const payloads: Record<string, { title: string; body: string }> = {
+    // ✅ PAYLOAD CORRETO para iOS - Formato Apple Web Push
+    const payloads: Record<string, any> = {
       basic: {
-        title: '🧪 iOS Test',
-        body: 'Notificação funcionando no iPhone!'
+        notification: {
+          title: '🧪 iOS Test',
+          body: 'Notificação funcionando no iPhone!',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: 'charlotte-test',
+          requireInteraction: true,
+          silent: false
+        },
+        data: {
+          url: '/chat',
+          click_action: '/chat',
+          platform: 'ios',
+          test_type: 'basic'
+        }
       },
       achievement: {
-        title: '🎉 Conquista iOS!',
-        body: 'Push notifications funcionando!'
+        notification: {
+          title: '🎉 Conquista iOS!',
+          body: 'Push notifications funcionando!',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: 'charlotte-achievement',
+          requireInteraction: true,
+          silent: false
+        },
+        data: {
+          url: '/chat',
+          click_action: '/chat',
+          platform: 'ios',
+          test_type: 'achievement'
+        }
       },
       reminder: {
-        title: '⏰ Lembrete iOS',
-        body: 'Hora de praticar inglês!'
+        notification: {
+          title: '⏰ Lembrete iOS',
+          body: 'Hora de praticar inglês!',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: 'charlotte-reminder',
+          requireInteraction: true,
+          silent: false
+        },
+        data: {
+          url: '/chat',
+          click_action: '/chat',
+          platform: 'ios',
+          test_type: 'reminder'
+        }
       }
     };
 
@@ -79,9 +118,14 @@ export async function POST(request: NextRequest) {
         console.log(`📤 Sending to iOS with Apple-compatible payload...`);
         console.log(`Endpoint: ${subscription.endpoint.substring(0, 50)}...`);
 
-        // Configurações mínimas para Apple
+        // ✅ CONFIGURAÇÕES CORRETAS para iOS
         const options: webpush.RequestOptions = {
-          TTL: 3600 // 1 hora (reduzido)
+          TTL: 3600, // 1 hora
+          headers: {
+            'Urgency': 'high',
+            'Topic': 'charlotte-notifications',
+            'Content-Type': 'application/json'
+          }
         };
 
         const webPushSubscription = {
@@ -103,7 +147,8 @@ export async function POST(request: NextRequest) {
           subscription_id: subscription.id,
           type: 'apple_web_push',
           success: true,
-          message: '🍎 iOS Web Push sent successfully!'
+          message: '🍎 iOS Web Push sent successfully!',
+          payload_format: 'ios_compatible'
         });
 
       } catch (pushError: any) {
@@ -152,7 +197,9 @@ export async function POST(request: NextRequest) {
         total_attempts: totalCount,
         successful: successCount,
         failed: totalCount - successCount
-      }
+      },
+      payload_format: 'ios_compatible',
+      headers_configured: true
     });
 
   } catch (error) {
@@ -170,8 +217,11 @@ export async function GET() {
     status: 'operational',
     service: 'Apple Push Service via web-push',
     vapid_configured: true,
+    ios_compatible: true,
     features: [
       'iOS 16.4+ compatible',
+      'iOS-compatible payload format',
+      'Proper headers for iOS',
       'VAPID authentication',
       'Production ready',
       'Timeout protection'
