@@ -97,17 +97,14 @@ export async function POST(request: NextRequest) {
           }
         };
 
-        // Timeout de 8 segundos
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
-
+        // Enviar notificação com timeout Promise
         try {
-          await webpush.sendNotification(webPushSubscription, payload, {
-            ...options,
-            signal: controller.signal
-          });
+          const sendPromise = webpush.sendNotification(webPushSubscription, payload, options);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Push timeout after 8 seconds')), 8000)
+          );
           
-          clearTimeout(timeoutId);
+          await Promise.race([sendPromise, timeoutPromise]);
           
           console.log(`✅ iOS notification sent successfully to ${subscription.id}`);
           results.push({
@@ -119,9 +116,7 @@ export async function POST(request: NextRequest) {
           successCount++;
 
         } catch (pushError: any) {
-          clearTimeout(timeoutId);
-          
-          if (pushError.name === 'AbortError') {
+          if (pushError.message === 'Push timeout after 8 seconds') {
             console.log(`⏰ iOS Push timeout for ${subscription.id}`);
             results.push({
               subscription_id: subscription.id,
