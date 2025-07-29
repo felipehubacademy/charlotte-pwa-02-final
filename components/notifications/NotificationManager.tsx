@@ -15,7 +15,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
   const { user } = useAuth();
   const [notificationService] = useState(() => NotificationService.getInstance());
   
-  // State
+  // State - MANTIDO TUDO ORIGINAL + needsRecovery
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -27,11 +27,31 @@ export default function NotificationManager({ className = '' }: NotificationMana
   const [hasFCMToken, setHasFCMToken] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [iosCapabilities, setIOSCapabilities] = useState<any>(null);
+  
+  // NOVO: Estado para auto-recovery
+  const [needsRecovery, setNeedsRecovery] = useState(false);
+  const [lastCheck, setLastCheck] = useState(0);
 
-  // Check initial state
+  // Check initial state - MANTIDO ORIGINAL
   useEffect(() => {
     initializeNotificationState();
   }, []);
+
+  // NOVO: Auto-recovery com verificação periódica
+  useEffect(() => {
+    if (!user?.entra_id) return;
+
+    // Verificação periódica para auto-recovery (a cada 5 minutos)
+    const interval = setInterval(() => {
+      const now = Date.now();
+      if (now - lastCheck > 300000) { // 5 minutos
+        checkForRecoveryNeeded(true); // checkSilent = true
+        setLastCheck(now);
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [user?.entra_id]);
 
   const initializeNotificationState = async () => {
     try {
@@ -48,6 +68,9 @@ export default function NotificationManager({ className = '' }: NotificationMana
       // Check if user has already dismissed notification setup
       const dismissed = localStorage.getItem('notification-setup-dismissed');
       setIsDismissed(dismissed === 'true');
+
+      // NOVO: Verificar se precisa de recovery
+      await checkForRecoveryNeeded(false);
     } finally {
       setIsInitializing(false);
     }
@@ -68,6 +91,73 @@ export default function NotificationManager({ className = '' }: NotificationMana
       subscribed,
       isDismissed: localStorage.getItem('notification-setup-dismissed') === 'true'
     });
+  };
+
+  // NOVA: Função para verificar se precisa de recovery
+  const checkForRecoveryNeeded = async (checkSilent = false) => {
+    if (!user?.entra_id) return;
+
+    try {
+      // Verificar se subscription existe no servidor
+      const response = await fetch('/api/notifications/check-fcm-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.entra_id })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        const hasServerSubscription = result.success && result.hasFCMToken;
+        const localSubscription = notificationService.currentSubscription;
+
+        // DETECTAR NECESSIDADE DE RECOVERY
+        if (hasServerSubscription && !localSubscription && permission === 'granted') {
+          setNeedsRecovery(true);
+          console.log('🔧 Auto-recovery needed: Server has subscription but local doesn\'t');
+          
+          // AUTO-RECOVERY SILENCIOSO para iOS
+          if (platform === 'ios' && checkSilent) {
+            await performAutoRecovery();
+          }
+        } else {
+          setNeedsRecovery(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for recovery:', error);
+    }
+  };
+
+  // NOVA: Função de auto-recovery
+  const performAutoRecovery = async () => {
+    if (!user?.entra_id) return;
+
+    try {
+      console.log('🔧 Performing auto-recovery...');
+      setIsLoading(true);
+      
+      // Recriar subscription
+      const subscription = await notificationService.subscribe(user.entra_id);
+      
+      if (subscription) {
+        console.log('✅ Auto-recovery successful');
+        
+        // Atualizar estado
+        setIsSubscribed(true);
+        setNeedsRecovery(false);
+
+        // Testar uma notificação local para confirmar
+        await notificationService.sendLocalNotification({
+          title: '🔧 Notificações Restauradas',
+          body: 'Push notifications reativadas automaticamente!',
+          url: '/chat'
+        });
+      }
+    } catch (error) {
+      console.error('❌ Auto-recovery failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const checkFCMTokenStatus = async () => {
@@ -208,6 +298,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
       if (webPushSuccess || fcmSuccess) {
         setIsSubscribed(!!webPushSuccess);
         setHasFCMToken(!!fcmSuccess);
+        setNeedsRecovery(false); // NOVO: Reset recovery state
         
         // Show success notification
         await notificationService.sendLocalNotification({
@@ -232,6 +323,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
     try {
       await notificationService.unsubscribe();
       setIsSubscribed(false);
+      setNeedsRecovery(false); // NOVO: Reset recovery state
     } catch (error) {
       console.error('❌ Error disabling notifications:', error);
     } finally {
@@ -253,7 +345,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
     }
   };
 
-  // iOS specific guidance component
+  // iOS specific guidance component - MANTIDO ORIGINAL
   const IOSGuidance = () => (
     <div className="bg-secondary/60 backdrop-blur-md border border-white/10 rounded-xl p-4 mb-4">
       <div className="flex items-start space-x-3">
@@ -307,7 +399,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
     localStorage.removeItem('notification-setup-dismissed');
   };
 
-  // Show iOS Install Guide
+  // Show iOS Install Guide - MANTIDO ORIGINAL
   if (showIOSGuide) {
     return (
       <IOSInstallGuide
@@ -324,7 +416,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
     );
   }
 
-  // Don't render if iOS and not installed as PWA
+  // Don't render if iOS and not installed as PWA - MANTIDO ORIGINAL
   if (platform === 'ios' && !isPWAInstalled && !showIOSGuide) {
     return (
       <div className={`notification-manager ${className}`}>
@@ -360,19 +452,20 @@ export default function NotificationManager({ className = '' }: NotificationMana
     );
   }
 
-  // Don't render anything while initializing
+  // Don't render anything while initializing - MANTIDO ORIGINAL
   if (isInitializing) {
     return null;
   }
 
-  // Only show when user needs to enable notifications
+  // Only show when user needs to enable notifications - MODIFICADO PARA INCLUIR RECOVERY
   const hasCompleteNotificationSetup = (permission === 'granted' && isSubscribed && hasFCMToken);
   
-  if (!isSupported || hasCompleteNotificationSetup || isDismissed) {
+  // NOVO: Mostrar se precisa de recovery
+  if (!isSupported || (hasCompleteNotificationSetup && !needsRecovery) || (isDismissed && !needsRecovery)) {
     return null;
   }
 
-  // Debug helper - expor no console para facilitar debug
+  // Debug helper - MODIFICADO PARA INCLUIR RECOVERY
   if (typeof window !== 'undefined') {
     (window as any).debugNotifications = {
       state: {
@@ -384,14 +477,17 @@ export default function NotificationManager({ className = '' }: NotificationMana
         isDismissed,
         isInitializing,
         platform,
-        isPWAInstalled
+        isPWAInstalled,
+        needsRecovery // NOVO
       },
       actions: {
         resetDismiss: handleResetDismiss,
         checkState: checkNotificationState,
         checkFCM: checkFCMTokenStatus,
         forceShow: () => setIsDismissed(false),
-        showIOSGuide: () => setShowIOSGuide(true)
+        showIOSGuide: () => setShowIOSGuide(true),
+        performRecovery: performAutoRecovery, // NOVO
+        checkRecovery: () => checkForRecoveryNeeded(false) // NOVO
       }
     };
   }
@@ -406,17 +502,28 @@ export default function NotificationManager({ className = '' }: NotificationMana
     >
       {platform === 'ios' && <IOSGuidance />}
       
-      {/* Header redesenhado com gradiente da marca */}
+      {/* Header redesenhado com gradiente da marca - MODIFICADO PARA RECOVERY */}
       <div className="bg-gradient-to-r from-primary/80 via-primary to-primary/80 p-4 sm:p-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="bg-white/20 backdrop-blur-sm rounded-full p-2.5 border border-white/20 flex-shrink-0">
-              <Bell className="w-5 h-5 text-white" />
+              {needsRecovery ? (
+                <div className="animate-pulse">
+                  <Bell className="w-5 h-5 text-yellow-300" />
+                </div>
+              ) : (
+                <Bell className="w-5 h-5 text-white" />
+              )}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="font-semibold text-white text-base sm:text-lg">Ativar Notificações</h3>
+              <h3 className="font-semibold text-white text-base sm:text-lg">
+                {needsRecovery ? '🔧 Restaurar Notificações' : 'Ativar Notificações'}
+              </h3>
               <p className="text-sm text-white/80 truncate">
-                Receba conquistas em tempo real!
+                {needsRecovery 
+                  ? 'Suas notificações precisam ser restauradas'
+                  : 'Receba conquistas em tempo real!'
+                }
               </p>
             </div>
           </div>
@@ -430,10 +537,24 @@ export default function NotificationManager({ className = '' }: NotificationMana
         </div>
       </div>
       
-      {/* Content redesenhado */}
+      {/* Content redesenhado - MODIFICADO PARA RECOVERY */}
       <div className="p-4 sm:p-5">
         <div className="flex justify-center">
-          {permission === 'granted' ? (
+          {needsRecovery ? (
+            <button
+              onClick={performAutoRecovery}
+              disabled={isLoading}
+              className="w-full px-6 py-3 sm:py-4 bg-gradient-to-r from-yellow-500/80 to-orange-500/80 text-white rounded-xl font-medium hover:from-yellow-600/90 hover:to-orange-600/90 transform hover:scale-[1.02] transition-all duration-300 disabled:opacity-50 disabled:transform-none disabled:cursor-not-allowed shadow-lg backdrop-blur-sm border border-yellow-500/30 text-sm sm:text-base"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span className="hidden sm:inline">Restaurando...</span>
+                  <span className="sm:hidden">🔧</span>
+                </div>
+              ) : '🔧 Restaurar Notificações'}
+            </button>
+          ) : permission === 'granted' ? (
             <button
               onClick={isSubscribed ? handleDisableNotifications : handleEnableNotifications}
               disabled={isLoading}
@@ -472,8 +593,8 @@ export default function NotificationManager({ className = '' }: NotificationMana
           )}
         </div>
 
-        {/* Success message redesenhado */}
-        {isSubscribed && (
+        {/* Success message redesenhado - MANTIDO ORIGINAL */}
+        {isSubscribed && !needsRecovery && (
           <div className="mt-4 p-4 bg-green-500/20 border border-green-500/30 rounded-xl backdrop-blur-sm">
             <div className="flex items-center space-x-2 text-green-300">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
@@ -486,7 +607,7 @@ export default function NotificationManager({ className = '' }: NotificationMana
         )}
       </div>
       
-      {/* Footer redesenhado */}
+      {/* Footer redesenhado - MANTIDO ORIGINAL */}
       <div className="bg-secondary/60 backdrop-blur-sm px-4 py-3 text-xs text-white/50 border-t border-white/10">
         <div className="flex items-center space-x-2">
           {platform === 'ios' && (
@@ -502,7 +623,12 @@ export default function NotificationManager({ className = '' }: NotificationMana
             </>
           )}
         </div>
-        <p className="mt-1 text-white/40 text-xs">Seja notificado sobre conquistas e progressos!</p>
+        <p className="mt-1 text-white/40 text-xs">
+          {needsRecovery 
+            ? 'Auto-recovery detectado - clique para restaurar' 
+            : 'Seja notificado sobre conquistas e progressos!'
+          }
+        </p>
       </div>
     </div>
   );
