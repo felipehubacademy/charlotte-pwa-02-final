@@ -9,9 +9,6 @@ webpush.setVapidDetails(
   'cTlw_6Ex7Ldo3Ra5YJDiLzOnZ0HE29NmpIZhMb1uNdU' // Sua Firebase VAPID private key
 );
 
-// Forçar modo production para iOS
-webpush.setGCMAPIKey(undefined); // Remove GCM API key se existir
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
