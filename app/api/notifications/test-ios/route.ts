@@ -1,292 +1,190 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
-import admin from 'firebase-admin';
 import webpush from 'web-push';
 
-// Inicializar Firebase Admin se ainda não foi inicializado
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.cert({
-        projectId: process.env.FIREBASE_PROJECT_ID,
-        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-        privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      }),
-    });
-  } catch (error) {
-    console.log('Firebase Admin initialization skipped:', error);
-  }
-}
-
-// Configurar web-push para Apple
+// Configurar VAPID com suas keys Firebase - PRODUCTION MODE
 webpush.setVapidDetails(
-  'mailto:felipe.xavier1987@gmail.com',
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
+  'mailto:felipe.xavier1987@gmail.com', // Email do projeto Firebase
+  'BJ87VjvmFct3Gp1NkTlViywwyT04g7vuHkhvuICQarrOq2iKnJNld2cJ2o7BD-hvYRNtKJeBL92dygxbjNOMyuA', // Sua Firebase VAPID public key CORRETA
+  'cTlw_6Ex7Ldo3Ra5YJDiLzOnZ0HE29NmpIZhMb1uNdU' // Sua Firebase VAPID private key
 );
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { user_id, test_type = 'basic' } = body;
+    const { user_id, test_type = 'basic' }: { 
+      user_id: string; 
+      test_type?: 'basic' | 'achievement' | 'reminder' 
+    } = body;
 
     if (!user_id) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
     }
+
+    console.log(`🍎 Starting iOS notification test for user: ${user_id}`);
 
     const supabase = getSupabase();
+    
     if (!supabase) {
-      return NextResponse.json({ error: 'Database not available' }, { status: 503 });
+      console.error('❌ Supabase client not available');
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
-
-    // Buscar subscriptions iOS
-    const { data: subscriptions, error: fetchError } = await supabase
+    
+    // Buscar subscriptions ativas do iOS
+    const { data: subscriptions, error } = await supabase
       .from('push_subscriptions')
       .select('*')
       .eq('user_id', user_id)
       .eq('platform', 'ios')
       .eq('is_active', true);
 
-    if (fetchError || !subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ error: 'No iOS subscriptions found' }, { status: 404 });
+    if (error) {
+      console.error('❌ Database error:', error);
+      return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    console.log('📱 Found iOS subscriptions:', subscriptions.length);
+    if (!subscriptions || subscriptions.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'No iOS subscriptions found',
+        hint: 'User needs to activate notifications first'
+      });
+    }
+
+    console.log(`📱 Found ${subscriptions.length} iOS subscriptions`);
 
     const results = [];
+    let successCount = 0;
 
-    // Processar cada subscription
+    // Payload ultra-simples para Apple (só texto)
+    const payloads: Record<string, { title: string; body: string }> = {
+      basic: {
+        title: '🧪 iOS Test',
+        body: 'Notificação funcionando no iPhone!'
+      },
+      achievement: {
+        title: '🎉 Conquista iOS!',
+        body: 'Push notifications funcionando!'
+      },
+      reminder: {
+        title: '📚 Lembrete iOS',
+        body: 'Hora de praticar inglês!'
+      }
+    };
+
+    const payload = JSON.stringify(payloads[test_type as string] || payloads.basic);
+
+    // Testar cada subscription
     for (const subscription of subscriptions) {
       try {
-        let result;
-        
-        // Determinar o tipo baseado no endpoint ou fcm_token
-        if (subscription.fcm_token) {
-          // Usar Firebase se tiver FCM token
-          console.log('🔥 Using Firebase for subscription:', subscription.id);
-          result = await sendFirebasePush(subscription, test_type);
-        } else if (subscription.endpoint?.includes('push.apple.com')) {
-          // Usar Apple Web Push para endpoints Apple
-          console.log('🍎 Using Apple Web Push for subscription:', subscription.id);
-          result = await sendAppleWebPush(subscription, test_type);
-        } else {
-          // Tentar extrair FCM token do endpoint
-          const extractedToken = extractFCMTokenFromEndpoint(subscription.endpoint);
-          if (extractedToken) {
-            console.log('🔍 Extracted FCM token, using Firebase');
-            subscription.fcm_token = extractedToken;
-            result = await sendFirebasePush(subscription, test_type);
+        console.log(`📤 Testing subscription: ${subscription.id}`);
+        console.log(`🔗 Endpoint: ${subscription.endpoint?.substring(0, 50)}...`);
+
+        const webPushSubscription = {
+          endpoint: subscription.endpoint,
+          keys: subscription.keys
+        };
+
+        // Configurações mínimas para Apple
+        const options: webpush.RequestOptions = {
+          TTL: 3600 // 1 hora (reduzido)
+        };
+
+        // Enviar notificação com timeout Promise
+        try {
+          const sendPromise = webpush.sendNotification(webPushSubscription, payload, options);
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Push timeout after 8 seconds')), 8000)
+          );
+          
+          await Promise.race([sendPromise, timeoutPromise]);
+          
+          console.log(`✅ iOS notification sent successfully to ${subscription.id}`);
+          results.push({
+            subscription_id: subscription.id,
+            type: 'apple_web_push',
+            success: true,
+            message: '🍎 iOS Web Push sent successfully!'
+          });
+          successCount++;
+
+        } catch (pushError: any) {
+          if (pushError.message === 'Push timeout after 8 seconds') {
+            console.log(`⏰ iOS Push timeout for ${subscription.id}`);
+            results.push({
+              subscription_id: subscription.id,
+              type: 'apple_web_push',
+              success: false,
+              message: 'Apple Push Service timeout (8s)'
+            });
           } else {
-            console.log('⚠️ Unknown endpoint type, trying web-push');
-            result = await sendAppleWebPush(subscription, test_type);
+            console.error(`❌ iOS Push error for ${subscription.id}:`, pushError);
+            
+            // Verificar se subscription expirou
+            if (pushError.statusCode === 410) {
+              console.log(`🗑️ Subscription ${subscription.id} expired, marking as inactive`);
+              
+              await supabase
+                .from('push_subscriptions')
+                .update({ is_active: false })
+                .eq('id', subscription.id);
+            }
+            
+            results.push({
+              subscription_id: subscription.id,
+              type: 'apple_web_push',
+              success: false,
+              message: `Apple Web Push failed: ${pushError.message || 'Unknown error'}`,
+              error_code: pushError.statusCode
+            });
           }
         }
-        
+
+      } catch (error: any) {
+        console.error(`❌ General error for subscription ${subscription.id}:`, error);
         results.push({
           subscription_id: subscription.id,
-          type: result.method,
-          success: result.success,
-          message: result.message
-        });
-      } catch (error) {
-        results.push({
-          subscription_id: subscription.id,
-          type: 'unknown',
+          type: 'apple_web_push',
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          message: `General error: ${error.message}`
         });
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'iOS notification test completed',
+    const response = {
+      success: successCount > 0,
+      message: `iOS notification test completed`,
       results,
       summary: {
         total_attempts: results.length,
-        successful: results.filter(r => r.success).length,
-        failed: results.filter(r => !r.success).length
+        successful: successCount,
+        failed: results.length - successCount
       }
-    });
-
-  } catch (error) {
-    console.error('❌ iOS test API error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// Enviar via Apple Web Push (web-push library)
-async function sendAppleWebPush(subscription: any, testType: string) {
-  const pushSubscription = {
-    endpoint: subscription.endpoint,
-    keys: subscription.keys
-  };
-
-  // Payload para Apple
-  let payload;
-  switch (testType) {
-    case 'achievement':
-      payload = JSON.stringify({
-        title: '🎉 Achievement Unlocked!',
-        body: 'You reached a new milestone!',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        data: { url: '/achievements' }
-      });
-      break;
-    default:
-      payload = JSON.stringify({
-        title: '🍎 Apple Push Works!',
-        body: 'Notification via Apple Web Push',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        data: { url: '/chat' }
-      });
-  }
-
-  const options = {
-    TTL: 60,
-    headers: {
-      'Urgency': 'normal'
-    }
-  };
-
-  try {
-    console.log('📤 Sending via Apple Web Push...');
-    
-    // Timeout de 8 segundos
-    const pushPromise = webpush.sendNotification(pushSubscription, payload, options);
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Push timeout after 8 seconds')), 8000);
-    });
-
-    await Promise.race([pushPromise, timeoutPromise]);
-    
-    console.log('✅ Apple Web Push sent successfully!');
-    return {
-      success: true,
-      message: '🍎 Apple Web Push delivered!',
-      method: 'apple_web_push'
     };
-    
-  } catch (error) {
-    console.error('❌ Apple Web Push error:', error);
-    
-    if (error instanceof Error && error.message.includes('timeout')) {
-      return {
-        success: false,
-        message: 'Apple Push Service timeout',
-        method: 'apple_web_push'
-      };
-    }
-    
-    return {
-      success: false,
-      message: `Apple Web Push failed: ${error instanceof Error ? error.message : 'Unknown'}`,
-      method: 'apple_web_push'
-    };
-  }
-}
 
-// Enviar via Firebase Admin
-async function sendFirebasePush(subscription: any, testType: string) {
-  const fcmToken = subscription.fcm_token;
-  
-  if (!fcmToken) {
-    return {
-      success: false,
-      message: 'No FCM token available',
-      method: 'firebase'
-    };
-  }
+    console.log(`📊 iOS Test Summary: ${successCount}/${results.length} successful`);
+    return NextResponse.json(response);
 
-  let title: string;
-  let body: string;
-  
-  switch (testType) {
-    case 'achievement':
-      title = '🎉 Achievement Unlocked!';
-      body = 'You reached a new milestone!';
-      break;
-    default:
-      title = '🔥 Firebase Push Works!';
-      body = 'Notification via Firebase Admin';
+  } catch (error: any) {
+    console.error('❌ Test iOS error:', error);
+    return NextResponse.json({ 
+      error: 'Internal server error',
+      message: error.message 
+    }, { status: 500 });
   }
-
-  const message = {
-    token: fcmToken,
-    notification: { title, body },
-    webpush: {
-      fcmOptions: {
-        link: 'https://charlotte-ai.com',
-      },
-      notification: {
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-      },
-    },
-    apns: {
-      payload: {
-        aps: {
-          alert: { title, body },
-          sound: 'default',
-          badge: 1,
-        },
-      },
-    },
-  };
-
-  try {
-    console.log('📤 Sending via Firebase Admin...');
-    const response = await admin.messaging().send(message);
-    
-    console.log('✅ Firebase push sent successfully!');
-    return {
-      success: true,
-      message: `🔥 Firebase Push delivered! ID: ${response}`,
-      method: 'firebase'
-    };
-    
-  } catch (error) {
-    console.error('❌ Firebase Push error:', error);
-    return {
-      success: false,
-      message: `Firebase Push failed: ${error instanceof Error ? error.message : 'Unknown'}`,
-      method: 'firebase'
-    };
-  }
-}
-
-// Helper para extrair FCM token
-function extractFCMTokenFromEndpoint(endpoint: string): string | null {
-  if (!endpoint) return null;
-  
-  // Padrões conhecidos de FCM
-  const patterns = [
-    /\/send\/([^\/\?]+)/,
-    /\/registrations\/([^\/\?]+)/,
-    /\/wpush\/v2\/([^\/\?]+)/
-  ];
-  
-  for (const pattern of patterns) {
-    const match = endpoint.match(pattern);
-    if (match) return match[1];
-  }
-  
-  return null;
 }
 
 export async function GET() {
   return NextResponse.json({
-    message: 'iOS notification test - Dual support (Apple + Firebase)',
+    message: 'iOS notification test endpoint - Apple Web Push',
     status: 'operational',
-    services: ['Apple Web Push', 'Firebase Cloud Messaging'],
+    service: 'Apple Push Service via web-push',
+    vapid_configured: true,
     features: [
-      'Auto-detection of push service type',
-      'Apple Web Push for push.apple.com endpoints',
-      'Firebase for FCM tokens',
-      'Fallback support'
-    ],
-    timestamp: new Date().toISOString()
+      'Apple Web Push notifications',
+      'iOS 16.4+ support',
+      'Subscription management',
+      'Error handling with retry logic'
+    ]
   });
 }
