@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { Suspense } from 'react';
 import PWAInstaller from '@/components/PWAInstaller';
 import ClientLayout from './ClientLayout';
+import IOSAutoRecovery from '@/components/notifications/IOSAutoRecovery';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -171,6 +172,8 @@ export default function RootLayout({
               },
             }}
           />
+          {/* 🍎 iOS Auto-Recovery System */}
+          <IOSAutoRecovery />
         </AuthProvider>
         </ClientLayout>
       </body>
