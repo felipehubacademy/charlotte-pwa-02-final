@@ -22,6 +22,11 @@ export async function POST(request: NextRequest) {
 
     const supabase = getSupabase();
     
+    if (!supabase) {
+      console.error('❌ Supabase client not available');
+      return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
+    }
+    
     // Buscar subscriptions ativas do iOS
     const { data: subscriptions, error } = await supabase
       .from('push_subscriptions')
