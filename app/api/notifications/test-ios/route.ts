@@ -89,9 +89,9 @@ export async function POST(request: NextRequest) {
         };
 
         // Configurações otimizadas para iOS
-        const options = {
+        const options: webpush.RequestOptions = {
           TTL: 86400, // 24 horas
-          urgency: 'normal',
+          urgency: 'normal' as webpush.Urgency,
           headers: {
             'Topic': 'com.hubacademy.charlotte'
           }
