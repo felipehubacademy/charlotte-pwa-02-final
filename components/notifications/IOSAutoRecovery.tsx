@@ -1,3 +1,5 @@
+"use client";
+
 // components/notifications/IOSAutoRecovery.tsx
 import { useEffect, useRef, useCallback } from 'react';
 
@@ -10,7 +12,7 @@ const IOSAutoRecovery = () => {
   // Detectar iOS
   const detectIOS = useCallback(() => {
     const userAgent = navigator.userAgent;
-    return /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
+    return /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
   }, []);
 
   // Obter user ID (ajuste conforme sua implementação de auth)
@@ -87,8 +89,8 @@ const IOSAutoRecovery = () => {
           user_id: userId,
           endpoint: newSub.endpoint,
           keys: {
-            p256dh: btoa(String.fromCharCode(...new Uint8Array(newSub.getKey('p256dh')))),
-            auth: btoa(String.fromCharCode(...new Uint8Array(newSub.getKey('auth'))))
+            p256dh: btoa(String.fromCharCode(...new Uint8Array(newSub.getKey('p256dh') || new ArrayBuffer(0)))),
+            auth: btoa(String.fromCharCode(...new Uint8Array(newSub.getKey('auth') || new ArrayBuffer(0))))
           },
           platform: 'ios',
           subscription_type: 'web_push',
