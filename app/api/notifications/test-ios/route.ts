@@ -12,7 +12,10 @@ webpush.setVapidDetails(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { user_id, test_type = 'basic' } = body;
+    const { user_id, test_type = 'basic' }: { 
+      user_id: string; 
+      test_type?: 'basic' | 'achievement' | 'reminder' 
+    } = body;
 
     if (!user_id) {
       return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
@@ -54,7 +57,7 @@ export async function POST(request: NextRequest) {
     let successCount = 0;
 
     // Payload otimizado para iOS
-    const payloads = {
+    const payloads: Record<string, { title: string; body: string; icon: string }> = {
       basic: {
         title: '🧪 iOS Test',
         body: 'Notificação funcionando no iPhone!',
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    const payload = JSON.stringify(payloads[test_type] || payloads.basic);
+    const payload = JSON.stringify(payloads[test_type as string] || payloads.basic);
 
     // Testar cada subscription
     for (const subscription of subscriptions) {
