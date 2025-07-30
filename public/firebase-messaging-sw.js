@@ -1,4 +1,4 @@
-// Firebase Service Worker - iOS 16.4+ Compatible - CONFIGURAÇÃO QUE FUNCIONA 100%
+// Firebase Service Worker v2.5.0 FORCE UPDATE - iOS 16.4+ Compatible - Timestamp: 1753835600000
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
@@ -33,9 +33,9 @@ let badgeCount = 0;
 
 // ✅ NOVO: Service Worker Lifecycle - PERSISTENT REGISTRATION
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.4.0');
+  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.5.0 - FORCE UPDATE');
   
-  // Skip waiting to activate immediately
+  // Force immediate activation and claim all clients
   self.skipWaiting();
   
   // Store installation timestamp
@@ -47,7 +47,7 @@ self.addEventListener('install', (event) => {
         const store = tx.objectStore('sw_data');
         await store.put({ 
           installed_at: Date.now(),
-          version: '2.4.0', // Updated version
+          version: '2.5.0', // FORCE UPDATE
           persistent: true,
           last_heartbeat: Date.now(),
           wake_up_attempts: 0
@@ -62,7 +62,7 @@ self.addEventListener('install', (event) => {
 
 // Initialize badge count from storage
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating for iOS compatibility - PERSISTENT');
+  console.log('[SW] Activating for iOS compatibility v2.5.0 - FORCE UPDATE');
   
   event.waitUntil(
     (async () => {
@@ -241,7 +241,7 @@ self.addEventListener('periodicsync', (event) => {
 // Open IndexedDB for badge persistence
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('charlotte-badges', 6); // ✅ INCREMENTED VERSION
+    const request = indexedDB.open('charlotte-badges', 7); // ✅ FORCE UPDATE VERSION
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
@@ -267,7 +267,7 @@ async function openDB() {
         db.createObjectStore('wake_up_attempts');
       }
       
-      console.log('[SW] IndexedDB upgraded to version 6');
+      console.log('[SW] IndexedDB upgraded to version 7 - FORCE UPDATE');
     };
   });
 }
