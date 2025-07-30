@@ -39,6 +39,19 @@ const nextConfig: NextConfig = {
             value: 'application/manifest+json'
           }
         ]
+      },
+      {
+        source: '/api/notifications/scheduler',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate'
+          },
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*'
+          }
+        ]
       }
     ];
   }
