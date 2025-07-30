@@ -47,9 +47,10 @@ self.addEventListener('install', (event) => {
         const store = tx.objectStore('sw_data');
         await store.put({ 
           installed_at: Date.now(),
-          version: '2.1.0',
+          version: '2.2.0',
           persistent: true,
-          last_heartbeat: Date.now()
+          last_heartbeat: Date.now(),
+          wake_up_attempts: 0
         }, 'installation');
         console.log('[SW] Installation data stored');
       } catch (error) {
@@ -106,6 +107,16 @@ self.addEventListener('activate', (event) => {
         }
       }
       
+      // ✅ NOVO: Register wake-up sync for iOS
+      if ('sync' in self.registration) {
+        try {
+          await self.registration.sync.register('wake-up-sync');
+          console.log('[SW] Wake-up sync registered');
+        } catch (error) {
+          console.log('[SW] Wake-up sync not supported:', error);
+        }
+      }
+      
       console.log('[SW] ✅ Service Worker activated and persistent');
     })()
   );
@@ -142,6 +153,49 @@ self.addEventListener('sync', (event) => {
           }
         } catch (error) {
           console.error('[SW] Background sync error:', error);
+        }
+      })()
+    );
+  }
+  
+  // ✅ NOVO: Wake-up sync handler
+  if (event.tag === 'wake-up-sync') {
+    event.waitUntil(
+      (async () => {
+        try {
+          console.log('[SW] Wake-up sync - reactivating service worker');
+          
+          // Update wake-up attempts
+          const db = await openDB();
+          const tx = db.transaction(['sw_data'], 'readwrite');
+          const store = tx.objectStore('sw_data');
+          const current = await store.get('wake_up_attempts');
+          const attempts = (current?.value || 0) + 1;
+          
+          await store.put({ 
+            last_wake_up: Date.now(),
+            wake_up_attempts: attempts
+          }, 'wake_up_attempts');
+          
+          // Force re-registration if needed
+          const registration = await self.registration;
+          const subscription = await registration.pushManager.getSubscription();
+          
+          if (!subscription) {
+            console.log('[SW] ⚠️ No subscription found, attempting re-registration');
+            // Try to re-register subscription
+            try {
+              await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: 'BJ87VjvmFct3Gp1NkTlViywwyT04g7vuHkhvuICQarrOq2iKnJNld2cJ2o7BD-hvYRNtKJeBL92dygxbjNOMyuA'
+              });
+              console.log('[SW] ✅ Subscription re-registered successfully');
+            } catch (error) {
+              console.error('[SW] ❌ Failed to re-register subscription:', error);
+            }
+          }
+        } catch (error) {
+          console.error('[SW] Wake-up sync error:', error);
         }
       })()
     );
@@ -187,7 +241,7 @@ self.addEventListener('periodicsync', (event) => {
 // Open IndexedDB for badge persistence
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('charlotte-badges', 3); // ✅ INCREMENTED VERSION
+    const request = indexedDB.open('charlotte-badges', 4); // ✅ INCREMENTED VERSION
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
@@ -208,7 +262,12 @@ async function openDB() {
         db.createObjectStore('heartbeat');
       }
       
-      console.log('[SW] IndexedDB upgraded to version 3');
+      // ✅ NOVO: Create wake_up_attempts store
+      if (!db.objectStoreNames.contains('wake_up_attempts')) {
+        db.createObjectStore('wake_up_attempts');
+      }
+      
+      console.log('[SW] IndexedDB upgraded to version 4');
     };
   });
 }
@@ -561,6 +620,37 @@ self.addEventListener('message', (event) => {
       })()
     );
   }
+  
+  // ✅ NOVO: Force wake-up
+  if (type === 'FORCE_WAKE_UP') {
+    event.waitUntil(
+      (async () => {
+        try {
+          console.log('[SW] Force wake-up requested');
+          
+          // Register wake-up sync
+          if ('sync' in self.registration) {
+            await self.registration.sync.register('wake-up-sync');
+            console.log('[SW] Wake-up sync registered');
+          }
+          
+          // Update wake-up attempts
+          const db = await openDB();
+          const tx = db.transaction(['sw_data'], 'readwrite');
+          const store = tx.objectStore('sw_data');
+          await store.put({ 
+            last_force_wake_up: Date.now(),
+            force_wake_up_requested: true
+          }, 'force_wake_up');
+          
+          event.ports[0]?.postMessage({ status: 'wake_up_triggered' });
+        } catch (error) {
+          console.error('[SW] Force wake-up error:', error);
+          event.ports[0]?.postMessage({ error: error.message });
+        }
+      })()
+    );
+  }
 });
 
 console.log('[SW] Charlotte Firebase Messaging - iOS 16.4+ Ready - CONFIGURAÇÃO QUE FUNCIONA 100%');
@@ -571,3 +661,4 @@ console.log('[SW] ✅ PERSISTENT Service Worker: ENABLED');
 console.log('[SW] ✅ Background Sync: ENABLED');
 console.log('[SW] ✅ Periodic Sync: ENABLED');
 console.log('[SW] ✅ Heartbeat System: ENABLED');
+console.log('[SW] ✅ Wake-up System: ENABLED');

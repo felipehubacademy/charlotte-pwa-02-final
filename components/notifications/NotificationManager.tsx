@@ -86,6 +86,40 @@ export default function NotificationManager({ className = '' }: NotificationMana
     }
   };
 
+  // ✅ NOVO: Função para force wake-up
+  const forceWakeUp = async () => {
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        const channel = new MessageChannel();
+        
+        channel.port1.onmessage = (event) => {
+          if (event.data.status === 'wake_up_triggered') {
+            console.log('🔔 Force wake-up triggered successfully');
+          }
+        };
+
+        navigator.serviceWorker.controller.postMessage({
+          type: 'FORCE_WAKE_UP'
+        }, [channel.port2]);
+      }
+    } catch (error) {
+      console.log('🔔 Force wake-up error:', error);
+    }
+  };
+
+  // ✅ NOVO: Force wake-up quando app volta ao foco
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isSubscribed) {
+        console.log('📱 App returned to foreground, triggering force wake-up');
+        forceWakeUp();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [isSubscribed]);
+
   const initializeNotificationState = async () => {
     try {
       setIsInitializing(true);
