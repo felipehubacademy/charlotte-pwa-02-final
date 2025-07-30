@@ -239,7 +239,9 @@ export default function NotificationPreferences() {
               >
                 <option value="08:00" className="bg-gray-800 text-white">08:00</option>
                 <option value="10:00" className="bg-gray-800 text-white">10:00</option>
-                <option value="13:00" className="bg-gray-800 text-white">13:00 (teste)</option>
+                <option value="12:00" className="bg-gray-800 text-white">12:00</option>
+                <option value="13:00" className="bg-gray-800 text-white">13:00</option>
+                <option value="14:15" className="bg-gray-800 text-white">14:15 (teste)</option>
                 <option value="15:30" className="bg-gray-800 text-white">15:30</option>
                 <option value="20:00" className="bg-gray-800 text-white">20:00</option>
               </select>

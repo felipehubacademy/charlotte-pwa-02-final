@@ -133,13 +133,14 @@ export class NotificationScheduler {
       const currentMinute = currentTime.getMinutes();
       const today = currentTime.toISOString().split('T')[0];
       
-      // ✅ CONVERTER UTC PARA BRASIL (UTC-3)
+      // ✅ CONVERTER UTC PARA BRASIL (UTC-3) - AJUSTADO PARA 14:15
       const brazilTime = new Date(currentTime.getTime() - (3 * 60 * 60 * 1000));
       const brazilHour = brazilTime.getHours();
-      const brazilTimeString = `${brazilHour.toString().padStart(2, '0')}:00:00`;
+      const brazilMinute = brazilTime.getMinutes();
+      const brazilTimeString = `${brazilHour.toString().padStart(2, '0')}:${brazilMinute.toString().padStart(2, '0')}:00`;
       
       console.log(`🕐 Current UTC time: ${currentHour}:${currentMinute}`);
-      console.log(`🇧🇷 Current Brazil time: ${brazilHour}:00`);
+      console.log(`🇧🇷 Current Brazil time: ${brazilHour}:${brazilMinute}`);
       console.log(`🔍 Checking for users with Brazil time: ${brazilTimeString}`);
 
       // ✅ DEBUG: Primeiro buscar TODOS os usuários para ver o que temos
