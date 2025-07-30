@@ -265,20 +265,33 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
-        // Check if there's already a tab/window open with the app
+        console.log('[SW] 🔥 CHARLOTTE: Found clients:', clientList.length);
+        
+        // ✅ PRIORIDADE 1: Focar em janela existente do PWA
         for (const client of clientList) {
-          if (client.url.includes(urlToOpen) && 'focus' in client) {
+          console.log('[SW] 🔥 CHARLOTTE: Checking client:', client.url);
+          
+          // Check if this is our PWA (any URL containing our domain)
+          if (client.url.includes('charlotte.hubacademybr.com') || 
+              client.url.includes('localhost') ||
+              client.url.includes('vercel.app')) {
+            console.log('[SW] 🔥 CHARLOTTE: Found existing PWA window, focusing...');
             return client.focus();
           }
         }
         
-        // If no window/tab is open, open a new one
+        // ✅ PRIORIDADE 2: Se não encontrou PWA, abrir nova janela
+        console.log('[SW] 🔥 CHARLOTTE: No existing PWA window found, opening new one...');
         if (clients.openWindow) {
           return clients.openWindow(urlToOpen);
         }
       })
       .catch((error) => {
         console.error('[SW] 🔥 CHARLOTTE: Error handling notification click:', error);
+        // Fallback: try to open window anyway
+        if (clients.openWindow) {
+          return clients.openWindow(urlToOpen);
+        }
       })
   );
 });
