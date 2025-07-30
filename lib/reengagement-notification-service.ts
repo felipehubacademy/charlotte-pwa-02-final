@@ -200,17 +200,23 @@ export class ReengagementNotificationService {
     try {
       console.log(`🔔 [REENGAGEMENT] Sending ${notification.type} to user:`, userId);
       
-      const adminService = getFirebaseAdminService();
-      const success = await adminService.sendToUser(userId, {
-        title: notification.title,
-        body: notification.body,
-        url: notification.url || '/chat',
-        data: {
-          ...notification.data,
-          click_action: 'reengagement',
-          timestamp: Date.now().toString()
-        }
+      // ✅ SISTEMA HÍBRIDO: FCM + Web Push
+      const results = await Promise.allSettled([
+        // 1. Tentar FCM primeiro
+        this.sendViaFCM(userId, notification),
+        // 2. Tentar Web Push para iOS
+        this.sendViaWebPush(userId, notification)
+      ]);
+
+      const fcmSuccess = results[0].status === 'fulfilled' && results[0].value;
+      const webPushSuccess = results[1].status === 'fulfilled' && results[1].value;
+
+      console.log(`📊 [REENGAGEMENT] Results for ${notification.type}:`, {
+        fcm: fcmSuccess ? 'success' : 'failed',
+        webPush: webPushSuccess ? 'success' : 'failed'
       });
+
+      const success = fcmSuccess || webPushSuccess;
 
       if (success) {
         console.log(`✅ [REENGAGEMENT] ${notification.type} sent successfully`);
@@ -221,6 +227,93 @@ export class ReengagementNotificationService {
       return success;
     } catch (error) {
       console.error(`❌ [REENGAGEMENT] Error sending ${notification.type}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * 🔥 Enviar via Firebase FCM
+   */
+  private static async sendViaFCM(userId: string, notification: ReengagementNotification): Promise<boolean> {
+    try {
+      const adminService = getFirebaseAdminService();
+      return await adminService.sendToUser(userId, {
+        title: notification.title,
+        body: notification.body,
+        url: notification.url || '/chat',
+        data: {
+          ...notification.data,
+          click_action: 'reengagement',
+          timestamp: Date.now().toString()
+        }
+      });
+    } catch (error) {
+      console.error('❌ FCM send failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 🌐 Enviar via Web Push nativo (para iOS)
+   */
+  private static async sendViaWebPush(userId: string, notification: ReengagementNotification): Promise<boolean> {
+    try {
+      const { getSupabase } = await import('./supabase');
+      const supabase = getSupabase();
+      
+      if (!supabase) {
+        console.log('❌ Supabase not available for Web Push');
+        return false;
+      }
+
+      // Buscar subscriptions Web Push (iOS)
+      const { data: subscriptions, error } = await supabase
+        .from('push_subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .eq('subscription_type', 'web_push')
+        .eq('platform', 'ios');
+
+      if (error || !subscriptions || subscriptions.length === 0) {
+        console.log('📭 No Web Push subscriptions found for iOS');
+        return false;
+      }
+
+      console.log(`📨 Sending Web Push to ${subscriptions.length} iOS devices`);
+
+      // Enviar via API Web Push
+      const webPushResults = await Promise.allSettled(
+        subscriptions.map(sub => 
+          fetch('/api/notifications/send-web-push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              subscription: {
+                endpoint: sub.endpoint,
+                keys: sub.keys
+              },
+              payload: {
+                title: notification.title,
+                body: notification.body,
+                url: notification.url || '/chat',
+                data: {
+                  ...notification.data,
+                  click_action: 'reengagement',
+                  timestamp: Date.now().toString()
+                }
+              }
+            })
+          })
+        )
+      );
+
+      const successful = webPushResults.filter(r => r.status === 'fulfilled' && r.value?.ok).length;
+      console.log(`📊 Web Push results: ${successful}/${subscriptions.length} successful`);
+
+      return successful > 0;
+    } catch (error) {
+      console.error('❌ Web Push send failed:', error);
       return false;
     }
   }
