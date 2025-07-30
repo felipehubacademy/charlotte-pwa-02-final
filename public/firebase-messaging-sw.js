@@ -1,4 +1,23 @@
-// Firebase Service Worker v4.0.0 CRITICAL iOS FIX - Timestamp: 1753900000000
+// Firebase Service Worker v3.0.1 FORCE UPDATE - iOS Push Standards - Timestamp: 1753872000000
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+
+// Unified Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyBxGQoB3XmXeF8X8X8X8X8X8X8X8X8X8X8",
+  authDomain: "charlotte-pwa-02-final.firebaseapp.com",
+  projectId: "charlotte-pwa-02-final",
+  storageBucket: "charlotte-pwa-02-final.appspot.com",
+  messagingSenderId: "123456789012",
+  appId: "1:123456789012:web:abcdefghijklmnop"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+
+// ✅ FORCE UPDATE: Aggressive cache busting and logging
+console.log('[SW] 🔥 FORCE UPDATE v3.0.1 - Service Worker Loading...');
+
 // ✅ iOS DETECTION FIRST - BEFORE ANY IMPORTS
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
@@ -9,22 +28,7 @@ console.log('[SW] Platform detection (EARLY):', { isIOS, isPWAInstalled });
 // ✅ CONDITIONAL FIREBASE LOADING - SKIP FOR iOS TO AVOID CONFLICTS
 let messaging = null;
 if (!isIOS) {
-  // Load Firebase ONLY for non-iOS platforms
-  importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
-  
-  // Unified Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyCEKjNSV6-XkvYueEXMjMJw3J8iF2yaqP0",
-    authDomain: "charlotte-notifications.firebaseapp.com",
-    projectId: "charlotte-notifications",
-    storageBucket: "charlotte-notifications.firebasestorage.app",
-    messagingSenderId: "664193430418",
-    appId: "1:664193430418:web:b647cff7f8f05caadcc74b"
-  };
-
-  // Initialize Firebase
-  firebase.initializeApp(firebaseConfig);
+  // Firebase already loaded above, just initialize messaging
   messaging = firebase.messaging();
 
   // VAPID KEY QUE FUNCIONA 100% NO iOS
