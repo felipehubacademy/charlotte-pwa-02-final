@@ -138,8 +138,8 @@ export class NotificationScheduler {
       const brazilHour = brazilTime.getHours();
       const brazilMinute = brazilTime.getMinutes();
       
-      // ✅ BUSCAR USUÁRIOS COM HORÁRIOS PRÓXIMOS (janela de 15 minutos)
-      const timeWindow = 15; // minutos
+      // ✅ BUSCAR USUÁRIOS COM HORÁRIOS PRÓXIMOS (janela de 30 minutos para compensar atraso do Vercel)
+      const timeWindow = 30; // minutos
       const currentTimeMinutes = brazilHour * 60 + brazilMinute;
       
       console.log(`🕐 Current UTC time: ${currentHour}:${currentMinute}`);
