@@ -1,4 +1,4 @@
-// Firebase Service Worker v2.5.0 FORCE UPDATE - iOS 16.4+ Compatible - Timestamp: 1753835600000
+// Firebase Service Worker v2.6.0 CRITICAL FIX - iOS Native Push Priority - Timestamp: 1753836000000
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
@@ -33,7 +33,7 @@ let badgeCount = 0;
 
 // ✅ NOVO: Service Worker Lifecycle - PERSISTENT REGISTRATION
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.5.0 - FORCE UPDATE');
+  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.6.0 - CRITICAL FIX');
   
   // Force immediate activation and claim all clients
   self.skipWaiting();
@@ -47,7 +47,7 @@ self.addEventListener('install', (event) => {
         const store = tx.objectStore('sw_data');
         await store.put({ 
           installed_at: Date.now(),
-          version: '2.5.0', // FORCE UPDATE
+          version: '2.6.0', // CRITICAL FIX
           persistent: true,
           last_heartbeat: Date.now(),
           wake_up_attempts: 0
@@ -62,7 +62,7 @@ self.addEventListener('install', (event) => {
 
 // Initialize badge count from storage
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating for iOS compatibility v2.5.0 - FORCE UPDATE');
+  console.log('[SW] Activating for iOS compatibility v2.6.0 - CRITICAL FIX');
   
   event.waitUntil(
     (async () => {
@@ -305,9 +305,9 @@ async function updateBadge(count) {
 let lastNotificationTimestamp = 0;
 const NOTIFICATION_DEBOUNCE = 2000;
 
-// ✅ NOVO: iOS Native Push Event Handler - ENHANCED
+// ✅ CORRIGIDO: iOS Native Push Event Handler - PRIORITY HANDLER
 self.addEventListener('push', (event) => {
-  console.log('[SW] 🍎 iOS Native Push Event received:', event);
+  console.log('[SW] 🍎 iOS Native Push Event received (v2.5.0):', event);
   
   if (!event.data) {
     console.log('[SW] No data in push event');
@@ -316,34 +316,35 @@ self.addEventListener('push', (event) => {
 
   try {
     const data = event.data.json();
-    console.log('[SW] Push data parsed:', data);
+    console.log('[SW] ✅ Push data parsed successfully:', data);
 
-    // Handle iOS-compatible payload format
+    // ✅ CRITICAL: Handle iOS-compatible payload format
     if (data.notification) {
       const notificationData = data.notification;
       const customData = data.data || {};
       
-      console.log('[SW] Processing iOS notification:', notificationData);
-      console.log('[SW] Custom data:', customData);
-      console.log('[SW] Full payload data:', data);
+      console.log('[SW] ✅ Processing iOS notification (NATIVE HANDLER):', notificationData);
+      console.log('[SW] ✅ Custom data:', customData);
+      console.log('[SW] ✅ Full payload:', JSON.stringify(data, null, 2));
       
       // Increment badge
       updateBadge(badgeCount + 1);
       
-      // ✅ CORRIGIDO: Use notification data first, then custom data
+      // ✅ CRITICAL FIX: Use exact notification data from payload
       const notificationTitle = notificationData.title || 'Charlotte';
       const notificationBody = notificationData.body || 'Nova mensagem!';
       
-      console.log('[SW] Using title:', notificationTitle);
-      console.log('[SW] Using body:', notificationBody);
+      console.log('[SW] ✅ FINAL Title:', notificationTitle);
+      console.log('[SW] ✅ FINAL Body:', notificationBody);
       
       const notificationOptions = {
         body: notificationBody,
         icon: notificationData.icon || '/icons/icon-192x192.png',
         badge: notificationData.badge || '/icons/icon-72x72.png',
-        tag: notificationData.tag || customData.tag || 'charlotte-ios-push',
+        tag: notificationData.tag || customData.tag || 'charlotte-ios-native',
         requireInteraction: true,
         silent: false,
+        timestamp: Date.now(),
         data: {
           url: customData.url || '/chat',
           click_action: customData.click_action || '/chat',
@@ -351,20 +352,24 @@ self.addEventListener('push', (event) => {
           test_type: customData.test_type || 'basic',
           custom_emoji: customData.custom_emoji,
           custom_timestamp: customData.custom_timestamp,
+          handler: 'native_push',
           ...customData
         }
       };
+
+      console.log('[SW] ✅ Showing iOS native notification with options:', notificationOptions);
 
       event.waitUntil(
         self.registration.showNotification(
           notificationTitle,
           notificationOptions
-        )
+        ).then(() => {
+          console.log('[SW] ✅ iOS native notification displayed successfully!');
+        })
       );
       
-      console.log('[SW] ✅ iOS notification displayed successfully');
     } else {
-      console.log('[SW] No notification data in payload');
+      console.log('[SW] ❌ No notification data in payload');
     }
     
   } catch (error) {
@@ -380,7 +385,8 @@ self.addEventListener('push', (event) => {
         requireInteraction: true,
         data: {
           url: '/chat',
-          platform: 'ios'
+          platform: 'ios',
+          handler: 'fallback'
         }
       })
     );
@@ -454,9 +460,15 @@ self.addEventListener('notificationclose', (event) => {
   updateBadge(Math.max(0, badgeCount - 1));
 });
 
-// Enhanced background message handler for Firebase (maintains compatibility)
+// ✅ CORRIGIDO: Disable Firebase handler for iOS - let native push handle it
 messaging.onBackgroundMessage((payload) => {
   console.log('[SW] Firebase background message received:', payload);
+  
+  // ✅ CRITICAL FIX: Skip Firebase processing for iOS - use native push handler
+  if (isIOS) {
+    console.log('[SW] ✅ iOS detected - skipping Firebase handler, using native push handler');
+    return; // Let the native push handler process the notification
+  }
 
   const now = Date.now();
   if (now - lastNotificationTimestamp < NOTIFICATION_DEBOUNCE) {
