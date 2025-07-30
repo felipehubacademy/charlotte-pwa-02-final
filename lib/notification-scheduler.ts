@@ -160,6 +160,7 @@ export class NotificationScheduler {
         console.error('❌ Error fetching all users:', allUsersError);
       } else {
         console.log('🔍 DEBUG: All users sample:', allUsers?.slice(0, 3));
+        console.log('🔍 DEBUG: Users with 13:30 time:', allUsers?.filter(u => u.preferred_reminder_time === '13:30:00'));
       }
 
       // ✅ DEBUG: Buscar notification_preferences separadamente
@@ -172,6 +173,7 @@ export class NotificationScheduler {
         console.error('❌ Error fetching preferences:', prefsError);
       } else {
         console.log('🔍 DEBUG: All preferences sample:', allPrefs?.slice(0, 3));
+        console.log('🔍 DEBUG: Users with practice_reminders=true:', allPrefs?.filter(p => p.practice_reminders));
       }
 
       const { data: eligibleUsers, error } = await supabase
