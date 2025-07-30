@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     const { 
       user_id, 
       title = '🎉 Charlotte Personalizada!',
-      body = 'Esta é uma notificação personalizada com emoji e formatação!',
+      body: messageBody = 'Esta é uma notificação personalizada com emoji e formatação!',
       emoji = '🚀',
       custom_data = {}
     }: { 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
     const customPayload = {
       notification: {
         title: `${emoji} ${title}`,
-        body: body,
+        body: messageBody,
         icon: '/icons/icon-192x192.png',
         badge: '/icons/icon-72x72.png',
         tag: 'charlotte-custom',
