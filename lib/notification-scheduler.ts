@@ -138,8 +138,8 @@ export class NotificationScheduler {
       const brazilHour = brazilTime.getHours();
       const brazilMinute = brazilTime.getMinutes();
       
-      // ✅ BUSCAR USUÁRIOS COM HORÁRIOS PRÓXIMOS (janela de 30 minutos para compensar atraso do Vercel)
-      const timeWindow = 30; // minutos
+      // ✅ BUSCAR USUÁRIOS COM HORÁRIOS PRÓXIMOS (janela de 60 minutos para compensar atraso GRANDE do Vercel)
+      const timeWindow = 60; // minutos - Vercel pode atrasar até 20+ minutos!
       const currentTimeMinutes = brazilHour * 60 + brazilMinute;
       
       console.log(`🕐 Current UTC time: ${currentHour}:${currentMinute}`);
@@ -178,6 +178,22 @@ export class NotificationScheduler {
         console.log('🔍 DEBUG: Users with practice_reminders=true:', allPrefs?.filter(p => p.practice_reminders));
       }
 
+      // ✅ LÓGICA SUPER ROBUSTA: Buscar usuários em múltiplos horários para compensar atrasos extremos do Vercel
+      const times = [];
+      for (let i = -1; i <= 1; i++) { // 1 hora antes, atual, 1 hora depois
+        const hour = brazilHour + i;
+        if (hour >= 0 && hour <= 23) {
+          times.push(`${hour.toString().padStart(2, '0')}:00:00`);
+        }
+      }
+      
+      // Adicionar alguns minutos específicos da hora atual
+      for (let minute of [0, 15, 30, 45]) {
+        times.push(`${brazilHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
+      }
+      
+      console.log(`🔍 Looking for users with times: ${times.join(', ')}`);
+
       const { data: eligibleUsers, error } = await supabase
         .from('users')
         .select(`
@@ -188,8 +204,7 @@ export class NotificationScheduler {
           reminder_frequency
         `)
         .neq('reminder_frequency', 'disabled') // Não enviar para quem desabilitou
-        .gte('preferred_reminder_time', `${Math.floor((currentTimeMinutes - timeWindow) / 60).toString().padStart(2, '0')}:${((currentTimeMinutes - timeWindow) % 60).toString().padStart(2, '0')}:00`)
-        .lte('preferred_reminder_time', `${Math.floor((currentTimeMinutes + timeWindow) / 60).toString().padStart(2, '0')}:${((currentTimeMinutes + timeWindow) % 60).toString().padStart(2, '0')}:00`); // Janela de 15 minutos
+        .in('preferred_reminder_time', times);
 
       if (error) {
         console.error('❌ Error fetching eligible users:', error);
