@@ -133,15 +133,18 @@ export class NotificationScheduler {
       const currentMinute = currentTime.getMinutes();
       const today = currentTime.toISOString().split('T')[0];
       
-      // ✅ CONVERTER UTC PARA BRASIL (UTC-3) - AJUSTADO PARA 14:15
+      // ✅ CONVERTER UTC PARA BRASIL (UTC-3) - BUSCAR HORÁRIOS CONFIGURADOS
       const brazilTime = new Date(currentTime.getTime() - (3 * 60 * 60 * 1000));
       const brazilHour = brazilTime.getHours();
       const brazilMinute = brazilTime.getMinutes();
-      const brazilTimeString = `${brazilHour.toString().padStart(2, '0')}:${brazilMinute.toString().padStart(2, '0')}:00`;
+      
+      // ✅ BUSCAR USUÁRIOS COM HORÁRIOS PRÓXIMOS (janela de 15 minutos)
+      const timeWindow = 15; // minutos
+      const currentTimeMinutes = brazilHour * 60 + brazilMinute;
       
       console.log(`🕐 Current UTC time: ${currentHour}:${currentMinute}`);
       console.log(`🇧🇷 Current Brazil time: ${brazilHour}:${brazilMinute}`);
-      console.log(`🔍 Checking for users with Brazil time: ${brazilTimeString}`);
+      console.log(`🔍 Checking for users with Brazil time in window: ${currentTimeMinutes - timeWindow} - ${currentTimeMinutes + timeWindow} minutes`);
 
       // ✅ DEBUG: Primeiro buscar TODOS os usuários para ver o que temos
       const { data: allUsers, error: allUsersError } = await supabase
@@ -189,7 +192,8 @@ export class NotificationScheduler {
         `)
         .eq('notification_preferences.practice_reminders', true) // Apenas quem quer receber
         .neq('reminder_frequency', 'disabled') // Não enviar para quem desabilitou
-        .eq('preferred_reminder_time', brazilTimeString); // Horário Brasil da hora atual
+        .gte('preferred_reminder_time', `${Math.floor((currentTimeMinutes - timeWindow) / 60).toString().padStart(2, '0')}:${((currentTimeMinutes - timeWindow) % 60).toString().padStart(2, '0')}:00`)
+        .lte('preferred_reminder_time', `${Math.floor((currentTimeMinutes + timeWindow) / 60).toString().padStart(2, '0')}:${((currentTimeMinutes + timeWindow) % 60).toString().padStart(2, '0')}:00`); // Janela de 15 minutos
 
       if (error) {
         console.error('❌ Error fetching eligible users:', error);
