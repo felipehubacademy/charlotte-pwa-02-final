@@ -33,7 +33,7 @@ let badgeCount = 0;
 
 // ✅ NOVO: Service Worker Lifecycle - PERSISTENT REGISTRATION
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing for iOS compatibility - PERSISTENT');
+  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.3.0');
   
   // Skip waiting to activate immediately
   self.skipWaiting();
@@ -47,7 +47,7 @@ self.addEventListener('install', (event) => {
         const store = tx.objectStore('sw_data');
         await store.put({ 
           installed_at: Date.now(),
-          version: '2.2.0',
+          version: '2.3.0', // Updated version
           persistent: true,
           last_heartbeat: Date.now(),
           wake_up_attempts: 0
@@ -241,7 +241,7 @@ self.addEventListener('periodicsync', (event) => {
 // Open IndexedDB for badge persistence
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('charlotte-badges', 4); // ✅ INCREMENTED VERSION
+    const request = indexedDB.open('charlotte-badges', 5); // ✅ INCREMENTED VERSION
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
@@ -267,7 +267,7 @@ async function openDB() {
         db.createObjectStore('wake_up_attempts');
       }
       
-      console.log('[SW] IndexedDB upgraded to version 4');
+      console.log('[SW] IndexedDB upgraded to version 5');
     };
   });
 }
