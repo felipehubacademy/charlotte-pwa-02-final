@@ -144,6 +144,36 @@ export class NotificationScheduler {
 
       console.log(`🕐 Checking reminders window: ${windowStart} - ${windowEnd}`);
 
+      // ✅ DEBUG: Primeiro buscar TODOS os usuários para ver o que temos
+      const { data: allUsers, error: allUsersError } = await supabase
+        .from('users')
+        .select(`
+          id,
+          entra_id,
+          name,
+          preferred_reminder_time,
+          reminder_frequency
+        `)
+        .limit(10);
+
+      if (allUsersError) {
+        console.error('❌ Error fetching all users:', allUsersError);
+      } else {
+        console.log('🔍 DEBUG: All users sample:', allUsers?.slice(0, 3));
+      }
+
+      // ✅ DEBUG: Buscar notification_preferences separadamente
+      const { data: allPrefs, error: prefsError } = await supabase
+        .from('notification_preferences')
+        .select('*')
+        .limit(10);
+
+      if (prefsError) {
+        console.error('❌ Error fetching preferences:', prefsError);
+      } else {
+        console.log('🔍 DEBUG: All preferences sample:', allPrefs?.slice(0, 3));
+      }
+
       const { data: eligibleUsers, error } = await supabase
         .from('users')
         .select(`
@@ -165,6 +195,8 @@ export class NotificationScheduler {
         console.error('❌ Error fetching eligible users:', error);
         return;
       }
+
+      console.log(`🔍 DEBUG: Eligible users found:`, eligibleUsers);
 
       if (!eligibleUsers || eligibleUsers.length === 0) {
         console.log('✅ No users eligible for reminders at this time');
