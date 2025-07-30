@@ -1,19 +1,19 @@
-// Charlotte Service Worker v2.0.0 - iOS Optimized - Timestamp: 1753877000000
+// Charlotte Service Worker v2.0.1 - iOS Optimized - Timestamp: 1753878000000
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-console.log('[SW] 🔥 CHARLOTTE SW v2.0.0 - Service Worker Loading...');
+console.log('[SW] 🔥 CHARLOTTE SW v2.0.1 - Service Worker Loading...');
 console.log('[SW] 🔥 TIMESTAMP:', Date.now());
 console.log('[SW] 🔥 USER AGENT:', navigator.userAgent);
 console.log('[SW] 🔥 SCRIPT LOADED AT:', new Date().toISOString());
-console.log('[SW] 🔥 VERSION: 2.0.0 CHARLOTTE OPTIMIZED');
+console.log('[SW] 🔥 VERSION: 2.0.1 CHARLOTTE OPTIMIZED');
 console.log('[SW] 🔥 SERVICE WORKER IS RUNNING!');
 
-// Platform detection
+// Platform detection (SW context - no window)
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches;
+// Note: isPWAInstalled detection moved to client-side only
 
-console.log('[SW] Platform detection:', { isIOS, isPWAInstalled });
+console.log('[SW] Platform detection:', { isIOS });
 
 // Firebase configuration
 const firebaseConfig = {
@@ -97,7 +97,7 @@ self.addEventListener('install', (event) => {
         await store.put({
           id: 'installation',
           installed_at: Date.now(),
-          version: '2.0.0',
+          version: '2.0.1',
           persistent: true
         });
         
@@ -296,15 +296,15 @@ self.addEventListener('message', (event) => {
   if (type === 'CHECK_IOS_SUPPORT') {
     event.ports[0]?.postMessage({
       isIOS,
-      isPWAInstalled,
-      supportsNotifications: isIOS && isPWAInstalled,
-      version: '2.0.0'
+      isPWAInstalled: false, // Will be set by client
+      supportsNotifications: isIOS,
+      version: '2.0.1'
     });
   }
   
   if (type === 'KEEP_ALIVE') {
     console.log('[SW] 🔥 CHARLOTTE: Keep alive message received');
-    event.ports[0]?.postMessage({ status: 'alive', version: '2.0.0' });
+    event.ports[0]?.postMessage({ status: 'alive', version: '2.0.1' });
   }
   
   if (type === 'CHECK_SUBSCRIPTION') {
@@ -332,12 +332,12 @@ self.addEventListener('message', (event) => {
   
   if (type === 'HEARTBEAT') {
     console.log('[SW] 🔥 CHARLOTTE: Heartbeat received');
-    event.ports[0]?.postMessage({ status: 'heartbeat_received', version: '2.0.0' });
+    event.ports[0]?.postMessage({ status: 'heartbeat_received', version: '2.0.1' });
   }
   
   if (type === 'FORCE_WAKE_UP') {
     console.log('[SW] 🔥 CHARLOTTE: Force wake-up received');
-    event.ports[0]?.postMessage({ status: 'wake_up_triggered', version: '2.0.0' });
+    event.ports[0]?.postMessage({ status: 'wake_up_triggered', version: '2.0.1' });
   }
 });
 
