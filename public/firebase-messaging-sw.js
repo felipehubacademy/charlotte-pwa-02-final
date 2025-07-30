@@ -324,15 +324,17 @@ self.addEventListener('push', (event) => {
       const customData = data.data || {};
       
       console.log('[SW] Processing iOS notification:', notificationData);
+      console.log('[SW] Custom data:', customData);
       
       // Increment badge
       updateBadge(badgeCount + 1);
       
+      // ✅ NOVO: Enhanced notification options with custom data
       const notificationOptions = {
-        body: notificationData.body || 'Nova mensagem!',
+        body: notificationData.body || customData.body || 'Nova mensagem!',
         icon: notificationData.icon || '/icons/icon-192x192.png',
         badge: notificationData.badge || '/icons/icon-72x72.png',
-        tag: notificationData.tag || 'charlotte-ios-push',
+        tag: notificationData.tag || customData.tag || 'charlotte-ios-push',
         requireInteraction: true,
         silent: false,
         data: {
@@ -340,13 +342,22 @@ self.addEventListener('push', (event) => {
           click_action: customData.click_action || '/chat',
           platform: 'ios',
           test_type: customData.test_type || 'basic',
+          custom_emoji: customData.custom_emoji,
+          custom_title: customData.custom_title,
+          custom_body: customData.custom_body,
           ...customData
         }
       };
 
+      // ✅ NOVO: Use custom title if available
+      const notificationTitle = notificationData.title || customData.custom_title || 'Charlotte';
+      
+      console.log('[SW] Showing notification with title:', notificationTitle);
+      console.log('[SW] Notification body:', notificationOptions.body);
+
       event.waitUntil(
         self.registration.showNotification(
-          notificationData.title || 'Charlotte',
+          notificationTitle,
           notificationOptions
         )
       );
