@@ -33,7 +33,7 @@ let badgeCount = 0;
 
 // ✅ NOVO: Service Worker Lifecycle - PERSISTENT REGISTRATION
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.3.0');
+  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.4.0');
   
   // Skip waiting to activate immediately
   self.skipWaiting();
@@ -47,7 +47,7 @@ self.addEventListener('install', (event) => {
         const store = tx.objectStore('sw_data');
         await store.put({ 
           installed_at: Date.now(),
-          version: '2.3.0', // Updated version
+          version: '2.4.0', // Updated version
           persistent: true,
           last_heartbeat: Date.now(),
           wake_up_attempts: 0
@@ -241,7 +241,7 @@ self.addEventListener('periodicsync', (event) => {
 // Open IndexedDB for badge persistence
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('charlotte-badges', 5); // ✅ INCREMENTED VERSION
+    const request = indexedDB.open('charlotte-badges', 6); // ✅ INCREMENTED VERSION
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
@@ -267,7 +267,7 @@ async function openDB() {
         db.createObjectStore('wake_up_attempts');
       }
       
-      console.log('[SW] IndexedDB upgraded to version 5');
+      console.log('[SW] IndexedDB upgraded to version 6');
     };
   });
 }
@@ -325,13 +325,20 @@ self.addEventListener('push', (event) => {
       
       console.log('[SW] Processing iOS notification:', notificationData);
       console.log('[SW] Custom data:', customData);
+      console.log('[SW] Full payload data:', data);
       
       // Increment badge
       updateBadge(badgeCount + 1);
       
-      // ✅ NOVO: Enhanced notification options with custom data
+      // ✅ CORRIGIDO: Use notification data first, then custom data
+      const notificationTitle = notificationData.title || 'Charlotte';
+      const notificationBody = notificationData.body || 'Nova mensagem!';
+      
+      console.log('[SW] Using title:', notificationTitle);
+      console.log('[SW] Using body:', notificationBody);
+      
       const notificationOptions = {
-        body: notificationData.body || customData.body || 'Nova mensagem!',
+        body: notificationBody,
         icon: notificationData.icon || '/icons/icon-192x192.png',
         badge: notificationData.badge || '/icons/icon-72x72.png',
         tag: notificationData.tag || customData.tag || 'charlotte-ios-push',
@@ -343,17 +350,10 @@ self.addEventListener('push', (event) => {
           platform: 'ios',
           test_type: customData.test_type || 'basic',
           custom_emoji: customData.custom_emoji,
-          custom_title: customData.custom_title,
-          custom_body: customData.custom_body,
+          custom_timestamp: customData.custom_timestamp,
           ...customData
         }
       };
-
-      // ✅ NOVO: Use custom title if available
-      const notificationTitle = notificationData.title || customData.custom_title || 'Charlotte';
-      
-      console.log('[SW] Showing notification with title:', notificationTitle);
-      console.log('[SW] Notification body:', notificationOptions.body);
 
       event.waitUntil(
         self.registration.showNotification(
