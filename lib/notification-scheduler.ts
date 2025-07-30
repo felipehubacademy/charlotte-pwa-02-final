@@ -185,12 +185,8 @@ export class NotificationScheduler {
           entra_id,
           name,
           preferred_reminder_time,
-          reminder_frequency,
-          notification_preferences (
-            practice_reminders
-          )
+          reminder_frequency
         `)
-        .eq('notification_preferences.practice_reminders', true) // Apenas quem quer receber
         .neq('reminder_frequency', 'disabled') // Não enviar para quem desabilitou
         .gte('preferred_reminder_time', `${Math.floor((currentTimeMinutes - timeWindow) / 60).toString().padStart(2, '0')}:${((currentTimeMinutes - timeWindow) % 60).toString().padStart(2, '0')}:00`)
         .lte('preferred_reminder_time', `${Math.floor((currentTimeMinutes + timeWindow) / 60).toString().padStart(2, '0')}:${((currentTimeMinutes + timeWindow) % 60).toString().padStart(2, '0')}:00`); // Janela de 15 minutos
