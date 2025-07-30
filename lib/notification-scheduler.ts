@@ -160,7 +160,7 @@ export class NotificationScheduler {
         console.error('❌ Error fetching all users:', allUsersError);
       } else {
         console.log('🔍 DEBUG: All users sample:', allUsers?.slice(0, 3));
-        console.log('🔍 DEBUG: Users with 13:30 time:', allUsers?.filter(u => u.preferred_reminder_time === '13:30:00'));
+        console.log('🔍 DEBUG: Users with 10:30 time:', allUsers?.filter(u => u.preferred_reminder_time === '10:30:00'));
       }
 
       // ✅ DEBUG: Buscar notification_preferences separadamente
