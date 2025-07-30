@@ -1,4 +1,4 @@
-// Firebase Service Worker v2.6.0 CRITICAL FIX - iOS Native Push Priority - Timestamp: 1753836000000
+// Firebase Service Worker v3.0.0 CACHE BREAKER - iOS Native Push Priority - Timestamp: 1753869200000
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
@@ -31,9 +31,40 @@ console.log('[SW] Platform detection:', { isIOS, isPWAInstalled });
 // Badge counter (persistent across SW restarts via IndexedDB)
 let badgeCount = 0;
 
-// ✅ NOVO: Service Worker Lifecycle - PERSISTENT REGISTRATION
+// ✅ CACHE BREAKER: Force complete cache cleanup
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing for iOS compatibility - PERSISTENT v2.6.0 - CRITICAL FIX');
+  console.log('[SW] 🔥 CACHE BREAKER v3.0.0 - FORCING COMPLETE UPDATE');
+  
+  // ✅ DRASTIC: Delete ALL caches and force immediate activation
+  event.waitUntil(
+    (async () => {
+      // Delete all existing caches
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map(cacheName => {
+          console.log('[SW] 🗑️ Deleting cache:', cacheName);
+          return caches.delete(cacheName);
+        })
+      );
+      console.log('[SW] 🧹 All caches deleted');
+      
+      // Clear all IndexedDB stores
+      try {
+        const db = await openDB();
+        const stores = ['badges', 'sw_data', 'heartbeat', 'wake_up_attempts'];
+        for (const storeName of stores) {
+          if (db.objectStoreNames.contains(storeName)) {
+            const tx = db.transaction([storeName], 'readwrite');
+            const store = tx.objectStore(storeName);
+            await store.clear();
+            console.log('[SW] 🗑️ Cleared store:', storeName);
+          }
+        }
+      } catch (error) {
+        console.log('[SW] IndexedDB clear error (expected):', error);
+      }
+    })()
+  );
   
   // Force immediate activation and claim all clients
   self.skipWaiting();
@@ -47,7 +78,7 @@ self.addEventListener('install', (event) => {
         const store = tx.objectStore('sw_data');
         await store.put({ 
           installed_at: Date.now(),
-          version: '2.6.0', // CRITICAL FIX
+          version: '3.0.0', // CACHE BREAKER
           persistent: true,
           last_heartbeat: Date.now(),
           wake_up_attempts: 0
@@ -62,7 +93,7 @@ self.addEventListener('install', (event) => {
 
 // Initialize badge count from storage
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating for iOS compatibility v2.6.0 - CRITICAL FIX');
+  console.log('[SW] 🔥 Activating CACHE BREAKER v3.0.0 - FORCING COMPLETE RESET');
   
   event.waitUntil(
     (async () => {
@@ -241,7 +272,7 @@ self.addEventListener('periodicsync', (event) => {
 // Open IndexedDB for badge persistence
 async function openDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open('charlotte-badges', 7); // ✅ FORCE UPDATE VERSION
+    const request = indexedDB.open('charlotte-badges', 8); // ✅ CACHE BREAKER VERSION
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
     request.onupgradeneeded = (event) => {
