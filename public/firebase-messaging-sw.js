@@ -1,12 +1,21 @@
-// Firebase Service Worker v4.0.3 FORCE UPDATE - iOS Push Standards - Timestamp: 1753874000000
+// Firebase Service Worker v4.0.4 ULTRA FORCE - iOS Push Standards - Timestamp: 1753875000000
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// ✅ FORCE UPDATE: Ultra aggressive logging
-console.log('[SW] 🔥 FORCE UPDATE v4.0.3 - Service Worker Loading...');
+// ✅ ULTRA FORCE: Maximum aggressive logging
+console.log('[SW] 🔥 ULTRA FORCE v4.0.4 - Service Worker Loading...');
 console.log('[SW] 🔥 TIMESTAMP:', Date.now());
 console.log('[SW] 🔥 USER AGENT:', navigator.userAgent);
 console.log('[SW] 🔥 SCRIPT LOADED AT:', new Date().toISOString());
+console.log('[SW] 🔥 VERSION: 4.0.4 ULTRA FORCE');
+console.log('[SW] 🔥 SERVICE WORKER EXECUTING NOW!');
+
+// ✅ ULTRA FORCE: Skip waiting and claim immediately
+self.skipWaiting();
+self.clients.claim().then(() => {
+  console.log('[SW] 🔥 ULTRA FORCE: Service Worker claimed all clients!');
+  console.log('[SW] 🔥 ULTRA FORCE: Service Worker is now controlling all pages!');
+});
 
 // Unified Firebase configuration
 const firebaseConfig = {
@@ -21,10 +30,11 @@ const firebaseConfig = {
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 
-// ✅ FORCE UPDATE: More aggressive logging
+// ✅ ULTRA FORCE: More aggressive logging
 console.log('[SW] 🔥 Firebase initialized');
 console.log('[SW] 🔥 Service Worker script loaded successfully');
-console.log('[SW] 🔥 VERSION: 4.0.3 FORCE UPDATE');
+console.log('[SW] 🔥 VERSION: 4.0.4 ULTRA FORCE');
+console.log('[SW] 🔥 SERVICE WORKER IS RUNNING!');
 
 // ✅ FORCE UPDATE: Aggressive cache busting and logging
 console.log('[SW] 🔥 FORCE UPDATE v3.0.1 - Service Worker Loading...');
