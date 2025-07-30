@@ -374,6 +374,7 @@ self.addEventListener('push', (event) => {
       try {
         const data = event.data.json();
         console.log('[SW] ✅ Push data parsed:', data);
+        console.log('[SW] 🔍 FULL PAYLOAD STRUCTURE:', JSON.stringify(data, null, 2));
 
         // ✅ iOS NATIVE PUSH: Handle iOS-compatible payload format
         if (data.notification) {
@@ -382,6 +383,8 @@ self.addEventListener('push', (event) => {
           
           console.log('[SW] ✅ Processing iOS native notification:', notificationData);
           console.log('[SW] ✅ Custom data:', customData);
+          console.log('[SW] 🎯 NOTIFICATION TITLE:', notificationData.title);
+          console.log('[SW] 🎯 NOTIFICATION BODY:', notificationData.body);
           
           // Increment badge
           updateBadge(badgeCount + 1);
