@@ -1,4 +1,4 @@
-// Firebase Service Worker v3.0.0 CACHE BREAKER - iOS Native Push Priority - Timestamp: 1753869200000
+// Firebase Service Worker v3.0.0 CRITICAL EVENT.WAITUNTIL FIX - iOS Push Standards - Timestamp: 1753870000000
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
@@ -336,92 +336,99 @@ async function updateBadge(count) {
 let lastNotificationTimestamp = 0;
 const NOTIFICATION_DEBOUNCE = 2000;
 
-// ✅ CORRIGIDO: iOS Native Push Event Handler - PRIORITY HANDLER
+// ✅ CRITICAL FIX: iOS Native Push Event Handler - WAITUNTIL REQUIRED
 self.addEventListener('push', (event) => {
-  console.log('[SW] 🍎 iOS Native Push Event received (v2.5.0):', event);
+  console.log('[SW] 🍎 iOS Push Event received (CRITICAL FIX v3.0.0):', event);
   
-  if (!event.data) {
-    console.log('[SW] No data in push event');
-    return;
-  }
+  // ✅ CRITICAL: iOS requires event.waitUntil() to prevent subscription cancellation
+  event.waitUntil(
+    (async () => {
+      if (!event.data) {
+        console.log('[SW] No data in push event - showing default notification');
+        return self.registration.showNotification('Charlotte', {
+          body: 'Nova mensagem recebida!',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: 'charlotte-default',
+          requireInteraction: true,
+          data: { url: '/chat', platform: 'ios', handler: 'no_data' }
+        });
+      }
 
-  try {
-    const data = event.data.json();
-    console.log('[SW] ✅ Push data parsed successfully:', data);
+      try {
+        const data = event.data.json();
+        console.log('[SW] ✅ Push data parsed:', data);
 
-    // ✅ CRITICAL: Handle iOS-compatible payload format
-    if (data.notification) {
-      const notificationData = data.notification;
-      const customData = data.data || {};
-      
-      console.log('[SW] ✅ Processing iOS notification (NATIVE HANDLER):', notificationData);
-      console.log('[SW] ✅ Custom data:', customData);
-      console.log('[SW] ✅ Full payload:', JSON.stringify(data, null, 2));
-      
-      // Increment badge
-      updateBadge(badgeCount + 1);
-      
-      // ✅ CRITICAL FIX: Use exact notification data from payload
-      const notificationTitle = notificationData.title || 'Charlotte';
-      const notificationBody = notificationData.body || 'Nova mensagem!';
-      
-      console.log('[SW] ✅ FINAL Title:', notificationTitle);
-      console.log('[SW] ✅ FINAL Body:', notificationBody);
-      
-      const notificationOptions = {
-        body: notificationBody,
-        icon: notificationData.icon || '/icons/icon-192x192.png',
-        badge: notificationData.badge || '/icons/icon-72x72.png',
-        tag: notificationData.tag || customData.tag || 'charlotte-ios-native',
-        requireInteraction: true,
-        silent: false,
-        timestamp: Date.now(),
-        data: {
-          url: customData.url || '/chat',
-          click_action: customData.click_action || '/chat',
-          platform: 'ios',
-          test_type: customData.test_type || 'basic',
-          custom_emoji: customData.custom_emoji,
-          custom_timestamp: customData.custom_timestamp,
-          handler: 'native_push',
-          ...customData
+        // Handle iOS-compatible payload format
+        if (data.notification) {
+          const notificationData = data.notification;
+          const customData = data.data || {};
+          
+          console.log('[SW] ✅ Processing notification:', notificationData);
+          console.log('[SW] ✅ Custom data:', customData);
+          
+          // Increment badge
+          updateBadge(badgeCount + 1);
+          
+          // Use notification data from payload
+          const notificationTitle = notificationData.title || 'Charlotte';
+          const notificationBody = notificationData.body || 'Nova mensagem!';
+          
+          console.log('[SW] 🎯 DISPLAYING:', notificationTitle, '|', notificationBody);
+          
+          const notificationOptions = {
+            body: notificationBody,
+            icon: notificationData.icon || '/icons/icon-192x192.png',
+            badge: notificationData.badge || '/icons/icon-72x72.png',
+            tag: notificationData.tag || customData.tag || 'charlotte-ios-push',
+            requireInteraction: true,
+            silent: false,
+            timestamp: Date.now(),
+            data: {
+              url: customData.url || '/chat',
+              click_action: customData.click_action || '/chat',
+              platform: 'ios',
+              test_type: customData.test_type || 'basic',
+              custom_emoji: customData.custom_emoji,
+              custom_timestamp: customData.custom_timestamp,
+              handler: 'push_handler',
+              ...customData
+            }
+          };
+
+          // ✅ CRITICAL: Return the promise for event.waitUntil()
+          return self.registration.showNotification(notificationTitle, notificationOptions)
+            .then(() => {
+              console.log('[SW] ✅ Notification displayed successfully via push handler!');
+            });
+          
+        } else {
+          console.log('[SW] ❌ No notification data in payload - showing fallback');
+          return self.registration.showNotification('Charlotte', {
+            body: 'Nova mensagem!',
+            icon: '/icons/icon-192x192.png',
+            badge: '/icons/icon-72x72.png',
+            tag: 'charlotte-no-notification',
+            requireInteraction: true,
+            data: { url: '/chat', platform: 'ios', handler: 'no_notification_data' }
+          });
         }
-      };
-
-      console.log('[SW] ✅ Showing iOS native notification with options:', notificationOptions);
-
-      event.waitUntil(
-        self.registration.showNotification(
-          notificationTitle,
-          notificationOptions
-        ).then(() => {
-          console.log('[SW] ✅ iOS native notification displayed successfully!');
-        })
-      );
-      
-    } else {
-      console.log('[SW] ❌ No notification data in payload');
-    }
-    
-  } catch (error) {
-    console.error('[SW] ❌ Error processing iOS push event:', error);
-    
-    // Fallback notification for iOS
-    event.waitUntil(
-      self.registration.showNotification('Charlotte', {
-        body: 'Nova mensagem recebida!',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
-        tag: 'charlotte-fallback',
-        requireInteraction: true,
-        data: {
-          url: '/chat',
-          platform: 'ios',
-          handler: 'fallback'
-        }
-      })
-    );
-  }
+        
+      } catch (error) {
+        console.error('[SW] ❌ Error processing push event:', error);
+        
+        // ✅ CRITICAL: Always return a promise for event.waitUntil()
+        return self.registration.showNotification('Charlotte', {
+          body: 'Erro ao processar notificação',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: 'charlotte-error',
+          requireInteraction: true,
+          data: { url: '/chat', platform: 'ios', handler: 'error_fallback' }
+        });
+      }
+    })()
+  );
 });
 
 // ✅ NOVO: Enhanced Notification Click Handler for iOS
