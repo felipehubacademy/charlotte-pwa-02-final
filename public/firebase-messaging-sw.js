@@ -1,6 +1,11 @@
-// Firebase Service Worker v3.0.1 FORCE UPDATE - iOS Push Standards - Timestamp: 1753872000000
+// Firebase Service Worker v4.0.2 FORCE DEBUG - iOS Push Standards - Timestamp: 1753873000000
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
+
+// ✅ FORCE DEBUG: Aggressive logging from the start
+console.log('[SW] 🔥 FORCE DEBUG v4.0.2 - Service Worker Loading...');
+console.log('[SW] 🔥 TIMESTAMP:', Date.now());
+console.log('[SW] 🔥 USER AGENT:', navigator.userAgent);
 
 // Unified Firebase configuration
 const firebaseConfig = {
@@ -14,6 +19,10 @@ const firebaseConfig = {
 
 // Initialize Firebase
 firebase.initializeApp(firebaseConfig);
+
+// ✅ FORCE DEBUG: More aggressive logging
+console.log('[SW] 🔥 Firebase initialized');
+console.log('[SW] 🔥 Service Worker script loaded successfully');
 
 // ✅ FORCE UPDATE: Aggressive cache busting and logging
 console.log('[SW] 🔥 FORCE UPDATE v3.0.1 - Service Worker Loading...');
