@@ -131,11 +131,16 @@ export class NotificationScheduler {
       const currentTime = new Date();
       const currentHour = currentTime.getHours();
       const currentMinute = currentTime.getMinutes();
-      // Buscar usuários que devem receber notificações agora
-      // Buscar usuários com horário exato da hora atual
-      const currentTimeString = `${currentHour.toString().padStart(2, '0')}:00:00`;
-
-      console.log(`🕐 Checking for users with exact time: ${currentTimeString}`);
+      const today = currentTime.toISOString().split('T')[0];
+      
+      // ✅ CONVERTER UTC PARA BRASIL (UTC-3)
+      const brazilTime = new Date(currentTime.getTime() - (3 * 60 * 60 * 1000));
+      const brazilHour = brazilTime.getHours();
+      const brazilTimeString = `${brazilHour.toString().padStart(2, '0')}:00:00`;
+      
+      console.log(`🕐 Current UTC time: ${currentHour}:${currentMinute}`);
+      console.log(`🇧🇷 Current Brazil time: ${brazilHour}:00`);
+      console.log(`🔍 Checking for users with Brazil time: ${brazilTimeString}`);
 
       // ✅ DEBUG: Primeiro buscar TODOS os usuários para ver o que temos
       const { data: allUsers, error: allUsersError } = await supabase
@@ -183,7 +188,7 @@ export class NotificationScheduler {
         `)
         .eq('notification_preferences.practice_reminders', true) // Apenas quem quer receber
         .neq('reminder_frequency', 'disabled') // Não enviar para quem desabilitou
-        .eq('preferred_reminder_time', currentTimeString); // Horário exato da hora atual
+        .eq('preferred_reminder_time', brazilTimeString); // Horário Brasil da hora atual
 
       if (error) {
         console.error('❌ Error fetching eligible users:', error);
