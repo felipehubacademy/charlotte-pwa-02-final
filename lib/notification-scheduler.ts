@@ -131,18 +131,11 @@ export class NotificationScheduler {
       const currentTime = new Date();
       const currentHour = currentTime.getHours();
       const currentMinute = currentTime.getMinutes();
-      const currentTimeString = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}:00`;
-      const dayOfWeek = currentTime.getDay(); // 0 = Sunday, 1 = Monday, etc.
-      const today = currentTime.toISOString().split('T')[0];
-
-      console.log(`🕐 Current time: ${currentTimeString}, Day: ${dayOfWeek}`);
-
       // Buscar usuários que devem receber notificações agora
-      // Janela flexível: busca usuários que deveriam ter recebido na última hora
-      const windowStart = `${currentHour}:00:00`;
-      const windowEnd = `${currentHour}:59:59`;
+      // Buscar usuários com horário exato da hora atual
+      const currentTimeString = `${currentHour.toString().padStart(2, '0')}:00:00`;
 
-      console.log(`🕐 Checking reminders window: ${windowStart} - ${windowEnd}`);
+      console.log(`🕐 Checking for users with exact time: ${currentTimeString}`);
 
       // ✅ DEBUG: Primeiro buscar TODOS os usuários para ver o que temos
       const { data: allUsers, error: allUsersError } = await supabase
@@ -190,8 +183,7 @@ export class NotificationScheduler {
         `)
         .eq('notification_preferences.practice_reminders', true) // Apenas quem quer receber
         .neq('reminder_frequency', 'disabled') // Não enviar para quem desabilitou
-        .gte('preferred_reminder_time', windowStart) // Início da hora atual
-        .lte('preferred_reminder_time', windowEnd); // Fim da hora atual
+        .eq('preferred_reminder_time', currentTimeString); // Horário exato da hora atual
 
       if (error) {
         console.error('❌ Error fetching eligible users:', error);
