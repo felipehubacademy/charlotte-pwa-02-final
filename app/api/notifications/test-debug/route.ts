@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing user_id' }, { status: 400 });
     }
     
-    const results = {
+    const results: any = {
       user_id,
       timestamp: new Date().toISOString(),
       tests: {}
