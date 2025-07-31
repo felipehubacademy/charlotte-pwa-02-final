@@ -1,0 +1,2 @@
+Force deploy trigger at $(date)
+Fixing Vercel deployment issues for notifications API
