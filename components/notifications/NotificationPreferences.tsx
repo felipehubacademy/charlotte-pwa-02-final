@@ -239,7 +239,7 @@ export default function NotificationPreferences() {
               >
                 <option value="08:00" className="bg-gray-800 text-white">08:00</option>
                 <option value="10:00" className="bg-gray-800 text-white">10:00</option>
-                <option value="10:25" className="bg-gray-800 text-white">10:25 (TESTE AGORA)</option>
+                <option value="10:30" className="bg-gray-800 text-white">10:30 (TESTE SINCRONIZADO)</option>
                 <option value="12:00" className="bg-gray-800 text-white">12:00</option>
                 <option value="13:00" className="bg-gray-800 text-white">13:00</option>
                 <option value="15:30" className="bg-gray-800 text-white">15:30</option>

@@ -300,10 +300,12 @@ export class ReengagementNotificationService {
             console.log(`📨 Sending to ${sub.platform}: ${sub.endpoint.substring(0, 50)}...`);
             
             const payload = JSON.stringify({
-              title: notification.title,
-              body: notification.body,
-              icon: '/icons/icon-192x192.png',
-              badge: '/icons/icon-72x72.png',
+              notification: {
+                title: notification.title,
+                body: notification.body,
+                icon: '/icons/icon-192x192.png',
+                badge: '/icons/icon-72x72.png'
+              },
               data: {
                 url: notification.url || '/chat',
                 ...notification.data,
