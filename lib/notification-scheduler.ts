@@ -188,7 +188,7 @@ export class NotificationScheduler {
       }
       
       // Adicionar alguns minutos específicos da hora atual
-      for (let minute of [0, 15, 30, 45]) {
+      for (let minute of [0, 5, 15, 30, 45]) {
         times.push(`${brazilHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
       }
       

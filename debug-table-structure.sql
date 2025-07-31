@@ -1,30 +1,26 @@
--- Script para verificar estrutura da tabela user_achievements
--- Execute no Supabase Dashboard > SQL Editor
+-- VERIFICAR: Onde está o preferred_reminder_time?
+-- Execute no Supabase SQL Editor
 
--- 1. Verificar colunas da tabela
-SELECT 
-  column_name, 
-  data_type, 
-  is_nullable, 
-  column_default,
-  character_maximum_length
+-- 1. Verificar estrutura da tabela users
+SELECT column_name, data_type 
 FROM information_schema.columns 
-WHERE table_name = 'user_achievements' 
-ORDER BY ordinal_position;
+WHERE table_name = 'users' AND column_name LIKE '%reminder%';
 
--- 2. Verificar constraints
+-- 2. Verificar estrutura da tabela notification_preferences  
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'notification_preferences' AND column_name LIKE '%reminder%';
+
+-- 3. Ver onde você atualizou
 SELECT 
-  constraint_name, 
-  constraint_type, 
-  table_name
-FROM information_schema.table_constraints 
-WHERE table_name = 'user_achievements';
-
--- 3. Verificar dados existentes (sample)
-SELECT * FROM user_achievements LIMIT 5;
-
--- 4. Verificar se a tabela existe
-SELECT EXISTS (
-  SELECT FROM information_schema.tables 
-  WHERE table_name = 'user_achievements'
-) as table_exists; 
+  users.name,
+  users.entra_id,
+  users.preferred_reminder_time as users_time,
+  notification_preferences.preferred_reminder_time as prefs_time
+FROM users 
+LEFT JOIN notification_preferences ON users.id = notification_preferences.user_id
+WHERE users.entra_id IN (
+  'cbdf2d66-dfb2-4424-ac9d-bc4b66c666b4',
+  '5ebb9b09-46f3-4499-b099-46a804da6fb6', 
+  'ade732ef-433b-4736-a73e-4e9376664ad2'
+);

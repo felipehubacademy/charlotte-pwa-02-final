@@ -267,10 +267,11 @@ export class ReengagementNotificationService {
       }
 
       // Buscar subscriptions Web Push (iOS, Desktop, Android)
+      // 🔥 CRITICAL FIX: user_id no banco é na verdade entra_id
       const { data: subscriptions, error } = await supabase
         .from('push_subscriptions')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_id', userId)  // userId já é entra_id aqui
         .eq('is_active', true)
         .eq('subscription_type', 'web_push');
 

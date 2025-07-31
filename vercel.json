@@ -5,11 +5,11 @@
       "destination": "/api/assistant"
     }
   ],
-  "crons": [
-    {
-      "path": "/api/notifications/scheduler",
-      "schedule": "15 14 * * *"
-    },
+        "crons": [
+        {
+          "path": "/api/notifications/scheduler",
+          "schedule": "5 15 * * *"
+        },
     {
       "path": "/api/notifications/scheduler",
       "schedule": "0 21 * * *"
