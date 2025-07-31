@@ -18,7 +18,11 @@ declare global {
   }
 }
 
-export default function PWAInstaller() {
+interface PWAInstallerProps {
+  onDismiss?: () => void;
+}
+
+export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -148,6 +152,8 @@ export default function PWAInstaller() {
     setShowBanner(false);
     // Não mostrar novamente nesta sessão
     sessionStorage.setItem('pwa-banner-dismissed', 'true');
+    // Chamar callback se fornecido
+    onDismiss?.();
   };
 
   // Não mostrar se já foi dispensado nesta sessão

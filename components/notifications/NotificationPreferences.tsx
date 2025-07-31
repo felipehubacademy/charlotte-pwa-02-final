@@ -19,6 +19,28 @@ export default function NotificationPreferences() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // 🌍 Determinar idioma baseado no nível do usuário
+  const isPortuguese = user?.user_level === 'Novice';
+  const t = {
+    title: isPortuguese ? 'Preferências de Notificações' : 'Notification Preferences',
+    practiceReminders: isPortuguese ? 'Lembretes de Prática' : 'Practice Reminders',
+    practiceRemindersDesc: isPortuguese ? 'Lembretes para praticar inglês' : 'Reminders to practice English',
+    marketing: isPortuguese ? 'Novidades e Promoções' : 'News and Promotions',
+    marketingDesc: isPortuguese ? 'Novidades, eventos e promoções' : 'News, events and promotions',
+    preferredTime: isPortuguese ? 'Horário preferido:' : 'Preferred time:',
+    frequency: isPortuguese ? 'Frequência:' : 'Frequency:',
+    normal: isPortuguese ? 'Normal (1x por dia)' : 'Normal (1x per day)',
+    frequent: isPortuguese ? 'Frequente (2x por dia)' : 'Frequent (2x per day)',
+    disabled: isPortuguese ? 'Desabilitado' : 'Disabled',
+    morning: isPortuguese ? 'Manhã' : 'Morning',
+    evening: isPortuguese ? 'Noite' : 'Evening',
+    save: isPortuguese ? 'Salvar Preferências' : 'Save Preferences',
+    loading: isPortuguese ? 'Carregando...' : 'Loading...',
+    notAuthenticated: isPortuguese ? '❌ Usuário não autenticado' : '❌ User not authenticated',
+    saveSuccess: isPortuguese ? '✅ Preferências salvas com sucesso!' : '✅ Preferences saved successfully!',
+    saveError: isPortuguese ? 'Erro ao salvar preferências:' : 'Error saving preferences:'
+  };
+
   useEffect(() => {
     async function fetchPrefs() {
       setLoading(true);
@@ -165,7 +187,7 @@ export default function NotificationPreferences() {
       }
 
       console.log('✅ Usuário atualizado:', userData);
-      console.log('✅ Todas as preferências salvas com sucesso!');
+      console.log(t.saveSuccess);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
 
@@ -175,7 +197,7 @@ export default function NotificationPreferences() {
         stack: e?.stack,
         fullError: e
       });
-      setError(`Erro ao salvar preferências: ${e?.message || 'Erro desconhecido'}`);
+      setError(`${t.saveError} ${e?.message || 'Erro desconhecido'}`);
     }
     setLoading(false);
   };
@@ -184,7 +206,7 @@ export default function NotificationPreferences() {
   if (!user) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-red-400 text-sm">❌ Usuário não autenticado</div>
+        <div className="text-red-400 text-sm">{t.notAuthenticated}</div>
       </div>
     );
   }
@@ -192,7 +214,7 @@ export default function NotificationPreferences() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-white/60 text-sm">Carregando...</div>
+        <div className="text-white/60 text-sm">{t.loading}</div>
       </div>
     );
   }
@@ -203,11 +225,11 @@ export default function NotificationPreferences() {
       <div className="bg-white/5 rounded-xl p-5 border border-white/10 hover:bg-white/10 transition-colors">
         <div className="flex items-center space-x-2 mb-4">
           <Bell size={18} className="text-primary" />
-          <span className="text-white/80 text-sm font-medium">Lembretes de Aprendizagem</span>
+          <span className="text-white/80 text-sm font-medium">{t.practiceReminders}</span>
         </div>
         
         <label className="flex items-center justify-between cursor-pointer mb-4">
-          <span className="text-white text-sm">Lembretes de práticas e dicas de estudo</span>
+          <span className="text-white text-sm">{t.practiceRemindersDesc}</span>
           <div className="relative">
             <input
               type="checkbox"
@@ -229,7 +251,7 @@ export default function NotificationPreferences() {
           <div className="space-y-3 border-t border-white/10 pt-4">
             <div className="flex items-center space-x-2">
               <Clock size={16} className="text-primary" />
-              <span className="text-white/80 text-sm">Horário preferido:</span>
+              <span className="text-white/80 text-sm">{t.preferredTime}</span>
               <select
                 value={horario}
                 onChange={(e) => setHorario(e.target.value)}
@@ -237,17 +259,17 @@ export default function NotificationPreferences() {
                          text-white placeholder-white/50 focus:outline-none focus:border-white/40 
                          focus:ring-1 focus:ring-white/20"
               >
-                <option value="08:00" className="bg-gray-800 text-white">08:00 (Manhã)</option>
-                <option value="20:00" className="bg-gray-800 text-white">20:00 (Noite)</option>
+                <option value="08:00" className="bg-gray-800 text-white">08:00 ({t.morning})</option>
+                <option value="20:00" className="bg-gray-800 text-white">20:00 ({t.evening})</option>
               </select>
             </div>
             <div className="flex items-center space-x-2">
               <Settings size={16} className="text-primary" />
-              <span className="text-white/80 text-sm">Frequência:</span>
+              <span className="text-white/80 text-sm">{t.frequency}:</span>
               <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary">
-                <option value="normal" className="bg-gray-800">Normal (1x por dia)</option>
-                <option value="frequent" className="bg-gray-800">Frequente (2x por dia)</option>
-                <option value="disabled" className="bg-gray-800">Desabilitado</option>
+                <option value="normal" className="bg-gray-800">{t.normal}</option>
+                <option value="frequent" className="bg-gray-800">{t.frequent}</option>
+                <option value="disabled" className="bg-gray-800">{t.disabled}</option>
               </select>
             </div>
           </div>
@@ -258,11 +280,11 @@ export default function NotificationPreferences() {
       <div className="bg-white/5 rounded-xl p-5 border border-white/10 hover:bg-white/10 transition-colors">
         <div className="flex items-center space-x-2 mb-4">
           <Gift size={18} className="text-primary" />
-          <span className="text-white/80 text-sm font-medium">Novidades e Promoções</span>
+          <span className="text-white/80 text-sm font-medium">{t.marketing}</span>
         </div>
         
         <label className="flex items-center justify-between cursor-pointer">
-          <span className="text-white text-sm">Novidades, eventos e promoções</span>
+          <span className="text-white text-sm">{t.marketingDesc}</span>
           <div className="relative">
             <input
               type="checkbox"
@@ -288,13 +310,13 @@ export default function NotificationPreferences() {
         disabled={loading}
         className="w-full py-3 px-4 bg-primary text-black font-semibold rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
       >
-        {loading ? 'Salvando...' : 'Salvar Preferências'}
+        {loading ? (isPortuguese ? 'Salvando...' : 'Saving...') : t.save}
       </button>
 
       {/* Feedback */}
       {success && (
         <div className="bg-green-500/20 border border-green-500/30 rounded-xl p-3 text-green-400 text-sm text-center">
-          ✅ Preferências salvas com sucesso!
+          {t.saveSuccess}
         </div>
       )}
       {error && (

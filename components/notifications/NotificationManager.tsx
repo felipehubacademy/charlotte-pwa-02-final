@@ -9,9 +9,10 @@ import IOSInstallGuide from '@/components/IOSInstallGuide';
 
 interface NotificationManagerProps {
   className?: string;
+  onComplete?: () => void;
 }
 
-export default function NotificationManager({ className = '' }: NotificationManagerProps) {
+export default function NotificationManager({ className = '', onComplete }: NotificationManagerProps) {
   const { user } = useAuth();
   const [notificationService] = useState(() => NotificationService.getInstance());
   
@@ -373,6 +374,11 @@ export default function NotificationManager({ className = '' }: NotificationMana
           body: `${fcmSuccess ? 'FCM + ' : ''}${webPushSuccess ? 'Web Push' : 'Basic'} notifications configured`,
           url: '/chat'
         });
+        
+        // 🎯 NOVO: Fechar automaticamente após 3 segundos
+        setTimeout(() => {
+          handleDismiss();
+        }, 3000);
       } else {
         console.error('❌ Both notification systems failed');
       }
@@ -459,6 +465,8 @@ export default function NotificationManager({ className = '' }: NotificationMana
   const handleDismiss = () => {
     setIsDismissed(true);
     localStorage.setItem('notification-setup-dismissed', 'true');
+    localStorage.setItem('notification-setup-completed', 'true');
+    onComplete?.();
   };
 
   const handleResetDismiss = () => {
@@ -660,14 +668,14 @@ export default function NotificationManager({ className = '' }: NotificationMana
           )}
         </div>
 
-        {/* Success message redesenhado - MANTIDO ORIGINAL */}
+        {/* Success message redesenhado - Fecha automaticamente após 3s */}
         {isSubscribed && !needsRecovery && (
-          <div className="mt-4 p-4 bg-green-500/20 border border-green-500/30 rounded-xl backdrop-blur-sm">
-            <div className="flex items-center space-x-2 text-green-300">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse flex-shrink-0"></div>
+          <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-xl backdrop-blur-sm">
+            <div className="flex items-center space-x-2 text-emerald-200">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse flex-shrink-0"></div>
               <span className="font-medium text-sm sm:text-base">✅ Notificações ativadas!</span>
             </div>
-            <p className="text-xs sm:text-sm text-green-300/80 mt-1">
+            <p className="text-xs sm:text-sm text-emerald-200/80 mt-1">
               Você receberá notificações sobre suas conquistas
             </p>
           </div>

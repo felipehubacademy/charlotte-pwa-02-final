@@ -4,7 +4,7 @@ import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { Toaster } from 'react-hot-toast';
 import { Suspense } from 'react';
-import PWAInstaller from '@/components/PWAInstaller';
+
 import ClientLayout from './ClientLayout';
 import IOSAutoRecovery from '@/components/notifications/IOSAutoRecovery';
 
@@ -140,7 +140,6 @@ export default function RootLayout({
         <link rel="canonical" href="https://charlotte-v2.vercel.app" />
       </head>
       <body className={`${inter.className} bg-secondary text-white antialiased`} suppressHydrationWarning>
-        <PWAInstaller />
         <ClientLayout>
         <AuthProvider>
           <Suspense fallback={

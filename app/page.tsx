@@ -106,15 +106,15 @@ export default function LoginPage() {
                 transition={{ duration: 0.6, delay: 0.6 }}
                 onClick={login}
                 disabled={isLoading}
-                className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2"
+                className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 will-change-transform"
               >
-                <svg className="w-5 h-5" viewBox="0 0 21 21" fill="currentColor">
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
                   <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
                   <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
                   <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
                   <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
                 </svg>
-                <span>Entrar com Microsoft</span>
+                <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
               </motion.button>
 
               {/* Feature Icons - Below Button */}
@@ -235,15 +235,15 @@ export default function LoginPage() {
               <button
                 onClick={login}
                 disabled={isLoading}
-                className="bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-8 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center space-x-2"
+                className="bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-8 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center space-x-2 will-change-transform"
               >
-                <svg className="w-5 h-5" viewBox="0 0 21 21" fill="currentColor">
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
                   <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
                   <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
                   <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
                   <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
                 </svg>
-                <span>Entrar com Microsoft</span>
+                <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
               </button>
             </motion.div>
 

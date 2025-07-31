@@ -17,7 +17,7 @@ import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-ac
 import ChatHeader from '@/components/ChatHeader';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
-import NotificationManager from '@/components/notifications/NotificationManager';
+import BannerManager from '@/components/BannerManager';
 import { PWABadgeService } from '@/lib/pwa-badge-service';
 
 const isMobileDevice = () => {
@@ -2185,21 +2185,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onDismiss={handleAchievementsDismissed}
       />
 
-      {/* 🔔 Notification Manager - Aparece apenas DEPOIS do onboarding */}
-      {!showMainTour && (
-        <div className="fixed bottom-4 left-4 right-4 z-[60] sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm lg:bottom-8 lg:left-8 lg:max-w-md">
-          <NotificationManager className="w-full" />
-        </div>
-      )}
-
-      {/* 🎓 NOVO: Onboarding Tour */}
-      <OnboardingTour
-        isOpen={showMainTour}
-        onClose={skipMainTour}
-        userLevel={user?.user_level as 'Novice' | 'Inter' | 'Advanced' || 'Inter'}
-        isMobile={isMobileDevice()}
-        onComplete={completeMainTour}
-      />
+      {/* 🎯 Banner Manager - Gerencia sequência: Tour → PWA → Notificação */}
+      <BannerManager />
     </div>
   );
 }
