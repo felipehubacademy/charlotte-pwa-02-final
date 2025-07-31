@@ -25,8 +25,8 @@ export default function NotificationPreferences() {
     title: isPortuguese ? 'Preferências de Notificações' : 'Notification Preferences',
     practiceReminders: isPortuguese ? 'Lembretes de Prática' : 'Practice Reminders',
     practiceRemindersDesc: isPortuguese ? 'Lembretes para praticar inglês' : 'Reminders to practice English',
-    marketing: isPortuguese ? 'Novidades e Promoções' : 'News and Promotions',
-    marketingDesc: isPortuguese ? 'Novidades, eventos e promoções' : 'News, events and promotions',
+    marketing: isPortuguese ? 'Novidades e Eventos' : 'News and Events',
+    marketingDesc: isPortuguese ? 'Novidades, eventos e atualizações' : 'News, events and updates',
     preferredTime: isPortuguese ? 'Horário preferido:' : 'Preferred time:',
     frequency: isPortuguese ? 'Frequência:' : 'Frequency:',
     normal: isPortuguese ? 'Normal (1x por dia)' : 'Normal (1x per day)',
@@ -276,10 +276,10 @@ export default function NotificationPreferences() {
         )}
       </div>
 
-      {/* Novidades e Promoções */}
+      {/* Novidades e Eventos */}
       <div className="bg-white/5 rounded-xl p-5 border border-white/10 hover:bg-white/10 transition-colors">
         <div className="flex items-center space-x-2 mb-4">
-          <Gift size={18} className="text-primary" />
+          <MessageSquare size={18} className="text-primary" />
           <span className="text-white/80 text-sm font-medium">{t.marketing}</span>
         </div>
         
