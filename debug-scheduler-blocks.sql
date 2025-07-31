@@ -19,7 +19,7 @@ SELECT
   up.created_at as practice_time,
   up.id as practice_id
 FROM users u
-LEFT JOIN user_practices up ON u.id = up.user_id 
+LEFT JOIN user_practices up ON u.id::text = up.user_id::text 
   AND up.created_at >= CURRENT_DATE
   AND up.created_at < CURRENT_DATE + INTERVAL '1 day'
 WHERE u.entra_id IN (
@@ -36,7 +36,7 @@ SELECT
   nl.notification_type,
   nl.status
 FROM users u
-LEFT JOIN notification_logs nl ON u.id = nl.user_id 
+LEFT JOIN notification_logs nl ON u.id::text = nl.user_id::text 
   AND nl.created_at >= NOW() - INTERVAL '2 hours'
   AND nl.notification_type = 'practice_reminder'
 WHERE u.entra_id IN (
