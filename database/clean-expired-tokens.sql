@@ -30,4 +30,4 @@ WHERE u.entra_id IN (
   'cbdf2d66-dfb2-4424-ac9d-bc4b66c666b4'   -- Felipe Xavier - Hub Academy
 )
 AND ps.is_active = true
-ORDER BY u.name, ps.created_at DESC;
+ORDER BY u.name, ps.created_at DESC; 

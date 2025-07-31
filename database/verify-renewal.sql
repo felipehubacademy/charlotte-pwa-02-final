@@ -15,4 +15,4 @@ WHERE u.entra_id IN (
 )
 AND ps.is_active = true
 AND ps.created_at > NOW() - INTERVAL '30 minutes'  -- Tokens dos últimos 30 min
-ORDER BY u.name, ps.created_at DESC;
+ORDER BY u.name, ps.created_at DESC; 

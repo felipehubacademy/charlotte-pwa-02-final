@@ -65,7 +65,7 @@ A tabela já está criada no Supabase com a estrutura correta:
 
 ## 🚀 **IMPLEMENTAÇÃO FUNCIONAL**
 
-### **1. Service Worker (public/firebase-messaging-sw.js)**
+### **1. Service Worker (public/sw.js)**
 ✅ **VAPID key correta hardcoded**
 ✅ **Payload simplificado para iOS**
 ✅ **Actions limitadas (máximo 1 para iOS)**
@@ -78,9 +78,6 @@ A tabela já está criada no Supabase com a estrutura correta:
 ✅ **Configurações iOS-específicas**
 
 ### **3. API Endpoints**
-✅ **`/api/notifications/test-ios`** - Endpoint principal que funciona 100%
-✅ **`/api/notifications/test-working`** - Endpoint alternativo funcional
-✅ **`/api/notifications/subscribe`** - Salva subscriptions corretamente
 ✅ **`/api/notifications/scheduler`** - Para crons automáticos
 
 ---
@@ -109,19 +106,6 @@ A tabela já está criada no Supabase com a estrutura correta:
 ---
 
 ## 🧪 **TESTES COMPROVADOS**
-
-### **Comando de Teste Manual**
-```javascript
-// No console do Safari (iPhone)
-fetch('/api/notifications/test-ios', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ 
-    user_id: 'SEU_USER_ID_AQUI',
-    test_type: 'achievement' 
-  })
-}).then(r => r.json()).then(console.log);
-```
 
 ### **Resposta de Sucesso**
 ```json
@@ -228,8 +212,8 @@ fetch('/api/notifications/test-ios', {
 ## 📈 **SISTEMA DE CRONS AUTOMÁTICOS**
 
 ### **Horários Configurados**
-- 🕕 **18:30 UTC** (15:30 BR) - Practice reminders
-- 🕗 **20:00 UTC** (17:00 BR) - Goal/Streak reminders
+- 🕕 **11:00 UTC** (8:00 BR) - Practice reminders
+- 🕗 **23:00 UTC** (20:00 BR) - Practice reminders
 
 ### **Endpoint**
 ```
@@ -243,11 +227,11 @@ Authorization: Bearer ${CRON_SECRET}
   "crons": [
     {
       "path": "/api/notifications/scheduler",
-      "schedule": "30 18 * * *"
+      "schedule": "0 11 * * *"
     },
     {
       "path": "/api/notifications/scheduler", 
-      "schedule": "0 20 * * *"
+      "schedule": "0 23 * * *"
     }
   ]
 }
@@ -288,8 +272,8 @@ Para dúvidas sobre esta implementação:
 
 ### **Arquivos Atualizados**
 - [ ] `lib/notification-service.ts` com VAPID key correta
-- [ ] `public/firebase-messaging-sw.js` com configuração iOS
-- [ ] `app/api/notifications/test-ios/route.ts` funcionando
+- [ ] `public/sw.js` com configuração iOS
+- [ ] `app/api/notifications/scheduler/route.ts` funcionando
 - [ ] `app/api/notifications/subscribe/route.ts` salvando correto
 
 ### **Testes**

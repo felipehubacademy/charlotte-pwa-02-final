@@ -41,4 +41,4 @@ SELECT
 FROM push_subscriptions ps
 JOIN users u ON ps.user_id::text = u.id::text
 WHERE u.name ILIKE '%felipe%'
-ORDER BY ps.created_at DESC;
+ORDER BY ps.created_at DESC; 

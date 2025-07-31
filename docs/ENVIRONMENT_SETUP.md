@@ -57,4 +57,4 @@ Em vez de:
 
 ```
 ⚠️ SUPABASE_SERVICE_ROLE_KEY not found, using anon key (may cause RLS issues)
-``` 
+```
