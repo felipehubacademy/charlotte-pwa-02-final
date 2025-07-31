@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Bell, Clock, Settings, Gift } from 'lucide-react';
+import { Bell, Clock, Settings, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 // Configure seu client conforme seu ambiente
