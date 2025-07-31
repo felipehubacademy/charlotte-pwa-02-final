@@ -161,8 +161,7 @@ export class NotificationScheduler {
       if (allUsersError) {
         console.error('❌ Error fetching all users:', allUsersError);
       } else {
-        console.log('🔍 DEBUG: All users sample:', allUsers?.slice(0, 3));
-        console.log('🔍 DEBUG: Users with 13:00 time:', allUsers?.filter(u => u.preferred_reminder_time === '13:00:00'));
+        
       }
 
       // ✅ DEBUG: Buscar notification_preferences separadamente
@@ -174,26 +173,26 @@ export class NotificationScheduler {
       if (prefsError) {
         console.error('❌ Error fetching preferences:', prefsError);
       } else {
-        console.log('🔍 DEBUG: All preferences sample:', allPrefs?.slice(0, 3));
-        console.log('🔍 DEBUG: Users with practice_reminders=true:', allPrefs?.filter(p => p.practice_reminders));
+        
       }
 
-      // ✅ LÓGICA SUPER ROBUSTA: Buscar usuários em múltiplos horários para compensar atrasos extremos do Vercel
+      // ✅ LÓGICA PRODUÇÃO: Buscar apenas nos horários de 8h e 20h (com janela de tolerância)
       const times = [];
-      for (let i = -1; i <= 1; i++) { // 1 hora antes, atual, 1 hora depois
-        const hour = brazilHour + i;
-        if (hour >= 0 && hour <= 23) {
-          times.push(`${hour.toString().padStart(2, '0')}:00:00`);
-        }
-      }
       
-      // Adicionar alguns minutos específicos da hora atual E ANTERIOR
-      for (let hour of [brazilHour - 1, brazilHour]) { // Incluir hora anterior também
-        if (hour >= 0 && hour <= 23) {
-          for (let minute of [0, 5, 15, 30, 45]) {
-            times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
-          }
-        }
+      // Determinar qual janela de horário estamos
+      const isMorningWindow = brazilHour >= 7 && brazilHour <= 9;   // 7h-9h = janela manhã
+      const isEveningWindow = brazilHour >= 19 && brazilHour <= 21; // 19h-21h = janela noite
+      
+      if (isMorningWindow) {
+        // Buscar usuários que escolheram 8h
+        times.push('08:00:00');
+      } else if (isEveningWindow) {
+        // Buscar usuários que escolheram 20h
+        times.push('20:00:00');
+      } else {
+        // Fora das janelas de produção, não enviar nada
+        console.log(`⏰ Outside production windows. Brazil time: ${brazilHour}:${brazilMinute}`);
+        return;
       }
       
       console.log(`🔍 Looking for users with times: ${times.join(', ')}`);
@@ -215,7 +214,7 @@ export class NotificationScheduler {
         return;
       }
 
-      console.log(`🔍 DEBUG: Eligible users found:`, eligibleUsers);
+
 
       if (!eligibleUsers || eligibleUsers.length === 0) {
         console.log('✅ No users eligible for reminders at this time');

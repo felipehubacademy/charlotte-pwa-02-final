@@ -7,7 +7,7 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// ✅ HANDLER GET PARA TESTES
+// ✅ GET - API status and configuration check
 export async function GET() {
   try {
     // Verificar se a API key está configurada

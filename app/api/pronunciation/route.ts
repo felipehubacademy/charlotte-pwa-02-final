@@ -41,7 +41,7 @@ interface APIResponse {
   debugInfo?: any;
 }
 
-// ✅ HANDLER GET PARA TESTES
+// ✅ GET - API status and configuration check  
 export async function GET() {
   try {
     // Verificar se as credenciais Azure estão configuradas

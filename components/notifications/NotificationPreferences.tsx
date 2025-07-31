@@ -237,14 +237,8 @@ export default function NotificationPreferences() {
                          text-white placeholder-white/50 focus:outline-none focus:border-white/40 
                          focus:ring-1 focus:ring-white/20"
               >
-                <option value="08:00" className="bg-gray-800 text-white">08:00</option>
-                <option value="10:00" className="bg-gray-800 text-white">10:00</option>
-                <option value="10:30" className="bg-gray-800 text-white">10:30 (TESTE SINCRONIZADO)</option>
-                <option value="12:00" className="bg-gray-800 text-white">12:00</option>
-                <option value="13:00" className="bg-gray-800 text-white">13:00</option>
-                <option value="15:30" className="bg-gray-800 text-white">15:30</option>
-                <option value="18:00" className="bg-gray-800 text-white">18:00 (teste)</option>
-                <option value="20:00" className="bg-gray-800 text-white">20:00</option>
+                <option value="08:00" className="bg-gray-800 text-white">08:00 (Manhã)</option>
+                <option value="20:00" className="bg-gray-800 text-white">20:00 (Noite)</option>
               </select>
             </div>
             <div className="flex items-center space-x-2">

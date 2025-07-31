@@ -3,7 +3,7 @@ import NotificationScheduler from '@/lib/notification-scheduler';
 
 /**
  * 🕐 API para executar o sistema de agendamento de notificações
- * Pode ser chamada por cron jobs externos ou para testes manuais
+ * Executado automaticamente pelo Vercel Cron ou chamadas autenticadas
  */
 export async function POST(request: NextRequest) {
   try {
