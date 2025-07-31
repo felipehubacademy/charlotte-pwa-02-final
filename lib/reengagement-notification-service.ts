@@ -200,11 +200,11 @@ export class ReengagementNotificationService {
     try {
       console.log(`🔔 [REENGAGEMENT] Sending ${notification.type} to user:`, userId);
       
-      // ✅ SISTEMA HÍBRIDO: FCM + Web Push
+      // ✅ ESTRATÉGIA INTELIGENTE: FCM para Android, Web Push para iOS/Desktop
       const results = await Promise.allSettled([
-        // 1. Tentar FCM primeiro
+        // 1. FCM para Android
         this.sendViaFCM(userId, notification),
-        // 2. Tentar Web Push para iOS
+        // 2. Web Push para iOS/Desktop (evita duplicatas no Windows)
         this.sendViaWebPush(userId, notification)
       ]);
 
