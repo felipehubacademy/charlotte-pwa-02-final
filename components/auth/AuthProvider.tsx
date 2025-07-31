@@ -45,10 +45,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (accounts.length > 0) {
         const account = accounts[0];
         setMsalAccount(account);
-        await syncUserWithSupabase(account);
+        
+        try {
+          await syncUserWithSupabase(account);
+        } catch (syncError: any) {
+          console.error('❌ User sync failed:', syncError);
+          
+          // Se erro for de acesso negado, fazer logout
+          if (syncError.message?.includes('ACCESS_DENIED')) {
+            console.log('🚫 Access denied, logging out...');
+            await logout();
+            toast.error('Access denied. You need to be in a Charlotte group.');
+            return;
+          }
+          
+          // Para outros erros, usar fallback
+          toast.error('Profile sync failed, using temporary profile');
+        }
       }
     } catch (error) {
-      console.error('Auth initialization error:', error);
+      console.error('❌ Auth initialization error:', error);
       toast.error('Authentication initialization failed');
     } finally {
       setIsLoading(false);
@@ -116,15 +132,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let userLevel: 'Novice' | 'Inter' | 'Advanced';
       try {
         userLevel = await getUserLevel(account);
-      console.log('User level determined:', userLevel);
+        console.log('User level determined:', userLevel);
       } catch (error: any) {
+        console.error('❌ Error getting user level:', error);
+        
         if (error.message?.includes('ACCESS_DENIED')) {
           console.log('🚫 Access denied - user not in Charlotte groups');
-          toast.error('Access denied. You need to be in a Charlotte group to use this app.');
-          await logout(); // Fazer logout automaticamente
+          throw new Error('ACCESS_DENIED: User is not in any Charlotte groups');
+        }
+        
+        // Para erros de token/autenticação, tentar login novamente
+        if (error.name === 'InteractionRequiredAuthError' || 
+            error.errorCode === 'interaction_required') {
+          console.log('🔄 Token expired, redirecting to login...');
+          setUser(null);
+          setMsalAccount(null);
           return;
         }
-        throw error; // Re-throw outros erros
+        
+        // Para outros erros, usar fallback
+        console.log('⚠️ Using fallback level due to error');
+        userLevel = 'Novice';
       }
       
       const userData = {
@@ -205,12 +233,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('🔍 Getting user level from Entra ID groups...');
       
-      const tokenResponse = await msalInstance.acquireTokenSilent({
-        scopes: ['GroupMember.Read.All'],
-        account: account,
-      });
-
-      console.log('✅ Token acquired successfully');
+      let tokenResponse;
+      try {
+        tokenResponse = await msalInstance.acquireTokenSilent({
+          scopes: ['GroupMember.Read.All'],
+          account: account,
+        });
+        console.log('✅ Token acquired successfully via silent flow');
+      } catch (silentError: any) {
+        console.log('⚠️ Silent token acquisition failed, trying interactive...');
+        
+        // Se falhar o silent, tentar interativo
+        if (silentError.name === 'InteractionRequiredAuthError' || 
+            silentError.errorCode === 'interaction_required') {
+          tokenResponse = await msalInstance.acquireTokenPopup({
+            scopes: ['GroupMember.Read.All'],
+            account: account,
+          });
+          console.log('✅ Token acquired successfully via interactive flow');
+        } else {
+          throw silentError;
+        }
+      }
 
       const response = await fetch('https://graph.microsoft.com/v1.0/me/memberOf', {
         headers: {
