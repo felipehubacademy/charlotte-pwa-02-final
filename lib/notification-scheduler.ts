@@ -220,10 +220,26 @@ export class NotificationScheduler {
 
       console.log(`👥 Found ${eligibleUsers.length} potential users for reminders`);
 
-      // Filtrar por frequência e verificar se já praticaram hoje
+      // ✅ VERIFICAR PREFERÊNCIAS DE NOTIFICAÇÃO + Filtrar por frequência
       const filteredUsers = [];
 
       for (const user of eligibleUsers) {
+        console.log(`🔍 Processing user ${user.entra_id} (${user.name})`);
+        
+        // ✅ CRÍTICO: Verificar se o usuário tem practice_reminders ativado
+        const { data: userPrefs, error: prefsError } = await supabase
+          .from('notification_preferences')
+          .select('practice_reminders')
+          .eq('user_id', user.id)
+          .single();
+
+        if (prefsError || !userPrefs?.practice_reminders) {
+          console.log(`⏭️ Skipping user ${user.entra_id} - no practice_reminders preference`);
+          continue;
+        }
+
+        console.log(`✅ User ${user.entra_id} has practice_reminders enabled`);
+
         const { reminder_frequency } = user;
 
         // Aplicar filtros de frequência
@@ -241,53 +257,11 @@ export class NotificationScheduler {
         }
 
         if (!shouldSend) {
-          console.log(`⏭️ Skipping user ${user.entra_id} - frequency filter`);
+          console.log(`⏭️ Skipping user ${user.entra_id} - frequency filter (${reminder_frequency})`);
           continue;
         }
 
-        // 🧪 TEMPORARIAMENTE DESABILITADO - Verificar se já praticou hoje
-        console.log(`🧪 [DEBUG] Practice check DISABLED for user ${user.entra_id} - forcing send`);
-        // const { data: todayPractice, error: practiceError } = await supabase
-        //   .from('user_practices')
-        //   .select('id')
-        //   .eq('user_id', user.id)
-        //   .gte('created_at', `${today}T00:00:00Z`)
-        //   .lte('created_at', `${today}T23:59:59Z`)
-        //   .limit(1);
-
-        // if (practiceError) {
-        //   console.error(`❌ Error checking practice for user ${user.entra_id}:`, practiceError);
-        //   continue;
-        // }
-
-        // if (todayPractice && todayPractice.length > 0) {
-        //   console.log(`✅ User ${user.entra_id} already practiced today - skipping`);
-        //   continue;
-        // }
-
-        // 🧪 TEMPORARIAMENTE DESABILITADO - Verificar notificação recente
-        console.log(`🧪 [DEBUG] Recent notification check DISABLED for user ${user.entra_id} - forcing send`);
-        // const oneHourAgo = new Date();
-        // oneHourAgo.setHours(oneHourAgo.getHours() - 1);
-        
-        // const { data: recentNotification, error: notificationError } = await supabase
-        //   .from('notification_logs')
-        //   .select('id')
-        //   .eq('user_id', user.id)
-        //   .eq('notification_type', 'practice_reminder')
-        //   .gte('created_at', oneHourAgo.toISOString())
-        //   .limit(1);
-
-        // if (notificationError) {
-        //   console.error(`❌ Error checking recent notifications for user ${user.entra_id}:`, notificationError);
-        //   continue;
-        // }
-
-        // if (recentNotification && recentNotification.length > 0) {
-        //   console.log(`⏭️ User ${user.entra_id} already received reminder in last hour - skipping`);
-        //   continue;
-        // }
-
+        console.log(`✅ User ${user.entra_id} passed all filters - adding to send list`);
         filteredUsers.push(user);
       }
 
