@@ -187,9 +187,13 @@ export class NotificationScheduler {
         }
       }
       
-      // Adicionar alguns minutos específicos da hora atual
-      for (let minute of [0, 5, 15, 30, 45]) {
-        times.push(`${brazilHour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
+      // Adicionar alguns minutos específicos da hora atual E ANTERIOR
+      for (let hour of [brazilHour - 1, brazilHour]) { // Incluir hora anterior também
+        if (hour >= 0 && hour <= 23) {
+          for (let minute of [0, 5, 15, 30, 45]) {
+            times.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}:00`);
+          }
+        }
       }
       
       console.log(`🔍 Looking for users with times: ${times.join(', ')}`);
