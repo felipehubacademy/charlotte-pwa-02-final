@@ -281,33 +281,60 @@ export class ReengagementNotificationService {
 
       console.log(`📨 Sending Web Push to ${subscriptions.length} devices`);
 
-      // Enviar via API Web Push
+      // Enviar via webpush direto (como Raw Push)
+      console.log(`📨 Sending Web Push to ${subscriptions.length} devices`);
+      
+      // Dynamic import webpush
+      const webpush = await import('web-push');
+      
+      // Configure VAPID
+      webpush.default.setVapidDetails(
+        'mailto:felipe.xavier1987@gmail.com',
+        'BJ87VjvmFct3Gp1NkTlViywwyT04g7vuHkhvuICQarrOq2iKnJNld2cJ2o7BD-hvYRNtKJeBL92dygxbjNOMyuA',
+        'cTlw_6Ex7Ldo3Ra5YJDiLzOnZ0HE29NmpIZhMb1uNdU'
+      );
+      
       const webPushResults = await Promise.allSettled(
-        subscriptions.map(sub => 
-          fetch('/api/notifications/send-web-push', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              subscription: {
-                endpoint: sub.endpoint,
-                keys: sub.keys
-              },
-              payload: {
-                title: notification.title,
-                body: notification.body,
+        subscriptions.map(async (sub) => {
+          try {
+            console.log(`📨 Sending to ${sub.platform}: ${sub.endpoint.substring(0, 50)}...`);
+            
+            const payload = JSON.stringify({
+              title: notification.title,
+              body: notification.body,
+              icon: '/icons/icon-192x192.png',
+              badge: '/icons/icon-72x72.png',
+              data: {
                 url: notification.url || '/chat',
-                data: {
-                  ...notification.data,
-                  click_action: 'reengagement',
-                  timestamp: Date.now().toString()
-                }
+                ...notification.data,
+                click_action: 'reengagement',
+                timestamp: Date.now().toString()
               }
-            })
-          })
-        )
+            });
+            
+            const pushSubscription = {
+              endpoint: sub.endpoint,
+              keys: {
+                p256dh: sub.keys.p256dh,
+                auth: sub.keys.auth
+              }
+            };
+            
+            await webpush.default.sendNotification(pushSubscription, payload, {
+              TTL: 24 * 60 * 60,
+              urgency: 'normal'
+            });
+            
+            console.log(`✅ Web Push sent to ${sub.platform}`);
+            return { success: true };
+          } catch (error) {
+            console.error(`❌ Web Push failed for ${sub.platform}:`, error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+          }
+        })
       );
 
-      const successful = webPushResults.filter(r => r.status === 'fulfilled' && r.value?.ok).length;
+      const successful = webPushResults.filter(r => r.status === 'fulfilled' && r.value?.success).length;
       console.log(`📊 Web Push results: ${successful}/${subscriptions.length} successful`);
 
       return successful > 0;
