@@ -245,46 +245,48 @@ export class NotificationScheduler {
           continue;
         }
 
-        // Verificar se já praticou hoje
-        const { data: todayPractice, error: practiceError } = await supabase
-          .from('user_practices')
-          .select('id')
-          .eq('user_id', user.id)
-          .gte('created_at', `${today}T00:00:00Z`)
-          .lte('created_at', `${today}T23:59:59Z`)
-          .limit(1);
+        // 🧪 TEMPORARIAMENTE DESABILITADO - Verificar se já praticou hoje
+        console.log(`🧪 [DEBUG] Practice check DISABLED for user ${user.entra_id} - forcing send`);
+        // const { data: todayPractice, error: practiceError } = await supabase
+        //   .from('user_practices')
+        //   .select('id')
+        //   .eq('user_id', user.id)
+        //   .gte('created_at', `${today}T00:00:00Z`)
+        //   .lte('created_at', `${today}T23:59:59Z`)
+        //   .limit(1);
 
-        if (practiceError) {
-          console.error(`❌ Error checking practice for user ${user.entra_id}:`, practiceError);
-          continue;
-        }
+        // if (practiceError) {
+        //   console.error(`❌ Error checking practice for user ${user.entra_id}:`, practiceError);
+        //   continue;
+        // }
 
-        if (todayPractice && todayPractice.length > 0) {
-          console.log(`✅ User ${user.entra_id} already practiced today - skipping`);
-          continue;
-        }
+        // if (todayPractice && todayPractice.length > 0) {
+        //   console.log(`✅ User ${user.entra_id} already practiced today - skipping`);
+        //   continue;
+        // }
 
-        // Verificar se já recebeu notificação na última hora para evitar spam
-        const oneHourAgo = new Date();
-        oneHourAgo.setHours(oneHourAgo.getHours() - 1);
+        // 🧪 TEMPORARIAMENTE DESABILITADO - Verificar notificação recente
+        console.log(`🧪 [DEBUG] Recent notification check DISABLED for user ${user.entra_id} - forcing send`);
+        // const oneHourAgo = new Date();
+        // oneHourAgo.setHours(oneHourAgo.getHours() - 1);
         
-        const { data: recentNotification, error: notificationError } = await supabase
-          .from('notification_logs')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('notification_type', 'practice_reminder')
-          .gte('created_at', oneHourAgo.toISOString())
-          .limit(1);
+        // const { data: recentNotification, error: notificationError } = await supabase
+        //   .from('notification_logs')
+        //   .select('id')
+        //   .eq('user_id', user.id)
+        //   .eq('notification_type', 'practice_reminder')
+        //   .gte('created_at', oneHourAgo.toISOString())
+        //   .limit(1);
 
-        if (notificationError) {
-          console.error(`❌ Error checking recent notifications for user ${user.entra_id}:`, notificationError);
-          continue;
-        }
+        // if (notificationError) {
+        //   console.error(`❌ Error checking recent notifications for user ${user.entra_id}:`, notificationError);
+        //   continue;
+        // }
 
-        if (recentNotification && recentNotification.length > 0) {
-          console.log(`⏭️ User ${user.entra_id} already received reminder in last hour - skipping`);
-          continue;
-        }
+        // if (recentNotification && recentNotification.length > 0) {
+        //   console.log(`⏭️ User ${user.entra_id} already received reminder in last hour - skipping`);
+        //   continue;
+        // }
 
         filteredUsers.push(user);
       }
