@@ -266,21 +266,20 @@ export class ReengagementNotificationService {
         return false;
       }
 
-      // Buscar subscriptions Web Push (iOS)
+      // Buscar subscriptions Web Push (iOS, Desktop, Android)
       const { data: subscriptions, error } = await supabase
         .from('push_subscriptions')
         .select('*')
         .eq('user_id', userId)
         .eq('is_active', true)
-        .eq('subscription_type', 'web_push')
-        .eq('platform', 'ios');
+        .eq('subscription_type', 'web_push');
 
       if (error || !subscriptions || subscriptions.length === 0) {
-        console.log('📭 No Web Push subscriptions found for iOS');
+        console.log('📭 No Web Push subscriptions found');
         return false;
       }
 
-      console.log(`📨 Sending Web Push to ${subscriptions.length} iOS devices`);
+      console.log(`📨 Sending Web Push to ${subscriptions.length} devices`);
 
       // Enviar via API Web Push
       const webPushResults = await Promise.allSettled(
