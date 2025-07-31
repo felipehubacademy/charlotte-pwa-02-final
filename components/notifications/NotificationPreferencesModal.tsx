@@ -2,8 +2,15 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import NotificationPreferences from './NotificationPreferences';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export default function NotificationPreferencesModal({ open, onClose }: { open: boolean, onClose: () => void }) {
+  const { user } = useAuth();
+  
+  // 🌍 Determinar idioma baseado no nível do usuário
+  const isPortuguese = user?.user_level === 'Novice';
+  const modalTitle = isPortuguese ? 'Notificações' : 'Notifications';
+
   return (
     <AnimatePresence>
       {open && (
@@ -23,7 +30,7 @@ export default function NotificationPreferencesModal({ open, onClose }: { open: 
             >
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl sm:text-2xl font-bold text-white">Notificações</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-white">{modalTitle}</h2>
                 <button 
                   onClick={onClose}
                   className="p-2 hover:bg-white/10 rounded-full transition-colors"

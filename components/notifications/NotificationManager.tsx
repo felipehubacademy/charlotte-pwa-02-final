@@ -16,6 +16,32 @@ export default function NotificationManager({ className = '', onComplete }: Noti
   const { user } = useAuth();
   const [notificationService] = useState(() => NotificationService.getInstance());
   
+  // 🌍 Determinar idioma baseado no nível do usuário
+  const isPortuguese = user?.user_level === 'Novice';
+  const t = {
+    activateNotifications: isPortuguese ? 'Ativar Notificações' : 'Enable Notifications',
+    restoreNotifications: isPortuguese ? 'Restaurar Notificações' : 'Restore Notifications',
+    disableNotifications: isPortuguese ? 'Desativar' : 'Disable',
+    notificationsRestored: isPortuguese ? '🔧 Notificações Restauradas' : '🔧 Notifications Restored',
+    notificationsActivated: isPortuguese ? '✅ Notificações ativadas!' : '✅ Notifications activated!',
+    youWillReceive: isPortuguese ? 'Você receberá notificações sobre suas conquistas' : 'You will receive notifications about your achievements',
+    permissionDenied: isPortuguese ? '🚫 Permissão negada' : '🚫 Permission denied',
+    configuring: isPortuguese ? 'Configurando...' : 'Configuring...',
+    restoring: isPortuguese ? 'Restaurando...' : 'Restoring...',
+    notificationsNeedRestore: isPortuguese ? 'Suas notificações precisam ser restauradas' : 'Your notifications need to be restored',
+    receiveAchievements: isPortuguese ? 'Receba conquistas em tempo real!' : 'Receive achievements in real time!',
+    close: isPortuguese ? 'Fechar' : 'Close',
+    pwaInstalled: isPortuguese ? '✅ PWA instalado! Agora você pode ativar notificações.' : '✅ PWA installed! Now you can enable notifications.',
+    activateNotificationsInApp: isPortuguese ? 'Ativar notificações no app instalado' : 'Enable notifications in the installed app',
+    pushNotificationsNotSupported: isPortuguese ? 'Notificações push não são suportadas neste dispositivo' : 'Push notifications are not supported on this device',
+    iosRequired: isPortuguese ? 'iOS 16.4+ necessário para notificações push' : 'iOS 16.4+ required for push notifications',
+    androidWorks: isPortuguese ? 'Funciona em todos os navegadores Android' : 'Works on all Android browsers',
+    autoRecoveryDetected: isPortuguese ? 'Auto-recovery detectado - clique para restaurar' : 'Auto-recovery detected - click to restore',
+    beNotified: isPortuguese ? 'Seja notificado sobre conquistas e progressos!' : 'Be notified about achievements and progress!',
+    howToInstall: isPortuguese ? '📱 Como instalar no iPhone' : '📱 How to install on iPhone',
+    completeTutorial: isPortuguese ? '📖 Ver tutorial completo' : '📖 View complete tutorial'
+  };
+  
   // State - MANTIDO TUDO ORIGINAL + needsRecovery
   const [isSupported, setIsSupported] = useState(false);
   const [permission, setPermission] = useState<NotificationPermission>('default');
@@ -431,24 +457,24 @@ export default function NotificationManager({ className = '', onComplete }: Noti
           {!isPWAInstalled ? (
             <div>
               <p className="text-sm text-white/70 mt-1">
-                Para receber notificações, você precisa instalar Charlotte como PWA:
+                {isPortuguese ? 'Para receber notificações, você precisa instalar Charlotte como PWA:' : 'To receive notifications, you need to install Charlotte as PWA:'}
               </p>
               <ol className="text-sm text-white/60 mt-2 space-y-1 list-decimal list-inside">
                 <li>Safari → Compartilhar → "Adicionar à Tela Inicial"</li>
                 <li>Abrir Charlotte da tela inicial (não pelo Safari)</li>
-                <li>Ativar notificações no app instalado</li>
+                <li>{t.activateNotificationsInApp}</li>
               </ol>
               <button
                 onClick={() => setShowIOSGuide(true)}
                 className="mt-2 text-xs bg-primary/20 text-primary px-3 py-1 rounded-lg hover:bg-primary/30 transition-colors"
               >
-                📖 Ver tutorial completo
+                {t.completeTutorial}
               </button>
             </div>
           ) : (
             <div>
               <p className="text-sm text-green-300 mt-1">
-                ✅ PWA instalado! Agora você pode ativar notificações.
+                {t.pwaInstalled}
               </p>
               {iosCapabilities && (
                 <p className="text-xs text-white/50 mt-1">
@@ -502,7 +528,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
               onClick={() => setShowIOSGuide(true)}
               className="px-4 py-2 bg-primary/80 text-white rounded-lg hover:bg-primary transition-colors"
             >
-              📱 Como instalar no iPhone
+              {t.howToInstall}
             </button>
           </div>
         </div>
@@ -519,7 +545,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
               <BellOff className="w-6 h-6 text-white/60" />
             </div>
             <p className="text-sm text-white/70">
-              Notificações push não são suportadas neste dispositivo
+              {t.pushNotificationsNotSupported}
             </p>
           </div>
         </div>
@@ -592,12 +618,12 @@ export default function NotificationManager({ className = '', onComplete }: Noti
             </div>
             <div className="min-w-0 flex-1">
               <h3 className="font-semibold text-white text-base sm:text-lg">
-                {needsRecovery ? '🔧 Restaurar Notificações' : 'Ativar Notificações'}
+                {needsRecovery ? `🔧 ${t.restoreNotifications}` : t.activateNotifications}
               </h3>
               <p className="text-sm text-white/80 truncate">
                 {needsRecovery 
-                  ? 'Suas notificações precisam ser restauradas'
-                  : 'Receba conquistas em tempo real!'
+                  ? t.notificationsNeedRestore
+                  : t.receiveAchievements
                 }
               </p>
             </div>
@@ -605,7 +631,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
           <button
             onClick={handleDismiss}
             className="text-white/60 hover:text-white hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition-all duration-200 text-lg font-light flex-shrink-0 ml-2"
-            title="Fechar"
+            title={t.close}
           >
             ×
           </button>
@@ -624,10 +650,10 @@ export default function NotificationManager({ className = '', onComplete }: Noti
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span className="hidden sm:inline">Restaurando...</span>
+                  <span className="hidden sm:inline">{t.restoring}</span>
                   <span className="sm:hidden">🔧</span>
                 </div>
-              ) : '🔧 Restaurar Notificações'}
+              ) : `🔧 ${t.restoreNotifications}`}
             </button>
           ) : permission === 'granted' ? (
             <button
@@ -642,14 +668,14 @@ export default function NotificationManager({ className = '', onComplete }: Noti
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span className="hidden sm:inline">Configurando...</span>
+                  <span className="hidden sm:inline">{t.configuring}</span>
                   <span className="sm:hidden">⚙️</span>
                 </div>
-              ) : isSubscribed ? '🔕 Desativar' : '🔔 Ativar Notificações'}
+              ) : isSubscribed ? `🔕 ${t.disableNotifications}` : `🔔 ${t.activateNotifications}`}
             </button>
           ) : permission === 'denied' ? (
             <div className="w-full px-6 py-3 sm:py-4 bg-red-500/20 text-red-300 border border-red-500/30 rounded-xl text-center font-medium backdrop-blur-sm text-sm sm:text-base">
-              🚫 Permissão negada
+              {t.permissionDenied}
             </div>
           ) : (
             <button
@@ -660,10 +686,10 @@ export default function NotificationManager({ className = '', onComplete }: Noti
               {isLoading ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                  <span className="hidden sm:inline">Configurando...</span>
+                  <span className="hidden sm:inline">{t.configuring}</span>
                   <span className="sm:hidden">⚙️</span>
                 </div>
-              ) : '🔔 Ativar Notificações'}
+              ) : `🔔 ${t.activateNotifications}`}
             </button>
           )}
         </div>
@@ -673,10 +699,10 @@ export default function NotificationManager({ className = '', onComplete }: Noti
           <div className="mt-4 p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-xl backdrop-blur-sm">
             <div className="flex items-center space-x-2 text-emerald-200">
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse flex-shrink-0"></div>
-              <span className="font-medium text-sm sm:text-base">✅ Notificações ativadas!</span>
+              <span className="font-medium text-sm sm:text-base">{t.notificationsActivated}</span>
             </div>
             <p className="text-xs sm:text-sm text-emerald-200/80 mt-1">
-              Você receberá notificações sobre suas conquistas
+              {t.youWillReceive}
             </p>
           </div>
         )}
@@ -688,20 +714,20 @@ export default function NotificationManager({ className = '', onComplete }: Noti
           {platform === 'ios' && (
             <>
               <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
-              <p className="truncate">iOS 16.4+ necessário para notificações push</p>
+              <p className="truncate">{t.iosRequired}</p>
             </>
           )}
           {platform === 'android' && (
             <>
               <div className="w-1.5 h-1.5 bg-primary rounded-full flex-shrink-0"></div>
-              <p className="truncate">Funciona em todos os navegadores Android</p>
+              <p className="truncate">{t.androidWorks}</p>
             </>
           )}
         </div>
         <p className="mt-1 text-white/40 text-xs">
           {needsRecovery 
-            ? 'Auto-recovery detectado - clique para restaurar' 
-            : 'Seja notificado sobre conquistas e progressos!'
+            ? t.autoRecoveryDetected
+            : t.beNotified
           }
         </p>
       </div>
