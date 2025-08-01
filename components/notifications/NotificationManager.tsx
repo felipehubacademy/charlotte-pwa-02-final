@@ -531,8 +531,30 @@ export default function NotificationManager({ className = '', onComplete }: Noti
   // Only show when user needs to enable notifications - MODIFICADO PARA INCLUIR RECOVERY
   const hasCompleteNotificationSetup = (permission === 'granted' && isSubscribed && hasFCMToken);
   
-  // NOVO: Mostrar se precisa de recovery
-  if (!isSupported || (hasCompleteNotificationSetup && !needsRecovery) || (isDismissed && !needsRecovery)) {
+  console.log('🔔 [NOTIFICATION] Debug:', {
+    permission,
+    isSubscribed,
+    hasFCMToken,
+    hasCompleteNotificationSetup,
+    needsRecovery,
+    isDismissed
+  });
+  
+  // ✅ SIMPLIFICADO: Se notificações já funcionam E não precisa recovery E não foi dispensado, não mostrar
+  if (hasCompleteNotificationSetup && !needsRecovery) {
+    console.log('🔔 [NOTIFICATION] Complete setup, not showing banner');
+    return null;
+  }
+  
+  // Se foi dispensado e não precisa recovery, não mostrar
+  if (isDismissed && !needsRecovery) {
+    console.log('🔔 [NOTIFICATION] Dismissed, not showing banner');
+    return null;
+  }
+  
+  // Se não é suportado, não mostrar
+  if (!isSupported) {
+    console.log('🔔 [NOTIFICATION] Not supported, not showing banner');
     return null;
   }
 

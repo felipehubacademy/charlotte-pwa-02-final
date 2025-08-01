@@ -47,9 +47,9 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     }
     console.log('📱 [PWA] Is installed (standalone):', isStandalone);
 
-    // ✅ NOVO: Para iOS, mostrar banner sempre (BannerManager controla quando)
-    if (iOS && !isStandalone) {
-      console.log('📱 [PWA] iOS ready to show banner when BannerManager allows');
+    // ✅ NOVO: Mostrar banner sempre se não está instalado (BannerManager controla quando)
+    if (!isStandalone) {
+      console.log('📱 [PWA] Ready to show banner when BannerManager allows');
       setShowBanner(true);
     }
 
