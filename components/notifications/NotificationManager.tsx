@@ -5,7 +5,7 @@ import { Bell, BellOff, Smartphone, Download } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import NotificationService from '@/lib/notification-service';
 import { getFCMToken } from '@/lib/firebase-config-optimized';
-import IOSInstallGuide from '@/components/IOSInstallGuide';
+// ✅ REMOVIDO: IOSInstallGuide não é mais necessário
 
 interface NotificationManagerProps {
   className?: string;
@@ -52,7 +52,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
   const [isDismissed, setIsDismissed] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasFCMToken, setHasFCMToken] = useState(false);
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
+  // ✅ REMOVIDO: showIOSGuide não é mais necessário
   const [iosCapabilities, setIOSCapabilities] = useState<any>(null);
   
   // NOVO: Estado para auto-recovery
@@ -292,11 +292,8 @@ export default function NotificationManager({ className = '', onComplete }: Noti
       const capabilities = (notificationService as any).iOSCapabilities;
       setIOSCapabilities(capabilities);
       
-      // Mostrar guia se necessário
-      const guideDismissed = localStorage.getItem('ios-install-guide-dismissed');
-      if (!capabilities.isPWAInstalled && !guideDismissed) {
-        setShowIOSGuide(true);
-      }
+      // ✅ REMOVIDO: Não mostrar guia automaticamente
+      // O PWA banner será controlado pelo BannerManager
     } else if (/Android/.test(userAgent)) {
       setPlatform('android');
     } else {
@@ -464,12 +461,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
                 <li>Abrir Charlotte da tela inicial (não pelo Safari)</li>
                 <li>{t.activateNotificationsInApp}</li>
               </ol>
-              <button
-                onClick={() => setShowIOSGuide(true)}
-                className="mt-2 text-xs bg-primary/20 text-primary px-3 py-1 rounded-lg hover:bg-primary/30 transition-colors"
-              >
-                {t.completeTutorial}
-              </button>
+              {/* ✅ REMOVIDO: Botão do tutorial complexo */}
             </div>
           ) : (
             <div>
@@ -500,37 +492,15 @@ export default function NotificationManager({ className = '', onComplete }: Noti
     localStorage.removeItem('notification-setup-dismissed');
   };
 
-  // Show iOS Install Guide - MANTIDO ORIGINAL
-  if (showIOSGuide) {
-    return (
-      <IOSInstallGuide
-        onComplete={() => {
-          setShowIOSGuide(false);
-          setIsPWAInstalled(true);
-          // Recheck capabilities after installation
-          setTimeout(() => {
-            initializeNotificationState();
-          }, 1000);
-        }}
-        onDismiss={() => setShowIOSGuide(false)}
-      />
-    );
-  }
+  // ✅ REMOVIDO: IOSInstallGuide será controlado pelo BannerManager
 
-  // Don't render if iOS and not installed as PWA - MANTIDO ORIGINAL
-  if (platform === 'ios' && !isPWAInstalled && !showIOSGuide) {
+  // ✅ CORRIGIDO: Simplificado para apenas verificar se é iOS sem PWA
+  if (platform === 'ios' && !isPWAInstalled) {
     return (
       <div className={`notification-manager ${className}`}>
         <div className="bg-secondary/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl">
           <IOSGuidance />
-          <div className="text-center mt-4">
-            <button
-              onClick={() => setShowIOSGuide(true)}
-              className="px-4 py-2 bg-primary/80 text-white rounded-lg hover:bg-primary transition-colors"
-            >
-              {t.howToInstall}
-            </button>
-          </div>
+          {/* ✅ REMOVIDO: Botão para tutorial complexo */}
         </div>
       </div>
     );
@@ -586,7 +556,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
         checkState: checkNotificationState,
         checkFCM: checkFCMTokenStatus,
         forceShow: () => setIsDismissed(false),
-        showIOSGuide: () => setShowIOSGuide(true),
+        // ✅ REMOVIDO: showIOSGuide
         performRecovery: performAutoRecovery, // NOVO
         checkRecovery: () => checkForRecoveryNeeded(false) // NOVO
       }
