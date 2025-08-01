@@ -131,6 +131,7 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
   }
 
   if (currentBanner === 'pwa') {
+    console.log('🎯 [BANNER] Rendering PWAInstaller component');
     return <PWAInstaller onDismiss={handlePWADismiss} />;
   }
 
