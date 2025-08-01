@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug iOS Banner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+    <h1>Debug iOS PWA Banner</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message) {
+            results.innerHTML += '<p>' + message + '</p>';
+            console.log(message);
+        }
+        
+        // 1. Detectar iOS
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        log('🔍 iOS Detected: ' + isIOS);
+        log('🔍 User Agent: ' + navigator.userAgent);
+        
+        // 2. Verificar PWA instalado
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+        const isPWAiOS = (navigator).standalone === true;
+        log('🔍 Is Standalone: ' + isStandalone);
+        log('🔍 Is PWA iOS: ' + isPWAiOS);
+        
+        // 3. Verificar sessionStorage
+        const hasDismissed = sessionStorage.getItem('pwa-banner-dismissed') === 'true';
+        log('🔍 Has Dismissed Banner: ' + hasDismissed);
+        
+        // 4. Simular condições do BannerManager
+        const user = false; // Simulando não logado
+        const shouldShowBanner = !user && !hasDismissed;
+        log('🔍 Should Show Banner (Before Login): ' + shouldShowBanner);
+        
+        // 5. Simular condições do PWAInstaller
+        const shouldShowBannerPWA = !isStandalone;
+        log('🔍 PWAInstaller Should Show: ' + shouldShowBannerPWA);
+        
+        // 6. Condição final iOS
+        const iosCondition = shouldShowBannerPWA && isIOS && !isStandalone;
+        log('🔍 iOS Banner Final Condition: ' + iosCondition);
+        
+        if (iosCondition) {
+            log('✅ BANNER DEVERIA APARECER!');
+            // Criar banner de teste
+            const banner = document.createElement('div');
+            banner.style.cssText = `
+                position: fixed;
+                bottom: 20px;
+                left: 20px;
+                right: 20px;
+                background: linear-gradient(to right, #374151, #111827);
+                color: white;
+                padding: 16px;
+                border-radius: 12px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+                z-index: 9999;
+                font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            `;
+            banner.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 8px;">📱</div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 14px; font-weight: 600;">Instalar App Charlotte</h3>
+                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #d1d5db;">
+                            Toque no botão ⬆️ Compartilhar, depois "Adicionar à Tela de Início"
+                        </p>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">×</button>
+                </div>
+            `;
+            document.body.appendChild(banner);
+        } else {
+            log('❌ BANNER NÃO DEVERIA APARECER');
+        }
+    </script>
+</body>
+</html>
