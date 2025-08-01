@@ -294,8 +294,31 @@ export default function LoginPage() {
         {/* Desktop Footer - Clean */}
         <div className="flex-shrink-0 p-6"></div>
         
-        {/* 🎯 Banner Manager - Mostra PWA antes do login */}
-        <BannerManager />
+        {/* 🎯 TESTE DIRETO - PWAInstaller sem BannerManager */}
+        <div className="fixed bottom-4 left-4 right-4 z-[60]">
+          <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded-lg shadow-lg border border-gray-700">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3">
+                <div className="bg-white/20 p-2 rounded-lg">
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-sm">TESTE DIRETO - PWA Banner</h3>
+                  <p className="text-xs text-gray-300 mt-1">
+                    Se você vê isso, o problema é no BannerManager
+                  </p>
+                </div>
+              </div>
+              <button className="text-white/80 hover:text-white p-1">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
