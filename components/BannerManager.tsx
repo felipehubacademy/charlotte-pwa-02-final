@@ -124,7 +124,7 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
   if (currentBanner === 'notification') {
     return (
-      <div className="fixed bottom-4 left-4 right-4 z-[60] sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm lg:bottom-8 lg:left-8 lg:max-w-md">
+      <div className="fixed bottom-4 left-4 right-4 z-[50] sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm lg:bottom-8 lg:left-8 lg:max-w-md">
         <NotificationManager className="w-full" onComplete={handleNotificationComplete} />
       </div>
     );

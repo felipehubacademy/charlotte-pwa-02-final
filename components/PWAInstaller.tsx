@@ -214,7 +214,7 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     }
   }, []);
 
-  // Banner de instalação para Desktop/Android (sempre mostrar se não é iOS e não está instalado)
+  // Banner de instalação para Desktop/Android (sempre mostrar se não está instalado)
   if (showBanner && !isInstalled && !isIOS) {
     return (
       <div className="fixed bottom-4 left-4 right-4 z-[60] bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg shadow-lg border border-blue-500/20 backdrop-blur-sm">
