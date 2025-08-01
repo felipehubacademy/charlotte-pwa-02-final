@@ -39,7 +39,6 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
     setIsIOS(iOS);
     console.log('📱 [PWA] iOS detected:', iOS);
-    console.log('📱 [PWA] User Agent:', navigator.userAgent);
 
     // Detectar se já está instalado
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -48,20 +47,10 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     }
     console.log('📱 [PWA] Is installed (standalone):', isStandalone);
 
-    // Verificar URL parameters para forçar instalação
-    const urlParams = new URLSearchParams(window.location.search);
-    const forceInstall = urlParams.get('install') === 'true';
-    const installPrompt = urlParams.get('prompt') === 'pwa';
-
-    // Para iOS, mostrar banner automaticamente (não há beforeinstallprompt)
+    // ✅ NOVO: Para iOS, mostrar banner sempre (BannerManager controla quando)
     if (iOS && !isStandalone) {
-      const delay = forceInstall || installPrompt ? 0 : 3000;
-      console.log('📱 [PWA] iOS banner will show in', delay, 'ms');
-      setTimeout(() => {
-        // Temporariamente ignorar sessionStorage para debug
-        console.log('📱 [PWA] Showing iOS banner (debug mode)');
-        setShowBanner(true);
-      }, delay);
+      console.log('📱 [PWA] iOS ready to show banner when BannerManager allows');
+      setShowBanner(true);
     }
 
     // Listener para prompt de instalação (Android/Chrome)
@@ -69,15 +58,7 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       e.preventDefault();
       setDeferredPrompt(e);
       setIsInstallable(true);
-      
-      // Mostrar banner imediatamente se forçado via URL, senão após 3 segundos
-      const delay = forceInstall || installPrompt ? 0 : 3000;
-      setTimeout(() => {
-        if (!isInstalled) {
-          setShowBanner(true);
-        }
-      }, delay);
-      
+      setShowBanner(true); // ✅ Mostrar imediatamente, BannerManager controla
       console.log('📱 [PWA] Install prompt available');
     };
 
