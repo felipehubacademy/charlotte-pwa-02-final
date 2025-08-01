@@ -47,7 +47,24 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     
     // ✅ NOVO: Detecção específica para Safari
     const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-    const isSafariInstalled = isSafari && (navigator as any).standalone === true;
+    const isSafariMobile = /iPhone|iPad|iPod/.test(navigator.userAgent);
+    const isSafariDesktop = isSafari && !isSafariMobile;
+    
+    // ✅ MELHORADO: Detecção específica para Safari desktop
+    let isSafariInstalled = false;
+    if (isSafariDesktop) {
+      // Para Safari desktop, verificar se está em modo standalone
+      isSafariInstalled = window.matchMedia('(display-mode: standalone)').matches;
+      console.log('🖥️ [PWA] Safari Desktop detection:', {
+        isSafariDesktop,
+        isStandalone: window.matchMedia('(display-mode: standalone)').matches,
+        navigatorStandalone: (navigator as any).standalone,
+        userAgent: navigator.userAgent
+      });
+    } else if (isSafari && isSafariMobile) {
+      // Para Safari mobile, usar navigator.standalone
+      isSafariInstalled = (navigator as any).standalone === true;
+    }
     
     if (isStandalone || isInstalledViaChrome || hasInstalledPWA || isSafariInstalled) {
       setIsInstalled(true);
@@ -58,6 +75,8 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       isInstalledViaChrome,
       hasInstalledPWA,
       isSafari,
+      isSafariDesktop,
+      isSafariMobile,
       isSafariInstalled,
       finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA || isSafariInstalled
     });
