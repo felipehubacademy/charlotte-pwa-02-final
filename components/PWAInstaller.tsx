@@ -45,7 +45,11 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     const isInstalledViaChrome = (navigator as any).standalone === true;
     const hasInstalledPWA = localStorage.getItem('pwa-installed') === 'true';
     
-    if (isStandalone || isInstalledViaChrome || hasInstalledPWA) {
+    // ✅ NOVO: Detecção específica para Safari
+    const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+    const isSafariInstalled = isSafari && (navigator as any).standalone === true;
+    
+    if (isStandalone || isInstalledViaChrome || hasInstalledPWA || isSafariInstalled) {
       setIsInstalled(true);
       console.log('📱 [PWA] PWA detected as installed');
     }
@@ -53,11 +57,13 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       isStandalone,
       isInstalledViaChrome,
       hasInstalledPWA,
-      finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA
+      isSafari,
+      isSafariInstalled,
+      finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA || isSafariInstalled
     });
 
     // ✅ NOVO: Mostrar banner sempre se não está instalado (BannerManager controla quando)
-    if (!(isStandalone || isInstalledViaChrome || hasInstalledPWA)) {
+    if (!(isStandalone || isInstalledViaChrome || hasInstalledPWA || isSafariInstalled)) {
       console.log('📱 [PWA] Ready to show banner when BannerManager allows');
       setShowBanner(true);
     }
@@ -140,10 +146,10 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
         // ✅ CORRIGIDO: Instruções específicas para Safari desktop
         const isSafariMobile = /iPhone|iPad|iPod/.test(navigator.userAgent);
         if (isSafariMobile) {
-          instructions += '1. Clique no botão Compartilhar (□↗)\n';
+          instructions += '1. Clique no botão Compartilhar (⬜↗)\n';
           instructions += '2. Role para baixo e toque em "Adicionar à Tela de Início"';
         } else {
-          instructions += '1. Clique no botão Compartilhar (□↗)\n';
+          instructions += '1. Clique no botão Compartilhar (⬜↗)\n';
           instructions += '2. Selecione "Adicionar ao Dock"';
         }
       } else if (isEdge) {
