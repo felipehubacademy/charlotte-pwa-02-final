@@ -55,10 +55,17 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
       return;
     }
 
-    // 2. Segundo: PWA (se tour completado e PWA não dispensado)
-    // ✅ REMOVIDO: NotificationManager que bloqueava textarea
+    // 2. Segundo: Notificação (se tour completado e notificação não completada)
+    if (hasCompletedTour && !hasCompletedNotification) {
+      console.log('🎯 [BANNER] Showing notification setup after tour');
+      setCurrentBanner('notification');
+      setShowNotification(true);
+      return;
+    }
+
+    // 3. Terceiro: PWA (se tour completado e PWA não dispensado)
     if (hasCompletedTour && !hasDismissedPWA) {
-      console.log('🎯 [BANNER] Showing PWA after tour');
+      console.log('🎯 [BANNER] Showing PWA after notification');
       setCurrentBanner('pwa');
       setShowPWA(true);
       return;
@@ -73,15 +80,15 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
   const handleTourComplete = () => {
     setShowTour(false);
-    setCurrentBanner('pwa');
-    setShowPWA(true);
+    setCurrentBanner('notification');
+    setShowNotification(true);
     localStorage.setItem('onboarding-completed', 'true');
   };
 
   const handleTourSkip = () => {
     setShowTour(false);
-    setCurrentBanner('pwa');
-    setShowPWA(true);
+    setCurrentBanner('notification');
+    setShowNotification(true);
     localStorage.setItem('onboarding-completed', 'true');
   };
 
@@ -92,6 +99,14 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
   };
 
 
+
+  const handleNotificationComplete = () => {
+    console.log('🎯 [BANNER] Notification completed, going to PWA');
+    setShowNotification(false);
+    setCurrentBanner('pwa');
+    setShowPWA(true);
+    localStorage.setItem('notification-setup-completed', 'true');
+  };
 
   // Renderizar apenas o banner atual
   if (currentBanner === 'tour') {
@@ -106,12 +121,18 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
     );
   }
 
+  if (currentBanner === 'notification') {
+    return (
+      <div className="fixed bottom-4 left-4 right-4 z-[50] sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm lg:bottom-8 lg:left-8 lg:max-w-md">
+        <NotificationManager className="w-full" onComplete={handleNotificationComplete} />
+      </div>
+    );
+  }
+
   if (currentBanner === 'pwa') {
     console.log('🎯 [BANNER] Rendering PWAInstaller component');
     return <PWAInstaller onDismiss={handlePWADismiss} />;
   }
-
-
 
   return null;
 } 
