@@ -19,12 +19,13 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
   useEffect(() => {
     // ✅ NOVO: Mostrar PWA antes do login também
-    const hasDismissedPWA = sessionStorage.getItem('pwa-banner-dismissed') === 'true';
+    // ✅ REMOVIDO: Não verificar se foi dispensado para sempre
+    // const hasDismissedPWA = sessionStorage.getItem('pwa-banner-dismissed') === 'true';
     
-    console.log('🎯 [BANNER] User:', !!user, 'Dismissed PWA:', hasDismissedPWA);
+    console.log('🎯 [BANNER] User:', !!user);
     
-    // Se não está logado, mostrar PWA se não foi dispensado
-    if (!user && !hasDismissedPWA) {
+    // Se não está logado, mostrar PWA sempre
+    if (!user) {
       console.log('🎯 [BANNER] Showing PWA before login');
       setCurrentBanner('pwa');
       setShowPWA(true);
@@ -63,9 +64,13 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
       return;
     }
 
-    // 3. Terceiro: PWA (se tour completado e PWA não dispensado)
-    if (hasCompletedTour && !hasDismissedPWA) {
-      console.log('🎯 [BANNER] Showing PWA after notification');
+    // 3. Terceiro: PWA (se tour completado e PWA não instalado)
+    // ✅ CORRIGIDO: Mostrar PWA sempre que não estiver instalado
+    const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
+                           localStorage.getItem('pwa-installed') === 'true';
+    
+    if (hasCompletedTour && !isPWAInstalled) {
+      console.log('🎯 [BANNER] Showing PWA after notification (not installed)');
       setCurrentBanner('pwa');
       setShowPWA(true);
       return;
@@ -95,7 +100,8 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
   const handlePWADismiss = () => {
     setShowPWA(false);
     setCurrentBanner(null); // PWA é o último, apenas fechar
-    sessionStorage.setItem('pwa-banner-dismissed', 'true');
+    // ✅ REMOVIDO: Não marcar como dispensado para sempre
+    // sessionStorage.setItem('pwa-banner-dismissed', 'true');
   };
 
 
