@@ -56,7 +56,19 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
     }
 
     // 2. Segundo: Notificação (se tour completado e notificação não completada)
+    // ✅ CORRIGIDO: No iOS, só mostrar notificação se PWA já instalado
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches;
+    
     if (hasCompletedTour && !hasCompletedNotification) {
+      // No iOS, pular notificação se PWA não instalado
+      if (isIOS && !isPWAInstalled) {
+        console.log('🎯 [BANNER] iOS without PWA - skipping notification, going to PWA');
+        setCurrentBanner('pwa');
+        setShowPWA(true);
+        return;
+      }
+      
       console.log('🎯 [BANNER] Showing notification setup after tour');
       setCurrentBanner('notification');
       setShowNotification(true);
