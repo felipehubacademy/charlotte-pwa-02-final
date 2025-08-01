@@ -307,6 +307,9 @@ export default function LoginPage() {
 
         {/* Desktop Footer - Clean */}
         <div className="flex-shrink-0 p-6"></div>
+        
+        {/* 🎯 Banner Manager - Mostra PWA antes do login (DESKTOP) */}
+        <BannerManager />
       </div>
     </div>
   );
