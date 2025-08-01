@@ -128,6 +128,34 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
   };
 
   const handleInstallClick = async () => {
+    // ✅ FUNÇÃO AUXILIAR: Instruções do navegador
+    const showBrowserInstructions = () => {
+      const userAgent = navigator.userAgent;
+      const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
+      const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+      const isEdge = /Edge/.test(userAgent);
+      
+      let instructions = 'Para instalar Charlotte:\n\n';
+      
+      if (isChrome) {
+        // ✅ CORRIGIDO: Instruções específicas para Chrome Mac
+        instructions += '1. Clique no botão "Instalar" na barra de endereços\n';
+        instructions += 'OU\n';
+        instructions += '2. Menu Chrome (⋮) → "Salvar e compartilhar" → "Instalar página como app"';
+      } else if (isSafari) {
+        instructions += '1. Clique no botão Compartilhar (□↗)\n';
+        instructions += '2. Role para baixo e toque em "Adicionar à Tela de Início"';
+      } else if (isEdge) {
+        instructions += '1. Clique no botão "Instalar app" na barra de endereços\n';
+        instructions += 'OU\n';
+        instructions += '2. Menu (⋯) → "Apps" → "Instalar este site como app"';
+      } else {
+        instructions += 'Procure por opção "Instalar app" ou "Adicionar à tela inicial" no menu do seu navegador.';
+      }
+      
+      alert(instructions);
+    };
+
     // ✅ PRIMEIRO: Verificar se já está instalado (como "Open in app")
     const currentlyInstalled = window.matchMedia('(display-mode: standalone)').matches;
     
@@ -199,33 +227,6 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     }
 
     // ✅ SEXTO RECURSO: INSTRUÇÕES baseadas no navegador
-    const showBrowserInstructions = () => {
-      const userAgent = navigator.userAgent;
-      const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
-      const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-      const isEdge = /Edge/.test(userAgent);
-      
-      let instructions = 'Para instalar Charlotte:\n\n';
-      
-      if (isChrome) {
-        // ✅ CORRIGIDO: Instruções específicas para Chrome Mac
-        instructions += '1. Clique no botão "Instalar" na barra de endereços\n';
-        instructions += 'OU\n';
-        instructions += '2. Menu Chrome (⋮) → "Salvar e compartilhar" → "Instalar página como app"';
-      } else if (isSafari) {
-        instructions += '1. Clique no botão Compartilhar (□↗)\n';
-        instructions += '2. Role para baixo e toque em "Adicionar à Tela de Início"';
-      } else if (isEdge) {
-        instructions += '1. Clique no botão "Instalar app" na barra de endereços\n';
-        instructions += 'OU\n';
-        instructions += '2. Menu (⋯) → "Apps" → "Instalar este site como app"';
-      } else {
-        instructions += 'Procure por opção "Instalar app" ou "Adicionar à tela inicial" no menu do seu navegador.';
-      }
-      
-      alert(instructions);
-    };
-    
     showBrowserInstructions();
   };
 
