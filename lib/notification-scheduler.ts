@@ -275,9 +275,41 @@ export class NotificationScheduler {
 
       console.log(`📤 Sending reminders to ${filteredUsers.length} users`);
 
+      // ✅ PROTEÇÃO CONTRA DUPLICAÇÃO: Verificar se já enviou hoje
+      const todayDate = new Date().toISOString().split('T')[0];
+      const { data: todayNotifications, error: todayError } = await supabase
+        .from('notification_logs')
+        .select('user_id, notification_type')
+        .eq('notification_type', 'practice_reminder')
+        .gte('created_at', `${todayDate}T00:00:00`)
+        .lt('created_at', `${todayDate}T23:59:59`);
+
+      if (todayError) {
+        console.error('❌ Error checking today notifications:', todayError);
+      }
+
+      // Criar set de usuários que já receberam hoje
+      const usersAlreadyNotified = new Set(
+        todayNotifications?.map(n => n.user_id) || []
+      );
+
+      console.log(`📊 Found ${usersAlreadyNotified.size} users already notified today`);
+
+      // Filtrar usuários que ainda não receberam hoje
+      const usersToNotify = filteredUsers.filter(user => 
+        !usersAlreadyNotified.has(user.entra_id)
+      );
+
+      if (usersToNotify.length === 0) {
+        console.log('✅ All eligible users already received notifications today');
+        return;
+      }
+
+      console.log(`📤 Sending reminders to ${usersToNotify.length} users (filtered from ${filteredUsers.length})`);
+
       // Enviar notificações
       const results = await Promise.allSettled(
-        filteredUsers.map(async (user) => {
+        usersToNotify.map(async (user) => {
           try {
             await ReengagementNotificationService.sendPracticeReminder(
               user.entra_id,
@@ -293,10 +325,10 @@ export class NotificationScheduler {
       );
 
       const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
-      console.log(`✅ Sent ${successful}/${filteredUsers.length} practice reminders`);
+      console.log(`✅ Sent ${successful}/${usersToNotify.length} practice reminders`);
 
       // Para usuários com frequência "frequent", agendar segundo lembrete
-      await this.scheduleSecondReminder(filteredUsers.filter(u => u.reminder_frequency === 'frequent'));
+      await this.scheduleSecondReminder(usersToNotify.filter(u => u.reminder_frequency === 'frequent'));
 
     } catch (error) {
       console.error('❌ Error in practice reminder scheduler:', error);
@@ -429,25 +461,69 @@ export class NotificationScheduler {
 
     console.log(`🕐 [SCHEDULER] Running tasks for ${hour}:00, day ${dayOfWeek}`);
 
-    // Segunda-feira às 9h - Desafios semanais
-    if (dayOfWeek === 1 && hour === 9) {
-      await this.sendWeeklyChallenges();
+    // ✅ PROTEÇÃO CONTRA EXECUÇÕES SIMULTÂNEAS
+    const lockKey = `scheduler_lock_${now.toISOString().split('T')[0]}_${hour}`;
+    
+    try {
+      const { getSupabase } = await import('./supabase');
+      const supabase = getSupabase();
+      
+      if (!supabase) {
+        console.log('❌ Supabase not available');
+        return;
+      }
+
+      // Tentar criar lock (verificar se já existe)
+      const { data: existingLock, error: lockError } = await supabase
+        .from('notification_logs')
+        .select('id')
+        .eq('notification_type', 'scheduler_lock')
+        .eq('user_id', lockKey)
+        .gte('created_at', new Date(now.getTime() - 5 * 60 * 1000).toISOString()) // Últimos 5 minutos
+        .single();
+
+      if (existingLock) {
+        console.log(`⏭️ Scheduler already running (lock exists: ${lockKey})`);
+        return;
+      }
+
+      // Criar lock
+      await supabase
+        .from('notification_logs')
+        .insert({
+          user_id: lockKey,
+          notification_type: 'scheduler_lock',
+          message_title: 'Scheduler execution lock',
+          message_body: `Scheduler running at ${now.toISOString()}`,
+          status: 'sent',
+          metadata: { hour, dayOfWeek }
+        });
+
+      console.log(`🔒 Scheduler lock created: ${lockKey}`);
+
+      // Segunda-feira às 9h - Desafios semanais
+      if (dayOfWeek === 1 && hour === 9) {
+        await this.sendWeeklyChallenges();
+      }
+
+      // Diariamente às 19h - Verificar metas
+      if (hour === 19) {
+        await this.checkGoalReminders();
+      }
+
+      // Diariamente às 21h - Verificar streaks em risco
+      if (hour === 21) {
+        await this.checkStreakReminders();
+      }
+
+      // A cada hora - Verificar lembretes de prática
+      await this.sendPracticeReminders();
+
+      console.log('✅ [SCHEDULER] Scheduled tasks completed');
+
+    } catch (error) {
+      console.error('❌ Error in scheduler:', error);
     }
-
-    // Diariamente às 19h - Verificar metas
-    if (hour === 19) {
-      await this.checkGoalReminders();
-    }
-
-    // Diariamente às 21h - Verificar streaks em risco
-    if (hour === 21) {
-      await this.checkStreakReminders();
-    }
-
-    // A cada hora - Verificar lembretes de prática
-    await this.sendPracticeReminders();
-
-    console.log('✅ [SCHEDULER] Scheduled tasks completed');
   }
 }
 

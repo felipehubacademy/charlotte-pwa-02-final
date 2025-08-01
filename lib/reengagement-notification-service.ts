@@ -105,19 +105,52 @@ export class ReengagementNotificationService {
     const userLevel = await this.getUserLevel(userId);
     const isNovice = userLevel === 'Novice';
     
+    // Determinar se é manhã ou noite baseado no horário atual (Brasil)
+    const now = new Date();
+    const brazilTime = new Date(now.getTime() - (3 * 60 * 60 * 1000)); // UTC-3
+    const brazilHour = brazilTime.getHours();
+    const isMorning = brazilHour >= 6 && brazilHour < 12;
+    const isEvening = brazilHour >= 18 && brazilHour < 22;
+    
+    let title: string;
+    let body: string;
+    
+    if (isMorning) {
+      // Manhã (6h-12h)
+      title = isNovice 
+        ? `⏰ Olá ${userName}! Hora de praticar inglês!`
+        : `⏰ Hi ${userName}! Time to practice English!`;
+      body = isNovice
+        ? `Bom dia! Que tal começar o dia praticando inglês com a Charlotte? Vamos lá!`
+        : `Good morning! How about starting your day practicing English with Charlotte? Let's go!`;
+    } else if (isEvening) {
+      // Noite (18h-22h)
+      title = isNovice 
+        ? `🌙 Olá ${userName}! Vamos praticar inglês!`
+        : `🌙 Hi ${userName}! Let's practice English!`;
+      body = isNovice
+        ? `Que tal terminar o dia praticando inglês? A Charlotte está pronta para te ajudar!`
+        : `How about ending your day practicing English? Charlotte is ready to help you!`;
+    } else {
+      // Outros horários - usar texto genérico
+      title = isNovice 
+        ? `⏰ Olá ${userName}! Hora de praticar!`
+        : `⏰ Hi ${userName}! Time to practice!`;
+      body = isNovice
+        ? `Que tal uma sessão rápida de inglês? Charlotte está esperando por você! 🎯`
+        : `How about a quick English session? Charlotte is waiting for you! 🎯`;
+    }
+    
     const notification: ReengagementNotification = {
       type: 'practice_reminder',
-      title: isNovice 
-        ? `⏰ Olá ${userName}! Hora de praticar!`
-        : `⏰ Hi ${userName}! Time to practice!`,
-      body: isNovice
-        ? `Que tal uma sessão rápida de inglês? Charlotte está esperando por você! 🎯`
-        : `How about a quick English session? Charlotte is waiting for you! 🎯`,
+      title,
+      body,
       url: '/chat',
       data: {
         type: 'practice_reminder',
         userName,
-        userLevel
+        userLevel,
+        timeOfDay: isMorning ? 'morning' : isEvening ? 'evening' : 'other'
       }
     };
 
@@ -132,7 +165,9 @@ export class ReengagementNotificationService {
       message_body: notification.body,
       metadata: {
         userName,
-        userLevel
+        userLevel,
+        timeOfDay: isMorning ? 'morning' : isEvening ? 'evening' : 'other',
+        brazilHour
       }
     });
     
@@ -283,7 +318,6 @@ export class ReengagementNotificationService {
       console.log(`📨 Sending Web Push to ${subscriptions.length} devices`);
 
       // Enviar via webpush direto (como Raw Push)
-      console.log(`📨 Sending Web Push to ${subscriptions.length} devices`);
       
       // Dynamic import webpush
       const webpush = await import('web-push');
