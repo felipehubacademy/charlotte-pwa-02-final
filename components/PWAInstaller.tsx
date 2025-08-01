@@ -113,14 +113,17 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
   };
 
   const handleInstallClick = async () => {
+    // ✅ PRIMEIRO: Verificar se já está instalado (como "Open in app")
+    const currentlyInstalled = window.matchMedia('(display-mode: standalone)').matches;
+    
     console.log('📱 [PWA] Install button clicked, checking states:', {
       hasDeferredPrompt: !!deferredPrompt,
-      isInstalled,
+      isInstalled: currentlyInstalled,
       isIOS,
       userAgent: navigator.userAgent
     });
     
-    // ✅ PRIMEIRO: Tentar usar deferredPrompt se disponível
+    // ✅ SEGUNDO: Tentar usar deferredPrompt se disponível
     if (deferredPrompt) {
       try {
         console.log('📱 [PWA] Triggering native install prompt');
@@ -142,9 +145,8 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       }
     }
 
-    // ✅ FALLBACK: Verificar se já está instalado (como "Open in app")
-    const isInstalled = window.matchMedia('(display-mode: standalone)').matches;
-    if (isInstalled) {
+    // ✅ TERCEIRO: Se já instalado, abrir PWA
+    if (currentlyInstalled) {
       console.log('📱 [PWA] Already installed, redirecting to PWA');
       window.location.href = window.location.href;
       return;
