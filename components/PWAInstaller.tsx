@@ -135,6 +135,9 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
         if (outcome === 'accepted') {
           console.log('✅ [PWA] App installed successfully!');
           setShowBanner(false);
+        } else {
+          console.log('ℹ️ [PWA] Native install prompt dismissed or not accepted.');
+          setShowBanner(false); // Hide banner even if dismissed
         }
         
         setDeferredPrompt(null);
@@ -152,7 +155,23 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       return;
     }
 
-    // ✅ INSTRUÇÕES CORRETAS baseadas no navegador
+    // ✅ QUARTO: Tentar disparo manual do prompt (para quando beforeinstallprompt não foi capturado)
+    try {
+      console.log('📱 [PWA] No deferredPrompt available, trying to trigger beforeinstallprompt manually');
+      // Tentar forçar o evento
+      const event = new Event('beforeinstallprompt');
+      window.dispatchEvent(event);
+      
+      // Se ainda não tem, fechar banner em vez de mostrar alert
+      console.log('📱 [PWA] Manual trigger attempted, hiding banner');
+      setShowBanner(false);
+      onDismiss?.();
+      return;
+    } catch (error) {
+      console.log('📱 [PWA] Manual trigger failed, will show browser instructions');
+    }
+
+    // ✅ ÚLTIMO RECURSO: INSTRUÇÕES baseadas no navegador
     const userAgent = navigator.userAgent;
     const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
     const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
