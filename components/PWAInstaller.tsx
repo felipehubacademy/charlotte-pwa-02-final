@@ -113,7 +113,11 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
   };
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      // Se não tem deferredPrompt, mostrar instruções manuais
+      alert('Para instalar:\n1. Clique no ícone de instalação na barra de endereços\nOU\n2. Menu → "Instalar Charlotte" ou "Adicionar à tela inicial"');
+      return;
+    }
 
     try {
       await deferredPrompt.prompt();
@@ -145,8 +149,8 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     }
   }, []);
 
-  // Banner de instalação para Android/Chrome
-  if (showBanner && isInstallable && !isInstalled && !isIOS) {
+  // Banner de instalação para Desktop/Android (sempre mostrar se não é iOS e não está instalado)
+  if (showBanner && !isInstalled && !isIOS) {
     return (
       <div className="fixed bottom-4 left-4 right-4 z-[60] bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 rounded-lg shadow-lg border border-blue-500/20 backdrop-blur-sm">
         <div className="flex items-center justify-between">
