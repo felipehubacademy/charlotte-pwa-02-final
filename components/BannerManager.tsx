@@ -48,19 +48,19 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
       return;
     }
 
-    // 2. Segundo: PWA (se tour completado e PWA não dispensado)
-    if (hasCompletedTour && !hasDismissedPWA) {
-      console.log('🎯 [BANNER] Showing PWA after tour');
-      setCurrentBanner('pwa');
-      setShowPWA(true);
+    // 2. Segundo: Notificação (se tour completado e notificação não completada)
+    if (hasCompletedTour && !hasCompletedNotification) {
+      console.log('🎯 [BANNER] Showing notification setup after tour');
+      setCurrentBanner('notification');
+      setShowNotification(true);
       return;
     }
 
-    // 3. Terceiro: Notificação (se tour e PWA completados)
-    if (hasCompletedTour && hasDismissedPWA && !hasCompletedNotification) {
-      console.log('🎯 [BANNER] Showing notification setup');
-      setCurrentBanner('notification');
-      setShowNotification(true);
+    // 3. Terceiro: PWA (se tour e notificação completados, mas PWA não dispensado)
+    if (hasCompletedTour && hasCompletedNotification && !hasDismissedPWA) {
+      console.log('🎯 [BANNER] Showing PWA after notification');
+      setCurrentBanner('pwa');
+      setShowPWA(true);
       return;
     }
 
@@ -71,34 +71,28 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
   const handleTourComplete = () => {
     setShowTour(false);
-    setCurrentBanner('pwa');
-    setShowPWA(true);
+    setCurrentBanner('notification');
+    setShowNotification(true);
     localStorage.setItem('onboarding-completed', 'true');
   };
 
   const handleTourSkip = () => {
     setShowTour(false);
-    setCurrentBanner('pwa');
-    setShowPWA(true);
+    setCurrentBanner('notification');
+    setShowNotification(true);
     localStorage.setItem('onboarding-completed', 'true');
   };
 
   const handlePWADismiss = () => {
     setShowPWA(false);
-    // Se não está logado, apenas dispensar
-    if (!user) {
-      setCurrentBanner(null);
-      return;
-    }
-    // Se está logado, seguir para notificação
-    setCurrentBanner('notification');
-    setShowNotification(true);
+    setCurrentBanner(null); // PWA é o último, apenas fechar
     sessionStorage.setItem('pwa-banner-dismissed', 'true');
   };
 
   const handleNotificationComplete = () => {
     setShowNotification(false);
-    setCurrentBanner(null);
+    setCurrentBanner('pwa');
+    setShowPWA(true);
     localStorage.setItem('notification-setup-completed', 'true');
   };
 
