@@ -36,7 +36,14 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
     // Sequência: Tour → PWA → Notificação
     const hasCompletedTour = localStorage.getItem('onboarding-completed') === 'true';
-    const hasCompletedNotification = localStorage.getItem('notification-setup-completed') === 'true';
+    let hasCompletedNotification = localStorage.getItem('notification-setup-completed') === 'true';
+
+    // ✅ NOVO: Se notificações já estão ativas, marcar como completado
+    if (!hasCompletedNotification && 'Notification' in window && Notification.permission === 'granted') {
+      console.log('🎯 [BANNER] Notifications already active, marking as completed');
+      localStorage.setItem('notification-setup-completed', 'true');
+      hasCompletedNotification = true;
+    }
 
     console.log('🎯 [BANNER] User logged in - Tour:', hasCompletedTour, 'Notification:', hasCompletedNotification);
 
