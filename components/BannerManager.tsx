@@ -18,15 +18,31 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
   const [showNotification, setShowNotification] = useState(false);
 
   useEffect(() => {
+    // ✅ NOVO: Mostrar PWA antes do login também
+    const hasDismissedPWA = sessionStorage.getItem('pwa-banner-dismissed') === 'true';
+    
+    console.log('🎯 [BANNER] User:', !!user, 'Dismissed PWA:', hasDismissedPWA);
+    
+    // Se não está logado, mostrar PWA se não foi dispensado
+    if (!user && !hasDismissedPWA) {
+      console.log('🎯 [BANNER] Showing PWA before login');
+      setCurrentBanner('pwa');
+      setShowPWA(true);
+      return;
+    }
+
+    // Se está logado, seguir sequência normal
     if (!user) return;
 
     // Sequência: Tour → PWA → Notificação
     const hasCompletedTour = localStorage.getItem('onboarding-completed') === 'true';
-    const hasDismissedPWA = sessionStorage.getItem('pwa-banner-dismissed') === 'true';
     const hasCompletedNotification = localStorage.getItem('notification-setup-completed') === 'true';
+
+    console.log('🎯 [BANNER] User logged in - Tour:', hasCompletedTour, 'Notification:', hasCompletedNotification);
 
     // 1. Primeiro: Tour (se não completado)
     if (!hasCompletedTour) {
+      console.log('🎯 [BANNER] Showing tour');
       setCurrentBanner('tour');
       setShowTour(true);
       return;
@@ -34,6 +50,7 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
     // 2. Segundo: PWA (se tour completado e PWA não dispensado)
     if (hasCompletedTour && !hasDismissedPWA) {
+      console.log('🎯 [BANNER] Showing PWA after tour');
       setCurrentBanner('pwa');
       setShowPWA(true);
       return;
@@ -41,11 +58,13 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
     // 3. Terceiro: Notificação (se tour e PWA completados)
     if (hasCompletedTour && hasDismissedPWA && !hasCompletedNotification) {
+      console.log('🎯 [BANNER] Showing notification setup');
       setCurrentBanner('notification');
       setShowNotification(true);
       return;
     }
 
+    console.log('🎯 [BANNER] No banner to show');
     // Nenhum banner para mostrar
     setCurrentBanner(null);
   }, [user]);
@@ -66,6 +85,12 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
   const handlePWADismiss = () => {
     setShowPWA(false);
+    // Se não está logado, apenas dispensar
+    if (!user) {
+      setCurrentBanner(null);
+      return;
+    }
+    // Se está logado, seguir para notificação
     setCurrentBanner('notification');
     setShowNotification(true);
     sessionStorage.setItem('pwa-banner-dismissed', 'true');

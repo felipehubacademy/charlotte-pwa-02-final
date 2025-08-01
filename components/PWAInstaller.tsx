@@ -158,11 +158,10 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
 
   // Não mostrar se já foi dispensado nesta sessão
   useEffect(() => {
-    // Temporariamente comentado para debug
-    // const dismissed = sessionStorage.getItem('pwa-banner-dismissed');
-    // if (dismissed) {
-    //   setShowBanner(false);
-    // }
+    const dismissed = sessionStorage.getItem('pwa-banner-dismissed');
+    if (dismissed) {
+      setShowBanner(false);
+    }
   }, []);
 
   // Banner de instalação para Android/Chrome

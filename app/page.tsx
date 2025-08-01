@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { LogIn, MessageSquare, Mic, Camera, ArrowRight, Sparkles } from 'lucide-react';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
+import BannerManager from '@/components/BannerManager';
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading, login } = useAuth();
@@ -293,6 +294,9 @@ export default function LoginPage() {
         {/* Desktop Footer - Clean */}
         <div className="flex-shrink-0 p-6"></div>
       </div>
+
+      {/* 🎯 Banner Manager - Mostra PWA antes do login */}
+      <BannerManager />
     </div>
   );
 }
