@@ -42,13 +42,22 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
 
     // Detectar se já está instalado
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    if (isStandalone) {
+    const isInstalledViaChrome = (navigator as any).standalone === true;
+    const hasInstalledPWA = localStorage.getItem('pwa-installed') === 'true';
+    
+    if (isStandalone || isInstalledViaChrome || hasInstalledPWA) {
       setIsInstalled(true);
+      console.log('📱 [PWA] PWA detected as installed');
     }
-    console.log('📱 [PWA] Is installed (standalone):', isStandalone);
+    console.log('📱 [PWA] Installation check:', {
+      isStandalone,
+      isInstalledViaChrome,
+      hasInstalledPWA,
+      finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA
+    });
 
     // ✅ NOVO: Mostrar banner sempre se não está instalado (BannerManager controla quando)
-    if (!isStandalone) {
+    if (!(isStandalone || isInstalledViaChrome || hasInstalledPWA)) {
       console.log('📱 [PWA] Ready to show banner when BannerManager allows');
       setShowBanner(true);
     }
@@ -134,6 +143,7 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
         
         if (outcome === 'accepted') {
           console.log('✅ [PWA] App installed successfully!');
+          localStorage.setItem('pwa-installed', 'true');
           setShowBanner(false);
         } else {
           console.log('ℹ️ [PWA] Native install prompt dismissed or not accepted.');
