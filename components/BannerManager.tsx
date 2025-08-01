@@ -90,6 +90,7 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
   };
 
   const handleNotificationComplete = () => {
+    console.log('🎯 [BANNER] Notification completed, going to PWA');
     setShowNotification(false);
     setCurrentBanner('pwa');
     setShowPWA(true);

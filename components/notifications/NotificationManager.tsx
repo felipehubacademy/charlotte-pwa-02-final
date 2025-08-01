@@ -481,6 +481,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
   );
 
   const handleDismiss = () => {
+    console.log('🔔 [NOTIFICATION] Banner dismissed, calling onComplete');
     setIsDismissed(true);
     localStorage.setItem('notification-setup-dismissed', 'true');
     localStorage.setItem('notification-setup-completed', 'true');
