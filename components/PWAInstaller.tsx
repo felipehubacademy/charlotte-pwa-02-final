@@ -45,7 +45,12 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     const isInstalledViaChrome = (navigator as any).standalone === true;
     const hasInstalledPWA = localStorage.getItem('pwa-installed') === 'true';
     
-    if (isStandalone || isInstalledViaChrome || hasInstalledPWA) {
+    // ✅ NOVO: Verificar se o Chrome tem o ícone "Open in app" (PWA instalado)
+    const hasChromeInstallIcon = document.querySelector('link[rel="manifest"]') !== null && 
+      (window as any).chrome !== undefined && 
+      (window as any).chrome.webstore === undefined; // Não é Chrome Web Store
+    
+    if (isStandalone || isInstalledViaChrome || hasInstalledPWA || hasChromeInstallIcon) {
       setIsInstalled(true);
       console.log('📱 [PWA] PWA detected as installed');
     }
@@ -53,11 +58,12 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       isStandalone,
       isInstalledViaChrome,
       hasInstalledPWA,
-      finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA
+      hasChromeInstallIcon,
+      finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA || hasChromeInstallIcon
     });
 
     // ✅ NOVO: Mostrar banner sempre se não está instalado (BannerManager controla quando)
-    if (!(isStandalone || isInstalledViaChrome || hasInstalledPWA)) {
+    if (!(isStandalone || isInstalledViaChrome || hasInstalledPWA || hasChromeInstallIcon)) {
       console.log('📱 [PWA] Ready to show banner when BannerManager allows');
       setShowBanner(true);
     }
@@ -165,47 +171,62 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       return;
     }
 
-    // ✅ QUARTO: Tentar disparo manual do prompt (para quando beforeinstallprompt não foi capturado)
+    // ✅ QUARTO: Verificar se tem localStorage marcado como instalado
+    if (localStorage.getItem('pwa-installed') === 'true') {
+      console.log('📱 [PWA] PWA marked as installed in localStorage, redirecting');
+      window.location.href = window.location.href;
+      return;
+    }
+
+    // ✅ QUINTO: Tentar disparo manual do prompt (para quando beforeinstallprompt não foi capturado)
     try {
       console.log('📱 [PWA] No deferredPrompt available, trying to trigger beforeinstallprompt manually');
       // Tentar forçar o evento
       const event = new Event('beforeinstallprompt');
       window.dispatchEvent(event);
       
-      // Se ainda não tem, fechar banner em vez de mostrar alert
-      console.log('📱 [PWA] Manual trigger attempted, hiding banner');
-      setShowBanner(false);
-      onDismiss?.();
+      // Aguardar um pouco para ver se o deferredPrompt aparece
+      setTimeout(() => {
+        if (!deferredPrompt) {
+          console.log('📱 [PWA] Manual trigger failed, showing browser instructions');
+          showBrowserInstructions();
+        }
+      }, 100);
       return;
     } catch (error) {
-      console.log('📱 [PWA] Manual trigger failed, will show browser instructions');
+      console.log('📱 [PWA] Manual trigger failed, showing browser instructions');
+      showBrowserInstructions();
     }
 
-    // ✅ ÚLTIMO RECURSO: INSTRUÇÕES baseadas no navegador
-    const userAgent = navigator.userAgent;
-    const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
-    const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
-    const isEdge = /Edge/.test(userAgent);
+    // ✅ SEXTO RECURSO: INSTRUÇÕES baseadas no navegador
+    const showBrowserInstructions = () => {
+      const userAgent = navigator.userAgent;
+      const isChrome = /Chrome/.test(userAgent) && !/Edge/.test(userAgent);
+      const isSafari = /Safari/.test(userAgent) && !/Chrome/.test(userAgent);
+      const isEdge = /Edge/.test(userAgent);
+      
+      let instructions = 'Para instalar Charlotte:\n\n';
+      
+      if (isChrome) {
+        // ✅ CORRIGIDO: Instruções específicas para Chrome Mac
+        instructions += '1. Clique no botão "Instalar" na barra de endereços\n';
+        instructions += 'OU\n';
+        instructions += '2. Menu Chrome (⋮) → "Salvar e compartilhar" → "Instalar página como app"';
+      } else if (isSafari) {
+        instructions += '1. Clique no botão Compartilhar (□↗)\n';
+        instructions += '2. Role para baixo e toque em "Adicionar à Tela de Início"';
+      } else if (isEdge) {
+        instructions += '1. Clique no botão "Instalar app" na barra de endereços\n';
+        instructions += 'OU\n';
+        instructions += '2. Menu (⋯) → "Apps" → "Instalar este site como app"';
+      } else {
+        instructions += 'Procure por opção "Instalar app" ou "Adicionar à tela inicial" no menu do seu navegador.';
+      }
+      
+      alert(instructions);
+    };
     
-    let instructions = 'Para instalar Charlotte:\n\n';
-    
-    if (isChrome) {
-      // ✅ CORRIGIDO: Instruções específicas para Chrome Mac
-      instructions += '1. Clique no botão "Instalar" na barra de endereços\n';
-      instructions += 'OU\n';
-      instructions += '2. Menu Chrome (⋮) → "Salvar e compartilhar" → "Instalar página como app"';
-    } else if (isSafari) {
-      instructions += '1. Clique no botão Compartilhar (□↗)\n';
-      instructions += '2. Role para baixo e toque em "Adicionar à Tela de Início"';
-    } else if (isEdge) {
-      instructions += '1. Clique no botão "Instalar app" na barra de endereços\n';
-      instructions += 'OU\n';
-      instructions += '2. Menu (⋯) → "Apps" → "Instalar este site como app"';
-    } else {
-      instructions += 'Procure por opção "Instalar app" ou "Adicionar à tela inicial" no menu do seu navegador.';
-    }
-    
-    alert(instructions);
+    showBrowserInstructions();
   };
 
   const dismissBanner = () => {
