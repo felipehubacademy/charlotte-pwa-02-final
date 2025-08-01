@@ -114,20 +114,41 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) {
-      // Se não tem deferredPrompt, mostrar instruções manuais
-      alert('Para instalar:\n1. Clique no ícone de instalação na barra de endereços\nOU\n2. Menu → "Instalar Charlotte" ou "Adicionar à tela inicial"');
+      // ✅ MELHORADO: Instruções mais específicas baseadas no navegador
+      const isChrome = /Chrome/.test(navigator.userAgent);
+      const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+      const isEdge = /Edge/.test(navigator.userAgent);
+      
+      let instructions = 'Para instalar:\n';
+      
+      if (isChrome) {
+        instructions += '1. Clique no ícone "Instalar app" 📱 na barra de endereços\nOU\n2. Menu (⋮) → "Instalar Charlotte"';
+      } else if (isSafari) {
+        instructions += '1. Clique em Compartilhar (↗️)\n2. "Adicionar à Tela de Início"';
+      } else if (isEdge) {
+        instructions += '1. Menu (⋯) → "Apps" → "Instalar Charlotte"';
+      } else {
+        instructions += '1. Procure por "Instalar" ou "Adicionar" no menu do navegador\n2. Ou busque o ícone 📱 na barra de endereços';
+      }
+      
+      alert(instructions);
       return;
     }
 
     try {
+      console.log('📱 [PWA] Triggering install prompt (same as "Open in app")');
       await deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       
       console.log(`📱 [PWA] Install prompt result: ${outcome}`);
       
+      if (outcome === 'accepted') {
+        console.log('✅ [PWA] App installed successfully!');
+        setShowBanner(false);
+      }
+      
       setDeferredPrompt(null);
       setIsInstallable(false);
-      setShowBanner(false);
     } catch (error) {
       console.error('❌ [PWA] Install prompt failed:', error);
     }
