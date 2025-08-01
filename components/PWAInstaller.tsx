@@ -247,8 +247,11 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     );
   }
 
-  // Banner de instruções para iOS
+  // Banner de instruções para iOS  
+  console.log('📱 [PWA] iOS Banner Check:', { showBanner, isIOS, isInstalled });
+  
   if (showBanner && isIOS && !isInstalled) {
+    console.log('📱 [PWA] RENDERING iOS BANNER NOW!');
     return (
       <div className="fixed bottom-4 left-4 right-4 z-[60] bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded-lg shadow-lg border border-gray-700">
         <div className="flex items-start justify-between">

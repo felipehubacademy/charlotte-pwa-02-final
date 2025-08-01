@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Bell, BellOff, Smartphone, Download } from 'lucide-react';
+import { Bell, BellOff, Download } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import NotificationService from '@/lib/notification-service';
 import { getFCMToken } from '@/lib/firebase-config-optimized';
@@ -441,44 +441,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
     }
   };
 
-  // iOS specific guidance component - MANTIDO ORIGINAL
-  const IOSGuidance = () => (
-    <div className="bg-secondary/60 backdrop-blur-md border border-white/10 rounded-xl p-4 mb-4">
-      <div className="flex items-start space-x-3">
-        <div className="bg-primary/20 p-2 rounded-lg">
-          <Smartphone className="w-5 h-5 text-primary" />
-        </div>
-        <div className="flex-1">
-          <h4 className="font-medium text-white">Push Notifications no iOS</h4>
-          
-          {!isPWAInstalled ? (
-            <div>
-              <p className="text-sm text-white/70 mt-1">
-                {isPortuguese ? 'Para receber notificações, você precisa instalar Charlotte como PWA:' : 'To receive notifications, you need to install Charlotte as PWA:'}
-              </p>
-              <ol className="text-sm text-white/60 mt-2 space-y-1 list-decimal list-inside">
-                <li>Safari → Compartilhar → "Adicionar à Tela Inicial"</li>
-                <li>Abrir Charlotte da tela inicial (não pelo Safari)</li>
-                <li>{t.activateNotificationsInApp}</li>
-              </ol>
-              {/* ✅ REMOVIDO: Botão do tutorial complexo */}
-            </div>
-          ) : (
-            <div>
-              <p className="text-sm text-green-300 mt-1">
-                {t.pwaInstalled}
-              </p>
-              {iosCapabilities && (
-                <p className="text-xs text-white/50 mt-1">
-                  iOS {iosCapabilities.version} • Push notifications suportadas
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+
 
   const handleDismiss = () => {
     console.log('🔔 [NOTIFICATION] Banner dismissed, calling onComplete');
@@ -494,18 +457,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
   };
 
   // ✅ REMOVIDO: IOSInstallGuide será controlado pelo BannerManager
-
-  // ✅ CORRIGIDO: Simplificado para apenas verificar se é iOS sem PWA
-  if (platform === 'ios' && !isPWAInstalled) {
-    return (
-      <div className={`notification-manager ${className}`}>
-        <div className="bg-secondary/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl">
-          <IOSGuidance />
-          {/* ✅ REMOVIDO: Botão para tutorial complexo */}
-        </div>
-      </div>
-    );
-  }
+  // ✅ REMOVIDO: Condição iOS que estava renderizando IOSGuidance e bloqueando textarea
 
   if (!isSupported) {
     return (
@@ -595,7 +547,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
         marginBottom: platform === 'ios' && isPWAInstalled ? 'env(safe-area-inset-bottom)' : '0'
       }}
     >
-      {platform === 'ios' && <IOSGuidance />}
+
       
       {/* Header redesenhado com gradiente da marca - MODIFICADO PARA RECOVERY */}
       <div className="bg-gradient-to-r from-primary/80 via-primary to-primary/80 p-4 sm:p-5">
