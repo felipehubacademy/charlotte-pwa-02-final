@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import PWAInstaller from '@/components/PWAInstaller';
-import NotificationManager from '@/components/notifications/NotificationManager';
 
 interface BannerManagerProps {
   className?: string;
@@ -12,10 +11,9 @@ interface BannerManagerProps {
 
 export default function BannerManager({ className = '' }: BannerManagerProps) {
   const { user } = useAuth();
-  const [currentBanner, setCurrentBanner] = useState<'tour' | 'pwa' | 'notification' | null>(null);
+  const [currentBanner, setCurrentBanner] = useState<'tour' | 'pwa' | null>(null);
   const [showTour, setShowTour] = useState(false);
   const [showPWA, setShowPWA] = useState(false);
-  const [showNotification, setShowNotification] = useState(false);
 
   useEffect(() => {
     // ✅ NOVO: Mostrar PWA antes do login também
@@ -35,18 +33,10 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
     // Se está logado, seguir sequência normal
     if (!user) return;
 
-    // Sequência: Tour → PWA → Notificação
+    // Sequência: Tour → PWA
     const hasCompletedTour = localStorage.getItem('onboarding-completed') === 'true';
-    let hasCompletedNotification = localStorage.getItem('notification-setup-completed') === 'true';
 
-    // ✅ NOVO: Se notificações já estão ativas, marcar como completado
-    if (!hasCompletedNotification && 'Notification' in window && Notification.permission === 'granted') {
-      console.log('🎯 [BANNER] Notifications already active, marking as completed');
-      localStorage.setItem('notification-setup-completed', 'true');
-      hasCompletedNotification = true;
-    }
-
-    console.log('🎯 [BANNER] User logged in - Tour:', hasCompletedTour, 'Notification:', hasCompletedNotification);
+    console.log('🎯 [BANNER] User logged in - Tour:', hasCompletedTour);
 
     // 1. Primeiro: Tour (se não completado)
     if (!hasCompletedTour) {
@@ -56,21 +46,13 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
       return;
     }
 
-    // 2. Segundo: Notificação (se tour completado e notificação não completada)
-    if (hasCompletedTour && !hasCompletedNotification) {
-      console.log('🎯 [BANNER] Showing notification setup after tour');
-      setCurrentBanner('notification');
-      setShowNotification(true);
-      return;
-    }
-
-    // 3. Terceiro: PWA (se tour completado e PWA não instalado)
-    // ✅ CORRIGIDO: Mostrar PWA sempre que não estiver instalado
+    // ✅ SIMPLIFICADO: Apenas PWA, sem banner de notificação
+    // 2. PWA (se tour completado e PWA não instalado)
     const isPWAInstalled = window.matchMedia('(display-mode: standalone)').matches || 
                            localStorage.getItem('pwa-installed') === 'true';
     
     if (hasCompletedTour && !isPWAInstalled) {
-      console.log('🎯 [BANNER] Showing PWA after notification (not installed)');
+      console.log('🎯 [BANNER] Showing PWA after tour (not installed)');
       setCurrentBanner('pwa');
       setShowPWA(true);
       return;
@@ -85,15 +67,15 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
   const handleTourComplete = () => {
     setShowTour(false);
-    setCurrentBanner('notification');
-    setShowNotification(true);
+    setCurrentBanner('pwa');
+    setShowPWA(true);
     localStorage.setItem('onboarding-completed', 'true');
   };
 
   const handleTourSkip = () => {
     setShowTour(false);
-    setCurrentBanner('notification');
-    setShowNotification(true);
+    setCurrentBanner('pwa');
+    setShowPWA(true);
     localStorage.setItem('onboarding-completed', 'true');
   };
 
@@ -106,13 +88,7 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
 
 
-  const handleNotificationComplete = () => {
-    console.log('🎯 [BANNER] Notification completed, going to PWA');
-    setShowNotification(false);
-    setCurrentBanner('pwa');
-    setShowPWA(true);
-    localStorage.setItem('notification-setup-completed', 'true');
-  };
+  // ✅ REMOVIDO: handleNotificationComplete - não usamos mais banner de notificação
 
   // Renderizar apenas o banner atual
   if (currentBanner === 'tour') {
@@ -127,13 +103,7 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
     );
   }
 
-  if (currentBanner === 'notification') {
-    return (
-      <div className="fixed bottom-4 left-4 right-4 z-[50] sm:bottom-6 sm:left-6 sm:right-auto sm:max-w-sm lg:bottom-8 lg:left-8 lg:max-w-md">
-        <NotificationManager className="w-full" onComplete={handleNotificationComplete} />
-      </div>
-    );
-  }
+  // ✅ REMOVIDO: Banner de notificação - não usamos mais
 
   if (currentBanner === 'pwa') {
     console.log('🎯 [BANNER] Rendering PWAInstaller component');
