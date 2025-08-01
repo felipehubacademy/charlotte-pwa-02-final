@@ -45,12 +45,7 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
     const isInstalledViaChrome = (navigator as any).standalone === true;
     const hasInstalledPWA = localStorage.getItem('pwa-installed') === 'true';
     
-    // ✅ NOVO: Verificar se o Chrome tem o ícone "Open in app" (PWA instalado)
-    const hasChromeInstallIcon = document.querySelector('link[rel="manifest"]') !== null && 
-      (window as any).chrome !== undefined && 
-      (window as any).chrome.webstore === undefined; // Não é Chrome Web Store
-    
-    if (isStandalone || isInstalledViaChrome || hasInstalledPWA || hasChromeInstallIcon) {
+    if (isStandalone || isInstalledViaChrome || hasInstalledPWA) {
       setIsInstalled(true);
       console.log('📱 [PWA] PWA detected as installed');
     }
@@ -58,12 +53,11 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
       isStandalone,
       isInstalledViaChrome,
       hasInstalledPWA,
-      hasChromeInstallIcon,
-      finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA || hasChromeInstallIcon
+      finalInstalled: isStandalone || isInstalledViaChrome || hasInstalledPWA
     });
 
     // ✅ NOVO: Mostrar banner sempre se não está instalado (BannerManager controla quando)
-    if (!(isStandalone || isInstalledViaChrome || hasInstalledPWA || hasChromeInstallIcon)) {
+    if (!(isStandalone || isInstalledViaChrome || hasInstalledPWA)) {
       console.log('📱 [PWA] Ready to show banner when BannerManager allows');
       setShowBanner(true);
     }
