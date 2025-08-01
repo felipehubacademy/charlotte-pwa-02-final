@@ -67,16 +67,44 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
   const handleTourComplete = () => {
     setShowTour(false);
-    setCurrentBanner('pwa');
-    setShowPWA(true);
     localStorage.setItem('onboarding-completed', 'true');
+    
+    // ✅ NOVO: Solicitar permissão nativa no iOS após tour
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS && 'Notification' in window && Notification.permission === 'default') {
+      console.log('📱 [BANNER] iOS detected, requesting native notification permission');
+      Notification.requestPermission().then(permission => {
+        console.log('📱 [BANNER] Native permission result:', permission);
+        // Após permissão, mostrar PWA
+        setCurrentBanner('pwa');
+        setShowPWA(true);
+      });
+    } else {
+      // Para outras plataformas, mostrar PWA direto
+      setCurrentBanner('pwa');
+      setShowPWA(true);
+    }
   };
 
   const handleTourSkip = () => {
     setShowTour(false);
-    setCurrentBanner('pwa');
-    setShowPWA(true);
     localStorage.setItem('onboarding-completed', 'true');
+    
+    // ✅ NOVO: Solicitar permissão nativa no iOS após tour
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isIOS && 'Notification' in window && Notification.permission === 'default') {
+      console.log('📱 [BANNER] iOS detected, requesting native notification permission');
+      Notification.requestPermission().then(permission => {
+        console.log('📱 [BANNER] Native permission result:', permission);
+        // Após permissão, mostrar PWA
+        setCurrentBanner('pwa');
+        setShowPWA(true);
+      });
+    } else {
+      // Para outras plataformas, mostrar PWA direto
+      setCurrentBanner('pwa');
+      setShowPWA(true);
+    }
   };
 
   const handlePWADismiss = () => {
