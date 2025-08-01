@@ -11,22 +11,7 @@
   "lang": "pt-BR",
   "dir": "ltr",
   "categories": ["education", "productivity", "lifestyle"],
-  "screenshots": [
-    {
-      "src": "/images/screenshot-wide.png",
-      "sizes": "1280x720",
-      "type": "image/png",
-      "form_factor": "wide",
-      "label": "Interface de chat do Charlotte no desktop"
-    },
-    {
-      "src": "/images/screenshot-narrow.png",
-      "sizes": "390x844",
-      "type": "image/png",
-      "form_factor": "narrow",
-      "label": "Interface mobile do Charlotte"
-    }
-  ],
+  "screenshots": [],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
