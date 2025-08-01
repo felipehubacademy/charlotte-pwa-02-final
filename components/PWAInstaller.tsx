@@ -113,6 +113,13 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
   };
 
   const handleInstallClick = async () => {
+    console.log('📱 [PWA] Install button clicked, checking states:', {
+      hasDeferredPrompt: !!deferredPrompt,
+      isInstalled,
+      isIOS,
+      userAgent: navigator.userAgent
+    });
+    
     // ✅ PRIMEIRO: Tentar usar deferredPrompt se disponível
     if (deferredPrompt) {
       try {

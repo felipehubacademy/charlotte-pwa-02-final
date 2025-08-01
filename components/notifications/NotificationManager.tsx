@@ -530,7 +530,8 @@ export default function NotificationManager({ className = '', onComplete }: Noti
   }
 
   // Only show when user needs to enable notifications - MODIFICADO PARA INCLUIR RECOVERY
-  const hasCompleteNotificationSetup = (permission === 'granted' && isSubscribed && hasFCMToken);
+  // ✅ CORRIGIDO: No Mac/Desktop, só Web Push já é suficiente
+  const hasCompleteNotificationSetup = (permission === 'granted' && (isSubscribed || hasFCMToken));
   
   console.log('🔔 [NOTIFICATION] Debug:', {
     permission,
