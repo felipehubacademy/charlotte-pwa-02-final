@@ -458,23 +458,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
 
   // ✅ REMOVIDO: IOSInstallGuide será controlado pelo BannerManager
   // ✅ REMOVIDO: Condição iOS que estava renderizando IOSGuidance e bloqueando textarea
-
-  if (!isSupported) {
-    return (
-      <div className={`notification-manager ${className}`}>
-        <div className="bg-secondary/90 backdrop-blur-md border border-white/10 rounded-2xl p-4 shadow-xl">
-          <div className="text-center">
-            <div className="bg-white/10 p-3 rounded-full w-12 h-12 mx-auto mb-3 flex items-center justify-center">
-              <BellOff className="w-6 h-6 text-white/60" />
-            </div>
-            <p className="text-sm text-white/70">
-              {t.pushNotificationsNotSupported}
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // ✅ REMOVIDO: Mensagem "Push notifications are not supported" - não deve aparecer
 
   // Don't render anything while initializing - MANTIDO ORIGINAL
   if (isInitializing) {
@@ -506,11 +490,7 @@ export default function NotificationManager({ className = '', onComplete }: Noti
     return null;
   }
   
-  // Se não é suportado, não mostrar
-  if (!isSupported) {
-    console.log('🔔 [NOTIFICATION] Not supported, not showing banner');
-    return null;
-  }
+  // ✅ REMOVIDO: Verificação !isSupported - não deve bloquear o banner
 
   // Debug helper - MODIFICADO PARA INCLUIR RECOVERY
   if (typeof window !== 'undefined') {
