@@ -56,9 +56,10 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
       return;
     }
 
-    // 3. Terceiro: PWA (se tour e notificação completados, mas PWA não dispensado)
-    if (hasCompletedTour && hasCompletedNotification && !hasDismissedPWA) {
-      console.log('🎯 [BANNER] Showing PWA after notification');
+    // 3. Terceiro: PWA (se tour completado e PWA não dispensado)
+    // ✅ CORRIGIDO: Não precisa esperar notificação se já está ativa
+    if (hasCompletedTour && !hasDismissedPWA) {
+      console.log('🎯 [BANNER] Showing PWA after tour (notification OK or completed)');
       setCurrentBanner('pwa');
       setShowPWA(true);
       return;
