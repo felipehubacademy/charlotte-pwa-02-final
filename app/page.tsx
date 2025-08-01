@@ -17,7 +17,13 @@ export default function LoginPage() {
   useEffect(() => {
     setIsMounted(true);
     const checkMobile = () => {
-      setIsMobile(window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent));
+      const isMobileDevice = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      console.log('📱 [LOGIN] Mobile check:', {
+        width: window.innerWidth,
+        userAgent: navigator.userAgent,
+        isMobile: isMobileDevice
+      });
+      setIsMobile(isMobileDevice);
     };
     
     checkMobile();
@@ -43,6 +49,7 @@ export default function LoginPage() {
   }
 
   // Mobile Layout (Primary)
+  console.log('📱 [LOGIN] Rendering layout, isMobile:', isMobile);
   if (isMobile) {
     return (
       <div className="h-screen bg-secondary overflow-hidden select-none">
@@ -100,23 +107,30 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* CTA Button - Microsoft Style */}
-              <motion.button
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.6 }}
-                onClick={login}
-                disabled={isLoading}
-                className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 will-change-transform"
-              >
-                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
-                  <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
-                  <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
-                  <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
-                  <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
-                </svg>
-                <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
-              </motion.button>
+                        {/* CTA Button - Microsoft Style */}
+          <motion.button
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            onClick={login}
+            disabled={isLoading}
+            className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 will-change-transform"
+          >
+            <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
+              <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
+              <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
+              <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
+              <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
+            </svg>
+            <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
+          </motion.button>
+          
+          {/* 🎯 TESTE MOBILE - Banner só para mobile */}
+          <div className="fixed bottom-4 left-4 right-4 z-[9999] bg-red-500 text-white p-4 rounded-lg">
+            <h3 className="font-bold text-lg">📱 TESTE MOBILE</h3>
+            <p className="text-sm">Se você vê isso no iPhone, o banner funciona</p>
+            <p className="text-xs">Mobile only - z-index: 9999</p>
+          </div>
 
               {/* Feature Icons - Below Button */}
               <motion.div
@@ -293,32 +307,6 @@ export default function LoginPage() {
 
         {/* Desktop Footer - Clean */}
         <div className="flex-shrink-0 p-6"></div>
-        
-        {/* 🎯 TESTE DIRETO - PWAInstaller sem BannerManager */}
-        <div className="fixed bottom-4 left-4 right-4 z-[60]">
-          <div className="bg-gradient-to-r from-gray-800 to-gray-900 text-white p-4 rounded-lg shadow-lg border border-gray-700">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-3">
-                <div className="bg-white/20 p-2 rounded-lg">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-sm">TESTE DIRETO - PWA Banner</h3>
-                  <p className="text-xs text-gray-300 mt-1">
-                    Se você vê isso, o problema é no BannerManager
-                  </p>
-                </div>
-              </div>
-              <button className="text-white/80 hover:text-white p-1">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
