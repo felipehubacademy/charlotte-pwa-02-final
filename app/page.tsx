@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { LogIn, MessageSquare, Mic, Camera, ArrowRight, Sparkles } from 'lucide-react';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import BannerManager from '@/components/BannerManager';
+import PWAInstaller from '@/components/PWAInstaller';
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading, login } = useAuth();
@@ -125,12 +126,8 @@ export default function LoginPage() {
             <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
           </motion.button>
           
-          {/* 🎯 TESTE MOBILE - Banner só para mobile */}
-          <div className="fixed bottom-4 left-4 right-4 z-[9999] bg-red-500 text-white p-4 rounded-lg">
-            <h3 className="font-bold text-lg">📱 TESTE MOBILE</h3>
-            <p className="text-sm">Se você vê isso no iPhone, o banner funciona</p>
-            <p className="text-xs">Mobile only - z-index: 9999</p>
-          </div>
+          {/* 🎯 PWAInstaller - Só para mobile */}
+          <PWAInstaller />
 
               {/* Feature Icons - Below Button */}
               <motion.div
