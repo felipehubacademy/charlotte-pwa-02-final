@@ -143,9 +143,8 @@ export default function PWAInstaller({ onDismiss }: PWAInstallerProps = {}) {
           instructions += '1. Clique no botão Compartilhar (□↗)\n';
           instructions += '2. Role para baixo e toque em "Adicionar à Tela de Início"';
         } else {
-          instructions += '1. Menu Safari → "Desenvolver" → "Mostrar Página Web em Aplicativo"\n';
-          instructions += 'OU\n';
-          instructions += '2. Menu Safari → "Arquivo" → "Adicionar à Tela de Início"';
+          instructions += '1. Clique no botão Compartilhar (□↗)\n';
+          instructions += '2. Selecione "Adicionar ao Dock"';
         }
       } else if (isEdge) {
         instructions += '1. Clique no botão "Instalar app" na barra de endereços\n';
