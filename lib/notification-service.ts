@@ -138,6 +138,13 @@ export class NotificationService {
     } else {
       // Para outras plataformas
       this.isSupported = hasServiceWorker && hasPushManager && hasNotifications;
+      
+      console.log('🖥️ Desktop Support check:', {
+        hasServiceWorker,
+        hasPushManager,
+        hasNotifications,
+        finalSupport: this.isSupported
+      });
     }
   }
 
