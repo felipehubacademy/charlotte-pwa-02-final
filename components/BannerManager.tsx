@@ -176,8 +176,8 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
         console.log('📱 [iOS] Subscription saved to server');
         
         // Enviar mensagem de confirmação da Charlotte
-        await registration.showNotification('🎉 Notificações Ativadas!', {
-          body: `Olá ${user?.name || 'amigo'}! As notificações da Charlotte foram ativadas com sucesso. Você receberá lembretes de prática às 8h e 20h.`,
+        await registration.showNotification('🔔 Notificações Ativadas!', {
+          body: `Olá ${user?.name || 'friend'}! As notificações da Charlotte foram ativadas com sucesso!`,
           icon: '/icons/icon-192x192.png',
           badge: '/icons/icon-72x72.png',
           tag: 'charlotte-welcome',
