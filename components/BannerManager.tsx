@@ -157,9 +157,9 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
         endpoint: subscription.endpoint,
         keys: {
           p256dh: subscription.getKey('p256dh') ? 
-            btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')))) : '',
+            btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!))) : '',
           auth: subscription.getKey('auth') ? 
-            btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')))) : ''
+            btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!))) : ''
         },
         platform: 'ios',
         is_active: true,
