@@ -69,18 +69,28 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
     setShowTour(false);
     localStorage.setItem('onboarding-completed', 'true');
     
-    // ✅ NOVO: Solicitar permissão nativa no iOS após tour
+    // ✅ iOS PWA: Modal nativo → Subscription → Mensagem Charlotte
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS && 'Notification' in window && Notification.permission === 'default') {
-      console.log('📱 [BANNER] iOS detected, requesting native notification permission');
-      Notification.requestPermission().then(permission => {
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+    
+    if (isIOS && isPWA && 'Notification' in window && Notification.permission === 'default') {
+      console.log('📱 [BANNER] iOS PWA detected, requesting native notification permission');
+      Notification.requestPermission().then(async permission => {
         console.log('📱 [BANNER] Native permission result:', permission);
-        // Após permissão, mostrar PWA
-        setCurrentBanner('pwa');
-        setShowPWA(true);
+        if (permission === 'granted') {
+          // Criar subscription imediatamente
+          await createIOSPushSubscription();
+        }
+        // Fim do fluxo no PWA
+        setCurrentBanner(null);
       });
+    } else if (isIOS && !isPWA) {
+      // iOS Safari: PWA Banner
+      console.log('📱 [BANNER] iOS Safari - showing PWA banner');
+      setCurrentBanner('pwa');
+      setShowPWA(true);
     } else {
-      // Para outras plataformas, mostrar PWA direto
+      // Desktop/Mac/Android: PWA direto (não mexer)
       setCurrentBanner('pwa');
       setShowPWA(true);
     }
@@ -90,18 +100,28 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
     setShowTour(false);
     localStorage.setItem('onboarding-completed', 'true');
     
-    // ✅ NOVO: Solicitar permissão nativa no iOS após tour
+    // ✅ iOS PWA: Modal nativo → Subscription → Mensagem Charlotte
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    if (isIOS && 'Notification' in window && Notification.permission === 'default') {
-      console.log('📱 [BANNER] iOS detected, requesting native notification permission');
-      Notification.requestPermission().then(permission => {
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches;
+    
+    if (isIOS && isPWA && 'Notification' in window && Notification.permission === 'default') {
+      console.log('📱 [BANNER] iOS PWA detected, requesting native notification permission');
+      Notification.requestPermission().then(async permission => {
         console.log('📱 [BANNER] Native permission result:', permission);
-        // Após permissão, mostrar PWA
-        setCurrentBanner('pwa');
-        setShowPWA(true);
+        if (permission === 'granted') {
+          // Criar subscription imediatamente
+          await createIOSPushSubscription();
+        }
+        // Fim do fluxo no PWA
+        setCurrentBanner(null);
       });
+    } else if (isIOS && !isPWA) {
+      // iOS Safari: PWA Banner
+      console.log('📱 [BANNER] iOS Safari - showing PWA banner');
+      setCurrentBanner('pwa');
+      setShowPWA(true);
     } else {
-      // Para outras plataformas, mostrar PWA direto
+      // Desktop/Mac/Android: PWA direto (não mexer)
       setCurrentBanner('pwa');
       setShowPWA(true);
     }
@@ -116,7 +136,64 @@ export default function BannerManager({ className = '' }: BannerManagerProps) {
 
 
 
-  // ✅ REMOVIDO: handleNotificationComplete - não usamos mais banner de notificação
+  // ✅ FUNÇÃO: Criar subscription e enviar mensagem da Charlotte (iOS PWA apenas)
+  const createIOSPushSubscription = async () => {
+    try {
+      console.log('📱 [iOS] Creating push subscription...');
+      
+      const registration = await navigator.serviceWorker.ready;
+      const vapidKey = 'BJ87VjvmFct3Gp1NkTlViywwyT04g7vuHkhvuICQarrOq2iKnJNld2cJ2o7BD-hvYRNtKJeBL92dygxbjNOMyuA';
+      
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey
+      });
+      
+      console.log('📱 [iOS] Subscription created:', subscription.endpoint.substring(0, 50) + '...');
+      
+      // Salvar no servidor
+      const subscriptionData = {
+        user_id: user?.entra_id,
+        endpoint: subscription.endpoint,
+        keys: {
+          p256dh: subscription.getKey('p256dh') ? 
+            btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')))) : '',
+          auth: subscription.getKey('auth') ? 
+            btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')))) : ''
+        },
+        platform: 'ios',
+        is_active: true,
+        subscription_type: 'web_push'
+      };
+      
+      const response = await fetch('/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(subscriptionData)
+      });
+      
+      if (response.ok) {
+        console.log('📱 [iOS] Subscription saved to server');
+        
+        // Enviar mensagem de confirmação da Charlotte
+        await registration.showNotification('🎉 Notificações Ativadas!', {
+          body: `Olá ${user?.name || 'amigo'}! As notificações da Charlotte foram ativadas com sucesso. Você receberá lembretes de prática às 8h e 20h.`,
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-72x72.png',
+          tag: 'charlotte-welcome',
+          requireInteraction: true,
+          data: { type: 'welcome', url: '/chat' }
+        });
+        
+        console.log('📱 [iOS] Welcome notification sent');
+      } else {
+        console.error('📱 [iOS] Failed to save subscription:', response.status);
+      }
+      
+    } catch (error) {
+      console.error('📱 [iOS] Error creating subscription:', error);
+    }
+  };
 
   // Renderizar apenas o banner atual
   if (currentBanner === 'tour') {
