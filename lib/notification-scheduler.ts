@@ -248,13 +248,8 @@ export class NotificationScheduler {
         // Aplicar filtros de frequência
         let shouldSend = false;
 
-        switch (reminder_frequency) {
-          case 'normal':
-            shouldSend = true; // Enviar todos os dias
-            break;
-          default:
-            shouldSend = false;
-        }
+        // Agora sempre "normal" (1x/dia) - campo frequência removido do modal
+        shouldSend = true; // Enviar todos os dias
 
         if (!shouldSend) {
           console.log(`⏭️ Skipping user ${user.entra_id} - frequency filter (${reminder_frequency})`);

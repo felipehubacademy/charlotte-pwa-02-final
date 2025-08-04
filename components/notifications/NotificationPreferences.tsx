@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Bell, Clock, Settings, MessageSquare } from 'lucide-react';
+import { Bell, Clock, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 // Configure seu client conforme seu ambiente
@@ -14,7 +14,6 @@ export default function NotificationPreferences() {
   const { user } = useAuth(); // Usar o AuthProvider do projeto
   const [prefs, setPrefs] = useState({ practice_reminders: true, marketing: false });
   const [horario, setHorario] = useState('08:00');
-  const [frequencia, setFrequencia] = useState('normal'); // Mudado de 'diaria' para 'normal'
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -28,9 +27,7 @@ export default function NotificationPreferences() {
     marketing: isPortuguese ? 'Novidades e Eventos' : 'News and Events',
     marketingDesc: isPortuguese ? 'Novidades, eventos e atualizações' : 'News, events and updates',
     preferredTime: isPortuguese ? 'Horário preferido:' : 'Preferred time:',
-    frequency: isPortuguese ? 'Frequência:' : 'Frequency:',
-    normal: isPortuguese ? 'Normal (1x por dia)' : 'Normal (1x per day)',
-    disabled: isPortuguese ? 'Desabilitado' : 'Disabled',
+
     morning: isPortuguese ? 'Manhã' : 'Morning',
     evening: isPortuguese ? 'Noite' : 'Evening',
     save: isPortuguese ? 'Salvar Preferências' : 'Save Preferences',
@@ -94,7 +91,6 @@ export default function NotificationPreferences() {
         if (userData) {
           console.log('✅ Dados do usuário encontrados:', userData);
           setHorario(userData.preferred_reminder_time?.slice(0,5) || '08:00');
-          setFrequencia(userData.reminder_frequency || 'normal'); // Mudado de 'diaria' para 'normal'
         } else {
           console.log('ℹ️ Nenhum dado de usuário encontrado, usando padrões');
         }
@@ -129,7 +125,7 @@ export default function NotificationPreferences() {
         id: user.id,
         entra_id: user.entra_id
       });
-      console.log('📋 Dados a serem salvos:', { prefs, horario, frequencia });
+      console.log('📋 Dados a serem salvos:', { prefs, horario });
 
       // Upsert notification_preferences usando UUID
       console.log('📝 Step 1: Salvando notification_preferences...');
@@ -160,7 +156,6 @@ export default function NotificationPreferences() {
       console.log('📝 Step 2: Atualizando dados do usuário...');
       console.log('🔍 Dados que serão enviados:', {
         preferred_reminder_time: horario + ':00',
-        reminder_frequency: frequencia,
         user_id: user.id
       });
       
@@ -168,7 +163,6 @@ export default function NotificationPreferences() {
         .from('users')
         .update({
           preferred_reminder_time: horario + ':00', // Adicionar segundos para TIME format
-          reminder_frequency: frequencia,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id) // UUID do usuário
@@ -262,14 +256,7 @@ export default function NotificationPreferences() {
                 <option value="20:00" className="bg-gray-800 text-white">20:00 ({t.evening})</option>
               </select>
             </div>
-            <div className="flex items-center space-x-2">
-              <Settings size={16} className="text-primary" />
-              <span className="text-white/80 text-sm">{t.frequency}:</span>
-              <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary">
-                <option value="normal" className="bg-gray-800">{t.normal}</option>
-                <option value="disabled" className="bg-gray-800">{t.disabled}</option>
-              </select>
-            </div>
+
           </div>
         )}
       </div>

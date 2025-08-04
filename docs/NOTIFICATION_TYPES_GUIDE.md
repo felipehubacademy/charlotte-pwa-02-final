@@ -64,8 +64,9 @@ Enviadas para anunciar novos desafios semanais.
 Lembretes personalizados baseados no horário preferido do usuário.
 
 **Quando são enviadas:**
-- Horário definido pelo usuário nas configurações
+- Horário definido pelo usuário nas configurações (8h OU 20h)
 - Apenas se não praticou nas últimas 24h
+- Sempre 1x por dia (toggle on/off)
 - Mensagem varia conforme o horário do dia
 
 **Exemplo:**
