@@ -4,7 +4,7 @@ Este documento contém todos os textos das notificações push organizados por c
 
 ---
 
-## **⏰ NOTIFICAÇÕES DE PRÁTICA (8h e 20h)**
+## **⏰ NOTIFICAÇÕES DE PRÁTICA (8h OU 20h)**
 
 ### **🌅 Manhã (8h) - Português (Novice):**
 ```

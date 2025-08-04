@@ -30,7 +30,6 @@ export default function NotificationPreferences() {
     preferredTime: isPortuguese ? 'Horário preferido:' : 'Preferred time:',
     frequency: isPortuguese ? 'Frequência:' : 'Frequency:',
     normal: isPortuguese ? 'Normal (1x por dia)' : 'Normal (1x per day)',
-    frequent: isPortuguese ? 'Frequente (2x por dia)' : 'Frequent (2x per day)',
     disabled: isPortuguese ? 'Desabilitado' : 'Disabled',
     morning: isPortuguese ? 'Manhã' : 'Morning',
     evening: isPortuguese ? 'Noite' : 'Evening',
@@ -268,7 +267,6 @@ export default function NotificationPreferences() {
               <span className="text-white/80 text-sm">{t.frequency}:</span>
               <select value={frequencia} onChange={e => setFrequencia(e.target.value)} className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-white text-sm focus:outline-none focus:border-primary">
                 <option value="normal" className="bg-gray-800">{t.normal}</option>
-                <option value="frequent" className="bg-gray-800">{t.frequent}</option>
                 <option value="disabled" className="bg-gray-800">{t.disabled}</option>
               </select>
             </div>

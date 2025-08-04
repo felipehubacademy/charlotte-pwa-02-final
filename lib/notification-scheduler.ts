@@ -252,9 +252,6 @@ export class NotificationScheduler {
           case 'normal':
             shouldSend = true; // Enviar todos os dias
             break;
-          case 'frequent':
-            shouldSend = true; // Enviar todos os dias (será 2x)
-            break;
           default:
             shouldSend = false;
         }
@@ -327,8 +324,7 @@ export class NotificationScheduler {
       const successful = results.filter(r => r.status === 'fulfilled' && r.value).length;
       console.log(`✅ Sent ${successful}/${usersToNotify.length} practice reminders`);
 
-      // Para usuários com frequência "frequent", agendar segundo lembrete
-      await this.scheduleSecondReminder(usersToNotify.filter(u => u.reminder_frequency === 'frequent'));
+      // Removido: Segundo lembrete para usuários "frequent" (não existe mais)
 
     } catch (error) {
       console.error('❌ Error in practice reminder scheduler:', error);
@@ -336,19 +332,9 @@ export class NotificationScheduler {
   }
 
   /**
-   * 🔄 Agendar segundo lembrete para usuários "frequent"
+   * 🔄 Removido: Segundo lembrete para usuários "frequent"
+   * Agora apenas 1x por dia (8h OU 20h)
    */
-  static async scheduleSecondReminder(frequentUsers: any[]): Promise<void> {
-    if (frequentUsers.length === 0) return;
-
-    console.log(`🔄 Scheduling second reminders for ${frequentUsers.length} frequent users`);
-
-    // Implementar lógica para segundo lembrete (ex: 6 horas depois)
-    // Por enquanto, apenas log
-    frequentUsers.forEach(user => {
-      console.log(`⏰ Second reminder scheduled for ${user.entra_id} at evening`);
-    });
-  }
 
   /**
    * 🎯 Verificar metas e enviar lembretes

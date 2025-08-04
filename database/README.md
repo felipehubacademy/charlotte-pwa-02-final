@@ -1,38 +1,54 @@
-# Database Scripts
+# 📊 Scripts de Banco de Dados - Charlotte PWA
 
-Esta pasta contém scripts SQL para manutenção e verificação do banco de dados.
+Este diretório contém scripts SQL para manutenção, debug e migração do banco de dados.
 
-## Scripts Disponíveis
+---
 
-### **verify-table-structure.sql**
-- **Propósito**: Verificar estrutura da tabela `push_subscriptions`
-- **Uso**: Execute no Supabase SQL Editor para verificar colunas e dados
-- **Quando usar**: Para debug de problemas com push notifications
+## 🔧 **Scripts de Migração**
 
-### **verify-renewal.sql**
-- **Propósito**: Verificar renovações de subscriptions
-- **Uso**: Execute após renovar subscriptions para confirmar
-- **Quando usar**: Após testes de renovação automática
+### **migrate-frequent-to-normal.sql**
+- **Propósito:** Migrar usuários com frequência "frequent" (2x/dia) para "normal" (1x/dia)
+- **Data:** Janeiro 2025
+- **Mudança:** Simplificação do sistema de notificações
+- **Como usar:** Executar no Supabase SQL Editor
+
+---
+
+## 🐛 **Scripts de Debug**
+
+### **debug-notification-logs.sql**
+- **Propósito:** Verificar logs de notificações enviadas
+- **Útil para:** Debug de notificações duplicadas ou falhadas
+
+### **debug-subscriptions.sql**
+- **Propósito:** Verificar subscriptions ativas
+- **Útil para:** Debug de problemas de push notifications
+
+---
+
+## 🧹 **Scripts de Limpeza**
 
 ### **clean-expired-tokens.sql**
-- **Propósito**: Limpar tokens expirados e duplicados
-- **Uso**: Manutenção periódica do banco
-- **Quando usar**: Mensalmente ou quando houver muitos tokens inativos
+- **Propósito:** Remover tokens FCM expirados
+- **Frequência:** Mensal (recomendado)
 
-### **supabase-insert-policy.sql**
-- **Propósito**: Criar políticas RLS para achievements
-- **Uso**: Configuração de segurança do Supabase
-- **Quando usar**: Durante setup inicial ou quando adicionar novas tabelas
+---
 
-## Como Executar
+## 📋 **Como Executar**
 
 1. Acesse o **Supabase Dashboard**
 2. Vá para **SQL Editor**
 3. Cole o script desejado
-4. Execute e verifique os resultados
+4. Clique em **Run**
 
-## ⚠️ Importante
+---
 
-- **Sempre faça backup** antes de executar scripts de limpeza
-- **Teste em ambiente de desenvolvimento** primeiro
-- **Verifique os resultados** após cada execução 
+## ⚠️ **Avisos Importantes**
+
+- **Sempre faça backup** antes de executar scripts de migração
+- **Teste em staging** antes de executar em produção
+- **Verifique os resultados** após cada execução
+
+---
+
+*Última atualização: Janeiro 2025* 
