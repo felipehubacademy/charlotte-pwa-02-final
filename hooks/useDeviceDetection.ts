@@ -62,11 +62,14 @@ export function useDeviceDetection(): DeviceInfo {
 export function useMobileOnly(forceMobile: boolean = false) {
   const deviceInfo = useDeviceDetection();
   
+  // ✅ PWA-ONLY: Bloquear mobile browser, permitir apenas PWA
+  const shouldBlockMobileBrowser = deviceInfo.isMobile && !deviceInfo.isPWA;
   const shouldBlockDesktop = forceMobile && deviceInfo.isDesktop;
   
   return {
     ...deviceInfo,
     shouldBlockDesktop,
-    canAccess: !shouldBlockDesktop
+    shouldBlockMobileBrowser,
+    canAccess: !shouldBlockDesktop && !shouldBlockMobileBrowser
   };
 } 

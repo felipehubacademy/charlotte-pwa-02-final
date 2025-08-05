@@ -115,7 +115,7 @@ export default function LoginPage() {
             transition={{ duration: 0.6, delay: 0.6 }}
             onClick={login}
             disabled={isLoading}
-            className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 will-change-transform"
+            className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 min-h-[56px]"
           >
             <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
               <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
@@ -123,11 +123,22 @@ export default function LoginPage() {
               <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
               <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
             </svg>
-            <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
+            <span className="flex-shrink-0">
+              {isLoading ? (
+                <span className="inline-flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                  Entrando...
+                </span>
+              ) : (
+                'Entrar com Microsoft'
+              )}
+            </span>
           </motion.button>
           
           {/* 🎯 PWAInstaller - Só para mobile */}
-          <PWAInstaller />
+          <div className="mt-4">
+            <PWAInstaller />
+          </div>
 
               {/* Feature Icons - Below Button */}
               <motion.div

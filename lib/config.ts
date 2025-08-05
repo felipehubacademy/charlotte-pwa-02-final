@@ -1,7 +1,7 @@
 // Configurações do App Charlotte
 export const APP_CONFIG = {
-  // 🚫 MOBILE-ONLY: Forçar uso apenas em mobile
-  FORCE_MOBILE_ONLY: true, // ✅ Ativado: bloquear desktop
+  // 🚫 MOBILE-ONLY: Forçar uso apenas em mobile (exceto PWA desktop)
+  FORCE_MOBILE_ONLY: true, // ✅ Ativado: bloquear desktop browser
   
   // 📱 Configurações de PWA
   PWA: {
@@ -20,7 +20,7 @@ export const APP_CONFIG = {
   
   // 🎯 Configurações de Acesso
   ACCESS: {
-    ALLOW_DESKTOP: false, // ❌ Bloquear desktop
+    ALLOW_DESKTOP: false, // ❌ Bloquear desktop browser (mas permitir PWA)
     ALLOW_TABLET: true,
     ALLOW_MOBILE: true,
     SHOW_BLOCK_PAGE: true // 📱 Mostrar página de bloqueio
@@ -28,6 +28,7 @@ export const APP_CONFIG = {
 };
 
 // Função para verificar se deve bloquear desktop
+// ✅ NOTA: PWA no desktop é permitido (verificado no hook)
 export const shouldBlockDesktop = () => {
   return APP_CONFIG.FORCE_MOBILE_ONLY && !APP_CONFIG.ACCESS.ALLOW_DESKTOP;
 };

@@ -2,6 +2,8 @@
 import { useMobileOnly } from '@/hooks/useDeviceDetection';
 import MobileOnlyPage from './MobileOnlyPage';
 import { shouldBlockDesktop, shouldShowBlockPage } from '@/lib/config';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect } from 'react';
 
 interface MobileOnlyWrapperProps {
   children: React.ReactNode;
@@ -14,11 +16,21 @@ export default function MobileOnlyWrapper({
   forceMobile = false,
   showBlockPage = true 
 }: MobileOnlyWrapperProps) {
-  const { shouldBlockDesktop: deviceShouldBlock, canAccess } = useMobileOnly(forceMobile);
+  const { shouldBlockDesktop: deviceShouldBlock, shouldBlockMobileBrowser, canAccess } = useMobileOnly(forceMobile);
+  const router = useRouter();
+  const pathname = usePathname();
   
   // Combinar configuração do app com detecção do dispositivo
   const shouldBlock = shouldBlockDesktop() || deviceShouldBlock;
   const showBlock = shouldShowBlockPage() && showBlockPage;
+
+  // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá)
+  useEffect(() => {
+    if (shouldBlockMobileBrowser && pathname !== '/install') {
+      console.log('📱 Mobile browser detected, redirecting to /install');
+      router.push('/install');
+    }
+  }, [shouldBlockMobileBrowser, router, pathname]);
 
   // Se deve bloquear desktop e mostrar página de bloqueio
   if (shouldBlock && showBlock) {
