@@ -106,7 +106,7 @@ export default function MobileOnlyPage() {
                 <div className="w-6 h-6 bg-blue-500/20 rounded-lg flex items-center justify-center">
                   <Monitor className="w-3 h-3 text-blue-400" />
                 </div>
-                <span className="text-white text-sm font-medium">Ou acesse diretamente</span>
+                <span className="text-white text-sm font-medium">Ou acesse diretamente no celular</span>
               </div>
               <div className="text-xs text-white/70">
                 <p className="font-mono text-primary break-all">
