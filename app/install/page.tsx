@@ -162,15 +162,15 @@ export default function InstallPage() {
 
         <div className="relative z-10 h-screen flex flex-col">
           {/* Mobile Header - Same as home */}
-          <div className="flex-shrink-0 pt-safe py-2"></div>
+          <div className="flex-shrink-0 pt-safe py-1"></div>
 
           {/* Mobile Main Content */}
-          <div className="flex-1 flex flex-col justify-center px-4 py-8">
+          <div className="flex-1 flex flex-col justify-center px-4 py-4">
             <motion.div 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-center space-y-4"
+              className="text-center space-y-3"
             >
               {/* Avatar with Install Badge */}
               <div className="flex justify-center">
@@ -199,7 +199,7 @@ export default function InstallPage() {
                   </p>
                 </div>
                 
-                <div className="pt-4 space-y-1">
+                <div className="pt-2 space-y-1">
                   <p className="text-lg text-white/90 font-medium leading-relaxed">
                     Experiência completa offline
                   </p>
@@ -281,7 +281,7 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex justify-center space-x-6 pt-3"
+                className="flex justify-center space-x-6 pt-2"
               >
                 <div className="flex flex-col items-center space-y-2">
                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
@@ -322,7 +322,7 @@ export default function InstallPage() {
           </div>
 
           {/* Mobile Footer - Same as home */}
-          <div className="flex-shrink-0 pb-safe py-2"></div>
+          <div className="flex-shrink-0 pb-safe py-1"></div>
         </div>
       </div>
       </>
