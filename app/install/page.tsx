@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Download, Smartphone, Monitor, Chrome, Apple, Zap, MessageCircle, Mic, Camera, Sparkles } from 'lucide-react';
 import { usePWA } from '@/components/PWAInstaller';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
+import Head from 'next/head';
 
 export default function InstallPage() {
   const { isInstallable, isInstalled, install } = usePWA();
@@ -153,7 +154,11 @@ export default function InstallPage() {
   // Mobile Layout (Primary)
   if (isMobile) {
     return (
-      <div className="h-screen bg-secondary overflow-hidden select-none">
+      <>
+        <Head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+        </Head>
+        <div className="h-screen bg-secondary overflow-hidden select-none">
         {/* Background Elements - Same as home */}
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
@@ -329,6 +334,7 @@ export default function InstallPage() {
           <div className="flex-shrink-0 pb-safe py-2"></div>
         </div>
       </div>
+      </>
     );
   }
 
