@@ -32,6 +32,12 @@ export default function MobileOnlyWrapper({
     }
   }, [shouldBlockMobileBrowser, router, pathname]);
 
+  // ✅ PERMITIR /install no mobile browser
+  if (shouldBlockMobileBrowser && pathname === '/install') {
+    console.log('📱 Mobile browser on /install page, allowing access');
+    return <>{children}</>;
+  }
+
   // Se deve bloquear desktop e mostrar página de bloqueio
   if (shouldBlock && showBlock) {
     return <MobileOnlyPage />;
