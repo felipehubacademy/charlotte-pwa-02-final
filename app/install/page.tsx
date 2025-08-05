@@ -228,10 +228,10 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="space-y-2"
+                className="space-y-2.5"
               >
                 {platform === 'ios' && (
-                  <div className="bg-charcoal/50 rounded-2xl p-3 border border-primary/20">
+                  <div className="bg-charcoal/50 rounded-xl p-3 border border-primary/20">
                     <div className="flex items-center space-x-3 mb-2">
                       <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
                         <Apple className="w-4 h-4 text-blue-400" />
@@ -246,7 +246,7 @@ export default function InstallPage() {
                 )}
 
                 {platform === 'android' && (
-                  <div className="bg-charcoal/50 rounded-2xl p-3 border border-primary/20">
+                  <div className="bg-charcoal/50 rounded-xl p-3 border border-primary/20">
                     <div className="flex items-center space-x-3 mb-2">
                       <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
                         <Chrome className="w-4 h-4 text-green-400" />
@@ -261,7 +261,7 @@ export default function InstallPage() {
                 )}
 
                 {platform === 'desktop' && (
-                  <div className="bg-charcoal/50 rounded-2xl p-3 border border-primary/20">
+                  <div className="bg-charcoal/50 rounded-xl p-3 border border-primary/20">
                     <div className="flex items-center space-x-3 mb-2">
                       <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
                         <Monitor className="w-4 h-4 text-purple-400" />
@@ -276,17 +276,44 @@ export default function InstallPage() {
                 )}
               </motion.div>
 
-              {/* Hub Academy Logo - Same as home */}
+              {/* Feature Icons - Same as home */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex justify-center pt-3"
+                className="flex justify-center space-x-4 pt-2"
+              >
+                <div className="flex flex-col items-center space-y-1">
+                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center">
+                    <MessageCircle className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="text-xs text-white/60">Chat</span>
+                </div>
+                <div className="flex flex-col items-center space-y-1">
+                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center">
+                    <Mic className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="text-xs text-white/60">Voz</span>
+                </div>
+                <div className="flex flex-col items-center space-y-1">
+                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="text-xs text-white/60">Offline</span>
+                </div>
+              </motion.div>
+
+              {/* Hub Academy Logo - Same as home */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 1.2 }}
+                className="flex justify-center pt-2"
               >
                 <img 
                   src="/logos/hub-white.png" 
                   alt="Hub Academy" 
-                  className="h-12 w-auto opacity-40"
+                  className="h-8 w-auto opacity-40"
                 />
               </motion.div>
             </motion.div>
