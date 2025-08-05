@@ -2,6 +2,7 @@
 
 import { LogOut, Settings } from 'lucide-react';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
+import SimpleXPCounter from '@/components/ui/SimpleXPCounter';
 import { useEffect, useState } from 'react';
 import NotificationPreferencesModal from '@/components/notifications/NotificationPreferencesModal';
 
@@ -9,9 +10,11 @@ interface ChatHeaderProps {
   userName?: string;
   userLevel?: string;
   onLogout: () => void;
+  totalXP?: number;
+  sessionXP?: number;
 }
 
-export default function ChatHeader({ userName, userLevel, onLogout }: ChatHeaderProps) {
+export default function ChatHeader({ userName, userLevel, onLogout, totalXP, sessionXP }: ChatHeaderProps) {
   const [isIOSPWA, setIsIOSPWA] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
 
@@ -59,6 +62,19 @@ export default function ChatHeader({ userName, userLevel, onLogout }: ChatHeader
               <p className="text-green-400 text-xs font-medium">online</p>
             </div>
           </div>
+          
+          {/* Center - XP Counter */}
+          <div className="absolute left-1/2 transform -translate-x-1/2">
+            {totalXP !== undefined && (
+              <SimpleXPCounter
+                totalXP={totalXP}
+                sessionXP={sessionXP}
+                size={36}
+                className="cursor-pointer hover:scale-110 transition-transform"
+              />
+            )}
+          </div>
+          
           {/* Right side - User info and controls */}
           <div className="flex items-center space-x-2 flex-shrink-0">
             <button

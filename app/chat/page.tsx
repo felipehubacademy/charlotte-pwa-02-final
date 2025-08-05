@@ -1889,6 +1889,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         userName={user?.name}
         userLevel={user?.user_level}
         onLogout={logout}
+        totalXP={totalXP}
+        sessionXP={sessionXP}
       />
 
         <ChatBox
