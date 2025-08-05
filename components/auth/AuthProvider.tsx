@@ -41,31 +41,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await initializeMsal();
       
-      // Primeiro, processar redirect se houver
-      const redirectResponse = await msalInstance.handleRedirectPromise();
-      if (redirectResponse) {
-        console.log('🔄 Processing redirect response:', redirectResponse);
-        const account = redirectResponse.account;
-        if (account) {
-          setMsalAccount(account);
-          try {
-            await syncUserWithSupabase(account);
-            console.log('✅ Login successful, user synced');
-          } catch (syncError: any) {
-            console.error('❌ User sync failed after redirect:', syncError);
-            if (syncError.message?.includes('ACCESS_DENIED')) {
-              console.log('🚫 Access denied, logging out...');
-              await logout();
-              toast.error('Access denied. You need to be in a Charlotte group.');
-              return;
-            }
-            toast.error('Profile sync failed, using temporary profile');
-          }
-          return;
-        }
-      }
+      // Processa redirect (se houver) sem duplicar lógica
+      await msalInstance.handleRedirectPromise();
       
-      // Se não há redirect, verificar accounts existentes
+      // Verifica se tem usuário logado
       const accounts = msalInstance.getAllAccounts();
       if (accounts.length > 0) {
         const account = accounts[0];
@@ -280,10 +259,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         console.log('✅ Token acquired successfully via silent flow');
       } catch (silentError: any) {
-        console.log('⚠️ Silent token acquisition failed, skipping interactive flow during init...');
+        console.log('⚠️ Silent token acquisition failed, checking error type...');
         
-        // Durante inicialização, não tentar popup - apenas retornar Advanced
-        console.log('🎯 Defaulting to Advanced level during initialization');
+        // Se o token expirou, limpar session e forçar novo login
+        if (silentError.name === 'InteractionRequiredAuthError' || 
+            silentError.errorCode === 'interaction_required') {
+          console.log('🔄 Token expired, clearing session and forcing re-authentication...');
+          
+          // Limpar usuário atual para forçar novo login
+          setUser(null);
+          setMsalAccount(null);
+          
+          // Fazer logout e redirect para nova autenticação
+          await msalInstance.logoutRedirect();
+          return 'Advanced'; // Nunca vai chegar aqui por causa do redirect
+        }
+        
+        // Para outros erros, usar fallback
+        console.log('🎯 Defaulting to Advanced level for non-token error');
         return 'Advanced';
       }
 
