@@ -165,12 +165,12 @@ export default function InstallPage() {
           <div className="flex-shrink-0 pt-safe py-1"></div>
 
           {/* Mobile Main Content */}
-          <div className="flex-1 flex flex-col justify-center px-4 py-4">
+          <div className="flex-1 flex flex-col justify-center px-4 py-2">
             <motion.div 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-center space-y-3"
+              className="text-center space-y-2"
             >
               {/* Avatar with Install Badge */}
               <div className="flex justify-center">
@@ -199,7 +199,7 @@ export default function InstallPage() {
                   </p>
                 </div>
                 
-                <div className="pt-2 space-y-1">
+                <div className="pt-1 space-y-1">
                   <p className="text-lg text-white/90 font-medium leading-relaxed">
                     Experiência completa offline
                   </p>
@@ -228,11 +228,11 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="space-y-3"
+                className="space-y-2"
               >
                 {platform === 'ios' && (
-                  <div className="bg-charcoal/50 rounded-2xl p-4 border border-primary/20">
-                    <div className="flex items-center space-x-3 mb-3">
+                  <div className="bg-charcoal/50 rounded-2xl p-3 border border-primary/20">
+                    <div className="flex items-center space-x-3 mb-2">
                       <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
                         <Apple className="w-4 h-4 text-blue-400" />
                       </div>
@@ -246,8 +246,8 @@ export default function InstallPage() {
                 )}
 
                 {platform === 'android' && (
-                  <div className="bg-charcoal/50 rounded-2xl p-4 border border-primary/20">
-                    <div className="flex items-center space-x-3 mb-3">
+                  <div className="bg-charcoal/50 rounded-2xl p-3 border border-primary/20">
+                    <div className="flex items-center space-x-3 mb-2">
                       <div className="w-8 h-8 bg-green-500/20 rounded-lg flex items-center justify-center">
                         <Chrome className="w-4 h-4 text-green-400" />
                       </div>
@@ -261,8 +261,8 @@ export default function InstallPage() {
                 )}
 
                 {platform === 'desktop' && (
-                  <div className="bg-charcoal/50 rounded-2xl p-4 border border-primary/20">
-                    <div className="flex items-center space-x-3 mb-3">
+                  <div className="bg-charcoal/50 rounded-2xl p-3 border border-primary/20">
+                    <div className="flex items-center space-x-3 mb-2">
                       <div className="w-8 h-8 bg-purple-500/20 rounded-lg flex items-center justify-center">
                         <Monitor className="w-4 h-4 text-purple-400" />
                       </div>
@@ -281,7 +281,7 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex justify-center space-x-6 pt-2"
+                className="flex justify-center space-x-6 pt-1"
               >
                 <div className="flex flex-col items-center space-y-2">
                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
@@ -322,7 +322,7 @@ export default function InstallPage() {
           </div>
 
           {/* Mobile Footer - Same as home */}
-          <div className="flex-shrink-0 pb-safe py-1"></div>
+          <div className="flex-shrink-0 pb-safe"></div>
         </div>
       </div>
       </>
