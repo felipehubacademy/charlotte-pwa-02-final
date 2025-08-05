@@ -275,9 +275,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return 'Advanced'; // Nunca vai chegar aqui por causa do redirect
         }
         
-        // Para outros erros, usar fallback
-        console.log('🎯 Defaulting to Advanced level for non-token error');
-        return 'Advanced';
+        // Para outros erros, bloquear acesso por segurança
+        console.log('🚫 Unknown error getting user level, denying access for security');
+        throw new Error('ACCESS_DENIED: Unable to verify user level due to technical error');
       }
 
       const response = await fetch('https://graph.microsoft.com/v1.0/me/memberOf', {
@@ -334,8 +334,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       
-      console.log('🎯 Defaulting to Advanced level');
-      return 'Advanced';
+      console.log('🚫 Unknown error in getUserLevel, denying access for security');
+      throw new Error('ACCESS_DENIED: Unable to verify user level due to unexpected error');
     }
   };
 
