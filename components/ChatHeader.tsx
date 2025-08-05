@@ -12,9 +12,10 @@ interface ChatHeaderProps {
   onLogout: () => void;
   totalXP?: number;
   sessionXP?: number;
+  onXPCounterClick?: () => void;
 }
 
-export default function ChatHeader({ userName, userLevel, onLogout, totalXP, sessionXP }: ChatHeaderProps) {
+export default function ChatHeader({ userName, userLevel, onLogout, totalXP, sessionXP, onXPCounterClick }: ChatHeaderProps) {
   const [isIOSPWA, setIsIOSPWA] = useState(false);
   const [showPrefs, setShowPrefs] = useState(false);
 
@@ -71,6 +72,7 @@ export default function ChatHeader({ userName, userLevel, onLogout, totalXP, ses
                 sessionXP={sessionXP}
                 size={36}
                 className="cursor-pointer hover:scale-110 transition-transform"
+                onClick={onXPCounterClick}
               />
             )}
           </div>

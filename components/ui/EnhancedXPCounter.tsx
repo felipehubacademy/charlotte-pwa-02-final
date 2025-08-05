@@ -199,8 +199,8 @@ const EnhancedStatsModal: React.FC<{
   const effectiveTotalXP = realData.realTotalXP || totalXP;
   const effectiveSessionXP = realData.realSessionXP || sessionXP;
 
-  const xpForCurrentLevel = (currentLevel ** 2 * 50);
-  const xpForNextLevel = ((currentLevel + 1) ** 2 * 50);
+  const xpForCurrentLevel = Math.pow(currentLevel - 1, 2) * 50;
+  const xpForNextLevel = Math.pow(currentLevel, 2) * 50;
   const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
   const xpProgressInCurrentLevel = Math.max(0, totalXP - xpForCurrentLevel);
   const levelProgress = xpNeededForNextLevel > 0 ? (xpProgressInCurrentLevel / xpNeededForNextLevel) * 100 : 0;
@@ -230,7 +230,7 @@ const EnhancedStatsModal: React.FC<{
                 />
               </div>
               <p className="text-white/60 text-sm">
-                {xpForNextLevel > 0 ? `${xpForNextLevel.toLocaleString()} XP to next level` : 'Max level reached!'}
+                {xpNeededForNextLevel > 0 ? `${(xpNeededForNextLevel - xpProgressInCurrentLevel).toLocaleString()} XP to next level` : 'Max level reached!'}
               </p>
             </div>
 
@@ -951,8 +951,8 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   };
 
   // Calculate level progress
-  const xpForCurrentLevel = (currentLevel ** 2 * 50);
-  const xpForNextLevel = ((currentLevel + 1) ** 2 * 50);
+  const xpForCurrentLevel = Math.pow(currentLevel - 1, 2) * 50;
+  const xpForNextLevel = Math.pow(currentLevel, 2) * 50;
   const xpNeededForNextLevel = xpForNextLevel - xpForCurrentLevel;
   const xpProgressInCurrentLevel = Math.max(0, totalXP - xpForCurrentLevel);
   const levelProgress = xpNeededForNextLevel > 0 ? (xpProgressInCurrentLevel / xpNeededForNextLevel) * 100 : 0;

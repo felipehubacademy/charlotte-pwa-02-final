@@ -1891,6 +1891,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onLogout={logout}
         totalXP={totalXP}
         sessionXP={sessionXP}
+        onXPCounterClick={() => {
+          // Abrir o modal do XP counter
+          const xpCounter = document.querySelector('[data-xp-counter]') as HTMLElement;
+          if (xpCounter) {
+            xpCounter.click();
+          }
+        }}
       />
 
         <ChatBox
@@ -2131,7 +2138,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
 
       {/* Floating XP Counter */}
       {sessionXP !== undefined && totalXP !== undefined && !isLiveVoiceOpen && (
-        <div id="xp-counter" className="floating-xp-counter">
+        <div id="xp-counter" className="floating-xp-counter" data-xp-counter>
           <EnhancedXPCounter 
             sessionXP={sessionXP}
             totalXP={totalXP}

@@ -7,13 +7,15 @@ interface SimpleXPCounterProps {
   sessionXP?: number;
   size?: number;
   className?: string;
+  onClick?: () => void;
 }
 
 export default function SimpleXPCounter({ 
   totalXP, 
   sessionXP = 0, 
   size = 40,
-  className = ''
+  className = '',
+  onClick
 }: SimpleXPCounterProps) {
   const [progress, setProgress] = useState(0);
 
@@ -49,7 +51,11 @@ export default function SimpleXPCounter({
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
   return (
-    <div className={`relative flex items-center justify-center ${className}`}>
+    <div 
+      className={`relative flex items-center justify-center ${className}`}
+      onClick={onClick}
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
       <svg
         width={size}
         height={size}
