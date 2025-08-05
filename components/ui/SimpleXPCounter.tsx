@@ -91,14 +91,9 @@ export default function SimpleXPCounter({
       <motion.div
         onClick={onClick}
         style={{ cursor: onClick ? 'pointer' : 'default' }}
-        className="relative"
+        className={`relative ${isAnimating ? 'shadow-lg shadow-primary/25' : ''}`}
         animate={isAnimating ? {
-          scale: [1, 1.05, 1],
-          boxShadow: [
-            "0 0 0px rgba(163, 255, 60, 0)",
-            "0 0 20px rgba(163, 255, 60, 0.5)",
-            "0 0 0px rgba(163, 255, 60, 0)"
-          ]
+          scale: [1, 1.05, 1]
         } : {}}
         transition={{ duration: 0.6 }}
       >
