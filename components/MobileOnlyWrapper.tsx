@@ -16,13 +16,20 @@ export default function MobileOnlyWrapper({
   forceMobile = false,
   showBlockPage = true 
 }: MobileOnlyWrapperProps) {
-  const { shouldBlockDesktop: deviceShouldBlock, shouldBlockMobileBrowser, canAccess } = useMobileOnly(forceMobile);
+  const { shouldBlockDesktop: deviceShouldBlock, shouldBlockMobileBrowser, canAccess, isMobile, isPWA, isDesktop } = useMobileOnly(forceMobile);
   const router = useRouter();
   const pathname = usePathname();
   
-  // Combinar configuração do app com detecção do dispositivo
-  const shouldBlock = shouldBlockDesktop() || deviceShouldBlock;
-  const showBlock = shouldShowBlockPage() && showBlockPage;
+  // 🔍 DEBUG: Log detalhado
+  console.log('🔍 [MobileOnlyWrapper] Debug:', {
+    pathname,
+    isMobile,
+    isPWA,
+    isDesktop,
+    shouldBlockDesktop: deviceShouldBlock,
+    shouldBlockMobileBrowser,
+    canAccess
+  });
 
   // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá)
   useEffect(() => {
@@ -38,16 +45,25 @@ export default function MobileOnlyWrapper({
     return <>{children}</>;
   }
 
-  // Se deve bloquear desktop e mostrar página de bloqueio
-  if (shouldBlock && showBlock) {
+  // ✅ BLOQUEAR DESKTOP (sempre)
+  if (deviceShouldBlock) {
+    console.log('🖥️ Desktop detected, showing block page');
     return <MobileOnlyPage />;
   }
 
-  // Se deve bloquear mas não mostrar página (apenas não renderizar)
-  if (shouldBlock && !showBlock) {
-    return null;
+  // ✅ PWA MOBILE - ACESSO NORMAL
+  if (isMobile && isPWA) {
+    console.log('📱 Mobile PWA detected, allowing access');
+    return <>{children}</>;
   }
 
-  // Se pode acessar, renderizar normalmente
+  // ✅ MOBILE BROWSER - BLOQUEAR (exceto /install já tratado acima)
+  if (shouldBlockMobileBrowser) {
+    console.log('📱 Mobile browser blocked');
+    return null; // Já redirecionou no useEffect
+  }
+
+  // ✅ ACESSO PERMITIDO
+  console.log('✅ Access allowed');
   return <>{children}</>;
 } 

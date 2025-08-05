@@ -259,7 +259,7 @@ export default function InstallPage() {
                     </div>
                     <div className="text-sm text-white/70 space-y-1">
                       <p>1. Procure pelo banner <strong className="text-white">"Instalar"</strong></p>
-                      <p>2. Ou menu (⋮) → <strong className="text-white">"Adicionar à tela inicial"</strong></p>
+                      <p>2. Ou menu (⋮) → <strong className="text-white">"Instalar app"</strong></p>
                     </div>
                   </div>
                 )}

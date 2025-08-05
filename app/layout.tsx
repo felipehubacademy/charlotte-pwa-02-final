@@ -161,7 +161,7 @@ export default function RootLayout({
               <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
             </div>
           }>
-            <MobileOnlyWrapper>
+            <MobileOnlyWrapper forceMobile={true}>
               <ClientLayout>
                 {children}
               </ClientLayout>
