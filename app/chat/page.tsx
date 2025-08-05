@@ -2213,7 +2213,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
                   <div 
                     className="bg-primary h-2 rounded-full transition-all duration-500"
                     style={{ 
-                      width: `${Math.max(0, Math.min(100, ((totalXP - Math.pow(Math.floor(Math.sqrt(totalXP / 50)), 2) * 50) / (Math.pow(Math.floor(Math.sqrt(totalXP / 50)) + 1, 2) * 50 - Math.pow(Math.floor(Math.sqrt(totalXP / 50)), 2) * 50) * 100))}%` 
+                      width: `${Math.max(0, Math.min(100, 50))}%` 
                     }}
                   />
                 </div>
