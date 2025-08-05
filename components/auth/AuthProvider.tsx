@@ -75,11 +75,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
+      // Verificar se já tem interação em progresso
+      const inProgress = msalInstance.getActiveAccount() !== null;
+      if (inProgress) {
+        console.log('🔄 Login already in progress, skipping...');
+        return;
+      }
+      
       // loginRedirect não retorna response, apenas redireciona
       await msalInstance.loginRedirect(loginRequest);
       
     } catch (error: any) {
       console.error('Login error:', error);
+      
+      // Se for erro de interação em progresso, ignorar
+      if (error.message?.includes('interaction_in_progress')) {
+        console.log('🔄 Interaction already in progress, ignoring error');
+        return;
+      }
+      
       toast.error('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
