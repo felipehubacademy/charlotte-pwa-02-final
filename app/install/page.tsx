@@ -165,7 +165,7 @@ export default function InstallPage() {
           <div className="flex-shrink-0 pt-safe py-1"></div>
 
           {/* Mobile Main Content */}
-          <div className="flex-1 flex flex-col justify-start px-4 pt-4">
+          <div className="flex-1 flex flex-col justify-center px-4 py-4">
             <motion.div 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
@@ -281,7 +281,7 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex justify-center pt-4"
+                className="flex justify-center pt-3"
               >
                 <img 
                   src="/logos/hub-white.png" 
@@ -293,7 +293,7 @@ export default function InstallPage() {
           </div>
 
           {/* Mobile Footer - Same as home */}
-          <div className="flex-shrink-0"></div>
+          <div className="flex-shrink-0 pb-safe py-2"></div>
         </div>
       </div>
       </>
