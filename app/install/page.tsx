@@ -158,9 +158,9 @@ export default function InstallPage() {
         <Head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
         </Head>
-        <div className="h-screen bg-blue-900 overflow-hidden select-none">
+        <div className="h-screen bg-secondary select-none">
 
-        <div className="relative z-10 h-screen flex flex-col overflow-hidden">
+        <div className="relative z-10 h-screen flex flex-col">
           {/* Mobile Header - Same as home */}
           <div className="flex-shrink-0 pt-safe py-2"></div>
 
@@ -331,7 +331,7 @@ export default function InstallPage() {
 
   // Desktop Layout (Secondary) - Same structure as home
   return (
-    <div className="h-screen bg-blue-900 overflow-hidden">
+    <div className="h-screen bg-secondary">
 
       <div className="relative z-10 h-screen flex flex-col">
         {/* Desktop Header - Same as home */}
