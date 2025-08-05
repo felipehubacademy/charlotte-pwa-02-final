@@ -164,17 +164,17 @@ export default function InstallPage() {
         {/* Grid Pattern - Same as home */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(163,255,60,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(163,255,60,0.03)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
 
-        <div className="relative z-10 h-screen flex flex-col">
+        <div className="relative z-10 h-screen flex flex-col overflow-hidden">
           {/* Mobile Header - Same as home */}
           <div className="flex-shrink-0 pt-safe py-2"></div>
 
           {/* Mobile Main Content */}
-          <div className="flex-1 flex flex-col justify-center px-6 py-12">
+          <div className="flex-1 flex flex-col justify-center px-4 py-8">
             <motion.div 
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="text-center space-y-6"
+              className="text-center space-y-4"
             >
               {/* Avatar with Install Badge */}
               <div className="flex justify-center">
@@ -232,7 +232,7 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.8 }}
-                className="space-y-4"
+                className="space-y-3"
               >
                 {platform === 'ios' && (
                   <div className="bg-charcoal/50 rounded-2xl p-4 border border-primary/20">
@@ -285,7 +285,7 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex justify-center space-x-8 pt-4"
+                className="flex justify-center space-x-6 pt-3"
               >
                 <div className="flex flex-col items-center space-y-2">
                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
@@ -314,7 +314,7 @@ export default function InstallPage() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 1.4 }}
-                className="flex justify-center pt-4"
+                className="flex justify-center pt-3"
               >
                 <img 
                   src="/logos/hub-white.png" 
@@ -326,7 +326,7 @@ export default function InstallPage() {
           </div>
 
           {/* Mobile Footer - Same as home */}
-          <div className="flex-shrink-0 pb-safe py-4"></div>
+          <div className="flex-shrink-0 pb-safe py-2"></div>
         </div>
       </div>
     );
