@@ -75,13 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
-      const response: AuthenticationResult = await msalInstance.loginRedirect(loginRequest);
+      // loginRedirect não retorna response, apenas redireciona
+      await msalInstance.loginRedirect(loginRequest);
       
-      if (response?.account) {
-        setMsalAccount(response.account);
-        await syncUserWithSupabase(response.account);
-        toast.success('Welcome to Charlotte!');
-      }
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error('Login failed. Please try again.');
@@ -93,11 +89,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       setIsLoading(true);
-      await msalInstance.logoutRedirect();
       
+      // Limpar estado antes do redirect
       setUser(null);
       setMsalAccount(null);
-      toast.success('Logged out successfully');
+      
+      // logoutRedirect não retorna response, apenas redireciona
+      await msalInstance.logoutRedirect();
+      
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Logout failed. Please try again.');
