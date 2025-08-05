@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (syncError.message?.includes('ACCESS_DENIED')) {
             console.log('🚫 Access denied, logging out...');
             await logout();
-            toast.error('Access denied. You need to be in a Charlotte group.');
+            toast.error('Acesso negado. Fale com a Hub Academy.');
             return;
           }
           
