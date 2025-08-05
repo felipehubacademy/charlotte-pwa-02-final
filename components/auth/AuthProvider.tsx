@@ -64,12 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           
           // Para outros erros, usar fallback
-          toast.error('Profile sync failed, using temporary profile');
+          toast.error('Falha na sincronização do perfil, usando perfil temporário');
         }
       }
     } catch (error) {
       console.error('❌ Auth initialization error:', error);
-      toast.error('Authentication initialization failed');
+      toast.error('Falha na inicialização da autenticação');
     } finally {
       setIsLoading(false);
     }
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      toast.error('Login failed. Please try again.');
+      toast.error('Falha no login. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -116,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Logout failed. Please try again.');
+      toast.error('Falha no logout. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -243,7 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Using fallback user for:', fallbackUser.entra_id ? 'user-***' : 'unknown');
       setUser(fallbackUser);
       
-      toast.error('Profile sync failed, using temporary profile');
+      toast.error('Falha na sincronização do perfil, usando perfil temporário');
     }
   };
 
