@@ -267,7 +267,7 @@ export default function ChatPage() {
   const [finalTranscript, setFinalTranscript] = useState('');
   const [isProcessingMessage, setIsProcessingMessage] = useState(false);
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState(false);
-  const [isXPModalOpen, setIsXPModalOpen] = useState(false);
+
   const [isMounted, setIsMounted] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [sessionXP, setSessionXP] = useState(0);
@@ -1892,7 +1892,13 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onLogout={logout}
         totalXP={totalXP}
         sessionXP={sessionXP}
-        onXPCounterClick={() => setIsXPModalOpen(true)}
+        onXPCounterClick={() => {
+          // Abrir o modal do EnhancedXPCounter clicando no elemento flutuante
+          const xpCounterElement = document.getElementById('xp-counter');
+          if (xpCounterElement) {
+            xpCounterElement.click();
+          }
+        }}
       />
 
         <ChatBox
@@ -2189,50 +2195,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onDismiss={handleAchievementsDismissed}
       />
 
-      {/* XP Modal */}
-      {isXPModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-secondary rounded-2xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white text-xl font-bold">XP Stats</h2>
-              <button
-                onClick={() => setIsXPModalOpen(false)}
-                className="text-white/60 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div className="bg-white/5 rounded-xl p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-white/80 text-sm font-medium">Current Level</span>
-                </div>
-                <span className="text-white text-2xl font-bold block mb-2">Level {Math.floor(Math.sqrt(totalXP / 50)) + 1}</span>
-                <div className="w-full bg-white/10 rounded-full h-2 mb-2">
-                  <div 
-                    className="bg-primary h-2 rounded-full transition-all duration-500"
-                    style={{ 
-                      width: `${Math.max(0, Math.min(100, 50))}%` 
-                    }}
-                  />
-                </div>
-                <p className="text-white/60 text-sm">
-                  {totalXP} XP total
-                </p>
-              </div>
-              
-              <div className="bg-white/5 rounded-xl p-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-white/80 text-sm font-medium">Today</span>
-                </div>
-                <span className="text-white text-2xl font-bold block">+{sessionXP}</span>
-                <p className="text-white/60 text-sm">XP earned today</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* 🎯 Banner Manager - Gerencia sequência: Tour → PWA → Notificação */}
       <BannerManager />
