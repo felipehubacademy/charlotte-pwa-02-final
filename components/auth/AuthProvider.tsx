@@ -41,6 +41,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await initializeMsal();
       
+      // Primeiro, processar redirect se houver
+      const redirectResponse = await msalInstance.handleRedirectPromise();
+      if (redirectResponse) {
+        console.log('🔄 Processing redirect response:', redirectResponse);
+        const account = redirectResponse.account;
+        if (account) {
+          setMsalAccount(account);
+          try {
+            await syncUserWithSupabase(account);
+            console.log('✅ Login successful, user synced');
+          } catch (syncError: any) {
+            console.error('❌ User sync failed after redirect:', syncError);
+            if (syncError.message?.includes('ACCESS_DENIED')) {
+              console.log('🚫 Access denied, logging out...');
+              await logout();
+              toast.error('Access denied. You need to be in a Charlotte group.');
+              return;
+            }
+            toast.error('Profile sync failed, using temporary profile');
+          }
+          return;
+        }
+      }
+      
+      // Se não há redirect, verificar accounts existentes
       const accounts = msalInstance.getAllAccounts();
       if (accounts.length > 0) {
         const account = accounts[0];
