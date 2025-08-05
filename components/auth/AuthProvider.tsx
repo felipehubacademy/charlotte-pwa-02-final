@@ -75,31 +75,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Verificar se popups são permitidos
-      if (typeof window !== 'undefined') {
-        const popupTest = window.open('', '_blank', 'width=1,height=1');
-        if (popupTest) {
-          popupTest.close();
-        } else {
-          throw new Error('Popups are blocked. Please allow popups for this site.');
-        }
-      }
+      const response: AuthenticationResult = await msalInstance.loginRedirect(loginRequest);
       
-      const response: AuthenticationResult = await msalInstance.loginPopup(loginRequest);
-      
-      if (response.account) {
+      if (response?.account) {
         setMsalAccount(response.account);
         await syncUserWithSupabase(response.account);
         toast.success('Welcome to Charlotte!');
       }
     } catch (error: any) {
       console.error('Login error:', error);
-      
-      if (error.message?.includes('popup')) {
-        toast.error('Please allow popups for this site to login.');
-      } else {
-        toast.error('Login failed. Please try again.');
-      }
+      toast.error('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -108,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       setIsLoading(true);
-      await msalInstance.logoutPopup();
+      await msalInstance.logoutRedirect();
       
       setUser(null);
       setMsalAccount(null);
