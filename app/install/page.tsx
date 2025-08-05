@@ -158,9 +158,9 @@ export default function InstallPage() {
         <Head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
         </Head>
-        <div className="h-screen bg-secondary select-none">
+        <div className="min-h-screen bg-secondary select-none">
 
-        <div className="relative z-10 h-screen flex flex-col">
+        <div className="relative z-10 min-h-screen flex flex-col">
           {/* Mobile Header - Same as home */}
           <div className="flex-shrink-0 pt-safe py-1"></div>
 
@@ -276,46 +276,17 @@ export default function InstallPage() {
                 )}
               </motion.div>
 
-              {/* Feature Icons - Same as home */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex justify-center space-x-6 pt-1"
-              >
-                <div className="flex flex-col items-center space-y-2">
-                  <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
-                    <MessageCircle className="w-6 h-6 text-primary" />
-                  </div>
-                                     <span className="text-xs text-white/60">Chat</span>
-                 </div>
-                 <div className="flex flex-col items-center space-y-2">
-                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
-                     <Mic className="w-6 h-6 text-primary" />
-                   </div>
-                   <span className="text-xs text-white/60">Voz</span>
-                 </div>
-                 <div className="flex flex-col items-center space-y-2">
-                   <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
-                     <Zap className="w-6 h-6 text-primary" />
-                   </div>
-                   <span className="text-xs text-white/60">Offline</span>
-                </div>
-              </motion.div>
-
-
-
               {/* Hub Academy Logo - Same as home */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 1.4 }}
-                className="flex justify-center pt-3"
+                transition={{ duration: 0.6, delay: 1.0 }}
+                className="flex justify-center pt-2"
               >
                 <img 
                   src="/logos/hub-white.png" 
                   alt="Hub Academy" 
-                  className="h-8 w-auto opacity-40"
+                  className="h-6 w-auto opacity-40"
                 />
               </motion.div>
             </motion.div>
