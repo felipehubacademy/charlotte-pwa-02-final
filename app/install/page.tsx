@@ -307,16 +307,7 @@ export default function InstallPage() {
                 </div>
               </motion.div>
 
-              {/* Continue Button */}
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 1.2 }}
-                onClick={() => window.location.href = '/chat'}
-                className="w-full bg-charcoal-light/50 text-white/80 font-medium text-base py-3 px-6 rounded-xl border border-charcoal-light/50 transition-all duration-200 active:scale-95"
-              >
-                Continuar no Navegador
-              </motion.button>
+
 
               {/* Hub Academy Logo - Same as home */}
               <motion.div
@@ -438,13 +429,7 @@ export default function InstallPage() {
                  )}
               </div>
 
-              {/* Continue Button */}
-                             <button
-                 onClick={() => window.location.href = '/chat'}
-                 className="bg-charcoal-light/50 text-white/80 font-medium text-base py-3 px-8 rounded-xl border border-charcoal-light/50 transition-all duration-200"
-               >
-                 Continuar no Navegador
-               </button>
+
             </motion.div>
 
             {/* Center Column - Avatar with Install Elements */}

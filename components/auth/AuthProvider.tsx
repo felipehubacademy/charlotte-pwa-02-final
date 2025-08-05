@@ -74,6 +74,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async () => {
     try {
       setIsLoading(true);
+      
+      // Verificar se popups são permitidos
+      if (typeof window !== 'undefined') {
+        const popupTest = window.open('', '_blank', 'width=1,height=1');
+        if (popupTest) {
+          popupTest.close();
+        } else {
+          throw new Error('Popups are blocked. Please allow popups for this site.');
+        }
+      }
+      
       const response: AuthenticationResult = await msalInstance.loginPopup(loginRequest);
       
       if (response.account) {
@@ -81,9 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await syncUserWithSupabase(response.account);
         toast.success('Welcome to Charlotte!');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      toast.error('Login failed. Please try again.');
+      
+      if (error.message?.includes('popup')) {
+        toast.error('Please allow popups for this site to login.');
+      } else {
+        toast.error('Login failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -93,12 +109,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setIsLoading(true);
       await msalInstance.logoutPopup();
+      
       setUser(null);
       setMsalAccount(null);
       toast.success('Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
-      toast.error('Logout failed');
+      toast.error('Logout failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -241,19 +258,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         console.log('✅ Token acquired successfully via silent flow');
       } catch (silentError: any) {
-        console.log('⚠️ Silent token acquisition failed, trying interactive...');
+        console.log('⚠️ Silent token acquisition failed, skipping interactive flow during init...');
         
-        // Se falhar o silent, tentar interativo
-        if (silentError.name === 'InteractionRequiredAuthError' || 
-            silentError.errorCode === 'interaction_required') {
-          tokenResponse = await msalInstance.acquireTokenPopup({
-            scopes: ['GroupMember.Read.All'],
-            account: account,
-          });
-          console.log('✅ Token acquired successfully via interactive flow');
-        } else {
-          throw silentError;
-        }
+        // Durante inicialização, não tentar popup - apenas retornar Advanced
+        console.log('🎯 Defaulting to Advanced level during initialization');
+        return 'Advanced';
       }
 
       const response = await fetch('https://graph.microsoft.com/v1.0/me/memberOf', {

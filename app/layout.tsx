@@ -7,6 +7,7 @@ import { Suspense } from 'react';
 
 import ClientLayout from './ClientLayout';
 import IOSAutoRecovery from '@/components/notifications/IOSAutoRecovery';
+import MobileOnlyWrapper from '@/components/MobileOnlyWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -154,14 +155,17 @@ export default function RootLayout({
         <link rel="canonical" href="https://charlotte-v2.vercel.app" />
       </head>
       <body className={`${inter.className} bg-secondary text-white antialiased`} suppressHydrationWarning>
-        <ClientLayout>
         <AuthProvider>
           <Suspense fallback={
             <div className="min-h-screen bg-secondary flex items-center justify-center">
               <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
             </div>
           }>
-            {children}
+            <MobileOnlyWrapper>
+              <ClientLayout>
+                {children}
+              </ClientLayout>
+            </MobileOnlyWrapper>
           </Suspense>
           <Toaster
             position="top-center"
@@ -188,7 +192,6 @@ export default function RootLayout({
           {/* 🍎 iOS Auto-Recovery System */}
           <IOSAutoRecovery />
         </AuthProvider>
-        </ClientLayout>
       </body>
     </html>
   );
