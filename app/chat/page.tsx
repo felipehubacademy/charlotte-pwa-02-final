@@ -18,6 +18,7 @@ import { useOnboarding } from '@/hooks/useOnboarding';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import BannerManager from '@/components/BannerManager';
 import { PWABadgeService } from '@/lib/pwa-badge-service';
+import { WelcomeMessageService } from '@/lib/welcome-message-service';
 
 const isMobileDevice = () => {
   if (typeof window === 'undefined') return false;
@@ -1080,26 +1081,43 @@ export default function ChatPage() {
   useEffect(() => {
     if (!isMounted || !user || messages.length > 0) return;
     
-    const shouldGreet = conversationContext?.shouldGreet();
-    
-    const welcomeMessage: Message = {
-      id: 'welcome-1',
-      role: 'assistant',
-      content: shouldGreet 
-        ? (user.user_level === 'Novice' 
-          ? `Hi ${user.name?.split(' ')[0]}! I'm Charlotte, your English assistant. You can write in Portuguese or English!`
-          : `Hi ${user.name?.split(' ')[0]}! I'm Charlotte, ready to help you practice English. How can I assist you today?`)
-        : `Welcome back! Let's continue our English practice. What would you like to work on?`,
-      timestamp: new Date(),
-      messageType: 'text'
+    const generateWelcomeMessage = async () => {
+      try {
+        // ✅ NOVO: Usar WelcomeMessageService para mensagens dinâmicas
+        const context = await WelcomeMessageService.analyzeContext(user.entra_id, user);
+        const welcomeContent = WelcomeMessageService.generateWelcomeMessage(context);
+        
+        const welcomeMessage: Message = {
+          id: 'welcome-1',
+          role: 'assistant',
+          content: welcomeContent,
+          timestamp: new Date(),
+          messageType: 'text'
+        };
+        
+        setMessages([welcomeMessage]);
+        
+        // Marcar greeting como feito se for primeira vez
+        if (context.isFirstTime) {
+          conversationContext?.markGreetingDone();
+        }
+      } catch (error) {
+        console.error('❌ Error generating welcome message:', error);
+        
+        // Fallback para mensagem padrão
+        const fallbackMessage: Message = {
+          id: 'welcome-1',
+          role: 'assistant',
+          content: `Hi ${user.name?.split(' ')[0]}! I'm Charlotte, ready to help you practice English!`,
+          timestamp: new Date(),
+          messageType: 'text'
+        };
+        
+        setMessages([fallbackMessage]);
+      }
     };
     
-    setMessages([welcomeMessage]);
-    
-    if (shouldGreet) {
-      conversationContext?.markGreetingDone();
-    }
-
+    generateWelcomeMessage();
     loadUserStats();
   }, [user, messages.length, isMounted, conversationContext, loadUserStats]);
 
