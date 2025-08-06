@@ -1145,7 +1145,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
         } : {}}
       >
         <motion.button
-          onClick={handleStatsClick}
+          onClick={isFloating ? undefined : handleStatsClick}
           onTouchStart={handleDragStart}
           onMouseDown={handleDragStart}
           className={`${
