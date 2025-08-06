@@ -72,7 +72,7 @@ export class AchievementVerificationService {
         }
 
         // Verificar se o usuário atende aos critérios
-        if (this.meetsRequirement(achievement, userStats, practiceData)) {
+        if (await this.meetsRequirement(achievement, userStats, practiceData, userId)) {
           achievementsToAward.push({
             code: achievement.code,
             name: achievement.name,
@@ -191,11 +191,12 @@ export class AchievementVerificationService {
   /**
    * Verificar se o usuário atende aos critérios de um achievement
    */
-  private static meetsRequirement(
+  private static async meetsRequirement(
     achievement: any, 
     userStats: UserStats, 
-    currentPractice: any
-  ): boolean {
+    currentPractice: any,
+    userId: string
+  ): Promise<boolean> {
     
     const { requirement_type, requirement_value } = achievement;
 
@@ -280,13 +281,19 @@ export class AchievementVerificationService {
         return currentPractice.pronunciation_score && currentPractice.pronunciation_score >= requirement_value;
 
       case 'audio_count':
-        return userStats.total_practices >= requirement_value; // Simplificado por enquanto
+        // ✅ CORRIGIDO: Contar apenas práticas de áudio
+        const audioPractices = await this.getAudioPracticesCount(userId);
+        return audioPractices >= requirement_value;
 
       case 'text_count':
-        return userStats.total_practices >= requirement_value; // Simplificado por enquanto
+        // ✅ CORRIGIDO: Contar apenas práticas de texto
+        const textPractices = await this.getTextPracticesCount(userId);
+        return textPractices >= requirement_value;
 
       case 'live_sessions':
-        return userStats.total_practices >= requirement_value; // Simplificado por enquanto
+        // ✅ CORRIGIDO: Contar apenas práticas de live_voice
+        const livePractices = await this.getLivePracticesCount(userId);
+        return livePractices >= requirement_value;
 
       case 'live_duration':
         return currentPractice.duration && currentPractice.duration >= requirement_value;
@@ -328,6 +335,15 @@ export class AchievementVerificationService {
           currentPractice.text.toLowerCase().includes('love') ||
           currentPractice.text.toLowerCase().includes('hate')
         );
+
+      case 'audio_length':
+        return currentPractice.text && currentPractice.text.length >= requirement_value;
+
+      case 'message_length':
+        return currentPractice.text && currentPractice.text.length >= requirement_value;
+
+      case 'word_count':
+        return currentPractice.text && currentPractice.text.split(' ').length >= requirement_value;
 
       case 'photo_practices':
         return currentPractice.practice_type === 'camera_object';
@@ -413,6 +429,65 @@ export class AchievementVerificationService {
    * - 🎯 Metas personalizadas
    */
   // REMOVED: sendAchievementNotifications() - achievements are now in-app only
+
+  /**
+   * 🎤 Contar práticas de live_voice do usuário
+   */
+  private static async getLivePracticesCount(userId: string): Promise<number> {
+    try {
+      const { supabaseService } = await import('./supabase-service');
+      const practices = await supabaseService.getUserPracticesForStats(userId);
+      
+      // Contar apenas práticas do tipo live_voice
+      const livePractices = practices?.filter(p => p.practice_type === 'live_voice') || [];
+      
+      console.log('🎤 Live practices count:', livePractices.length);
+      return livePractices.length;
+    } catch (error) {
+      console.error('❌ Error counting live practices:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * 🎵 Contar práticas de áudio do usuário
+   */
+  private static async getAudioPracticesCount(userId: string): Promise<number> {
+    try {
+      const { supabaseService } = await import('./supabase-service');
+      const practices = await supabaseService.getUserPracticesForStats(userId);
+      
+      // Contar apenas práticas de áudio (audio, live_voice)
+      const audioPractices = practices?.filter(p => 
+        p.practice_type === 'audio' || p.practice_type === 'live_voice'
+      ) || [];
+      
+      console.log('🎵 Audio practices count:', audioPractices.length);
+      return audioPractices.length;
+    } catch (error) {
+      console.error('❌ Error counting audio practices:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * 💬 Contar práticas de texto do usuário
+   */
+  private static async getTextPracticesCount(userId: string): Promise<number> {
+    try {
+      const { supabaseService } = await import('./supabase-service');
+      const practices = await supabaseService.getUserPracticesForStats(userId);
+      
+      // Contar apenas práticas de texto
+      const textPractices = practices?.filter(p => p.practice_type === 'text') || [];
+      
+      console.log('💬 Text practices count:', textPractices.length);
+      return textPractices.length;
+    } catch (error) {
+      console.error('❌ Error counting text practices:', error);
+      return 0;
+    }
+  }
 
   /**
    * 🌐 Buscar nível do usuário

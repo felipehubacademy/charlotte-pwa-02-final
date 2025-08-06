@@ -81,7 +81,7 @@ export class WelcomeMessageService {
       // 4. CONTINUAR TÓPICO ANTERIOR
       {
         condition: lastTopic && lastTopic.length > 0,
-        message: `Welcome back! We were discussing "${lastTopic}". Want to continue or try something new?`,
+        message: `Welcome back ${userName}! We were discussing "${lastTopic}". Want to continue or try something new?`,
         priority: 7
       },
       
@@ -108,13 +108,13 @@ export class WelcomeMessageService {
   private static getRandomMotivationalMessage(userName: string): string {
     const messages = [
       `Welcome back ${userName}! Ready for more English practice?`,
-      `Great to see you again! What shall we work on today?`,
-      `Your English journey continues! What's on your mind?`,
-      `Time for some English magic! Choose your practice: 💬 Write | 🎤 Speak | 📚 Learn`,
-      `Ready to level up your English? Let's practice!`,
-      `Your English is getting better every day! What shall we work on?`,
-      `Welcome back! Pick your challenge: 💬 Chat | 🎯 Grammar | 🗣️ Pronunciation`,
-      `Let's make today's English practice amazing! What would you like to focus on?`
+      `Great to see you again ${userName}! What shall we work on today?`,
+      `Your English journey continues ${userName}! What's on your mind?`,
+      `Time for some English magic ${userName}! Choose your practice: 💬 Write | 🎤 Speak | 📚 Learn`,
+      `Ready to level up your English ${userName}? Let's practice!`,
+      `Your English is getting better every day ${userName}! What shall we work on?`,
+      `Welcome back ${userName}! Pick your challenge: 💬 Chat | 🎯 Grammar | 🗣️ Pronunciation`,
+      `Let's make today's English practice amazing ${userName}! What would you like to focus on?`
     ];
     
     return messages[Math.floor(Math.random() * messages.length)];
