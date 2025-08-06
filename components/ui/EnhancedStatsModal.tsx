@@ -23,6 +23,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
   isOpen, onClose, sessionXP, totalXP, achievements, realAchievements, onAchievementsDismissed, userId, userLevel = 'Inter'
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>('stats');
+  const [leaderboardRefreshTrigger, setLeaderboardRefreshTrigger] = useState(0); // ✅ NOVO: Trigger para recarregar leaderboard
   const [realData, setRealData] = useState({
     realTotalXP: 0,
     realSessionXP: 0,
@@ -45,6 +46,13 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
       setRealData(prev => ({ ...prev, loading: false, error: 'No user ID' }));
     }
   }, [isOpen, userId]);
+
+  // ✅ RECARREGAR LEADERBOARD QUANDO MODAL É ABERTO
+  useEffect(() => {
+    if (isOpen && activeTab === 'leaderboard') {
+      setLeaderboardRefreshTrigger(prev => prev + 1);
+    }
+  }, [isOpen, activeTab]);
 
   const loadRealData = async () => {
     if (!userId) return;
@@ -455,6 +463,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
             userLevel={userLevel}
             userId={userId}
             className="!bg-transparent !border-0 !p-0"
+            refreshTrigger={leaderboardRefreshTrigger}
           />
         );
 

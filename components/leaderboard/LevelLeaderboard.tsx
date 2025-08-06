@@ -8,12 +8,14 @@ interface LevelLeaderboardProps {
   userLevel: 'Novice' | 'Inter' | 'Advanced';
   userId?: string;
   className?: string;
+  refreshTrigger?: number; // ✅ NOVO: Trigger para recarregar
 }
 
 const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
   userLevel,
   userId,
-  className = ''
+  className = '',
+  refreshTrigger = 0
 }) => {
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
   const [userPosition, setUserPosition] = useState<LeaderboardEntry | null>(null);
@@ -22,7 +24,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
 
   useEffect(() => {
     loadLeaderboard();
-  }, [userLevel, userId]);
+  }, [userLevel, userId, refreshTrigger]); // ✅ NOVO: Incluir refreshTrigger
 
   const loadLeaderboard = async () => {
     setLoading(true);
