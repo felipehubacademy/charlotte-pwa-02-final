@@ -36,6 +36,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
     loading: true,
     error: null as string | null
   });
+  const [realAchievementsFromDB, setRealAchievementsFromDB] = useState<Achievement[]>([]); // ✅ NOVO: Achievements do banco
 
   // ✅ BUSCAR DADOS REAIS DO SUPABASE
   useEffect(() => {
@@ -63,15 +64,17 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
       console.log('🔄 Loading user data...');
       console.log('📊 Props received in modal:', { sessionXP, totalXP, userId });
 
-      const [userStats, todayXP, practiceHistory] = await Promise.all([
+      const [userStats, todayXP, practiceHistory, userAchievements] = await Promise.all([
         supabaseService.getUserStats(userId),
         supabaseService.getTodaySessionXP(userId),
-        supabaseService.getUserPracticeHistory(userId, 20)
+        supabaseService.getUserPracticeHistory(userId, 20),
+        supabaseService.getUserAchievements(userId, 50) // ✅ NOVO: Buscar achievements do banco
       ]);
 
       console.log('📊 User stats loaded');
       console.log('🗓️ Today XP loaded');
       console.log('📝 Practice history loaded');
+      console.log('🏆 User achievements loaded:', userAchievements?.length || 0);
       
       const today = new Date().toISOString().split('T')[0];
       const todayPractices = practiceHistory.filter((practice: any) => 
@@ -119,6 +122,18 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
       const calculatedTodayXP = todayPractices.reduce((sum, practice) => sum + (practice.xp_awarded || 0), 0);
       const finalSessionXP = Math.max(sessionXP || 0, todayXP || 0, calculatedTodayXP);
 
+      // ✅ NOVO: Mapear achievements do banco para o formato do frontend
+      const mappedAchievements: Achievement[] = userAchievements?.map((ach: any) => ({
+        id: ach.id,
+        type: 'achievement',
+        title: ach.achievement_name,
+        description: ach.achievement_description,
+        xpBonus: ach.xp_bonus,
+        rarity: ach.rarity || 'common',
+        icon: ach.badge_icon || '🏆',
+        earnedAt: new Date(ach.earned_at)
+      })) || [];
+
       setRealData({
         realTotalXP: totalXP,
         realSessionXP: finalSessionXP, // 🔧 USAR O VALOR CALCULADO
@@ -127,6 +142,8 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
         loading: false,
         error: null
       });
+
+      setRealAchievementsFromDB(mappedAchievements); // ✅ NOVO: Salvar achievements do banco
 
       console.log('✅ Modal data loaded (CONSISTENT):', {
         realTotalXP: totalXP,
@@ -401,7 +418,8 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
         );
 
       case 'achievements':
-        const effectiveAchievements = realAchievements.length > 0 ? realAchievements : achievements;
+        // ✅ NOVO: Sempre usar achievements do banco, nunca das props
+        const effectiveAchievements = realAchievementsFromDB.length > 0 ? realAchievementsFromDB : realAchievements;
         
         return (
           <div className="space-y-4">
