@@ -9,7 +9,7 @@ interface WelcomeContext {
   totalXP: number;
   streakDays: number;
   lastTopic?: string;
-  lastPracticeTime?: Date;
+  lastPracticeTime?: Date | null;
   todayPractices: number;
   isFirstTime: boolean;
 }
@@ -138,7 +138,7 @@ export class WelcomeMessageService {
       lastTopic,
       lastPracticeTime,
       todayPractices,
-      isFirstTime: !lastPracticeTime // Se nunca praticou, é primeira vez
+      isFirstTime: !lastPracticeTime || lastPracticeTime === null // Se nunca praticou, é primeira vez
     };
   }
   
@@ -188,7 +188,7 @@ export class WelcomeMessageService {
     }
   }
   
-  private static async getLastPracticeTime(userId: string) {
+  private static async getLastPracticeTime(userId: string): Promise<Date | null> {
     try {
       const { supabaseService } = await import('./supabase-service');
       const practices = await supabaseService.getUserPracticeHistory(userId, 1);

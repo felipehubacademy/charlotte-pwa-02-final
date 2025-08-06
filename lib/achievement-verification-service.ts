@@ -88,7 +88,8 @@ export class AchievementVerificationService {
 
       // 5. Salvar achievements conquistados no banco
       if (achievementsToAward.length > 0) {
-        await this.saveNewAchievements(userId, achievementsToAward);
+        // ✅ CORRIGIDO: Usar saveAchievements que tem verificação de duplicação
+        await supabaseService.saveAchievements(userId, achievementsToAward);
         console.log('✅ Awarded achievements:', achievementsToAward.map(a => a.name));
         
         // 🎨 Achievements são mostrados via cards in-app (não push notifications)

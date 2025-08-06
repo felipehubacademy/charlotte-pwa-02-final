@@ -1266,10 +1266,18 @@ class SupabaseService {
     }
 
     try {
-      // O trigger automático no banco deveria cuidar disso
-      // Por agora, apenas simular sucesso
-      console.log('🔄 Leaderboard position update triggered for user:', userId);
-      return true;
+      console.log('🔄 Updating leaderboard position for user:', userId);
+      
+      // ✅ NOVO: Forçar refresh do cache do leaderboard
+      const success = await this.forceRefreshLeaderboard();
+      
+      if (success) {
+        console.log('✅ Leaderboard cache updated successfully');
+      } else {
+        console.log('⚠️ Leaderboard cache update failed, but continuing...');
+      }
+      
+      return success;
     } catch (error) {
       console.error('❌ Exception updating leaderboard position:', error);
       return false;
