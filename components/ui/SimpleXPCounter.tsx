@@ -50,7 +50,6 @@ export default function SimpleXPCounter({
   // XP gained animation
   useEffect(() => {
     if ((sessionXP || 0) > displaySessionXP) {
-      console.log('🎯 SimpleXPCounter: XP gained!', { sessionXP, displaySessionXP });
       setIsAnimating(true);
       const difference = (sessionXP || 0) - displaySessionXP;
       
@@ -72,7 +71,6 @@ export default function SimpleXPCounter({
         if (progress < 1) {
           requestAnimationFrame(animate);
         } else {
-          console.log('🎯 SimpleXPCounter: Animation complete');
           setIsAnimating(false);
           setFloatingXP(null);
         }
@@ -88,8 +86,7 @@ export default function SimpleXPCounter({
   const strokeDasharray = circumference;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
-  // Debug log for animation state
-  console.log('🎯 SimpleXPCounter render:', { isAnimating, sessionXP, displaySessionXP, floatingXP });
+
 
   return (
     <div className={`relative flex items-center justify-center ${className}`}>
@@ -105,7 +102,12 @@ export default function SimpleXPCounter({
           })
         }}
         animate={isAnimating ? {
-          scale: [1, 1.05, 1]
+          scale: [1, 1.05, 1],
+          boxShadow: [
+            "0 0 0px rgba(163, 255, 60, 0)",
+            "0 0 20px rgba(163, 255, 60, 0.5)",
+            "0 0 0px rgba(163, 255, 60, 0)"
+          ]
         } : {}}
         transition={{ duration: 0.6 }}
       >
