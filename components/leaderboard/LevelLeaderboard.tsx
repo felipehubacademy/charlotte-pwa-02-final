@@ -17,6 +17,14 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
   className = '',
   refreshTrigger = 0
 }) => {
+  // ✅ NOVO: Tradução baseada no nível do usuário
+  const isPortuguese = userLevel === 'Novice';
+  const translations = {
+    activeLearners: isPortuguese ? 'estudantes ativos' : 'active learners',
+    yourPosition: isPortuguese ? 'Sua posição:' : 'Your position:',
+    top: isPortuguese ? 'Top' : 'Top',
+    updated: isPortuguese ? 'Atualizado' : 'Updated'
+  };
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardData | null>(null);
   const [userPosition, setUserPosition] = useState<LeaderboardEntry | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,7 +182,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
             {userLevel} Leaderboard
           </h3>
           <p className="text-white/60 text-sm">
-            {leaderboardData.totalUsers} active learners
+            {leaderboardData.totalUsers} {translations.activeLearners}
           </p>
         </div>
         <TrendingUp className="text-primary" size={20} />
@@ -261,7 +269,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
       {restOfEntries.length > 0 && (
         <div className="space-y-2">
           <h4 className="text-white/80 text-sm font-medium mb-3">
-            Top {Math.min(50, leaderboardData.entries.length)}
+            {translations.top} {Math.min(50, leaderboardData.entries.length)}
           </h4>
           
           <div className="max-h-64 overflow-y-auto scrollbar-custom space-y-1">
@@ -319,7 +327,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
       {/* User position (if not in top 50) */}
       {userPosition && userPosition.position > 50 && (
         <div className="mt-4 pt-4 border-t border-white/10">
-          <p className="text-white/60 text-xs mb-2">Your position:</p>
+          <p className="text-white/60 text-xs mb-2">{translations.yourPosition}</p>
           <div className="flex items-center space-x-3 p-3 rounded-lg bg-primary/20 border border-primary/30">
             <div className="w-8 text-center">
               <span className="text-primary text-sm font-medium">
@@ -345,7 +353,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
       {/* Last updated */}
       <div className="mt-4 pt-3 border-t border-white/10">
         <p className="text-white/40 text-xs text-center">
-          Updated {leaderboardData.lastUpdated.toLocaleTimeString([], { 
+          {translations.updated} {leaderboardData.lastUpdated.toLocaleTimeString([], { 
             hour: '2-digit', 
             minute: '2-digit' 
           })}
