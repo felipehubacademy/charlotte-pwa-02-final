@@ -88,6 +88,9 @@ export default function SimpleXPCounter({
   const strokeDasharray = circumference;
   const strokeDashoffset = circumference - (progress / 100) * circumference;
 
+  // Debug log for animation state
+  console.log('🎯 SimpleXPCounter render:', { isAnimating, sessionXP, displaySessionXP, floatingXP });
+
   return (
     <div className={`relative flex items-center justify-center ${className}`}>
       <motion.div
@@ -96,8 +99,9 @@ export default function SimpleXPCounter({
         style={{ 
           cursor: onClick ? 'pointer' : 'default',
           ...(isAnimating && { 
-            boxShadow: '0 0 20px rgba(163, 255, 60, 0.5)',
-            border: '1px solid rgba(163, 255, 60, 0.3)'
+            boxShadow: '0 0 30px rgba(163, 255, 60, 0.8)',
+            border: '2px solid rgba(163, 255, 60, 0.6)',
+            zIndex: 100
           })
         }}
         animate={isAnimating ? {
