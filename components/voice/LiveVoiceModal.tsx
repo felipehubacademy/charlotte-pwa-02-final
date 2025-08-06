@@ -6,7 +6,7 @@ import { X, Mic, MicOff, Volume2, VolumeX, Settings, LogOut, MessageSquare, Mess
 import { OpenAIRealtimeService, RealtimeConfig } from '../../lib/openai-realtime';
 import { useVoiceActivityDetection } from '../../hooks/useVoiceActivityDetection';
 import RealtimeOrb from './RealtimeOrb';
-import EnhancedXPCounter from '../ui/EnhancedXPCounter';
+
 import CharlotteAvatar from '../ui/CharlotteAvatar';
 import { supabaseService } from '../../lib/supabase-service';
 import { useOnboarding } from '../../hooks/useOnboarding';
@@ -1578,21 +1578,7 @@ After this greeting, wait for the user's response and continue naturally.`;
           </motion.div>
         </motion.div>
 
-        {/* Floating XP Counter */}
-        {sessionXP !== undefined && totalXP !== undefined && (
-          <div className="floating-xp-counter">
-            <EnhancedXPCounter 
-              sessionXP={sessionXP}
-              totalXP={totalXP}
-              currentLevel={Math.floor(Math.sqrt(totalXP / 50)) + 1}
-              achievements={[]}
-              userId={user?.entra_id}
-              userLevel={user?.user_level as 'Novice' | 'Inter' | 'Advanced'}
-              onXPGained={onXPGained}
-              isFloating={true}
-            />
-          </div>
-        )}
+
       </motion.div>
     </AnimatePresence>
   );

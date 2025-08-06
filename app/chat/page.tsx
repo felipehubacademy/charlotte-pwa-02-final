@@ -9,7 +9,7 @@ import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { transcribeAudio } from '@/lib/transcribe';
 import { assessPronunciation } from '@/lib/pronunciation';
 import { supabaseService } from '@/lib/supabase-service';
-import EnhancedXPCounter, { EnhancedStatsModal } from '@/components/ui/EnhancedXPCounter';
+import { EnhancedStatsModal } from '@/components/ui/EnhancedStatsModal';
 import AchievementNotification from '@/components/achievements/AchievementNotification';
 import { EnhancedConversationContextManager } from '@/lib/enhanced-conversation-context';
 import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
@@ -273,8 +273,6 @@ export default function ChatPage() {
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
   
-  // ✅ NEW: Add missing state variables for EnhancedXPCounter
-  const [currentLevel, setCurrentLevel] = useState(1);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
   
@@ -391,7 +389,7 @@ export default function ChatPage() {
         setTotalXP(stats.total_xp);
         // Calculate level from total XP using improved formula
         const level = Math.floor(Math.sqrt(stats.total_xp / 50)) + 1;
-        setCurrentLevel(level);
+
       }
 
       // 🔧 CORRIGIDO: Sempre atualizar sessionXP com valor real do banco
@@ -1083,13 +1081,7 @@ export default function ChatPage() {
   }, [user?.entra_id, loadUserStats]);
 
   // ✅ Update level when totalXP changes
-  useEffect(() => {
-    const newLevel = Math.floor(Math.sqrt(totalXP / 50)) + 1;
-    if (newLevel !== currentLevel) {
-      setCurrentLevel(newLevel);
-      console.log('📈 Level updated:', { oldLevel: currentLevel, newLevel, totalXP });
-    }
-  }, [totalXP, currentLevel]);
+
 
   // ✅ SIMPLIFIED: iOS PWA Setup
   useEffect(() => {
@@ -2137,24 +2129,7 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         </div>
       </div>
 
-      {/* Floating XP Counter */}
-      {sessionXP !== undefined && totalXP !== undefined && !isLiveVoiceOpen && (
-        <div id="xp-counter" className="floating-xp-counter" data-xp-counter>
-          <EnhancedXPCounter 
-            sessionXP={sessionXP}
-            totalXP={totalXP}
-            currentLevel={Math.floor(Math.sqrt(totalXP / 50)) + 1}
-            achievements={achievements}
-            onAchievementsDismissed={() => handleAchievementsDismissed('')}
-            userId={user?.entra_id}
-            userLevel={user?.user_level as 'Novice' | 'Inter' | 'Advanced'}
-            onXPGained={(amount) => {
-              console.log('XP animation completed:', amount);
-            }}
-            isFloating={true}
-          />
-        </div>
-      )}
+
 
       <LiveVoiceModal
         isOpen={isLiveVoiceOpen}
@@ -2196,7 +2171,6 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           onClose={() => setIsHeaderXPModalOpen(false)}
           sessionXP={sessionXP}
           totalXP={totalXP}
-          currentLevel={Math.floor(Math.sqrt(totalXP / 50)) + 1}
           achievements={achievements}
           realAchievements={achievements}
           onAchievementsDismissed={() => handleAchievementsDismissed('')}
