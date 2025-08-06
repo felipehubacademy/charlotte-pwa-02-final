@@ -442,7 +442,7 @@ export const EnhancedStatsModal: React.FC<{
                         </div>
                         <p className="text-white/70 text-xs">{achievement.description}</p>
                         <p className="text-white/50 text-xs mt-1">
-                          Earned {achievement.earnedAt.toLocaleDateString()} at {achievement.earnedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          Earned {new Date(achievement.earnedAt).toLocaleDateString()} at {new Date(achievement.earnedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
