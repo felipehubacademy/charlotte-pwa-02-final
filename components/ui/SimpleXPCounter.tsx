@@ -93,7 +93,7 @@ export default function SimpleXPCounter({
       <motion.div
         onClick={onClick}
         style={{ cursor: onClick ? 'pointer' : 'default' }}
-        className="relative"
+        className="relative rounded-full"
         animate={isAnimating ? {
           scale: [1, 1.05, 1],
           boxShadow: [
