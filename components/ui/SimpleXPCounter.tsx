@@ -92,15 +92,8 @@ export default function SimpleXPCounter({
     <div className={`relative flex items-center justify-center ${className}`}>
       <motion.div
         onClick={onClick}
-        className={`relative ${isAnimating ? 'shadow-lg shadow-primary/25' : ''}`}
-        style={{ 
-          cursor: onClick ? 'pointer' : 'default',
-          ...(isAnimating && { 
-            boxShadow: '0 0 30px rgba(163, 255, 60, 0.8)',
-            border: '2px solid rgba(163, 255, 60, 0.6)',
-            zIndex: 100
-          })
-        }}
+        style={{ cursor: onClick ? 'pointer' : 'default' }}
+        className="relative"
         animate={isAnimating ? {
           scale: [1, 1.05, 1],
           boxShadow: [
