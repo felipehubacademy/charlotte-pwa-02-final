@@ -118,11 +118,14 @@ export class AchievementVerificationService {
       // Buscar vocabulário descoberto
       const vocabularyCount = await supabaseService.getUserVocabularyCount(userId);
 
+      // ✅ CORRIGIDO: Usar contagem real das práticas em vez de userProgress.total_practices
+      const totalPractices = practices?.length || 0;
+
       // Calcular práticas perfeitas
       const perfectPractices = practices?.filter(p => 
-        (p.accuracy_score && p.accuracy_score >= 100) ||
-        (p.grammar_score && p.grammar_score >= 100) ||
-        (p.pronunciation_score && p.pronunciation_score >= 100)
+        (p.accuracy_score && p.accuracy_score >= 95) ||
+        (p.grammar_score && p.grammar_score >= 95) ||
+        (p.pronunciation_score && p.pronunciation_score >= 95)
       ).length || 0;
 
       // Calcular práticas de hoje
@@ -148,8 +151,16 @@ export class AchievementVerificationService {
         practices?.map(p => p.practice_type) || []
       ).size;
 
+      console.log('🔍 User stats calculated:', {
+        total_practices: totalPractices,
+        perfect_practices: perfectPractices,
+        daily_practices_today: dailyPractices,
+        active_days: uniqueDays,
+        levels_practiced: levelsPracticed
+      });
+
       return {
-        total_practices: userProgress?.total_practices || 0,
+        total_practices: totalPractices, // ✅ CORRIGIDO: Usar contagem real
         perfect_practices: perfectPractices,
         streak_days: userProgress?.streak_days || 0,
         current_level: userProgress?.current_level || 1,
@@ -192,13 +203,18 @@ export class AchievementVerificationService {
         return userStats.total_practices >= requirement_value;
 
       case 'perfect_practices':
-        // Verificar se a prática atual é perfeita
+        // Verificar se a prática atual é perfeita (95%+ é considerado perfeito)
         const isPerfectNow = (
           (currentPractice.accuracy_score && currentPractice.accuracy_score >= 95) ||
           (currentPractice.grammar_score && currentPractice.grammar_score >= 95) ||
           (currentPractice.pronunciation_score && currentPractice.pronunciation_score >= 95)
         );
         const totalPerfect = userStats.perfect_practices + (isPerfectNow ? 1 : 0);
+        console.log('🔍 Perfect practices check:', { 
+          current: isPerfectNow, 
+          total: totalPerfect, 
+          required: requirement_value 
+        });
         return totalPerfect >= requirement_value;
 
       case 'daily_streak':

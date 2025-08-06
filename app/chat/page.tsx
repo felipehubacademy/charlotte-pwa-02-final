@@ -417,20 +417,32 @@ export default function ChatPage() {
   // ✅ ANDROID FIX: Cache de IDs processados fora do callback
   const processedAchievementIds = useRef(new Set<string>());
 
-  // Handle achievement notifications - SIMPLIFIED
+  // Handle achievement notifications - ENHANCED
   const handleNewAchievements = useCallback((newAchievements: Achievement[]) => {
-    if (newAchievements.length === 0) return;
+    console.log('🏆 [NOTIFICATIONS] handleNewAchievements called with:', newAchievements.length, 'achievements');
+    
+    if (newAchievements.length === 0) {
+      console.log('🏆 [NOTIFICATIONS] No achievements to show');
+      return;
+    }
 
     // Filtrar apenas achievements que não foram processados
     const uniqueAchievements = newAchievements.filter(a => {
       if (processedAchievementIds.current.has(a.id)) {
+        console.log('🏆 [NOTIFICATIONS] Skipping already processed achievement:', a.id);
         return false;
       }
       processedAchievementIds.current.add(a.id);
       return true;
     });
 
-    if (uniqueAchievements.length === 0) return;
+    if (uniqueAchievements.length === 0) {
+      console.log('🏆 [NOTIFICATIONS] No unique achievements to show');
+      return;
+    }
+
+    console.log('🏆 [NOTIFICATIONS] Showing achievement notifications:', uniqueAchievements.length);
+    console.log('🏆 [NOTIFICATIONS] Achievements to show:', uniqueAchievements);
 
     // Mostrar achievements na UI
     setNewAchievements(prev => [...prev, ...uniqueAchievements]);
@@ -438,6 +450,46 @@ export default function ChatPage() {
     // Adicionar aos achievements permanentes
     setAchievements(prev => [...prev, ...uniqueAchievements]);
   }, []);
+
+  // ✅ NOVO: Buscar achievements recentes após cada prática
+  const checkRecentAchievements = useCallback(async () => {
+    if (!user?.entra_id) {
+      console.log('❌ No user ID, skipping checkRecentAchievements');
+      return;
+    }
+
+    try {
+      console.log('🔍 [NOTIFICATIONS] Checking for recent achievements...');
+      
+      const response = await fetch(`/api/achievements/recent?userId=${user.entra_id}`);
+      const result = await response.json();
+
+      console.log('🔍 [NOTIFICATIONS] API response:', result);
+
+      if (result.success && result.achievements.length > 0) {
+        console.log('🏆 [NOTIFICATIONS] Found recent achievements:', result.achievements.length);
+        
+        // Mapear para o formato Achievement
+        const mappedAchievements: Achievement[] = result.achievements.map((ach: any) => ({
+          id: ach.id,
+          type: 'recent',
+          title: ach.name,
+          description: ach.description,
+          xpBonus: ach.xpBonus,
+          rarity: ach.rarity,
+          icon: ach.icon,
+          earnedAt: new Date(ach.earnedAt)
+        }));
+
+        console.log('🏆 [NOTIFICATIONS] Mapped achievements:', mappedAchievements);
+        handleNewAchievements(mappedAchievements);
+      } else {
+        console.log('🔍 [NOTIFICATIONS] No recent achievements found');
+      }
+    } catch (error) {
+      console.error('❌ [NOTIFICATIONS] Error checking recent achievements:', error);
+    }
+  }, [user?.entra_id, handleNewAchievements]);
 
   const handleAchievementsDismissed = useCallback((achievementId: string) => {
     setNewAchievements(prev => prev.filter(a => a.id !== achievementId));
@@ -683,13 +735,15 @@ export default function ChatPage() {
             handleNewAchievements(allAchievements);
           }
           
-          setSessionXP(prev => prev + xpResult.totalXP + achievementBonusXP);
-          setTotalXP(prev => prev + xpResult.totalXP + achievementBonusXP);
-          
-          // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
-          setTimeout(() => {
-            loadUserStats();
-          }, 1000); // Aguardar 1s para garantir que salvou no banco
+                  setSessionXP(prev => prev + xpResult.totalXP + achievementBonusXP);
+        setTotalXP(prev => prev + xpResult.totalXP + achievementBonusXP);
+        
+        // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
+        setTimeout(() => {
+          loadUserStats();
+          // ✅ NOVO: Verificar achievements recentes após cada prática
+          checkRecentAchievements();
+        }, 1000); // Aguardar 1s para garantir que salvou no banco
           
         }
         
@@ -1831,6 +1885,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
         setTimeout(() => {
           loadUserStats();
+          // ✅ NOVO: Verificar achievements recentes após cada prática
+          checkRecentAchievements();
         }, 1000); // Aguardar 1s para garantir que salvou no banco
           
       }
@@ -2139,6 +2195,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           // 🔧 CORRIGIDO: Recarregar stats para sincronizar XP diário
           setTimeout(() => {
             loadUserStats();
+            // ✅ NOVO: Verificar achievements recentes após cada prática
+            checkRecentAchievements();
           }, 1000); // Aguardar 1s para garantir que salvou no banco
         }}
         conversationContext={conversationContext}
