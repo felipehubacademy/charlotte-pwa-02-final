@@ -297,9 +297,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
                     }`}>
                       {entry.displayName}
                     </p>
-                    <span className="text-white/60 text-xs ml-2">
-                      L{entry.levelNumber}
-                    </span>
+                    {/* Removido L1, L2 labels para deixar mais limpo */}
                   </div>
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-white/70 text-xs">
@@ -337,9 +335,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
                 <span className="text-white/70 text-xs">
                   {userPosition.totalXP.toLocaleString()} XP
                 </span>
-                <span className="text-white/60 text-xs">
-                  L{userPosition.levelNumber}
-                </span>
+                {/* Removido L1, L2 labels para deixar mais limpo */}
               </div>
             </div>
           </div>

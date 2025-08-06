@@ -22,6 +22,42 @@ interface EnhancedStatsModalProps {
 export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({ 
   isOpen, onClose, sessionXP, totalXP, achievements, realAchievements, onAchievementsDismissed, userId, userLevel = 'Inter'
 }) => {
+  // ✅ NOVO: Sistema de tradução baseado no nível do usuário
+  const isPortuguese = userLevel === 'Novice';
+  
+  const translations = {
+    // Tabs
+    stats: isPortuguese ? 'Estatísticas' : 'Stats',
+    achievements: isPortuguese ? 'Conquistas' : 'Achievements',
+    leaderboard: isPortuguese ? 'Ranking' : 'Leaderboard',
+    
+    // Stats Section
+    currentLevel: isPortuguese ? 'Nível Atual' : 'Current Level',
+    level: isPortuguese ? 'Nível' : 'Level',
+    xpToNextLevel: isPortuguese ? 'XP para próximo nível' : 'XP to next level',
+    maxLevelReached: isPortuguese ? 'Nível máximo atingido!' : 'Max level reached!',
+    today: isPortuguese ? 'Hoje' : 'Today',
+    total: isPortuguese ? 'Total' : 'Total',
+    xpEarned: isPortuguese ? 'XP ganho' : 'XP earned',
+    streak: isPortuguese ? 'Sequência' : 'Streak',
+    days: isPortuguese ? 'dias' : 'days',
+    practices: isPortuguese ? 'práticas' : 'practices',
+    recentActivity: isPortuguese ? 'Atividade Recente' : 'Recent Activity',
+    noRecentActivity: isPortuguese ? 'Nenhuma atividade recente' : 'No recent activity',
+    startPracticing: isPortuguese ? 'Comece a praticar!' : 'Start practicing!',
+    moreActivities: isPortuguese ? 'mais atividades' : 'more activities',
+    
+    // Achievements Section
+    yourAchievements: isPortuguese ? 'Suas Conquistas' : 'Your Achievements',
+    markAllAsRead: isPortuguese ? 'Marcar todas como lidas' : 'Mark all as read',
+    earned: isPortuguese ? 'Conquistado' : 'Earned',
+    at: isPortuguese ? 'às' : 'at',
+    
+    // Loading & Errors
+    loading: isPortuguese ? 'Carregando...' : 'Loading...',
+    error: isPortuguese ? 'Erro ao carregar dados' : 'Error loading data',
+    noUserID: isPortuguese ? 'ID do usuário não fornecido' : 'No user ID provided'
+  };
   const [activeTab, setActiveTab] = useState<TabType>('stats');
   const [leaderboardRefreshTrigger, setLeaderboardRefreshTrigger] = useState(0); // ✅ NOVO: Trigger para recarregar leaderboard
   const [realData, setRealData] = useState({
@@ -44,7 +80,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
       loadRealData();
     } else if (isOpen && !userId) {
       console.warn('⚠️ No userId provided to EnhancedStatsModal');
-      setRealData(prev => ({ ...prev, loading: false, error: 'No user ID' }));
+      setRealData(prev => ({ ...prev, loading: false, error: translations.noUserID }));
     }
   }, [isOpen, userId]);
 
@@ -170,7 +206,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
       setRealData(prev => ({
         ...prev,
         loading: false,
-        error: 'Failed to load data'
+        error: translations.error
       }));
     }
   };
@@ -221,9 +257,9 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
   const levelProgress = xpNeededForNextLevel > 0 ? (xpProgressInCurrentLevel / xpNeededForNextLevel) * 100 : 0;
 
   const tabs = [
-    { id: 'stats' as TabType, label: 'Stats', icon: TrendingUp },
-    { id: 'achievements' as TabType, label: 'Achievements', icon: Award },
-    { id: 'leaderboard' as TabType, label: 'Leaderboard', icon: Trophy }
+    { id: 'stats' as TabType, label: translations.stats, icon: TrendingUp },
+    { id: 'achievements' as TabType, label: translations.achievements, icon: Award },
+    { id: 'leaderboard' as TabType, label: translations.leaderboard, icon: Trophy }
   ];
 
   const renderTabContent = () => {
@@ -235,9 +271,9 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
             <div className="bg-white/5 rounded-xl p-5 border border-white/10 hover:bg-white/10 transition-colors">
               <div className="flex items-center space-x-2 mb-3">
                 <Target size={18} className="text-primary" />
-                <span className="text-white/80 text-sm font-medium">Current Level</span>
+                <span className="text-white/80 text-sm font-medium">{translations.currentLevel}</span>
               </div>
-              <span className="text-white text-2xl font-bold block mb-1">Level {currentLevel}</span>
+              <span className="text-white text-2xl font-bold block mb-1">{translations.level} {currentLevel}</span>
               <div className="w-full bg-white/10 rounded-full h-2 mb-2">
                 <div 
                   className="bg-primary h-2 rounded-full transition-all duration-500"
@@ -245,7 +281,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
                 />
               </div>
               <p className="text-white/60 text-sm">
-                {xpNeededForNextLevel > 0 ? `${(xpNeededForNextLevel - xpProgressInCurrentLevel).toLocaleString()} XP to next level` : 'Max level reached!'}
+                {xpNeededForNextLevel > 0 ? `${(xpNeededForNextLevel - xpProgressInCurrentLevel).toLocaleString()} ${translations.xpToNextLevel}` : translations.maxLevelReached}
               </p>
             </div>
 
@@ -256,43 +292,43 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
                   <div className="flex items-center space-x-2 mb-2">
                     <TrendingUp size={16} className="text-primary" />
-                    <span className="text-white/80 text-xs font-medium">Today</span>
+                    <span className="text-white/80 text-xs font-medium">{translations.today}</span>
                   </div>
                   <span className="text-white text-xl font-bold block mb-1">+{effectiveSessionXP}</span>
-                  <p className="text-white/60 text-xs">XP earned</p>
+                  <p className="text-white/60 text-xs">{translations.xpEarned}</p>
                 </div>
 
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
                   <div className="flex items-center space-x-2 mb-2">
                     <Award size={16} className="text-primary" />
-                    <span className="text-white/80 text-xs font-medium">Total</span>
+                    <span className="text-white/80 text-xs font-medium">{translations.total}</span>
                   </div>
                   <span className="text-white text-xl font-bold block mb-1">{effectiveTotalXP.toLocaleString()}</span>
-                  <p className="text-white/60 text-xs">XP earned</p>
+                  <p className="text-white/60 text-xs">{translations.xpEarned}</p>
                 </div>
 
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
                   <div className="flex items-center space-x-2 mb-2">
                     <Calendar size={16} className="text-primary" />
-                    <span className="text-white/80 text-xs font-medium">Streak</span>
+                    <span className="text-white/80 text-xs font-medium">{translations.streak}</span>
                   </div>
                   <span className="text-white text-xl font-bold block mb-1">{realData.streak}</span>
-                  <p className="text-white/60 text-xs">days</p>
+                  <p className="text-white/60 text-xs">{translations.days}</p>
                 </div>
 
                 <div className="bg-white/5 rounded-xl p-4 border border-white/10 hover:bg-white/10 transition-colors">
                   <div className="flex items-center space-x-2 mb-2">
                     <Clock size={16} className="text-primary" />
-                    <span className="text-white/80 text-xs font-medium">Today</span>
+                    <span className="text-white/80 text-xs font-medium">{translations.today}</span>
                   </div>
                   <span className="text-white text-xl font-bold block mb-1">{realData.recentActivity.length}</span>
-                  <p className="text-white/60 text-xs">practices</p>
+                  <p className="text-white/60 text-xs">{translations.practices}</p>
                 </div>
               </div>
 
               {/* Recent Activity abaixo no mobile */}
               <div className="bg-white/5 rounded-xl p-4 border border-white/10">
-                <h3 className="text-white/80 text-sm font-medium mb-3">Recent Activity</h3>
+                <h3 className="text-white/80 text-sm font-medium mb-3">{translations.recentActivity}</h3>
                 <div className="space-y-2">
                   {realData.recentActivity.length > 0 ? (
                     <>
@@ -322,7 +358,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
                       {realData.recentActivity.length > 2 && (
                         <div className="text-center pt-2">
                           <p className="text-white/40 text-xs">
-                            +{realData.recentActivity.length - 2} more activities
+                            +{realData.recentActivity.length - 2} {translations.moreActivities}
                           </p>
                         </div>
                       )}
@@ -330,8 +366,8 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
                   ) : (
                     <div className="text-center py-4">
                       <div className="text-2xl mb-1">🚀</div>
-                      <p className="text-white/50 text-sm">No recent activity</p>
-                      <p className="text-white/30 text-xs mt-1">Start practicing!</p>
+                      <p className="text-white/50 text-sm">{translations.noRecentActivity}</p>
+                      <p className="text-white/30 text-xs mt-1">{translations.startPracticing}</p>
                     </div>
                   )}
                 </div>
@@ -424,13 +460,13 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-white text-lg font-bold">Your Achievements</h3>
+              <h3 className="text-white text-lg font-bold">{translations.yourAchievements}</h3>
               {effectiveAchievements.length > 0 && onAchievementsDismissed && (
                 <button
                   onClick={onAchievementsDismissed}
                   className="text-primary text-sm hover:text-primary-dark transition-colors"
                 >
-                  Mark all as read
+                  {translations.markAllAsRead}
                 </button>
               )}
             </div>
@@ -458,7 +494,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
                         </div>
                         <p className="text-white/70 text-xs">{achievement.description}</p>
                         <p className="text-white/50 text-xs mt-1">
-                          Earned {achievement.earnedAt.toLocaleDateString()} at {achievement.earnedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {translations.earned} {achievement.earnedAt.toLocaleDateString()} {translations.at} {achievement.earnedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
@@ -506,7 +542,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
           >
             {/* Header - Responsivo */}
             <div className="lg:hidden flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white">Your Progress</h2>
+              <h2 className="text-xl font-bold text-white">{isPortuguese ? 'Seu Progresso' : 'Your Progress'}</h2>
               <button 
                 onClick={onClose}
                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
@@ -519,7 +555,7 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
             <div className="lg:flex-1 lg:pr-6">
               {/* Header Desktop */}
               <div className="hidden lg:flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Your Progress</h2>
+                <h2 className="text-2xl font-bold text-white">{isPortuguese ? 'Seu Progresso' : 'Your Progress'}</h2>
                 <button 
                   onClick={onClose}
                   className="p-2 hover:bg-white/10 rounded-full transition-colors"
