@@ -397,9 +397,19 @@ export default function ChatPage() {
       console.log('🔄 Loading today XP from bank:', todayXP);
       setSessionXP(todayXP);
 
-      // Load user achievements
-      const userAchievements = await supabaseService.getUserAchievements(user.entra_id);
-      setAchievements(userAchievements);
+      // Load user achievements and map to correct interface
+      const rawAchievements = await supabaseService.getUserAchievements(user.entra_id);
+      const mappedAchievements = rawAchievements.map((ach: any) => ({
+        id: ach.achievement_id || ach.id,
+        type: ach.achievement_type || 'general',
+        title: ach.achievement_name || 'Achievement Unlocked',
+        description: ach.achievement_description || 'You have unlocked a new achievement!',
+        xpBonus: ach.xp_bonus || 0,
+        rarity: ach.rarity || 'common',
+        icon: ach.badge_icon || '🏆',
+        earnedAt: new Date(ach.earned_at)
+      }));
+      setAchievements(mappedAchievements);
     } catch (error) {
       console.error('Error loading user stats:', error);
     }

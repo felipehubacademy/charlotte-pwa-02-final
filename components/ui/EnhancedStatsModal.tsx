@@ -421,18 +421,18 @@ export const EnhancedStatsModal: React.FC<EnhancedStatsModalProps> = ({
                           <div className="flex items-center space-x-2">
                             <span className="text-primary text-xs font-bold">+{achievement.xpBonus} XP</span>
                             <span className={`px-2 py-0.5 rounded-full text-xs font-bold capitalize ${
-                              achievement.rarity === 'common' ? 'bg-green-500/20 text-green-400' :
-                              achievement.rarity === 'rare' ? 'bg-blue-500/20 text-blue-400' :
-                              achievement.rarity === 'epic' ? 'bg-purple-500/20 text-purple-400' :
+                              (achievement.rarity || 'common') === 'common' ? 'bg-green-500/20 text-green-400' :
+                              (achievement.rarity || 'common') === 'rare' ? 'bg-blue-500/20 text-blue-400' :
+                              (achievement.rarity || 'common') === 'epic' ? 'bg-purple-500/20 text-purple-400' :
                               'bg-yellow-500/20 text-yellow-400'
                             }`}>
-                              {achievement.rarity}
+                              {achievement.rarity || 'common'}
                             </span>
                           </div>
                         </div>
                         <p className="text-white/70 text-xs">{achievement.description}</p>
                         <p className="text-white/50 text-xs mt-1">
-                          Earned {new Date(achievement.earnedAt).toLocaleDateString()} at {new Date(achievement.earnedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          Earned {achievement.earnedAt.toLocaleDateString()} at {achievement.earnedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                     </div>
