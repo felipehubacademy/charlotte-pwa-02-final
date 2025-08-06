@@ -10,7 +10,7 @@ import RealtimeOrb from './RealtimeOrb';
 import CharlotteAvatar from '../ui/CharlotteAvatar';
 import { supabaseService } from '../../lib/supabase-service';
 import { useOnboarding } from '../../hooks/useOnboarding';
-import { calculateUniversalAchievements } from '../../lib/universal-achievement-service';
+import { Achievement } from '../../lib/types/achievement';
 
 interface LiveVoiceModalProps {
   isOpen: boolean;
@@ -173,9 +173,9 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
           streakDays: 0 // Will be calculated by the service
         };
 
-        const achievementResult = calculateUniversalAchievements(practiceData);
-        const liveAchievements = achievementResult.achievements;
-        const achievementBonusXP = achievementResult.totalBonusXP;
+                    // 🏆 DESABILITADO: Sistema universal de achievements
+            const liveAchievements: Achievement[] = [];
+            const achievementBonusXP = 0;
 
         console.log('🏆 Live Voice achievements calculated:', {
           achievementsEarned: liveAchievements.length,

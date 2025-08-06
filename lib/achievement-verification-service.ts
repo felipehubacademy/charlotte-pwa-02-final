@@ -41,6 +41,7 @@ export class AchievementVerificationService {
     pronunciation_score?: number;
     xp_awarded: number;
     duration?: number;
+    text?: string; // ✅ NOVO: Para achievements baseados em texto
   }): Promise<AchievementToAward[]> {
     
     if (!supabaseService.isAvailable()) {
@@ -193,9 +194,9 @@ export class AchievementVerificationService {
       case 'perfect_practices':
         // Verificar se a prática atual é perfeita
         const isPerfectNow = (
-          (currentPractice.accuracy_score && currentPractice.accuracy_score >= 100) ||
-          (currentPractice.grammar_score && currentPractice.grammar_score >= 100) ||
-          (currentPractice.pronunciation_score && currentPractice.pronunciation_score >= 100)
+          (currentPractice.accuracy_score && currentPractice.accuracy_score >= 95) ||
+          (currentPractice.grammar_score && currentPractice.grammar_score >= 95) ||
+          (currentPractice.pronunciation_score && currentPractice.pronunciation_score >= 95)
         );
         const totalPerfect = userStats.perfect_practices + (isPerfectNow ? 1 : 0);
         return totalPerfect >= requirement_value;
@@ -220,6 +221,99 @@ export class AchievementVerificationService {
 
       case 'levels_practiced':
         return userStats.levels_practiced >= requirement_value;
+
+      case 'morning_practice':
+        const currentHour = new Date().getHours();
+        return currentHour >= 5 && currentHour <= 7;
+
+      case 'lunch_practice':
+        const lunchHour = new Date().getHours();
+        return lunchHour >= 12 && lunchHour <= 14;
+
+      case 'night_practice':
+        const nightHour = new Date().getHours();
+        return (nightHour >= 22 || nightHour <= 2);
+
+      case 'monday_practice':
+        return new Date().getDay() === 1; // Segunda-feira
+
+      case 'friday_practice':
+        return new Date().getDay() === 5; // Sexta-feira
+
+      case 'weekend_practice':
+        const dayOfWeek = new Date().getDay();
+        return dayOfWeek === 0 || dayOfWeek === 6; // Domingo ou Sábado
+
+      case 'message_length':
+        return currentPractice.text && currentPractice.text.length >= requirement_value;
+
+      case 'word_count':
+        return currentPractice.text && currentPractice.text.split(' ').length >= requirement_value;
+
+      case 'audio_duration':
+        return currentPractice.duration && currentPractice.duration >= requirement_value;
+
+      case 'grammar_score':
+        return currentPractice.grammar_score && currentPractice.grammar_score >= requirement_value;
+
+      case 'accuracy_score':
+        return currentPractice.accuracy_score && currentPractice.accuracy_score >= requirement_value;
+
+      case 'pronunciation_score':
+        return currentPractice.pronunciation_score && currentPractice.pronunciation_score >= requirement_value;
+
+      case 'audio_count':
+        return userStats.total_practices >= requirement_value; // Simplificado por enquanto
+
+      case 'text_count':
+        return userStats.total_practices >= requirement_value; // Simplificado por enquanto
+
+      case 'live_sessions':
+        return userStats.total_practices >= requirement_value; // Simplificado por enquanto
+
+      case 'live_duration':
+        return currentPractice.duration && currentPractice.duration >= requirement_value;
+
+      case 'polite_expressions':
+        return currentPractice.text && (
+          currentPractice.text.toLowerCase().includes('thank you') ||
+          currentPractice.text.toLowerCase().includes('thanks') ||
+          currentPractice.text.toLowerCase().includes('obrigado') ||
+          currentPractice.text.toLowerCase().includes('obrigada')
+        );
+
+      case 'questions_asked':
+        return currentPractice.text && (
+          currentPractice.text.includes('?') ||
+          currentPractice.text.toLowerCase().includes('what') ||
+          currentPractice.text.toLowerCase().includes('how') ||
+          currentPractice.text.toLowerCase().includes('why') ||
+          currentPractice.text.toLowerCase().includes('when') ||
+          currentPractice.text.toLowerCase().includes('where')
+        );
+
+      case 'topics_explored':
+        return userStats.levels_practiced >= requirement_value; // Simplificado
+
+      case 'cultural_mention':
+        return currentPractice.text && (
+          currentPractice.text.toLowerCase().includes('brazil') ||
+          currentPractice.text.toLowerCase().includes('brasil') ||
+          currentPractice.text.toLowerCase().includes('brazilian')
+        );
+
+      case 'emotion_expression':
+        return currentPractice.text && (
+          currentPractice.text.toLowerCase().includes('happy') ||
+          currentPractice.text.toLowerCase().includes('sad') ||
+          currentPractice.text.toLowerCase().includes('excited') ||
+          currentPractice.text.toLowerCase().includes('worried') ||
+          currentPractice.text.toLowerCase().includes('love') ||
+          currentPractice.text.toLowerCase().includes('hate')
+        );
+
+      case 'photo_practices':
+        return currentPractice.practice_type === 'camera_object';
 
       default:
         console.warn('⚠️ Unknown requirement type:', requirement_type);

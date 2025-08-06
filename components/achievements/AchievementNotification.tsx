@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Achievement } from '@/lib/improved-audio-xp-service';
+import { Achievement } from '@/lib/types/achievement';
 import { PWABadgeService } from '@/lib/pwa-badge-service';
 
 interface AchievementNotificationProps {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, TrendingUp, Calendar, Target, Award, Clock, Trophy } from 'lucide-react';
 import { supabaseService } from '@/lib/supabase-service';
-import { Achievement } from '@/lib/improved-audio-xp-service';
+import { Achievement } from '@/lib/types/achievement';
 import LevelLeaderboard from '@/components/leaderboard/LevelLeaderboard';
 
 type TabType = 'stats' | 'achievements' | 'leaderboard';

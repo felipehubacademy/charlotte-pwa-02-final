@@ -12,8 +12,7 @@ import { supabaseService } from '@/lib/supabase-service';
 import { EnhancedStatsModal } from '@/components/ui/EnhancedStatsModal';
 import AchievementNotification from '@/components/achievements/AchievementNotification';
 import { EnhancedConversationContextManager } from '@/lib/enhanced-conversation-context';
-import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
-import { calculateUniversalAchievements, PracticeData } from '@/lib/universal-achievement-service';
+import { Achievement } from '@/lib/types/achievement';
 import ChatHeader from '@/components/ChatHeader';
 import { useOnboarding } from '@/hooks/useOnboarding';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
@@ -522,23 +521,35 @@ export default function ChatPage() {
         const transcription = transcriptionResult.value.transcription;
         const scores = pronunciationResult.value.result!;
         
-        const assessmentResult: AudioAssessmentResult = {
-          text: transcription,
-          accuracyScore: scores.accuracyScore,
-          fluencyScore: scores.fluencyScore,
-          completenessScore: scores.completenessScore,
-          pronunciationScore: scores.pronunciationScore,
-          feedback: scores.feedback || []
-        };
+        // 🏆 DESABILITADO: Sistema de XP melhorado
+        // const assessmentResult: AudioAssessmentResult = {
+        //   text: transcription,
+        //   accuracyScore: scores.accuracyScore,
+        //   fluencyScore: scores.fluencyScore,
+        //   completenessScore: scores.completenessScore,
+        //   pronunciationScore: scores.pronunciationScore,
+        //   feedback: scores.feedback || []
+        // };
         
-        // ✅ UPDATED: Use improved XP system instead of legacy calculateAudioXP
-        const xpResult = await improvedAudioXPService.calculateImprovedXP(
-          assessmentResult,
-          duration,
-          user?.user_level as 'Novice' | 'Inter' | 'Advanced' || 'Inter',
-          user?.entra_id || '',
-          totalXP
-        );
+        // 🏆 DESABILITADO: Sistema de XP melhorado
+        // const xpResult = await improvedAudioXPService.calculateImprovedXP(
+        //   assessmentResult,
+        //   duration,
+        //   user?.user_level as 'Novice' | 'Inter' | 'Advanced' || 'Inter',
+        //   user?.entra_id || '',
+        //   totalXP
+        // );
+        
+        // ✅ SIMPLIFICADO: XP básico
+        const xpResult = {
+          totalXP: 10, // XP base por prática
+          baseXP: 10,
+          bonusXP: 0,
+          achievements: [],
+          surpriseBonus: null,
+          feedback: 'Great practice! Keep going!',
+          shouldRetry: false
+        };
         
         if (xpResult.shouldRetry) {
           const retryMessage: Message = {
@@ -591,40 +602,9 @@ export default function ChatPage() {
         );
 
         if (supabaseService.isAvailable() && user?.entra_id) {
-          // 🏆 NOVO: Calcular achievements universais para áudio
+          // 🏆 DESABILITADO: Sistema universal de achievements
           let audioAchievements: Achievement[] = [];
           let achievementBonusXP = 0;
-
-          try {
-            // Obter streak atual
-            const userStats = await supabaseService.getUserStats(user.entra_id);
-            const streakDays = userStats?.streak_days || 0;
-
-            // Preparar dados para o sistema universal
-            const practiceData: PracticeData = {
-              type: 'audio_message',
-              text: transcription,
-              duration: duration,
-              accuracy: scores.accuracyScore,
-              pronunciation: scores.pronunciationScore,
-              userLevel: (user.user_level || 'Inter') as 'Novice' | 'Inter' | 'Advanced',
-              streakDays
-            };
-
-            // Calcular achievements universais
-            const achievementResult = calculateUniversalAchievements(practiceData);
-            audioAchievements = achievementResult.achievements;
-            achievementBonusXP = achievementResult.totalBonusXP;
-
-            console.log('🏆 Audio achievements calculated:', {
-              achievementsEarned: audioAchievements.length,
-              bonusXP: achievementBonusXP,
-              achievements: audioAchievements.map(a => a.title)
-            });
-
-          } catch (error) {
-            console.error('❌ Error calculating audio achievements:', error);
-          }
 
           // ✅ UPDATED: Save with improved XP data + universal achievements
           await supabaseService.saveAudioPractice({
@@ -639,11 +619,11 @@ export default function ChatPage() {
             audio_duration: duration,
             feedback: `${assistantResponse.feedback}\n\n${xpResult.feedback}`,
             technicalFeedback: assistantResponse.technicalFeedback,
-            // ✅ NEW: Save improved XP system data
-            achievement_ids: [...xpResult.achievements.map(a => a.id), ...audioAchievements.map(a => a.id)], // Combinar achievements
-            surprise_bonus: xpResult.surpriseBonus?.amount || 0,
-            base_xp: xpResult.baseXP,
-            bonus_xp: xpResult.bonusXP + achievementBonusXP // Combinar bônus
+            // 🏆 DESABILITADO: Sistema de XP melhorado
+            // achievement_ids: [...xpResult.achievements.map(a => a.id), ...audioAchievements.map(a => a.id)],
+            // surprise_bonus: xpResult.surpriseBonus?.amount || 0,
+            // base_xp: xpResult.baseXP,
+            // bonus_xp: xpResult.bonusXP + achievementBonusXP
           });
 
           // ✅ NEW: Save achievements if any were earned (combinar ambos os sistemas)
@@ -1321,9 +1301,9 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
               streakDays: 0 // Will be calculated by the service
             };
 
-            const achievementResult = calculateUniversalAchievements(practiceData);
-            const photoAchievements = achievementResult.achievements;
-            const achievementBonusXP = achievementResult.totalBonusXP;
+            // 🏆 DESABILITADO: Sistema universal de achievements
+            const photoAchievements: Achievement[] = [];
+            const achievementBonusXP = 0;
             const totalXPAwarded = baseXP + achievementBonusXP;
 
             console.log('🏆 Photo achievements calculated:', {
@@ -1702,19 +1682,19 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
           const streakDays = userStats?.streak_days || 0;
 
           // Preparar dados para o sistema universal
-          const practiceData: PracticeData = {
-            type: 'text_message',
-            text: userText,
-            grammar: assistantResult.grammarScore || undefined,
-            wordCount: userText.split(' ').filter(word => word.trim()).length,
-            userLevel: (user.user_level || 'Inter') as 'Novice' | 'Inter' | 'Advanced',
-            streakDays
-          };
+          // 🏆 DESABILITADO: Sistema universal de achievements
+          // const practiceData: PracticeData = {
+          //   type: 'text_message',
+          //   text: userText,
+          //   grammar: assistantResult.grammarScore || undefined,
+          //   wordCount: userText.split(' ').filter(word => word.trim()).length,
+          //   userLevel: (user.user_level || 'Inter') as 'Novice' | 'Inter' | 'Advanced',
+          //   streakDays
+          // };
 
-          // Calcular achievements universais
-          const achievementResult = calculateUniversalAchievements(practiceData);
-          textAchievements = achievementResult.achievements;
-          achievementBonusXP = achievementResult.totalBonusXP;
+          // 🏆 DESABILITADO: Sistema universal de achievements
+          textAchievements = [];
+          achievementBonusXP = 0;
 
           console.log('🏆 Text achievements calculated:', {
             achievementsEarned: textAchievements.length,

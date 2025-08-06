@@ -271,7 +271,8 @@ class SupabaseService {
             grammar_score: data.grammar_score || undefined,
             pronunciation_score: data.pronunciation_score || undefined,
             xp_awarded: data.xp_awarded,
-            duration: data.audio_duration
+            duration: data.audio_duration,
+            text: data.transcription // ✅ NOVO: Passar o texto para achievements baseados em conteúdo
           }
         );
 
@@ -903,51 +904,76 @@ class SupabaseService {
         }
       }
 
-      // ✅ CORRIGIDO: Preparar dados para inserção com mapeamento mais robusto
-      const achievementData = validAchievements.map((achievement, index) => {
-        // Determinar título com fallbacks mais robustos
-        const title = achievement.title || 
-                     achievement.name || 
-                     achievement.achievement_name || 
-                     `Achievement ${index + 1}`;
-        
-        // Determinar descrição com fallbacks mais robustos
-        const description = achievement.description || 
-                           achievement.achievement_description || 
-                           'New achievement unlocked!';
-        
-        // Determinar ícone com fallbacks
-        const icon = achievement.badge_icon || 
-                    achievement.icon || 
-                    '🏆';
-        
-        // Determinar XP com fallbacks
-        const xpBonus = achievement.xp_reward || 
-                       achievement.xp_bonus || 
-                       achievement.xpBonus || 
-                       0;
-        
-        // ✅ MAPEAMENTO CORRETO: Usar campos que EXISTEM na tabela real
-        const mappedData = {
-          user_id: userId,
-          achievement_id: null, // Deixar NULL para achievements dinâmicos
-          earned_at: new Date().toISOString(),
-          achievement_type: achievement.type || 'general',
-          achievement_name: title, // ✅ Campo correto na tabela
-          achievement_description: description, // ✅ Campo correto na tabela
-          achievement_code: achievement.code || `manual-${Date.now()}`, // ✅ Campo correto na tabela
-          category: achievement.category || 'general', // ✅ Campo correto na tabela
-          badge_icon: icon, // ✅ Campo correto na tabela
-          badge_color: achievement.badge_color || '#4CAF50', // ✅ Campo correto na tabela
-          xp_bonus: xpBonus, // ✅ Campo correto na tabela  
-          rarity: achievement.rarity || 'common' // ✅ Campo correto na tabela
-        };
-        
-        console.log(`📝 Mapped achievement ${index + 1}:`, mappedData);
-        return mappedData;
-      });
+      // ✅ NOVO: Verificar achievements existentes para evitar duplicatas
+      const existingAchievements = await this.getUserAchievements(userId, 1000);
+      const existingAchievementNames = new Set(
+        existingAchievements.map(ach => ach.achievement_name)
+      );
 
-      console.log('📝 Dados finais preparados para inserção:', achievementData);
+      console.log('🔍 Existing achievements for user:', existingAchievementNames.size);
+      console.log('🔍 Existing achievement names:', Array.from(existingAchievementNames));
+
+      // ✅ CORRIGIDO: Preparar dados para inserção com mapeamento mais robusto
+      const achievementData = validAchievements
+        .map((achievement, index) => {
+          // Determinar título com fallbacks mais robustos
+          const title = achievement.title || 
+                       achievement.name || 
+                       achievement.achievement_name || 
+                       `Achievement ${index + 1}`;
+          
+          // Determinar descrição com fallbacks mais robustos
+          const description = achievement.description || 
+                             achievement.achievement_description || 
+                             'New achievement unlocked!';
+          
+          // Determinar ícone com fallbacks
+          const icon = achievement.badge_icon || 
+                      achievement.icon || 
+                      '🏆';
+          
+          // Determinar XP com fallbacks
+          const xpBonus = achievement.xp_reward || 
+                         achievement.xp_bonus || 
+                         achievement.xpBonus || 
+                         0;
+          
+          // ✅ MAPEAMENTO CORRETO: Usar campos que EXISTEM na tabela real
+          const mappedData = {
+            user_id: userId,
+            achievement_id: null, // Deixar NULL para achievements dinâmicos
+            earned_at: new Date().toISOString(),
+            achievement_type: achievement.type || 'general',
+            achievement_name: title, // ✅ Campo correto na tabela
+            achievement_description: description, // ✅ Campo correto na tabela
+            achievement_code: achievement.code || `manual-${Date.now()}`, // ✅ Campo correto na tabela
+            category: achievement.category || 'general', // ✅ Campo correto na tabela
+            badge_icon: icon, // ✅ Campo correto na tabela
+            badge_color: achievement.badge_color || '#4CAF50', // ✅ Campo correto na tabela
+            xp_bonus: xpBonus, // ✅ Campo correto na tabela  
+            rarity: achievement.rarity || 'common' // ✅ Campo correto na tabela
+          };
+          
+          console.log(`📝 Mapped achievement ${index + 1}:`, mappedData);
+          return mappedData;
+        })
+        .filter(achievement => {
+          // ✅ NOVO: Filtrar achievements que já existem
+          const alreadyExists = existingAchievementNames.has(achievement.achievement_name);
+          if (alreadyExists) {
+            console.log(`⚠️ Skipping duplicate achievement: ${achievement.achievement_name}`);
+          } else {
+            console.log(`✅ New achievement to save: ${achievement.achievement_name}`);
+          }
+          return !alreadyExists;
+        });
+
+      if (achievementData.length === 0) {
+        console.log('ℹ️ No new achievements to save after duplicate check');
+        return true;
+      }
+
+      console.log('📝 Dados finais preparados para inserção:', achievementData.length, 'achievements');
 
       const { data, error } = await this.supabase
         .from('user_achievements')
