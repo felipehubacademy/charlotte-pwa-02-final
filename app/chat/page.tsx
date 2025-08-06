@@ -9,7 +9,7 @@ import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { transcribeAudio } from '@/lib/transcribe';
 import { assessPronunciation } from '@/lib/pronunciation';
 import { supabaseService } from '@/lib/supabase-service';
-import EnhancedXPCounter from '@/components/ui/EnhancedXPCounter';
+import EnhancedXPCounter, { EnhancedStatsModal } from '@/components/ui/EnhancedXPCounter';
 import AchievementNotification from '@/components/achievements/AchievementNotification';
 import { EnhancedConversationContextManager } from '@/lib/enhanced-conversation-context';
 import { improvedAudioXPService, Achievement, AudioAssessmentResult } from '@/lib/improved-audio-xp-service';
@@ -277,6 +277,9 @@ export default function ChatPage() {
   const [currentLevel, setCurrentLevel] = useState(1);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
   const [newAchievements, setNewAchievements] = useState<Achievement[]>([]);
+  
+  // ✅ NEW: Modal state for header XP counter
+  const [isHeaderXPModalOpen, setIsHeaderXPModalOpen] = useState(false);
 
   // Estados de gravação UNIFICADOS
   const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'preview'>('idle');
@@ -1893,11 +1896,8 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         totalXP={totalXP}
         sessionXP={sessionXP}
         onXPCounterClick={() => {
-          // Abrir o modal do EnhancedXPCounter clicando no elemento flutuante
-          const xpCounterElement = document.getElementById('xp-counter');
-          if (xpCounterElement) {
-            xpCounterElement.click();
-          }
+          // Abrir o modal diretamente do header
+          setIsHeaderXPModalOpen(true);
         }}
       />
 
@@ -2188,6 +2188,22 @@ IMPORTANT: End your response with: VOCABULARY_WORD:[english_word]`;
         onChange={handleFileSelect}
         className="hidden"
       />
+
+      {/* Header XP Modal - MESMO modal que o Enhanced usa */}
+      {isHeaderXPModalOpen && (
+        <EnhancedStatsModal
+          isOpen={isHeaderXPModalOpen}
+          onClose={() => setIsHeaderXPModalOpen(false)}
+          sessionXP={sessionXP}
+          totalXP={totalXP}
+          currentLevel={Math.floor(Math.sqrt(totalXP / 50)) + 1}
+          achievements={achievements}
+          realAchievements={achievements}
+          onAchievementsDismissed={() => handleAchievementsDismissed('')}
+          userId={user?.entra_id}
+          userLevel={user?.user_level as 'Novice' | 'Inter' | 'Advanced'}
+        />
+      )}
 
       {/* ✅ NEW: Achievement Notifications */}
       <AchievementNotification

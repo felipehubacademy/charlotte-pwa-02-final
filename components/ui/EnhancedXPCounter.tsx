@@ -21,7 +21,7 @@ interface EnhancedXPCounterProps {
 type TabType = 'stats' | 'achievements' | 'leaderboard';
 
 // 📱 Modal de estatísticas melhorado com tabs
-const EnhancedStatsModal: React.FC<{ 
+export const EnhancedStatsModal: React.FC<{ 
   isOpen: boolean; 
   onClose: () => void; 
   sessionXP: number; 
@@ -1026,7 +1026,7 @@ const EnhancedXPCounter: React.FC<EnhancedXPCounterProps> = ({
   }, [totalXP]); // Only depend on totalXP, not displayTotalXP
 
   const handleStatsClick = () => {
-    setShowStatsModal(true);
+    // Funcionalidade de modal removida - agora apenas chama onStatsClick
     onStatsClick?.();
   };
 
