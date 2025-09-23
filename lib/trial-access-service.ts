@@ -74,7 +74,7 @@ export class TrialAccessService {
           dataFim: trialData.data_fim,
           status: trialData.status,
           nivelIngles: trialData.nivel_ingles,
-          lead: trialData.leads
+          lead: trialData.leads[0]
         }
       };
 
@@ -286,7 +286,7 @@ export class TrialAccessService {
           const { data: existingReminder } = await supabase
             .from('email_notifications')
             .select('id')
-            .eq('lead_id', trial.leads.id)
+            .eq('lead_id', trial.leads[0].id)
             .eq('tipo', 'reminder')
             .eq('status', 'sent')
             .single();
@@ -295,7 +295,7 @@ export class TrialAccessService {
             // Agendar email de lembrete
             const { EmailNotificationService } = await import('./email-notification-service');
             await EmailNotificationService.scheduleReminderEmail(
-              trial.leads.id,
+              trial.leads[0].id,
               trial.user_id,
               daysRemaining - 1
             );

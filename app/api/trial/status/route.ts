@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
         status: trialData.status,
         nivelIngles: trialData.nivel_ingles,
         diasRestantes: Math.max(0, daysRemaining),
-        lead: trialData.leads
+        lead: trialData.leads[0]
       }
     });
 
