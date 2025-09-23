@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Criar conta temporária
-      const { user, error: authError } = await supabase.auth.admin.createUser({
+      const { data: userData, error: authError } = await supabase.auth.admin.createUser({
         email,
         password: uuidv4(), // Senha aleatória
         email_confirm: true,
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      if (authError || !user) {
+      if (authError || !userData.user) {
         console.error('Erro ao criar usuário:', authError);
         return NextResponse.json(
           { error: 'Erro ao criar conta temporária' },
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
 
       // Criar trial access
       const { error: trialError } = await supabase.rpc('create_trial_access', {
-        p_user_id: user.id,
+        p_user_id: userData.user.id,
         p_lead_id: existingLead.id,
         p_nivel_ingles: nivel
       });
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       if (trialError) {
         console.error('Erro ao criar trial access:', trialError);
         // Tentar limpar usuário criado
-        await supabase.auth.admin.deleteUser(user.id);
+        await supabase.auth.admin.deleteUser(userData.user.id);
         return NextResponse.json(
           { error: 'Erro ao configurar acesso temporário' },
           { status: 500 }
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar conta temporária
-    const { user, error: authError } = await supabase.auth.admin.createUser({
+    const { data: userData2, error: authError } = await supabase.auth.admin.createUser({
       email,
       password: uuidv4(), // Senha aleatória
       email_confirm: true,
@@ -192,7 +192,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    if (authError || !user) {
+    if (authError || !userData2.user) {
       console.error('Erro ao criar usuário:', authError);
       return NextResponse.json(
         { error: 'Erro ao criar conta temporária' },
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
 
     // Criar trial access
     const { error: trialError } = await supabase.rpc('create_trial_access', {
-      p_user_id: user.id,
+      p_user_id: userData2.user.id,
       p_lead_id: newLead.id,
       p_nivel_ingles: nivel
     });
@@ -210,7 +210,7 @@ export async function POST(request: NextRequest) {
     if (trialError) {
       console.error('Erro ao criar trial access:', trialError);
       // Tentar limpar usuário criado
-      await supabase.auth.admin.deleteUser(user.id);
+      await supabase.auth.admin.deleteUser(userData2.user.id);
       return NextResponse.json(
         { error: 'Erro ao configurar acesso temporário' },
         { status: 500 }
@@ -235,7 +235,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Agendar email de boas-vindas
-    await scheduleWelcomeEmail(newLead.id, user.id);
+    await scheduleWelcomeEmail(newLead.id, userData2.user.id);
 
     return NextResponse.json(
       { 
