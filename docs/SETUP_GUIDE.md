@@ -67,14 +67,29 @@ NEXT_PUBLIC_APP_URL=https://charlotte-v2.vercel.app
 6. **Copie** a chave (começa com `SG.`)
 7. **Cole** no Vercel como `SENDGRID_API_KEY`
 
-### 5. Configuração do Cron Job
+### 5. Configuração do Cron Job (Supabase Edge Functions)
 
-O cron job já está configurado no `vercel.json` e será executado automaticamente a cada hora.
+**Recomendado**: Use Supabase Edge Functions para cron jobs (sem limitações do Vercel).
 
-Para testar manualmente:
+#### Opção A: Cron Job no Supabase (Recomendado)
+1. **Acesse**: [Supabase Dashboard](https://supabase.com/dashboard)
+2. **Vá para**: Edge Functions
+3. **Clique** em "Deploy" na função `expire-trials`
+4. **Configure** o cron job:
+   - Schedule: `0 * * * *` (a cada hora)
+   - URL: `https://seu-projeto.supabase.co/functions/v1/expire-trials`
+
+#### Opção B: Cron Job Externo (GitHub Actions, etc.)
 ```bash
-curl -X POST https://charlotte-v2.vercel.app/api/cron/expire-trials \
-  -H "Authorization: Bearer SEU_CRON_SECRET_TOKEN"
+# Executar a cada hora
+curl -X POST https://seu-projeto.supabase.co/functions/v1/expire-trials \
+  -H "Authorization: Bearer SEU_SUPABASE_ANON_KEY"
+```
+
+#### Teste Manual
+```bash
+curl -X POST https://seu-projeto.supabase.co/functions/v1/expire-trials \
+  -H "Authorization: Bearer SEU_SUPABASE_ANON_KEY"
 ```
 
 ### 6. Verificação da Configuração

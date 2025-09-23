@@ -63,26 +63,23 @@ FIREBASE_CLIENT_EMAIL=your_firebase_client_email
 
 ## Configuração do Cron Job
 
-Para que o sistema expire trials automaticamente, configure um cron job que chame:
+**Recomendado**: Use Supabase Edge Functions (sem limitações do Vercel).
 
+### Opção 1: Supabase Edge Functions (Recomendado)
+1. **Deploy** da função `expire-trials` no Supabase
+2. **Configure** cron job no Supabase Dashboard:
+   - Schedule: `0 * * * *` (a cada hora)
+   - URL: `https://seu-projeto.supabase.co/functions/v1/expire-trials`
+
+### Opção 2: Cron Job Externo
 ```bash
 # A cada hora
-curl -X POST https://your-app-url/supabase/functions/v1/expire-trials \
-  -H "Authorization: Bearer YOUR_CRON_SECRET_TOKEN"
+curl -X POST https://seu-projeto.supabase.co/functions/v1/expire-trials \
+  -H "Authorization: Bearer SEU_SUPABASE_ANON_KEY"
 ```
 
-Ou use o Vercel Cron (se hospedado no Vercel):
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/expire-trials",
-      "schedule": "0 * * * *"
-    }
-  ]
-}
-```
+### Opção 3: Vercel Cron (Limitado)
+Apenas se necessário, mas o Vercel gratuito tem limitações de cron jobs.
 
 ## Verificação da Configuração
 
