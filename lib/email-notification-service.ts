@@ -378,23 +378,23 @@ Charlotte by Hub Academy
           switch (email.tipo) {
             case 'welcome':
               template = this.getWelcomeTemplate(
-                email.leads.nome,
-                email.leads.nivel_ingles
+                email.leads[0].nome,
+                email.leads[0].nivel_ingles
               );
               break;
 
             case 'reminder':
               const diasRestantes = Math.ceil(
-                (new Date(email.trial_access.data_fim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
+                (new Date(email.trial_access[0].data_fim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
               );
               template = this.getReminderTemplate(
-                email.leads.nome,
+                email.leads[0].nome,
                 Math.max(0, diasRestantes)
               );
               break;
 
             case 'expiration':
-              template = this.getExpirationTemplate(email.leads.nome);
+              template = this.getExpirationTemplate(email.leads[0].nome);
               break;
 
             default:
@@ -402,7 +402,7 @@ Charlotte by Hub Academy
               continue;
           }
 
-          const success = await this.sendEmail(email.leads.email, template);
+          const success = await this.sendEmail(email.leads[0].email, template);
 
           // Atualizar status do email
           await supabase
