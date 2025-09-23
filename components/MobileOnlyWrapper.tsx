@@ -40,9 +40,9 @@ export default function MobileOnlyWrapper({
     isPopup
   });
 
-  // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá)
+  // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá ou for /landing)
   useEffect(() => {
-    if (shouldBlockMobileBrowser && pathname !== '/install') {
+    if (shouldBlockMobileBrowser && pathname !== '/install' && pathname !== '/landing') {
       console.log('📱 Mobile browser detected, redirecting to /install');
       router.push('/install');
     }
@@ -54,16 +54,22 @@ export default function MobileOnlyWrapper({
     return <>{children}</>;
   }
 
-  // ✅ PERMITIR /install no mobile browser
-  if (shouldBlockMobileBrowser && pathname === '/install') {
-    console.log('📱 Mobile browser on /install page, allowing access');
+  // ✅ PERMITIR /install e /landing no mobile browser
+  if (shouldBlockMobileBrowser && (pathname === '/install' || pathname === '/landing')) {
+    console.log('📱 Mobile browser on /install or /landing page, allowing access');
     return <>{children}</>;
   }
 
-  // ✅ BLOQUEAR DESKTOP (exceto popups)
-  if (deviceShouldBlock) {
+  // ✅ BLOQUEAR DESKTOP (exceto popups e landing page)
+  if (deviceShouldBlock && pathname !== '/landing') {
     console.log('🖥️ Desktop detected, showing block page');
     return <MobileOnlyPage />;
+  }
+
+  // ✅ PERMITIR LANDING PAGE em qualquer dispositivo
+  if (pathname === '/landing') {
+    console.log('🔓 Landing page detected, allowing access on any device');
+    return <>{children}</>;
   }
 
   // ✅ PWA MOBILE - ACESSO NORMAL
