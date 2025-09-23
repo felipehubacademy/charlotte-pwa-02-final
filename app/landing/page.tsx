@@ -298,19 +298,6 @@ export default function LandingPage() {
                   </div>
                 </motion.div>
 
-                {/* Hub Academy Logo */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6, delay: 1.0 }}
-                  className="flex justify-center pt-4"
-                >
-                  <img 
-                    src="/logos/hub-white.png" 
-                    alt="Hub Academy" 
-                    className="h-8 w-auto opacity-40"
-                  />
-                </motion.div>
               </motion.div>
             </div>
 
