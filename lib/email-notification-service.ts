@@ -360,6 +360,7 @@ Charlotte by Hub Academy
           tipo,
           status,
           data_agendamento,
+          tentativas,
           leads!inner(nome, email, nivel_ingles),
           trial_access!inner(data_fim)
         `)
