@@ -183,7 +183,7 @@ export default function LoginPage() {
                 >
                   <div className="flex items-center justify-center space-x-2">
                     <Users className="w-4 h-4" />
-                    <span>Acessar com e-mail</span>
+                    <span>E-mail</span>
                   </div>
                 </button>
               </motion.div>
@@ -371,7 +371,7 @@ export default function LoginPage() {
                 >
                   <div className="flex items-center space-x-2">
                     <Users className="w-4 h-4" />
-                    <span>Acessar com e-mail</span>
+                    <span>E-mail</span>
                   </div>
                 </button>
               </div>
