@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
         <meta name="description" content="Recupere sua senha do trial da Charlotte" />
       </Head>
 
-      <div className="min-h-screen bg-secondary flex items-center justify-center px-4">
+      <div className="min-h-screen bg-secondary flex items-center justify-center px-4 py-8">
         {/* Background Elements */}
         <div className="absolute inset-0">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
         {/* Grid Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(163,255,60,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(163,255,60,0.03)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
 
-        <div className="relative z-10 w-full max-w-md">
+        <div className="relative z-10 w-full max-w-md flex flex-col justify-center min-h-[calc(100vh-4rem)]">
           {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: -20 }}
