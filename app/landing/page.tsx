@@ -175,6 +175,9 @@ export default function LandingPage() {
                           <h1 className="text-5xl font-bold text-white">
                             <span className="text-primary">Charlotte</span>
                           </h1>
+                          <p className="text-white/50 text-sm font-medium -mt-1">
+                            by Hub Academy
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -370,6 +373,9 @@ export default function LandingPage() {
                         <h1 className="text-7xl font-bold text-white leading-tight">
                           <span className="text-primary">Charlotte</span>
                         </h1>
+                        <p className="text-white/50 text-lg font-medium -mt-2 ml-0">
+                          by Hub Academy
+                        </p>
                       </div>
                     </div>
                   </div>
