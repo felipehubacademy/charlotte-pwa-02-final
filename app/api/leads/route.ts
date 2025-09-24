@@ -11,7 +11,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Inicializar HubSpot se configurado
 if (process.env.HUBSPOT_API_KEY) {
-  HubSpotService.initialize(process.env.HUBSPOT_API_KEY);
+  HubSpotService.initialize(process.env.HUBSPOT_API_KEY, process.env.HUBSPOT_DEFAULT_OWNER_ID);
 }
 
 interface LeadData {

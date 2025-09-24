@@ -12,6 +12,7 @@ interface HubSpotContact {
   charlotte_lead_id: string;
   hs_lead_status: string;
   lifecyclestage: string;
+  hubspot_owner_id?: string;
 }
 
 interface HubSpotResponse {
@@ -24,10 +25,12 @@ interface HubSpotResponse {
 export class HubSpotService {
   private static apiKey: string | null = null;
   private static baseUrl = 'https://api.hubapi.com/crm/v3/objects/contacts';
+  private static defaultOwnerId: string | null = null;
 
   // Inicializar com API key
-  static initialize(apiKey: string) {
+  static initialize(apiKey: string, defaultOwnerId?: string) {
     this.apiKey = apiKey;
+    this.defaultOwnerId = defaultOwnerId || process.env.HUBSPOT_DEFAULT_OWNER_ID || null;
   }
 
   // Verificar se está configurado
@@ -35,7 +38,7 @@ export class HubSpotService {
     return !!this.apiKey;
   }
 
-  // Criar contato no HubSpot
+  // Criar ou atualizar contato no HubSpot (evita duplicidade)
   static async createContact(contactData: {
     nome: string;
     email: string;
@@ -49,21 +52,57 @@ export class HubSpotService {
     }
 
     try {
+      // 1. Verificar se contato já existe
+      const existingContact = await this.findContactByEmail(contactData.email);
+      
+      if (existingContact) {
+        console.log('📧 Contato já existe no HubSpot, atualizando:', existingContact.id);
+        
+        // Atualizar contato existente com novas informações
+        const [firstname, ...lastnameParts] = contactData.nome.split(' ');
+        const lastname = lastnameParts.join(' ') || '';
+
+        const updates: any = {
+          firstname,
+          lastname,
+          phone: contactData.telefone,
+          hs_lead_status: 'NEW',
+          origem: 'Charlotte 7 dias'
+        };
+
+        // Adicionar proprietário se configurado
+        if (this.defaultOwnerId) {
+          updates.hubspot_owner_id = this.defaultOwnerId;
+        }
+
+        const updateSuccess = await this.updateContact(existingContact.id, updates);
+        
+        if (updateSuccess) {
+          console.log('✅ Contato atualizado no HubSpot:', existingContact.id);
+          return existingContact;
+        } else {
+          console.error('❌ Falha ao atualizar contato existente');
+          return null;
+        }
+      }
+
+      // 2. Criar novo contato
       const [firstname, ...lastnameParts] = contactData.nome.split(' ');
       const lastname = lastnameParts.join(' ') || '';
 
-      const hubspotContact: HubSpotContact = {
+      const hubspotContact: any = {
         firstname,
         lastname,
         email: contactData.email,
         phone: contactData.telefone,
-        english_level: contactData.nivel_ingles,
-        lead_source: 'Charlotte Landing Page',
-        trial_status: 'Active',
-        charlotte_lead_id: contactData.lead_id,
         hs_lead_status: 'NEW',
-        lifecyclestage: 'lead'
+        origem: 'Charlotte 7 dias'
       };
+
+      // Adicionar proprietário se configurado
+      if (this.defaultOwnerId) {
+        hubspotContact.hubspot_owner_id = this.defaultOwnerId;
+      }
 
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -78,6 +117,17 @@ export class HubSpotService {
 
       if (!response.ok) {
         const errorData = await response.text();
+        
+        // Se for erro de conflito (contato já existe), tentar buscar e retornar
+        if (response.status === 409) {
+          console.log('⚠️ Conflito: contato já existe, buscando...');
+          const existingContact = await this.findContactByEmail(contactData.email);
+          if (existingContact) {
+            console.log('✅ Contato encontrado após conflito:', existingContact.id);
+            return existingContact;
+          }
+        }
+        
         console.error('Erro ao criar contato no HubSpot:', {
           status: response.status,
           statusText: response.statusText,

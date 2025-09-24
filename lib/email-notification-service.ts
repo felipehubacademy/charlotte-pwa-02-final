@@ -2,6 +2,7 @@
 // Serviço para envio de notificações por email para leads
 
 import { createClient } from '@supabase/supabase-js';
+import { SimpleEmailService } from './simple-email-service';
 
 // Configuração do Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -331,20 +332,12 @@ Charlotte by Hub Academy
     return { subject, html, text };
   }
 
-  // Enviar email usando Resend (ou outro serviço)
+  // Enviar email usando SimpleEmailService
   static async sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
     try {
-      // Aqui você pode integrar com Resend, SendGrid, ou outro serviço de email
-      // Por enquanto, vamos simular o envio
-      console.log('📧 Enviando email:', {
-        to,
-        subject: template.subject
-      });
-
-      // Simular envio bem-sucedido
-      return true;
+      return await SimpleEmailService.sendEmail(to, template);
     } catch (error) {
-      console.error('Erro ao enviar email:', error);
+      console.error('❌ Erro ao enviar email:', error);
       return false;
     }
   }

@@ -30,8 +30,12 @@ MICROSOFT_GRAPH_TENANT_ID=your_tenant_id
 ### HubSpot (para CRM)
 ```bash
 HUBSPOT_API_KEY=your_hubspot_api_key
+HUBSPOT_DEFAULT_OWNER_ID=your_owner_id
 ```
+- **HUBSPOT_API_KEY**: Chave da API do HubSpot
+- **HUBSPOT_DEFAULT_OWNER_ID**: ID do proprietário padrão (opcional)
 - **Função**: Enviar leads automaticamente para o HubSpot
+- **Prevenção de Duplicidade**: Sistema verifica email antes de criar/atualizar contatos
 - **Opcional**: Sim, o sistema funciona sem esta configuração
 
 ### Email (para notificações)
