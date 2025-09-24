@@ -306,7 +306,8 @@ export default function LandingPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.8 }}
-              className="flex-shrink-0 pb-safe py-4 pb-16 flex justify-center max-w-full overflow-hidden"
+              className="flex-shrink-0 py-4 mb-20 flex justify-center max-w-full overflow-hidden"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom, 80px)' }}
             >
               <img 
                 src="/logos/hub-white.png" 
