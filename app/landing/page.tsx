@@ -522,26 +522,28 @@ export default function LandingPage() {
                     {errors.nivel && <p className="text-red-400 text-sm mt-1">{errors.nivel}</p>}
                   </div>
 
-                  <div>
-                    <input
-                      type="password"
-                      placeholder="Defina uma senha para seu trial"
-                      value={formData.senha}
-                      onChange={(e) => handleInputChange('senha', e.target.value)}
-                      className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
-                    />
-                    {errors.senha && <p className="text-red-400 text-sm mt-1">{errors.senha}</p>}
-                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <input
+                        type="password"
+                        placeholder="Defina uma senha"
+                        value={formData.senha}
+                        onChange={(e) => handleInputChange('senha', e.target.value)}
+                        className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                      />
+                      {errors.senha && <p className="text-red-400 text-sm mt-1">{errors.senha}</p>}
+                    </div>
 
-                  <div>
-                    <input
-                      type="password"
-                      placeholder="Confirme sua senha"
-                      value={formData.confirmarSenha}
-                      onChange={(e) => handleInputChange('confirmarSenha', e.target.value)}
-                      className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
-                    />
-                    {errors.confirmarSenha && <p className="text-red-400 text-sm mt-1">{errors.confirmarSenha}</p>}
+                    <div>
+                      <input
+                        type="password"
+                        placeholder="Confirme sua senha"
+                        value={formData.confirmarSenha}
+                        onChange={(e) => handleInputChange('confirmarSenha', e.target.value)}
+                        className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                      />
+                      {errors.confirmarSenha && <p className="text-red-400 text-sm mt-1">{errors.confirmarSenha}</p>}
+                    </div>
                   </div>
 
                   <button
@@ -585,23 +587,23 @@ export default function LandingPage() {
                   <span className="text-sm">7 dias grátis</span>
                 </div>
               </div>
+
+              {/* Hub Academy Logo */}
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, delay: 1.0 }}
+                className="flex justify-center pt-6"
+              >
+                <img 
+                  src="/logos/hub-white.png" 
+                  alt="Hub Academy" 
+                  className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity duration-300"
+                />
+              </motion.div>
             </motion.div>
           </div>
         </div>
-
-        {/* Desktop Footer - Hub Logo */}
-        <motion.footer 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 0.8 }}
-          className="flex-shrink-0 py-8 px-6 flex justify-center"
-        >
-          <img 
-            src="/logos/hub-white.png" 
-            alt="Hub Academy" 
-            className="h-16 w-auto opacity-80 hover:opacity-100 transition-opacity duration-300"
-          />
-        </motion.footer>
       </div>
     </div>
   );
