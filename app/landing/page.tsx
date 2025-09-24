@@ -454,6 +454,20 @@ export default function LandingPage() {
                     <span>Sistema de gamificação e conquistas</span>
                   </div>
                 </div>
+
+                {/* Hub Academy Logo */}
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, delay: 0.8 }}
+                  className="flex justify-center pt-4"
+                >
+                  <img 
+                    src="/logos/hub-white.png" 
+                    alt="Hub Academy" 
+                    className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity duration-300"
+                  />
+                </motion.div>
               </div>
             </motion.div>
 
@@ -587,20 +601,6 @@ export default function LandingPage() {
                   <span className="text-sm">7 dias grátis</span>
                 </div>
               </div>
-
-              {/* Hub Academy Logo */}
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6, delay: 1.0 }}
-                className="flex justify-center pt-6"
-              >
-                <img 
-                  src="/logos/hub-white.png" 
-                  alt="Hub Academy" 
-                  className="h-12 w-auto opacity-80 hover:opacity-100 transition-opacity duration-300"
-                />
-              </motion.div>
             </motion.div>
           </div>
         </div>
