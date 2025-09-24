@@ -53,6 +53,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se é um usuário de trial
+    if (!sessionData.user) {
+      return NextResponse.json(
+        { error: 'Usuário não encontrado na sessão' },
+        { status: 400 }
+      );
+    }
+
     const isTrial = sessionData.user.user_metadata?.is_trial === true;
     if (!isTrial) {
       return NextResponse.json(
