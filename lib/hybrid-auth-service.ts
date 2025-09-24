@@ -44,7 +44,11 @@ export class HybridAuthService {
 
       return {
         success: true,
-        user: data.user as TrialUser,
+        user: {
+          id: data.user.id,
+          email: data.user.email || '',
+          user_metadata: data.user.user_metadata as TrialUser['user_metadata']
+        },
         session: data.session
       };
 
@@ -91,7 +95,11 @@ export class HybridAuthService {
 
       return {
         success: true,
-        user: user as TrialUser
+        user: {
+          id: user.id,
+          email: user.email || '',
+          user_metadata: user.user_metadata as TrialUser['user_metadata']
+        }
       };
 
     } catch (error) {
