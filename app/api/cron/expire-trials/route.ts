@@ -32,14 +32,14 @@ export async function POST(request: NextRequest) {
     // Importar e executar função de expiração
     const { TrialAccessService } = await import('@/lib/trial-access-service');
     
-    const result = await TrialAccessService.expireTrials();
+    const expiredCount = await TrialAccessService.expireTrials();
     
-    console.log(`✅ Cron job executado: ${result.expiredCount} trials expirados`);
+    console.log(`✅ Cron job executado: ${expiredCount} trials expirados`);
     
     return NextResponse.json({
       success: true,
-      message: `${result.expiredCount} trials expirados`,
-      expiredCount: result.expiredCount,
+      message: `${expiredCount} trials expirados`,
+      expiredCount: expiredCount,
       timestamp: new Date().toISOString()
     });
 
