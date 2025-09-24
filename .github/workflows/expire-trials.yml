@@ -1,0 +1,64 @@
+name: Expire Trials - Daily Cron
+
+on:
+  schedule:
+    # Executa todos os dias às 00:00 UTC (21:00 BRT)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Permite execução manual
+
+jobs:
+  expire-trials:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Call Supabase Edge Function
+        run: |
+          echo "🔄 Executando expiração de trials..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://fnvjibzreepubageztoi.supabase.co/functions/v1/expire-trials" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
+            -H "Content-Type: application/json")
+          
+          # Separar resposta e código HTTP
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+          
+          echo "📊 Status HTTP: $http_code"
+          echo "📋 Resposta: $body"
+          
+          # Verificar se foi bem-sucedido
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Trials processados com sucesso!"
+            
+            # Extrair estatísticas da resposta JSON
+            expired=$(echo "$body" | jq -r '.expiredTrials // 0')
+            total=$(echo "$body" | jq -r '.stats.totalTrials // 0')
+            active=$(echo "$body" | jq -r '.stats.activeTrials // 0')
+            
+            echo "📈 Estatísticas:"
+            echo "   - Trials expirados: $expired"
+            echo "   - Total de trials: $total"
+            echo "   - Trials ativos: $active"
+          else
+            echo "❌ Erro ao processar trials (HTTP $http_code)"
+            echo "Resposta: $body"
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "🚨 Falha na execução do cron job de expiração de trials"
+          echo "Data: $(date)"
+          echo "Verifique os logs acima para mais detalhes"
+
+      - name: Success summary
+        if: success()
+        run: |
+          echo "🎉 Cron job executado com sucesso!"
+          echo "Data: $(date)"
+          echo "Próxima execução: amanhã às 00:00 UTC"
