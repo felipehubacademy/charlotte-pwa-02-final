@@ -40,9 +40,9 @@ export default function MobileOnlyWrapper({
     isPopup
   });
 
-  // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá ou for /landing)
+  // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá ou for /landing, /forgot-password, /reset-password)
   useEffect(() => {
-    if (shouldBlockMobileBrowser && pathname !== '/install' && pathname !== '/landing') {
+    if (shouldBlockMobileBrowser && pathname !== '/install' && pathname !== '/landing' && pathname !== '/forgot-password' && pathname !== '/reset-password') {
       console.log('📱 Mobile browser detected, redirecting to /install');
       router.push('/install');
     }
@@ -54,21 +54,21 @@ export default function MobileOnlyWrapper({
     return <>{children}</>;
   }
 
-  // ✅ PERMITIR /install e /landing no mobile browser
-  if (shouldBlockMobileBrowser && (pathname === '/install' || pathname === '/landing')) {
-    console.log('📱 Mobile browser on /install or /landing page, allowing access');
+  // ✅ PERMITIR /install, /landing, /forgot-password, /reset-password no mobile browser
+  if (shouldBlockMobileBrowser && (pathname === '/install' || pathname === '/landing' || pathname === '/forgot-password' || pathname === '/reset-password')) {
+    console.log('📱 Mobile browser on allowed page, allowing access');
     return <>{children}</>;
   }
 
-  // ✅ BLOQUEAR DESKTOP (exceto popups e landing page)
-  if (deviceShouldBlock && pathname !== '/landing') {
+  // ✅ BLOQUEAR DESKTOP (exceto popups, landing page e páginas de auth)
+  if (deviceShouldBlock && pathname !== '/landing' && pathname !== '/forgot-password' && pathname !== '/reset-password') {
     console.log('🖥️ Desktop detected, showing block page');
     return <MobileOnlyPage />;
   }
 
-  // ✅ PERMITIR LANDING PAGE em qualquer dispositivo
-  if (pathname === '/landing') {
-    console.log('🔓 Landing page detected, allowing access on any device');
+  // ✅ PERMITIR LANDING PAGE e páginas de auth em qualquer dispositivo
+  if (pathname === '/landing' || pathname === '/forgot-password' || pathname === '/reset-password') {
+    console.log('🔓 Auth page detected, allowing access on any device');
     return <>{children}</>;
   }
 
