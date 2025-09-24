@@ -50,36 +50,27 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
     >
       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-white mb-2">
-            Acesso Trial
-          </h2>
           <p className="text-white/70 text-sm">
-            Entre com os dados do seu teste grátis
+            Entre com os seus dados
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-white/90 mb-2">
-              Email
-            </label>
             <input
               id="email"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all duration-200"
-              placeholder="seu@email.com"
+              placeholder="Seu email"
               disabled={isLoading}
             />
           </div>
 
           {/* Password */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-white/90 mb-2">
-              Senha
-            </label>
             <div className="relative">
               <input
                 id="password"
@@ -109,7 +100,7 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
           <motion.button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+            className="w-full bg-primary hover:bg-primary/90 text-secondary font-medium py-3 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -119,7 +110,7 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
                 <span>Entrando...</span>
               </>
             ) : (
-              <span>Entrar no Trial</span>
+              <span>Entrar</span>
             )}
           </motion.button>
         </form>
