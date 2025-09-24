@@ -1,4 +1,14 @@
 {
+  "crons": [
+    {
+      "path": "/api/notifications/scheduler",
+      "schedule": "0 11 * * *"
+    },
+    {
+      "path": "/api/notifications/scheduler",
+      "schedule": "0 23 * * *"
+    }
+  ],
   "functions": {
     "app/api/email/process/route.ts": {
       "maxDuration": 30
