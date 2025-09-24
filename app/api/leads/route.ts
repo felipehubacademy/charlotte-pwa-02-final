@@ -19,17 +19,34 @@ interface LeadData {
   email: string;
   telefone: string;
   nivel: 'Novice' | 'Inter' | 'Advanced';
+  senha: string;
+  confirmarSenha: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: LeadData = await request.json();
-    const { nome, email, telefone, nivel } = body;
+    const { nome, email, telefone, nivel, senha, confirmarSenha } = body;
 
     // Validação básica
-    if (!nome || !email || !telefone || !nivel) {
+    if (!nome || !email || !telefone || !nivel || !senha || !confirmarSenha) {
       return NextResponse.json(
         { error: 'Todos os campos são obrigatórios' },
+        { status: 400 }
+      );
+    }
+
+    // Validar senhas
+    if (senha.length < 6) {
+      return NextResponse.json(
+        { error: 'Senha deve ter pelo menos 6 caracteres' },
+        { status: 400 }
+      );
+    }
+
+    if (senha !== confirmarSenha) {
+      return NextResponse.json(
+        { error: 'Senhas não coincidem' },
         { status: 400 }
       );
     }
@@ -94,7 +111,7 @@ export async function POST(request: NextRequest) {
       // Criar conta temporária
       const { data: userData, error: authError } = await supabase.auth.admin.createUser({
         email,
-        password: uuidv4(), // Senha aleatória
+        password: senha, // Senha fornecida pelo usuário
         email_confirm: true,
         user_metadata: {
           nome,
@@ -181,7 +198,7 @@ export async function POST(request: NextRequest) {
     // Criar conta temporária
     const { data: userData2, error: authError } = await supabase.auth.admin.createUser({
       email,
-      password: uuidv4(), // Senha aleatória
+      password: senha, // Senha fornecida pelo usuário
       email_confirm: true,
       user_metadata: {
         nome,

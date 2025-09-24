@@ -124,7 +124,16 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
           </motion.button>
         </form>
 
-        <div className="mt-4 text-center">
+        <div className="mt-4 text-center space-y-2">
+          <p className="text-white/60 text-xs">
+            <a 
+              href="/forgot-password" 
+              className="text-primary hover:text-primary/80 font-medium transition-colors"
+            >
+              Esqueceu sua senha?
+            </a>
+          </p>
+          
           <p className="text-white/60 text-xs">
             Não tem acesso trial?{' '}
             <a 

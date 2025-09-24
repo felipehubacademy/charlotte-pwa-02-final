@@ -11,6 +11,8 @@ interface LeadFormData {
   email: string;
   telefone: string;
   nivel: 'Novice' | 'Inter' | 'Advanced' | '';
+  senha: string;
+  confirmarSenha: string;
 }
 
 export default function LandingPage() {
@@ -21,7 +23,9 @@ export default function LandingPage() {
     nome: '',
     email: '',
     telefone: '',
-    nivel: ''
+    nivel: '',
+    senha: '',
+    confirmarSenha: ''
   });
   const [errors, setErrors] = useState<Partial<LeadFormData>>({});
 
@@ -54,6 +58,22 @@ export default function LandingPage() {
       newErrors.telefone = 'Telefone é obrigatório';
     } else if (!/^\(\d{2}\)\s\d{4,5}-\d{4}$/.test(formData.telefone)) {
       newErrors.telefone = 'Formato: (11) 99999-9999';
+    }
+
+    if (!formData.nivel) {
+      newErrors.nivel = 'Nível é obrigatório';
+    }
+
+    if (!formData.senha.trim()) {
+      newErrors.senha = 'Senha é obrigatória';
+    } else if (formData.senha.length < 6) {
+      newErrors.senha = 'Senha deve ter pelo menos 6 caracteres';
+    }
+
+    if (!formData.confirmarSenha.trim()) {
+      newErrors.confirmarSenha = 'Confirmação de senha é obrigatória';
+    } else if (formData.senha !== formData.confirmarSenha) {
+      newErrors.confirmarSenha = 'Senhas não coincidem';
     }
 
     setErrors(newErrors);
@@ -249,6 +269,29 @@ export default function LandingPage() {
                         <option value="Inter" className="bg-charcoal">Intermediário (Inter)</option>
                         <option value="Advanced" className="bg-charcoal">Avançado (Advanced)</option>
                       </select>
+                      {errors.nivel && <p className="text-red-400 text-sm mt-1">{errors.nivel}</p>}
+                    </div>
+
+                    <div>
+                      <input
+                        type="password"
+                        placeholder="Defina uma senha para seu trial"
+                        value={formData.senha}
+                        onChange={(e) => handleInputChange('senha', e.target.value)}
+                        className="w-full box-border bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                      />
+                      {errors.senha && <p className="text-red-400 text-sm mt-1">{errors.senha}</p>}
+                    </div>
+
+                    <div>
+                      <input
+                        type="password"
+                        placeholder="Confirme sua senha"
+                        value={formData.confirmarSenha}
+                        onChange={(e) => handleInputChange('confirmarSenha', e.target.value)}
+                        className="w-full box-border bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                      />
+                      {errors.confirmarSenha && <p className="text-red-400 text-sm mt-1">{errors.confirmarSenha}</p>}
                     </div>
                   </div>
 
