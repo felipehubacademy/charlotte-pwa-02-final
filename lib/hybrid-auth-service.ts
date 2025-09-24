@@ -114,7 +114,7 @@ export class HybridAuthService {
       const response = await fetch(`/api/trial/status?user_id=${userId}`);
       const data = await response.json();
       
-      return data.hasTrial && !data.trial?.diasRestantes <= 0;
+      return data.hasTrial && data.trial?.diasRestantes > 0;
     } catch (error) {
       console.error('Erro ao verificar trial ativo:', error);
       return false;
