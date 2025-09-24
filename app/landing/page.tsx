@@ -275,7 +275,7 @@ export default function LandingPage() {
                     <div>
                       <input
                         type="password"
-                        placeholder="Defina uma senha para seu trial"
+                        placeholder="Defina uma senha"
                         value={formData.senha}
                         onChange={(e) => handleInputChange('senha', e.target.value)}
                         className="w-full box-border bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"

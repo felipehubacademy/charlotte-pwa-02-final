@@ -87,11 +87,27 @@ Hub Academy - Charlotte IA
     return { subject, html, text };
   }
 
-  // Enviar email usando Resend
+  // Enviar email usando Resend ou Microsoft Graph
   static async sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
     try {
       if (!process.env.RESEND_API_KEY) {
-        console.log('⚠️ RESEND_API_KEY não configurado, simulando envio');
+        console.log('⚠️ RESEND_API_KEY não configurado, tentando Microsoft Graph...');
+        
+        // Tentar Gmail SMTP como fallback
+        try {
+          const { GmailSMTPService } = await import('./gmail-smtp-service');
+          const success = await GmailSMTPService.sendEmail(to, template);
+          
+          if (success) {
+            console.log('✅ Email enviado via Gmail SMTP');
+            return true;
+          }
+        } catch (error) {
+          console.error('❌ Erro ao usar Gmail SMTP:', error);
+        }
+        
+        // Se Microsoft Graph falhar, simular
+        console.log('⚠️ Nenhum serviço de email configurado, simulando envio');
         console.log('📧 Email simulado:', {
           to,
           subject: template.subject
