@@ -460,7 +460,7 @@ export default function LandingPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.6, delay: 0.8 }}
-                  className="flex justify-center pt-6"
+                  className="flex justify-center pt-8"
                 >
                   <img 
                     src="/logos/hub-white.png" 
