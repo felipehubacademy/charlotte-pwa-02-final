@@ -27,7 +27,7 @@ export default function LandingPage() {
     senha: '',
     confirmarSenha: ''
   });
-  const [errors, setErrors] = useState<Partial<LeadFormData>>({});
+  const [errors, setErrors] = useState<Partial<Record<keyof LeadFormData, string>>>({});
 
   useEffect(() => {
     setIsMounted(true);
@@ -42,7 +42,7 @@ export default function LandingPage() {
   }, []);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<LeadFormData> = {};
+    const newErrors: Partial<Record<keyof LeadFormData, string>> = {};
 
     if (!formData.nome.trim()) {
       newErrors.nome = 'Nome é obrigatório';
