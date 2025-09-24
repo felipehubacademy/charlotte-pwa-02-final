@@ -26,11 +26,13 @@ export default function ResetPasswordPage() {
     setIsMounted(true);
     
     // Verificar se há token de recuperação
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
-    
-    if (accessToken && refreshToken) {
-      setIsValidToken(true);
+    if (searchParams) {
+      const accessToken = searchParams.get('access_token');
+      const refreshToken = searchParams.get('refresh_token');
+      
+      if (accessToken && refreshToken) {
+        setIsValidToken(true);
+      }
     }
     
     setIsCheckingToken(false);
@@ -76,8 +78,8 @@ export default function ResetPasswordPage() {
         body: JSON.stringify({ 
           password, 
           confirmPassword,
-          access_token: searchParams.get('access_token'),
-          refresh_token: searchParams.get('refresh_token')
+          access_token: searchParams?.get('access_token') || '',
+          refresh_token: searchParams?.get('refresh_token') || ''
         }),
       });
 
