@@ -519,6 +519,29 @@ export default function LandingPage() {
                       <option value="Inter" className="bg-charcoal">Intermediário (Inter)</option>
                       <option value="Advanced" className="bg-charcoal">Avançado (Advanced)</option>
                     </select>
+                    {errors.nivel && <p className="text-red-400 text-sm mt-1">{errors.nivel}</p>}
+                  </div>
+
+                  <div>
+                    <input
+                      type="password"
+                      placeholder="Defina uma senha para seu trial"
+                      value={formData.senha}
+                      onChange={(e) => handleInputChange('senha', e.target.value)}
+                      className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                    />
+                    {errors.senha && <p className="text-red-400 text-sm mt-1">{errors.senha}</p>}
+                  </div>
+
+                  <div>
+                    <input
+                      type="password"
+                      placeholder="Confirme sua senha"
+                      value={formData.confirmarSenha}
+                      onChange={(e) => handleInputChange('confirmarSenha', e.target.value)}
+                      className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                    />
+                    {errors.confirmarSenha && <p className="text-red-400 text-sm mt-1">{errors.confirmarSenha}</p>}
                   </div>
 
                   <button
