@@ -126,16 +126,16 @@ export default function LandingPage() {
         <Head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
         </Head>
-        <div className="min-h-screen bg-secondary overflow-hidden select-none">
+        <div className="min-h-screen bg-secondary overflow-hidden overflow-x-hidden select-none">
           {/* Background Elements */}
-          <div className="absolute inset-0">
+          <div className="absolute inset-0 overflow-hidden">
             <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
             <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-primary/3 rounded-full blur-2xl"></div>
             <div className="absolute top-1/2 left-0 w-32 h-32 bg-primary/8 rounded-full blur-xl"></div>
           </div>
 
           {/* Grid Pattern */}
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(163,255,60,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(163,255,60,0.03)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
+          <div className="absolute inset-0 overflow-hidden bg-[linear-gradient(rgba(163,255,60,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(163,255,60,0.03)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
 
           <div className="relative z-10 min-h-screen flex flex-col">
             {/* Mobile Header - Empty */}
@@ -148,12 +148,12 @@ export default function LandingPage() {
             </motion.div>
 
             {/* Mobile Main Content */}
-            <div className="flex-1 flex flex-col justify-center px-6 py-12">
+            <div className="flex-1 flex flex-col justify-center px-6 py-12 max-w-full">
               <motion.div 
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className="text-center space-y-6"
+                className="text-center space-y-6 max-w-full"
               >
                 {/* Hero Text */}
                 <div className="flex justify-center">
@@ -199,7 +199,7 @@ export default function LandingPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.4 }}
                   onSubmit={handleSubmit}
-                  className="space-y-4 bg-charcoal/30 rounded-2xl p-6 border border-primary/20"
+                  className="w-full max-w-full space-y-4 bg-charcoal/30 rounded-2xl p-6 border border-primary/20"
                 >
                   <div className="space-y-4">
                     <div>
@@ -208,7 +208,7 @@ export default function LandingPage() {
                         placeholder="Seu nome completo"
                         value={formData.nome}
                         onChange={(e) => handleInputChange('nome', e.target.value)}
-                        className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                        className="w-full box-border bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
                       />
                       {errors.nome && <p className="text-red-400 text-sm mt-1">{errors.nome}</p>}
                     </div>
@@ -219,7 +219,7 @@ export default function LandingPage() {
                         placeholder="Seu melhor email"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
-                        className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                        className="w-full box-border bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
                       />
                       {errors.email && <p className="text-red-400 text-sm mt-1">{errors.email}</p>}
                     </div>
@@ -230,7 +230,7 @@ export default function LandingPage() {
                         placeholder="(11) 99999-9999"
                         value={formData.telefone}
                         onChange={(e) => handleInputChange('telefone', e.target.value)}
-                        className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
+                        className="w-full box-border bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/50 focus:border-primary focus:outline-none transition-colors"
                       />
                       {errors.telefone && <p className="text-red-400 text-sm mt-1">{errors.telefone}</p>}
                     </div>
@@ -239,7 +239,7 @@ export default function LandingPage() {
                       <select
                         value={formData.nivel}
                         onChange={(e) => handleInputChange('nivel', e.target.value as LeadFormData['nivel'])}
-                        className="w-full bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white focus:border-primary focus:outline-none transition-colors"
+                        className="w-full box-border bg-charcoal/50 border border-white/20 rounded-xl px-4 py-3 text-white focus:border-primary focus:outline-none transition-colors"
                       >
                         <option value="" disabled className="bg-charcoal text-white/50">Selecione seu nível</option>
                         <option value="Novice" className="bg-charcoal">Iniciante (Novice)</option>
@@ -252,7 +252,7 @@ export default function LandingPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full bg-primary hover:bg-primary-dark text-secondary font-medium text-base py-3.5 px-6 rounded-xl border border-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2"
+                    className="w-full box-border bg-primary hover:bg-primary-dark text-secondary font-medium text-base py-3.5 px-6 rounded-xl border border-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2"
                   >
                     {isSubmitting ? (
                       <>
@@ -273,7 +273,7 @@ export default function LandingPage() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.6, delay: 0.8 }}
-                  className="flex justify-center space-x-8 pt-4"
+                  className="flex justify-center space-x-8 pt-4 max-w-full overflow-hidden"
                 >
                   <div className="flex flex-col items-center space-y-2">
                     <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center">
@@ -303,7 +303,7 @@ export default function LandingPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, delay: 0.8 }}
-              className="flex-shrink-0 pb-safe py-6 flex justify-center"
+              className="flex-shrink-0 pb-safe py-6 flex justify-center max-w-full overflow-hidden"
             >
               <img 
                 src="/logos/hub-white.png" 
