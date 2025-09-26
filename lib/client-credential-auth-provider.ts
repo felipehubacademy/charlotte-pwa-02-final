@@ -23,8 +23,7 @@ export class ClientCredentialAuthProvider implements AuthenticationProvider {
     }
 
     // Obter novo token
-    const token = await this.getNewAccessToken();
-    return token;
+    return await this.getNewAccessToken();
   }
 
   private async getNewAccessToken(): Promise<string> {
