@@ -60,13 +60,12 @@ export class TrialAzureIntegration {
       const expirationDate = new Date();
       expirationDate.setDate(expirationDate.getDate() + 7); // 7 dias
 
-      const azureUser = await AzureADUserService.createTrialUser({
-        email: leadData.email,
-        displayName: leadData.nome,
-        nivel: leadData.nivel,
-        leadId: lead.id,
-        expirationDate
-      });
+      const azureUser = await azureService.createTrialUser(
+        leadData.nome,
+        leadData.email,
+        leadData.nivel,
+        leadData.senha
+      );
 
       if (!azureUser) {
         // Limpar lead se Azure AD falhar
