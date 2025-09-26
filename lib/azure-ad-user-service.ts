@@ -80,8 +80,9 @@ export class AzureADUserService {
 
   // Adicionar usuário trial ao grupo apropriado
   async addUserToTrialGroup(userId: string, nivel: 'Novice' | 'Inter' | 'Advanced'): Promise<boolean> {
+    const groupName = `Charlotte-Trial-${nivel}`;
+    
     try {
-      const groupName = `Charlotte-Trial-${nivel}`;
       const groupId = await this.getGroupIdByName(groupName);
       
       if (!groupId) {
