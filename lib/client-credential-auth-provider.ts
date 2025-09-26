@@ -57,7 +57,7 @@ export class ClientCredentialAuthProvider implements AuthenticationProvider {
       this.tokenExpiry = Date.now() + (tokenData.expires_in - 300) * 1000;
 
       console.log('✅ Novo token de acesso obtido via Client Credentials');
-      return this.accessToken;
+      return tokenData.access_token;
 
     } catch (error: any) {
       console.error('❌ Erro ao obter token de acesso:', error);
