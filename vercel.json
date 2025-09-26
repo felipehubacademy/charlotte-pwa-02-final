@@ -7,10 +7,6 @@
     {
       "path": "/api/notifications/scheduler",
       "schedule": "0 23 * * *"
-    },
-    {
-      "path": "/api/email/process",
-      "schedule": "0 * * * *"
     }
   ],
   "functions": {
