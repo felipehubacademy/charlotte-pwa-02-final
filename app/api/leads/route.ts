@@ -196,55 +196,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Criar usuário no Supabase Auth
-    const { data: userData, error: authError } = await supabase.auth.admin.createUser({
-      email,
-      password: senha,
-      email_confirm: true,
-      user_metadata: {
-        nome,
-        telefone,
-        nivel_ingles: nivel,
-        is_trial: true,
-        lead_id: newLead.id
-      }
-    });
-
-    if (authError || !userData.user) {
-      console.error('Erro ao criar usuário:', authError);
-      return NextResponse.json(
-        { error: 'Erro ao criar conta temporária' },
-        { status: 500 }
-      );
-    }
-
-    // Criar trial access
-    const { error: trialError } = await supabase.rpc('create_trial_access', {
-      p_user_id: userData.user.id,
-      p_lead_id: newLead.id,
-      p_nivel_ingles: nivel
-    });
-
-    if (trialError) {
-      console.error('Erro ao criar trial access:', trialError);
-      // Tentar limpar usuário criado
-      await supabase.auth.admin.deleteUser(userData.user.id);
-      return NextResponse.json(
-        { error: 'Erro ao configurar acesso temporário' },
-        { status: 500 }
-      );
-    }
-
     // Criar usuário no Azure AD (definitivo)
+    console.log('🔧 Criando usuário no Azure AD...');
     const azureService = new AzureADUserService();
-    const azureUser = await azureService.createTrialUser(nome, email, nivel, senha);
     
-    if (!azureUser) {
-      console.error('Erro ao criar usuário no Azure AD');
-      // Limpar usuário criado no Supabase Auth
-      await supabase.auth.admin.deleteUser(userData.user.id);
+    try {
+      console.log('📋 Chamando createTrialUser com parâmetros:');
+      console.log('  - displayName:', nome);
+      console.log('  - email:', email);
+      console.log('  - nivel:', nivel);
+      console.log('  - password:', '***');
+      
+      const azureUser = await azureService.createTrialUser(nome, email, nivel, senha);
+      
+      console.log('📊 Resultado do createTrialUser:', azureUser);
+      
+      if (!azureUser) {
+        console.error('❌ Azure AD retornou null');
+        return NextResponse.json(
+          { error: 'Erro ao criar conta no sistema corporativo' },
+          { status: 500 }
+        );
+      }
+      
+      console.log('✅ Usuário criado no Azure AD:', azureUser.id);
+      
+    } catch (azureError) {
+      console.error('❌ Erro específico do Azure AD:', azureError);
+      console.error('❌ Stack trace:', azureError instanceof Error ? azureError.stack : 'N/A');
       return NextResponse.json(
-        { error: 'Erro ao criar conta no sistema corporativo' },
+        { 
+          error: 'Erro ao criar conta no sistema corporativo',
+          details: azureError instanceof Error ? azureError.message : 'Erro desconhecido'
+        },
         { status: 500 }
       );
     }
@@ -253,10 +237,27 @@ export async function POST(request: NextRequest) {
     console.log('✅ Usuário criado no Azure AD:', azureUserId);
     
     // Atualizar lead com Azure ID
-    await supabase
+    const expirationDate = new Date();
+    expirationDate.setDate(expirationDate.getDate() + 7);
+    
+    const { error: updateError } = await supabase
       .from('leads')
-      .update({ azure_user_id: azureUserId })
+      .update({
+        azure_user_id: azureUserId,
+        data_expiracao: expirationDate.toISOString(),
+        status: 'converted'
+      })
       .eq('id', newLead.id);
+
+    if (updateError) {
+      console.error('Erro ao atualizar lead:', updateError);
+      return NextResponse.json(
+        { error: 'Erro ao atualizar lead' },
+        { status: 500 }
+      );
+    }
+
+    // Enviar para HubSpot (se configurado) - Criar contato e deal
 
     // Enviar para HubSpot (se configurado) - Criar contato e deal
     const hubspotResult = await HubSpotService.createContactAndDeal({
@@ -284,7 +285,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Agendar email de boas-vindas
-    await scheduleWelcomeEmail(newLead.id, userData.user.id);
+    await scheduleWelcomeEmail(newLead.id, azureUserId);
 
     return NextResponse.json(
       { 
@@ -292,7 +293,6 @@ export async function POST(request: NextRequest) {
         message: 'Lead criado e conta temporária ativada',
         data: {
           leadId: newLead.id,
-          userId: userData.user.id,
           azureUserId: azureUserId,
           hubspotContactId: hubspotResult.contact?.id,
           hubspotDealId: hubspotResult.deal?.id
@@ -313,13 +313,13 @@ export async function POST(request: NextRequest) {
 
 
 // Função para agendar email de boas-vindas
-async function scheduleWelcomeEmail(leadId: string, userId: string) {
+async function scheduleWelcomeEmail(leadId: string, azureUserId: string) {
   try {
     await supabase
       .from('email_notifications')
       .insert({
         lead_id: leadId,
-        user_id: userId,
+        azure_user_id: azureUserId,
         tipo: 'welcome',
         status: 'pending',
         data_agendamento: new Date().toISOString()

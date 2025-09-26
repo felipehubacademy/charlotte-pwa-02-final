@@ -44,12 +44,22 @@ export class AzureADUserService {
     try {
       console.log('🔧 Criando usuário trial no Azure AD:', email);
 
+      // Para leads, usar domínio hubacademybr.com mas manter email original no displayName
+      const emailDomain = email.split('@')[1];
+      const emailLocal = email.split('@')[0];
+      const timestamp = Date.now();
+      const uniqueId = `${emailLocal}_${timestamp}`;
+      const azureEmail = `${uniqueId}@hubacademybr.com`;
+      
+      console.log('📧 Email original:', email);
+      console.log('📧 Email Azure AD:', azureEmail);
+
       // Dados do usuário
       const userData = {
         accountEnabled: true,
-        displayName: displayName,
-        mailNickname: email.split('@')[0],
-        userPrincipalName: email,
+        displayName: `${displayName} (${email})`, // Incluir email original no displayName
+        mailNickname: uniqueId,
+        userPrincipalName: azureEmail,
         passwordProfile: {
           forceChangePasswordNextSignIn: false,
           password: password || this.generateTemporaryPassword()
@@ -61,7 +71,12 @@ export class AzureADUserService {
       console.log('✅ Usuário trial criado:', createdUser.id);
 
       // Adicionar ao grupo apropriado
-      await this.addUserToTrialGroup(createdUser.id, nivel);
+      const groupAdded = await this.addUserToTrialGroup(createdUser.id, nivel);
+      
+      if (!groupAdded) {
+        console.error('❌ Erro ao adicionar usuário ao grupo, mas usuário foi criado');
+        // Não falhar se o grupo não for adicionado, apenas logar
+      }
 
       return {
         id: createdUser.id,
@@ -74,6 +89,7 @@ export class AzureADUserService {
 
     } catch (error: any) {
       console.error('❌ Erro ao criar usuário trial:', error);
+      console.error('❌ Stack trace:', error.stack);
       return null;
     }
   }
