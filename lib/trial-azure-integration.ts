@@ -88,7 +88,7 @@ export class TrialAzureIntegration {
 
       if (authError || !supabaseUser.user) {
         // Limpar Azure AD e lead se Supabase Auth falhar
-        await AzureADUserService.disableTrialUser(azureUser.id);
+        await azureService.disableTrialUser(azureUser.id);
         await supabase.from('leads').delete().eq('id', lead.id);
         return { success: false, error: 'Erro ao criar usuário no Supabase Auth' };
       }
@@ -144,12 +144,9 @@ export class TrialAzureIntegration {
 
       // 2. Mover usuário para grupo expirado no Azure AD
       if (lead.azure_user_id) {
-        await AzureADUserService.moveUserToExpiredGroup(lead.azure_user_id);
-      }
-
-      // 3. Desabilitar usuário no Azure AD
-      if (lead.azure_user_id) {
-        await AzureADUserService.disableTrialUser(lead.azure_user_id);
+        const azureService = new AzureADUserService();
+        await azureService.moveUserToExpiredGroup(lead.azure_user_id);
+        await azureService.disableTrialUser(lead.azure_user_id);
       }
 
       // 4. Atualizar status no Supabase
@@ -199,7 +196,8 @@ export class TrialAzureIntegration {
       // Buscar dados do usuário no Azure AD
       let azureUser = null;
       if (lead.azure_user_id) {
-        azureUser = await AzureADUserService.getUserByEmail(lead.email);
+        const azureService = new AzureADUserService();
+        azureUser = await azureService.getUserByEmail(lead.email);
       }
 
       return {
