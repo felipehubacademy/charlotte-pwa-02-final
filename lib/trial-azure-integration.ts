@@ -57,9 +57,7 @@ export class TrialAzureIntegration {
       }
 
       // 2. Criar usuário no Azure AD
-      const expirationDate = new Date();
-      expirationDate.setDate(expirationDate.getDate() + 7); // 7 dias
-
+      const azureService = new AzureADUserService();
       const azureUser = await azureService.createTrialUser(
         leadData.nome,
         leadData.email,
