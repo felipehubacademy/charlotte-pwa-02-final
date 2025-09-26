@@ -94,6 +94,9 @@ export class TrialAzureIntegration {
       }
 
       // 4. Atualizar lead com IDs
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + 7); // 7 dias
+      
       await supabase
         .from('leads')
         .update({
