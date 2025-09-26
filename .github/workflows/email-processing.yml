@@ -1,0 +1,62 @@
+name: Email Processing - Hourly
+
+on:
+  schedule:
+    # Executa a cada hora
+    - cron: '0 * * * *'
+  workflow_dispatch: # Permite execução manual
+
+jobs:
+  process-emails:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Process Email Queue
+        run: |
+          echo "📧 Processando fila de emails..."
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://charlotte-pwa-02-final-fbx96s74f.vercel.app/api/email/process" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
+            -H "Content-Type: application/json")
+          
+          # Separar resposta e código HTTP
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | head -n -1)
+          
+          echo "📊 Status HTTP: $http_code"
+          echo "📋 Resposta: $body"
+          
+          # Verificar se foi bem-sucedido
+          if [ "$http_code" -eq 200 ]; then
+            echo "✅ Emails processados com sucesso!"
+            
+            # Extrair estatísticas da resposta JSON se disponível
+            processed=$(echo "$body" | jq -r '.processed // "N/A"')
+            pending=$(echo "$body" | jq -r '.pending // "N/A"')
+            
+            echo "📈 Estatísticas:"
+            echo "   - Emails processados: $processed"
+            echo "   - Emails pendentes: $pending"
+          else
+            echo "❌ Erro ao processar emails (HTTP $http_code)"
+            echo "Resposta: $body"
+            exit 1
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "🚨 Falha na execução do cron job de processamento de emails"
+          echo "Data: $(date)"
+          echo "Verifique os logs acima para mais detalhes"
+
+      - name: Success summary
+        if: success()
+        run: |
+          echo "🎉 Cron job de emails executado com sucesso!"
+          echo "Data: $(date)"
+          echo "Próxima execução: em 1 hora"
