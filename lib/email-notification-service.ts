@@ -332,6 +332,109 @@ Charlotte by Hub Academy
     return { subject, html, text };
   }
 
+  // Template de email de recuperação de senha
+  static getPasswordResetTemplate(nome: string, resetLink: string): EmailTemplate {
+    const subject = `Recuperação de senha - Charlotte 🔐`;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Recuperação de Senha - Charlotte</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f8f9fa; }
+          .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+          .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; }
+          .header h1 { color: white; margin: 0; font-size: 28px; font-weight: bold; }
+          .content { padding: 40px 30px; }
+          .reset-text { font-size: 18px; margin-bottom: 30px; color: #2d3748; }
+          .reset-info { background: #f0f4ff; border: 1px solid #667eea; border-radius: 8px; padding: 20px; margin: 30px 0; text-align: center; }
+          .reset-info-title { color: #2d3748; font-weight: 600; margin-bottom: 10px; }
+          .reset-info-desc { color: #2d3748; font-size: 14px; }
+          .cta { text-align: center; margin: 40px 0; }
+          .cta-button { display: inline-block; background: #667eea; color: white; padding: 16px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; }
+          .security { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 30px 0; }
+          .security-title { color: #856404; font-weight: 600; margin-bottom: 10px; }
+          .security-desc { color: #856404; font-size: 14px; }
+          .footer { background: #2d3748; color: white; padding: 30px; text-align: center; }
+          .footer p { margin: 0; font-size: 14px; opacity: 0.8; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🔐 Recuperação de Senha</h1>
+          </div>
+          
+          <div class="content">
+            <div class="reset-text">
+              Olá <strong>${nome}</strong>!<br><br>
+              Recebemos uma solicitação para redefinir a senha da sua conta no Charlotte.
+            </div>
+
+            <div class="reset-info">
+              <div class="reset-info-title">🔑 Redefinir Senha</div>
+              <div class="reset-info-desc">
+                Clique no botão abaixo para criar uma nova senha para sua conta.
+              </div>
+            </div>
+
+            <div class="cta">
+              <a href="${resetLink}" class="cta-button">
+                Redefinir Senha
+              </a>
+            </div>
+
+            <div class="security">
+              <div class="security-title">🛡️ Informações de Segurança</div>
+              <div class="security-desc">
+                • Este link expira em 1 hora<br>
+                • Se você não solicitou esta recuperação, ignore este email<br>
+                • Nunca compartilhe este link com outras pessoas
+              </div>
+            </div>
+
+            <p style="color: #718096; font-size: 14px; text-align: center; margin-top: 30px;">
+              Se o botão não funcionar, copie e cole este link no seu navegador:<br>
+              <span style="word-break: break-all; color: #667eea;">${resetLink}</span>
+            </p>
+          </div>
+          
+          <div class="footer">
+            <p>Charlotte by Hub Academy</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const text = `
+Recuperação de senha - Charlotte 🔐
+
+Olá ${nome}!
+
+Recebemos uma solicitação para redefinir a senha da sua conta no Charlotte.
+
+🔑 REDEFINIR SENHA
+
+Clique no link abaixo para criar uma nova senha para sua conta:
+${resetLink}
+
+🛡️ INFORMAÇÕES DE SEGURANÇA:
+• Este link expira em 1 hora
+• Se você não solicitou esta recuperação, ignore este email
+• Nunca compartilhe este link com outras pessoas
+
+Se você não conseguir clicar no link, copie e cole a URL acima no seu navegador.
+
+Charlotte by Hub Academy
+    `;
+
+    return { subject, html, text };
+  }
+
   // Enviar email usando SimpleEmailService
   static async sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
     try {
@@ -354,8 +457,8 @@ Charlotte by Hub Academy
           status,
           data_agendamento,
           tentativas,
-          leads!inner(nome, email, nivel_ingles),
-          trial_access!inner(data_fim)
+          lead_id,
+          user_id
         `)
         .eq('status', 'pending')
         .lte('data_agendamento', new Date().toISOString());
@@ -367,28 +470,38 @@ Charlotte by Hub Academy
 
       for (const email of pendingEmails || []) {
         try {
+          // Buscar dados do lead
+          const { data: leadData, error: leadError } = await supabase
+            .from('leads')
+            .select('nome, email, nivel_ingles')
+            .eq('id', email.lead_id)
+            .single();
+          
+          if (leadError || !leadData) {
+            console.error('Erro ao buscar dados do lead:', leadError);
+            continue;
+          }
+
           let template: EmailTemplate;
 
           switch (email.tipo) {
             case 'welcome':
               template = this.getWelcomeTemplate(
-                email.leads[0].nome,
-                email.leads[0].nivel_ingles
+                leadData.nome,
+                leadData.nivel_ingles
               );
               break;
 
             case 'reminder':
-              const diasRestantes = Math.ceil(
-                (new Date(email.trial_access[0].data_fim).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-              );
+              // Para reminder, vamos usar 3 dias como padrão por enquanto
               template = this.getReminderTemplate(
-                email.leads[0].nome,
-                Math.max(0, diasRestantes)
+                leadData.nome,
+                3
               );
               break;
 
             case 'expiration':
-              template = this.getExpirationTemplate(email.leads[0].nome);
+              template = this.getExpirationTemplate(leadData.nome);
               break;
 
             default:
@@ -396,7 +509,7 @@ Charlotte by Hub Academy
               continue;
           }
 
-          const success = await this.sendEmail(email.leads[0].email, template);
+          const success = await this.sendEmail(leadData.email, template);
 
           // Atualizar status do email
           await supabase

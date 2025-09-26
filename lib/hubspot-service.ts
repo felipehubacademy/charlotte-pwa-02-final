@@ -22,6 +22,22 @@ interface HubSpotResponse {
   updatedAt: string;
 }
 
+interface HubSpotDeal {
+  dealname: string;
+  amount: string;
+  closedate: string;
+  dealstage: string;
+  pipeline: string;
+  hubspot_owner_id?: string;
+}
+
+interface HubSpotDealResponse {
+  id: string;
+  properties: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export class HubSpotService {
   private static apiKey: string | null = null;
   private static baseUrl = 'https://api.hubapi.com/crm/v3/objects/contacts';
@@ -327,6 +343,181 @@ export class HubSpotService {
     } catch (error) {
       console.error('Erro ao criar nota no HubSpot:', error);
       return false;
+    }
+  }
+
+  // Criar deal no HubSpot
+  static async createDeal(dealData: {
+    nome: string;
+    email: string;
+    telefone: string;
+    nivel_ingles: string;
+    lead_id: string;
+  }): Promise<HubSpotDealResponse | null> {
+    if (!this.isConfigured()) {
+      console.log('HubSpot não configurado, pulando criação de deal');
+      return null;
+    }
+
+    try {
+      // 1. Buscar o contato criado
+      const contact = await this.findContactByEmail(dealData.email);
+      if (!contact) {
+        console.error('❌ Contato não encontrado para criar deal');
+        return null;
+      }
+
+      // 2. Criar o deal
+      const dealName = `${dealData.nome}`;
+      const closeDate = new Date();
+      closeDate.setDate(closeDate.getDate() + 7); // 7 dias para expiração
+
+      const hubspotDeal: any = {
+        dealname: dealName,
+        amount: '0',
+        closedate: closeDate.toISOString(),
+        dealstage: '1176147282', // Stage ID fornecido
+        pipeline: 'default' // Pipeline padrão
+      };
+
+      // Adicionar proprietário se configurado
+      if (this.defaultOwnerId) {
+        hubspotDeal.hubspot_owner_id = this.defaultOwnerId;
+      }
+
+      const response = await fetch('https://api.hubapi.com/crm/v3/objects/deals', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          properties: hubspotDeal
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Erro ao criar deal no HubSpot:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        return null;
+      }
+
+      const dealResult = await response.json();
+      console.log('✅ Deal criado no HubSpot:', dealResult.id);
+
+      // 3. Associar deal ao contato usando API de associações
+      try {
+        const associationResponse = await fetch(`https://api.hubapi.com/crm/v4/objects/deals/${dealResult.id}/associations/contacts/${contact.id}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify([
+            {
+              associationCategory: 'HUBSPOT_DEFINED',
+              associationTypeId: 3 // ID correto para associação deal-to-contact
+            }
+          ])
+        });
+
+        if (associationResponse.ok) {
+          console.log('✅ Deal associado ao contato com sucesso:', contact.id);
+        } else {
+          const errorData = await associationResponse.text();
+          console.warn('⚠️ Falha ao associar deal ao contato:', errorData);
+        }
+      } catch (associationError) {
+        console.warn('⚠️ Erro na associação, mas deal foi criado:', associationError);
+      }
+
+      return dealResult;
+
+    } catch (error) {
+      console.error('Erro ao criar deal no HubSpot:', error);
+      return null;
+    }
+  }
+
+  // Associar deal ao contato
+  static async associateDealToContact(dealId: string, contactId: string): Promise<boolean> {
+    if (!this.isConfigured()) {
+      console.log('HubSpot não configurado, pulando associação');
+      return false;
+    }
+
+    try {
+      // Usar API v4 com estrutura correta
+      const response = await fetch(`https://api.hubapi.com/crm/v4/objects/deals/${dealId}/associations/contacts/${contactId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([
+          {
+            associationCategory: 'HUBSPOT_DEFINED',
+            associationTypeId: 3 // ID correto para associação deal-to-contact
+          }
+        ])
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('Erro ao associar deal ao contato:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        return false;
+      }
+
+      console.log('✅ Deal associado ao contato com sucesso');
+      return true;
+
+    } catch (error) {
+      console.error('Erro ao associar deal ao contato:', error);
+      return false;
+    }
+  }
+
+  // Criar contato e deal completo
+  static async createContactAndDeal(contactData: {
+    nome: string;
+    email: string;
+    telefone: string;
+    nivel_ingles: string;
+    lead_id: string;
+  }): Promise<{
+    contact: HubSpotResponse | null;
+    deal: HubSpotDealResponse | null;
+  }> {
+    if (!this.isConfigured()) {
+      console.log('HubSpot não configurado, pulando criação');
+      return { contact: null, deal: null };
+    }
+
+    try {
+      // 1. Criar contato
+      const contact = await this.createContact(contactData);
+      
+      if (!contact) {
+        console.error('❌ Falha ao criar contato, pulando criação de deal');
+        return { contact: null, deal: null };
+      }
+
+      // 2. Criar deal
+      const deal = await this.createDeal(contactData);
+      
+      return { contact, deal };
+
+    } catch (error) {
+      console.error('Erro ao criar contato e deal:', error);
+      return { contact: null, deal: null };
     }
   }
 

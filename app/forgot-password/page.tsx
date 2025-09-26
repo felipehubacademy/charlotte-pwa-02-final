@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/auth/forgot-password', {
+      const response = await fetch('/api/auth/azure-forgot-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,7 +178,7 @@ export default function ForgotPasswordPage() {
                 
                 <div className="space-y-2">
                   <h2 className="text-xl font-bold text-white">
-                    Email Enviado!
+                    Instruções Enviadas!
                   </h2>
                   <p className="text-white/70">
                     Enviamos instruções de recuperação para <strong>{email}</strong>
@@ -186,9 +186,16 @@ export default function ForgotPasswordPage() {
                 </div>
 
                 <div className="pt-4 space-y-3">
-                  <p className="text-sm text-white/60">
-                    Verifique sua caixa de entrada e pasta de spam
-                  </p>
+                  <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-4">
+                    <p className="text-sm text-blue-200 font-medium mb-2">
+                      📧 Como recuperar sua senha:
+                    </p>
+                    <ol className="text-sm text-blue-100 space-y-1 text-left">
+                      <li>1. Verifique sua caixa de entrada e pasta de spam</li>
+                      <li>2. Clique no link do Microsoft para recuperar sua senha</li>
+                      <li>3. Volte ao Charlotte e faça login com a nova senha</li>
+                    </ol>
+                  </div>
                   
                   <div className="flex flex-col space-y-2">
                     <Link

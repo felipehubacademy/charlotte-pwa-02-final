@@ -1,6 +1,9 @@
 // lib/simple-email-service.ts
 // Serviço de email simplificado usando Resend
 
+import { Client } from '@microsoft/microsoft-graph-client';
+import { ClientCredentialAuthProvider } from './client-credential-auth-provider';
+
 export interface EmailTemplate {
   subject: string;
   html: string;
@@ -87,57 +90,44 @@ Hub Academy - Charlotte IA
     return { subject, html, text };
   }
 
-  // Enviar email usando Resend ou Microsoft Graph
+  // Enviar email usando Microsoft Graph
   static async sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
     try {
-      if (!process.env.RESEND_API_KEY) {
-        console.log('⚠️ RESEND_API_KEY não configurado, tentando Microsoft Graph...');
-        
-        // Tentar Gmail SMTP como fallback
-        try {
-          const { GmailSMTPService } = await import('./gmail-smtp-service');
-          const success = await GmailSMTPService.sendEmail(to, template);
-          
-          if (success) {
-            console.log('✅ Email enviado via Gmail SMTP');
-            return true;
-          }
-        } catch (error) {
-          console.error('❌ Erro ao usar Gmail SMTP:', error);
-        }
-        
-        // Se Microsoft Graph falhar, simular
-        console.log('⚠️ Nenhum serviço de email configurado, simulando envio');
-        console.log('📧 Email simulado:', {
-          to,
-          subject: template.subject
-        });
-        return true;
-      }
+      console.log('📧 Enviando email via Microsoft Graph...');
+      
+      const clientId = process.env.MICROSOFT_GRAPH_CLIENT_ID;
+      const clientSecret = process.env.MICROSOFT_GRAPH_CLIENT_SECRET;
+      const tenantId = process.env.MICROSOFT_GRAPH_TENANT_ID;
+      const fromEmail = process.env.MICROSOFT_GRAPH_FROM_EMAIL;
 
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          from: 'Charlotte <noreply@hubacademy.com.br>',
-          to: [to],
-          subject: template.subject,
-          html: template.html,
-          text: template.text,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        console.error('❌ Erro ao enviar email via Resend:', error);
+      if (!clientId || !clientSecret || !tenantId || !fromEmail) {
+        console.error('❌ Microsoft Graph não configurado');
         return false;
       }
 
-      const data = await response.json();
-      console.log('✅ Email enviado via Resend:', data);
+      const authProvider = new ClientCredentialAuthProvider(clientId, clientSecret, tenantId);
+      const client = Client.initWithMiddleware({ authProvider });
+
+      const message = {
+        message: {
+          subject: template.subject,
+          body: {
+            contentType: 'HTML',
+            content: template.html,
+          },
+          toRecipients: [
+            {
+              emailAddress: {
+                address: to,
+              },
+            },
+          ],
+        },
+        saveToSentItems: true,
+      };
+
+      await client.api(`/users/${fromEmail}/sendMail`).post(message);
+      console.log('✅ Email enviado via Microsoft Graph');
       return true;
 
     } catch (error) {

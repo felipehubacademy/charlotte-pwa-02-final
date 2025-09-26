@@ -302,7 +302,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Log which Charlotte groups the user has
       const charlotteGroups = groupNames.filter((name: string) => 
-        ['novice', 'inter', 'advanced', 'teacher'].some(group => 
+        ['novice', 'inter', 'advanced', 'teacher', 'trial'].some(group => 
           name.toLowerCase().includes(group)
         )
       );
@@ -316,9 +316,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('ACCESS_DENIED: User is not in any Charlotte groups');
       }
       
-      if (groupNames.some((name: string) => name.toLowerCase().includes('novice'))) {
+      // ✅ NOVO: Verificar se é trial user
+      const isTrialUser = groupNames.some((name: string) => 
+        name.toLowerCase().includes('trial')
+      );
+      console.log('🎯 Is trial user:', isTrialUser);
+      
+      // Determinar nível baseado nos grupos
+      if (groupNames.some((name: string) => name.toLowerCase().includes('trial-novice'))) {
+        console.log('🎯 User level: Trial Novice');
+        return 'Novice';
+      } else if (groupNames.some((name: string) => name.toLowerCase().includes('trial-inter'))) {
+        console.log('🎯 User level: Trial Inter');
+        return 'Inter';
+      } else if (groupNames.some((name: string) => name.toLowerCase().includes('trial-advanced'))) {
+        console.log('🎯 User level: Trial Advanced');
+        return 'Advanced';
+      } else if (groupNames.some((name: string) => name.toLowerCase().includes('novice'))) {
         console.log('🎯 User level: Novice');
-      return 'Novice';
+        return 'Novice';
       } else if (groupNames.some((name: string) => name.toLowerCase().includes('inter'))) {
         console.log('🎯 User level: Inter');
         return 'Inter';

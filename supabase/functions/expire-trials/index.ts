@@ -38,13 +38,17 @@ serve(async (req) => {
 
     console.log('🔄 Iniciando processo de expiração de trials...');
 
-    // 1. Expirar trials automaticamente
-    const { data: expiredCount, error: expireError } = await supabase.rpc('expire_trials');
+    // 1. Buscar trials expirados
+    const { data: expiredTrials, error: expiredError } = await supabase
+      .from('leads')
+      .select('id, azure_user_id, nome, email')
+      .eq('status', 'converted')
+      .lt('data_expiracao', new Date().toISOString());
 
-    if (expireError) {
-      console.error('❌ Erro ao expirar trials:', expireError);
+    if (expiredError) {
+      console.error('❌ Erro ao buscar trials expirados:', expiredError);
       return new Response(
-        JSON.stringify({ error: 'Erro ao expirar trials' }),
+        JSON.stringify({ error: 'Erro ao buscar trials expirados' }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -52,7 +56,34 @@ serve(async (req) => {
       );
     }
 
-    console.log(`✅ ${expiredCount} trials expirados`);
+    console.log(`📋 ${expiredTrials?.length || 0} trials expirados encontrados`);
+
+    // 2. Processar cada trial expirado
+    let processedCount = 0;
+    for (const trial of expiredTrials || []) {
+      try {
+        // Chamar API de expiração do trial
+        const expireResponse = await fetch(`${Deno.env.get('SITE_URL')}/api/cron/expire-trials`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${expectedToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ leadId: trial.id })
+        });
+
+        if (expireResponse.ok) {
+          processedCount++;
+          console.log(`✅ Trial ${trial.id} processado com sucesso`);
+        } else {
+          console.error(`❌ Erro ao processar trial ${trial.id}`);
+        }
+      } catch (error) {
+        console.error(`❌ Erro ao processar trial ${trial.id}:`, error);
+      }
+    }
+
+    console.log(`✅ ${processedCount} trials processados`);
 
     // 2. Processar trials próximos do vencimento
     const tomorrow = new Date();

@@ -4,22 +4,20 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { LogIn, MessageSquare, Mic, Camera, ArrowRight, Sparkles, Users } from 'lucide-react';
+import { LogIn, MessageSquare, Mic, Camera, ArrowRight, Sparkles } from 'lucide-react';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import BannerManager from '@/components/BannerManager';
 import PWAInstaller from '@/components/PWAInstaller';
-import TrialLoginForm from '@/components/auth/TrialLoginForm';
-import { HybridAuthService } from '@/lib/hybrid-auth-service';
-import { toast } from 'sonner';
+// Removido: imports relacionados ao login trial via email/senha
+// Agora todos usam Microsoft Entra ID
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading, login } = useAuth();
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  const [loginType, setLoginType] = useState<'microsoft' | 'trial'>('microsoft');
-  const [trialUser, setTrialUser] = useState<any>(null);
-  const [isTrialLoading, setIsTrialLoading] = useState(false);
+  // Removido: sistema de login trial via email/senha
+  // Agora todos usam Microsoft Entra ID
 
   useEffect(() => {
     setIsMounted(true);
@@ -44,39 +42,11 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  // Verificar se há trial user logado
-  useEffect(() => {
-    const checkTrialUser = async () => {
-      const result = await HybridAuthService.getCurrentTrialUser();
-      if (result.success && result.user) {
-        setTrialUser(result.user);
-        // Verificar se trial ainda está ativo
-        const hasActiveTrial = await HybridAuthService.hasActiveTrial(result.user.id);
-        if (hasActiveTrial) {
-          router.push('/chat');
-        } else {
-          // Trial expirado, fazer logout
-          await HybridAuthService.logoutTrialUser();
-          setTrialUser(null);
-          toast.error('Seu trial expirou. Entre em contato para continuar.');
-        }
-      }
-    };
+  // Removido: verificação de trial user via Supabase Auth
+  // Agora todos os usuários (incluindo trials) usam Microsoft Entra ID
 
-    if (isMounted && !isAuthenticated) {
-      checkTrialUser();
-    }
-  }, [isMounted, isAuthenticated, router]);
-
-  const handleTrialLoginSuccess = async (user: any) => {
-    setTrialUser(user);
-    toast.success('Login realizado com sucesso!');
-    router.push('/chat');
-  };
-
-  const handleTrialLoginError = (error: string) => {
-    toast.error(error);
-  };
+  // Removido: handlers de login trial
+  // Agora todos usam Microsoft Entra ID
 
   // Loading state OR not mounted yet
   if (isLoading || !isMounted) {
@@ -148,79 +118,32 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Login Type Selector */}
-              <motion.div
+              {/* Login Button - Mobile (Apenas Microsoft Entra) */}
+              <motion.button
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                className="flex bg-white/10 rounded-xl p-1 mb-4"
+                onClick={login}
+                disabled={isLoading}
+                className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 min-h-[56px]"
               >
-                <button
-                  onClick={() => setLoginType('microsoft')}
-                  className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    loginType === 'microsoft'
-                      ? 'bg-white text-gray-900'
-                      : 'text-white/70 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <svg className="w-4 h-4" viewBox="0 0 21 21" fill="currentColor">
-                      <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
-                      <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
-                      <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
-                      <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
-                    </svg>
-                    <span>Microsoft</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setLoginType('trial')}
-                  className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    loginType === 'trial'
-                      ? 'bg-white text-gray-900'
-                      : 'text-white/70 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center justify-center space-x-2">
-                    <Users className="w-4 h-4" />
-                    <span>E-mail</span>
-                  </div>
-                </button>
-              </motion.div>
-
-              {/* Login Form */}
-              {loginType === 'microsoft' ? (
-                <motion.button
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.6 }}
-                  onClick={login}
-                  disabled={isLoading}
-                  className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 min-h-[56px]"
-                >
-                  <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
-                    <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
-                    <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
-                    <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
-                    <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
-                  </svg>
-                  <span className="flex-shrink-0">
-                    {isLoading ? (
-                      <span className="inline-flex items-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                        Entrando...
-                      </span>
-                    ) : (
-                      'Entrar com Microsoft'
-                    )}
-                  </span>
-                </motion.button>
-              ) : (
-                <TrialLoginForm
-                  onSuccess={handleTrialLoginSuccess}
-                  onError={handleTrialLoginError}
-                />
-              )}
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
+                  <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
+                  <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
+                  <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
+                  <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
+                </svg>
+                <span className="flex-shrink-0">
+                  {isLoading ? (
+                    <span className="inline-flex items-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                      Entrando...
+                    </span>
+                  ) : (
+                    'Entrar com Microsoft'
+                  )}
+                </span>
+              </motion.button>
           
           {/* 🎯 PWAInstaller - Só para mobile */}
           <div className="mt-4">
@@ -341,48 +264,12 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Login Type Selector - Desktop */}
-              <div className="flex bg-white/10 rounded-xl p-1 mb-6 w-fit">
-                <button
-                  onClick={() => setLoginType('microsoft')}
-                  className={`py-2 px-6 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    loginType === 'microsoft'
-                      ? 'bg-white text-gray-900'
-                      : 'text-white/70 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <svg className="w-4 h-4" viewBox="0 0 21 21" fill="currentColor">
-                      <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
-                      <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
-                      <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
-                      <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
-                    </svg>
-                    <span>Microsoft</span>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setLoginType('trial')}
-                  className={`py-2 px-6 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    loginType === 'trial'
-                      ? 'bg-white text-gray-900'
-                      : 'text-white/70 hover:text-white'
-                  }`}
-                >
-                  <div className="flex items-center space-x-2">
-                    <Users className="w-4 h-4" />
-                    <span>E-mail</span>
-                  </div>
-                </button>
-              </div>
-
-              {/* Login Form - Desktop */}
-              {loginType === 'microsoft' ? (
-                <button
-                  onClick={login}
-                  disabled={isLoading}
-                  className="bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-8 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center space-x-2 will-change-transform"
-                >
+              {/* Login Button - Desktop (Apenas Microsoft Entra) */}
+              <button
+                onClick={login}
+                disabled={isLoading}
+                className="bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-8 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center space-x-2 will-change-transform"
+              >
                 <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
                   <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
                   <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
@@ -391,14 +278,6 @@ export default function LoginPage() {
                 </svg>
                 <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
               </button>
-              ) : (
-                <div className="w-fit">
-                  <TrialLoginForm
-                    onSuccess={handleTrialLoginSuccess}
-                    onError={handleTrialLoginError}
-                  />
-                </div>
-              )}
             </motion.div>
 
             {/* Center Column - Avatar */}
