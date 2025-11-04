@@ -221,6 +221,73 @@ export async function POST(request: NextRequest) {
       
       console.log('✅ Usuário criado no Azure AD:', azureUser.id);
       
+      const azureUserId = azureUser.id;
+      console.log('✅ Usuário criado no Azure AD:', azureUserId);
+      
+      // Atualizar lead com Azure ID
+      const expirationDate = new Date();
+      expirationDate.setDate(expirationDate.getDate() + 7);
+      
+      const { error: updateError } = await supabase
+        .from('leads')
+        .update({
+          azure_user_id: azureUserId,
+          data_expiracao: expirationDate.toISOString(),
+          status: 'converted'
+        })
+        .eq('id', newLead.id);
+
+      if (updateError) {
+        console.error('Erro ao atualizar lead:', updateError);
+        return NextResponse.json(
+          { error: 'Erro ao atualizar lead' },
+          { status: 500 }
+        );
+      }
+
+      // Enviar para HubSpot (se configurado) - Criar contato e deal
+      const hubspotResult = await HubSpotService.createContactAndDeal({
+        nome,
+        email,
+        telefone,
+        nivel_ingles: nivel,
+        lead_id: newLead.id
+      });
+
+      if (hubspotResult.contact) {
+        // Atualizar lead com HubSpot ID
+        await supabase
+          .from('leads')
+          .update({ 
+            hubspot_contact_id: hubspotResult.contact.id,
+            hubspot_deal_id: hubspotResult.deal?.id || null
+          })
+          .eq('id', newLead.id);
+        
+        console.log('✅ Lead atualizado com HubSpot IDs:', {
+          contact: hubspotResult.contact.id,
+          deal: hubspotResult.deal?.id || 'N/A'
+        });
+      }
+
+      // Agendar email de boas-vindas
+      await scheduleWelcomeEmail(newLead.id, azureUserId);
+
+      return NextResponse.json(
+        { 
+          success: true, 
+          message: 'Lead criado e conta temporária ativada',
+          data: {
+            leadId: newLead.id,
+            azureUserId: azureUserId,
+            hubspotContactId: hubspotResult.contact?.id,
+            hubspotDealId: hubspotResult.deal?.id
+          },
+          redirect: '/install'
+        },
+        { status: 200 }
+      );
+      
     } catch (azureError) {
       console.error('❌ Erro específico do Azure AD:', azureError);
       console.error('❌ Stack trace:', azureError instanceof Error ? azureError.stack : 'N/A');
@@ -232,75 +299,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    
-    const azureUserId = azureUser.id;
-    console.log('✅ Usuário criado no Azure AD:', azureUserId);
-    
-    // Atualizar lead com Azure ID
-    const expirationDate = new Date();
-    expirationDate.setDate(expirationDate.getDate() + 7);
-    
-    const { error: updateError } = await supabase
-      .from('leads')
-      .update({
-        azure_user_id: azureUserId,
-        data_expiracao: expirationDate.toISOString(),
-        status: 'converted'
-      })
-      .eq('id', newLead.id);
-
-    if (updateError) {
-      console.error('Erro ao atualizar lead:', updateError);
-      return NextResponse.json(
-        { error: 'Erro ao atualizar lead' },
-        { status: 500 }
-      );
-    }
-
-    // Enviar para HubSpot (se configurado) - Criar contato e deal
-
-    // Enviar para HubSpot (se configurado) - Criar contato e deal
-    const hubspotResult = await HubSpotService.createContactAndDeal({
-      nome,
-      email,
-      telefone,
-      nivel_ingles: nivel,
-      lead_id: newLead.id
-    });
-
-    if (hubspotResult.contact) {
-      // Atualizar lead com HubSpot ID
-      await supabase
-        .from('leads')
-        .update({ 
-          hubspot_contact_id: hubspotResult.contact.id,
-          hubspot_deal_id: hubspotResult.deal?.id || null
-        })
-        .eq('id', newLead.id);
-      
-      console.log('✅ Lead atualizado com HubSpot IDs:', {
-        contact: hubspotResult.contact.id,
-        deal: hubspotResult.deal?.id || 'N/A'
-      });
-    }
-
-    // Agendar email de boas-vindas
-    await scheduleWelcomeEmail(newLead.id, azureUserId);
-
-    return NextResponse.json(
-      { 
-        success: true, 
-        message: 'Lead criado e conta temporária ativada',
-        data: {
-          leadId: newLead.id,
-          azureUserId: azureUserId,
-          hubspotContactId: hubspotResult.contact?.id,
-          hubspotDealId: hubspotResult.deal?.id
-        },
-        redirect: '/install'
-      },
-      { status: 200 }
-    );
 
   } catch (error) {
     console.error('Erro na API de leads:', error);
