@@ -18,42 +18,66 @@ jobs:
         run: |
           echo "📧 Processando fila de emails..."
           
-          # Construir URL com bypass token se disponível
           BASE_URL="https://charlotte-pwa-02-final-fbx96s74f.vercel.app/api/email/process"
-          if [ -n "${{ secrets.VERCEL_BYPASS_TOKEN }}" ]; then
-            BYPASS_URL="${BASE_URL}?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${{ secrets.VERCEL_BYPASS_TOKEN }}"
+          BYPASS_TOKEN="${{ secrets.VERCEL_BYPASS_TOKEN }}"
+          
+          # Construir URL com bypass token se disponível
+          if [ -n "$BYPASS_TOKEN" ]; then
+            echo "✅ Vercel bypass token configurado"
+            # Formato correto conforme documentação Vercel
+            FULL_URL="${BASE_URL}?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${BYPASS_TOKEN}"
           else
-            BYPASS_URL="${BASE_URL}"
+            echo "⚠️  VERCEL_BYPASS_TOKEN não configurado"
+            echo "💡 Configure o secret VERCEL_BYPASS_TOKEN no GitHub para bypassar Deployment Protection"
+            FULL_URL="${BASE_URL}"
           fi
           
-          # Fazer requisição e capturar código HTTP final (após redirects)
-          # Usar -L para seguir redirects e -w para capturar código HTTP
+          # Fazer requisição POST com autenticação
+          # -L: seguir redirects
+          # -s: silencioso
+          # -w: escrever código HTTP no final
           response=$(curl -sL -w "\n%{http_code}" -X POST \
-            "${BYPASS_URL}" \
+            "${FULL_URL}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
-            -H "Content-Type: application/json")
+            -H "Content-Type: application/json" \
+            -H "User-Agent: GitHub-Actions/EmailProcessor")
           
           # Separar resposta e código HTTP (última linha é o código)
           http_code=$(echo "$response" | tail -n1)
           body=$(echo "$response" | sed '$d')
           
           echo "📊 Status HTTP: $http_code"
-          echo "📋 Resposta: $body"
           
           # Verificar se foi bem-sucedido
           if [ "$http_code" -eq 200 ]; then
             echo "✅ Emails processados com sucesso!"
+            echo "📋 Resposta: $body"
             
-            # Extrair estatísticas da resposta JSON se disponível
-            processed=$(echo "$body" | jq -r '.processed // "N/A"')
-            pending=$(echo "$body" | jq -r '.pending // "N/A"')
-            
-            echo "📈 Estatísticas:"
-            echo "   - Emails processados: $processed"
-            echo "   - Emails pendentes: $pending"
+            # Tentar extrair estatísticas da resposta JSON se disponível
+            if command -v jq &> /dev/null; then
+              processed=$(echo "$body" | jq -r '.processed // "N/A"')
+              pending=$(echo "$body" | jq -r '.pending // "N/A"')
+              
+              echo "📈 Estatísticas:"
+              echo "   - Emails processados: $processed"
+              echo "   - Emails pendentes: $pending"
+            fi
+          elif [ "$http_code" -eq 401 ]; then
+            echo "❌ Erro 401: Não autorizado"
+            echo "💡 Possíveis causas:"
+            echo "   1. VERCEL_BYPASS_TOKEN não configurado ou inválido"
+            echo "   2. Deployment Protection ativo no Vercel"
+            echo "   3. Token de bypass expirado ou incorreto"
+            echo ""
+            echo "📋 Primeiras 200 chars da resposta:"
+            echo "$body" | head -c 200
+            echo ""
+            exit 1
           else
             echo "❌ Erro ao processar emails (HTTP $http_code)"
-            echo "Resposta: $body"
+            echo "📋 Resposta (primeiros 500 chars):"
+            echo "$body" | head -c 500
+            echo ""
             exit 1
           fi
 
