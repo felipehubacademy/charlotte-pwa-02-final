@@ -18,8 +18,16 @@ jobs:
         run: |
           echo "📧 Processando fila de emails..."
           
+          # Construir URL com bypass token se disponível
+          BASE_URL="https://charlotte-pwa-02-final-fbx96s74f.vercel.app/api/email/process"
+          if [ -n "${{ secrets.VERCEL_BYPASS_TOKEN }}" ]; then
+            BYPASS_URL="${BASE_URL}?x-vercel-set-bypass-cookie=true&x-vercel-protection-bypass=${{ secrets.VERCEL_BYPASS_TOKEN }}"
+          else
+            BYPASS_URL="${BASE_URL}"
+          fi
+          
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://charlotte-pwa-02-final-fbx96s74f.vercel.app/api/email/process" \
+            "${BYPASS_URL}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
             -H "Content-Type: application/json")
           
