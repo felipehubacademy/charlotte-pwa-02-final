@@ -44,31 +44,66 @@ export class AzureADUserService {
     try {
       console.log('🔧 Criando usuário trial no Azure AD:', email);
 
-      // Para leads, usar domínio hubacademybr.com mas manter email original no displayName
-      const emailDomain = email.split('@')[1];
+      // Para trials, usar o email original igual aos alunos regulares
+      console.log('📧 Email do trial (original):', email);
+
+      // Garantir mailNickname único (pode haver conflito se já existe)
       const emailLocal = email.split('@')[0];
       const timestamp = Date.now();
-      const uniqueId = `${emailLocal}_${timestamp}`;
-      const azureEmail = `${uniqueId}@hubacademybr.com`;
-      
-      console.log('📧 Email original:', email);
-      console.log('📧 Email Azure AD:', azureEmail);
+      const uniqueMailNick = `${emailLocal}_${timestamp}`;
 
-      // Dados do usuário
-      const userData = {
-        accountEnabled: true,
-        displayName: `${displayName} (${email})`, // Incluir email original no displayName
-        mailNickname: uniqueId,
-        userPrincipalName: azureEmail,
-        passwordProfile: {
-          forceChangePasswordNextSignIn: false,
-          password: password || this.generateTemporaryPassword()
-        }
+      // 🎯 SOLUÇÃO MFA: URL de redenção automática para aceitar convite
+      const autoRedeemUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/install?auto_redeem=true`;
+      
+      // Dados do convite (Guest User B2B)
+      const inviteData = {
+        invitedUserDisplayName: `${displayName} (Trial)`,
+        invitedUserEmailAddress: email,
+        sendInvitationMessage: false, // Não enviar email de convite
+        inviteRedirectUrl: autoRedeemUrl
       };
 
-      // Criar usuário
-      const createdUser = await this.client.api('/users').post(userData);
+      console.log('📧 Convidando usuário como Guest (B2B):', inviteData);
+
+      // Criar convite (Guest User)
+      const invitation = await this.client.api('/invitations').post(inviteData);
+      console.log('✅ Convite criado:', invitation.invitedUser.id);
+
+      // Buscar o usuário criado para obter dados completos
+      const createdUser = await this.client.api(`/users/${invitation.invitedUser.id}`).get();
       console.log('✅ Usuário trial criado:', createdUser.id);
+
+           // Definir senha para o usuário guest
+           if (password) {
+             try {
+               await this.client.api(`/users/${createdUser.id}`).patch({
+                 passwordProfile: {
+                   forceChangePasswordNextSignIn: false,
+                   password: password
+                 }
+               });
+               console.log('✅ Senha definida para usuário guest');
+             } catch (passwordError) {
+               console.warn('⚠️ Erro ao definir senha (guest users podem usar SSO):', passwordError);
+             }
+           }
+
+           // 🎯 SOLUÇÃO MFA: Configurar propriedades para simplificar autenticação
+           try {
+             console.log('🔄 Configurando usuário trial para MFA simplificado...');
+             
+             // Aplicar configurações que podem reduzir complexidade MFA
+             await this.client.api(`/users/${createdUser.id}`).patch({
+               usageLocation: 'BR', // Localização do usuário
+               companyName: 'Hub Academy Trial', // Identificar como trial
+               department: 'Trial Users' // Agrupar trials
+             });
+             
+             console.log('✅ Usuário trial configurado - grupos definirão MFA');
+             
+           } catch (configError: any) {
+             console.warn('⚠️ Erro na configuração do trial:', configError);
+           }
 
       // Adicionar ao grupo apropriado
       const groupAdded = await this.addUserToTrialGroup(createdUser.id, nivel);
@@ -89,7 +124,13 @@ export class AzureADUserService {
 
     } catch (error: any) {
       console.error('❌ Erro ao criar usuário trial:', error);
+      console.error('❌ Detalhes completos do erro:');
+      console.error('  - Message:', error.message);
+      console.error('  - Code:', error.code);
+      console.error('  - Status:', error.status);
+      console.error('  - Response:', error.response?.data || error.response);
       console.error('❌ Stack trace:', error.stack);
+      
       return null;
     }
   }
@@ -219,22 +260,56 @@ export class AzureADUserService {
   // Verificar se usuário existe
   async getUserByEmail(email: string): Promise<AzureUser | null> {
     try {
-      const response = await this.client.api(`/users/${email}`).get();
-      return {
-        id: response.id,
-        userPrincipalName: response.userPrincipalName,
-        displayName: response.displayName,
-        mail: response.mail,
-        accountEnabled: response.accountEnabled,
-        expirationDateTime: response.expirationDateTime
-      };
+      // Primeiro, tentar buscar por UPN (para members)
+      try {
+        const response = await this.client.api(`/users/${email}`).get();
+        return {
+          id: response.id,
+          userPrincipalName: response.userPrincipalName,
+          displayName: response.displayName,
+          mail: response.mail,
+          accountEnabled: response.accountEnabled,
+          expirationDateTime: response.expirationDateTime
+        };
+      } catch (upnError: any) {
+        if (upnError.statusCode !== 404) {
+          throw upnError; // Se não for "not found", re-throw
+        }
+      }
+
+      // Se não encontrou por UPN, buscar por campo mail (para guests)
+      console.log('🔍 Buscando usuário guest por email:', email);
+      const users = await this.client.api('/users').filter(`mail eq '${email}'`).get();
+      
+      if (users.value && users.value.length > 0) {
+        const user = users.value[0];
+        console.log('✅ Usuário guest encontrado:', user.id);
+        return {
+          id: user.id,
+          userPrincipalName: user.userPrincipalName,
+          displayName: user.displayName,
+          mail: user.mail,
+          accountEnabled: user.accountEnabled,
+          expirationDateTime: user.expirationDateTime
+        };
+      }
+
+      return null; // Usuário não encontrado
 
     } catch (error: any) {
-      if (error.statusCode === 404) {
-        return null; // Usuário não encontrado
-      }
       console.error('❌ Erro ao buscar usuário:', error);
       return null;
+    }
+  }
+
+  // Buscar grupos de um usuário
+  async getUserGroups(userId: string): Promise<any[]> {
+    try {
+      const groups = await this.client.api(`/users/${userId}/memberOf`).get();
+      return groups.value || [];
+    } catch (error: any) {
+      console.error('❌ Erro ao buscar grupos do usuário:', error);
+      return [];
     }
   }
 
