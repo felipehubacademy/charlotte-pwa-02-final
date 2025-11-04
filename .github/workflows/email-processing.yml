@@ -26,14 +26,16 @@ jobs:
             BYPASS_URL="${BASE_URL}"
           fi
           
-          response=$(curl -s -w "\n%{http_code}" -X POST \
+          # Fazer requisição e capturar código HTTP final (após redirects)
+          # Usar -L para seguir redirects e -w para capturar código HTTP
+          response=$(curl -sL -w "\n%{http_code}" -X POST \
             "${BYPASS_URL}" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TOKEN }}" \
             -H "Content-Type: application/json")
           
-          # Separar resposta e código HTTP
+          # Separar resposta e código HTTP (última linha é o código)
           http_code=$(echo "$response" | tail -n1)
-          body=$(echo "$response" | head -n -1)
+          body=$(echo "$response" | sed '$d')
           
           echo "📊 Status HTTP: $http_code"
           echo "📋 Resposta: $body"
