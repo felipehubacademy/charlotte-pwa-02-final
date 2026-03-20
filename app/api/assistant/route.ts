@@ -156,7 +156,7 @@ async function handleTextMessageWithGrammar(
       grammarScore: grammarResult.analysis.overallScore,
       grammarErrors: grammarResult.analysis.errors.length,
       textComplexity: grammarResult.analysis.complexity,
-      technicalFeedback: formatGrammarFeedback(grammarResult),
+      technicalFeedback: formatGrammarFeedback(grammarResult) || `DEBUG:score=${grammarResult?.analysis?.overallScore}`,
     };
 
     console.log('✅ Text with grammar analysis and context response ready');
