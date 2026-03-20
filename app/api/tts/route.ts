@@ -22,11 +22,11 @@ export async function POST(request: NextRequest) {
     }
 
     const mp3 = await openai.audio.speech.create({
-      model: 'tts-1-hd',
+      model: 'tts-1',
       voice: 'coral',       // same voice as Live Voice for consistency
       input: text,
       response_format: 'mp3',
-      speed: 0.95,
+      speed: 1.0,
     });
 
     // Return as base64 so React Native can play without a separate download step
