@@ -3,7 +3,7 @@
 import OpenAI from 'openai';
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || 'placeholder',
 });
 
 // 📝 Interfaces para Análise de Gramática
@@ -165,7 +165,7 @@ Provide detailed grammar analysis focusing on the ${userLevel} level. Return onl
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-4.1-nano",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
@@ -292,7 +292,7 @@ Provide encouraging, helpful feedback focusing on improvement.`;
 
     try {
       const completion = await openai.chat.completions.create({
-        model: "gpt-4.1-nano",
+        model: "gpt-4o-mini",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }

@@ -686,7 +686,7 @@ Create a natural, conversational response that acknowledges their message and sm
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -2165,7 +2165,7 @@ Keep the response conversational and engaging, avoiding repetitive patterns.`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -2841,7 +2841,7 @@ Keep it natural and conversational - avoid formal assessment language.`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -3377,7 +3377,7 @@ Remember: Be a real friend reacting to their photo, not a formal teacher!`;
 React naturally to what they're showing you!`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -3595,7 +3595,7 @@ CONVERSATION APPROACH:
 Your job is to help them learn advanced English vocabulary through visual association while being a cool, supportive friend.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -3880,7 +3880,7 @@ CONVERSATION APPROACH:
 Your job is to help them learn practical English vocabulary through visual association while being a supportive teacher.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         {
@@ -4051,7 +4051,7 @@ INSTRUCTIONS:
 Your response should help the student learn new vocabulary through visual association.`;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         {
