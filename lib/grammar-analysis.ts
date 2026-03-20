@@ -52,18 +52,18 @@ export class GrammarAnalysisService {
     try {
       console.log('🔍 Starting grammar analysis for:', { text, userLevel, userName });
 
-      // 1. Análise estruturada com OpenAI
+      // 1. Análise estruturada com OpenAI (single call — skips generatePersonalizedFeedback to stay within Vercel timeout)
       const analysis = await this.performGrammarAnalysis(text, userLevel);
-      
+
       // 2. Calcular XP baseado na qualidade
       const xpAwarded = this.calculateGrammarXP(analysis, userLevel);
-      
-      // 3. Gerar feedback personalizado
-      const feedback = await this.generatePersonalizedFeedback(analysis, userLevel, userName);
-      
+
+      // 3. Feedback simples (sem chamada extra ao OpenAI — o contextual feedback faz isso)
+      const feedback = `Grammar score: ${analysis.overallScore}/100. ${analysis.errors.length === 0 ? 'No errors found!' : `${analysis.errors.length} issue(s) found.`}`;
+
       // 4. Gerar encorajamento
       const encouragement = this.generateEncouragement(analysis.overallScore, userLevel);
-      
+
       // 5. Sugerir próximo desafio
       const nextChallenge = this.generateNextChallenge(analysis, userLevel);
 
