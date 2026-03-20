@@ -4,8 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { grammarAnalysisService } from '@/lib/grammar-analysis';
 
+export const dynamic = 'force-dynamic';
+
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY || 'placeholder',
 });
 
 // ✅ Interface atualizada para aceitar contexto conversacional e imagens
@@ -154,7 +156,7 @@ async function handleTextMessageWithGrammar(
       grammarScore: grammarResult.analysis.overallScore,
       grammarErrors: grammarResult.analysis.errors.length,
       textComplexity: grammarResult.analysis.complexity,
-      technicalFeedback: ''
+      technicalFeedback: formatGrammarFeedback(grammarResult),
     };
 
     console.log('✅ Text with grammar analysis and context response ready');
@@ -1999,18 +2001,21 @@ KEEP IT NATURAL - be like a supportive friend who happens to know English well!`
 
     const userPrompt = transcription;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-        max_tokens: 90, // Permite conversas mais naturais e explicações
-      temperature: 0.7,
-    });
+    const [completion, grammarResult] = await Promise.all([
+      openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        max_tokens: 90,
+        temperature: 0.7,
+      }),
+      grammarAnalysisService.analyzeText(transcription, 'Inter', userName).catch(() => null),
+    ]);
 
     const assistantResponse = completion.choices[0]?.message?.content;
-    
+
     if (!assistantResponse) {
       throw new Error('No response from assistant');
     }
@@ -2079,12 +2084,12 @@ KEEP IT NATURAL - be like a supportive friend who happens to know English well!`
     const xpAwarded = 30; // Inter recebe XP moderado
 
     const response: AssistantResponse = {
-      feedback: correctedResponse, // Usar versão com pontuação corrigida
+      feedback: correctedResponse,
       xpAwarded,
-      nextChallenge: '', // Inter não precisa de challenge separado
+      nextChallenge: '',
       tips: ['Keep practicing your grammar!'],
       encouragement: 'You\'re improving! 💪',
-      technicalFeedback: ''
+      technicalFeedback: grammarResult ? formatGrammarFeedback(grammarResult) : '',
     };
 
     return NextResponse.json({ success: true, result: response });
@@ -2903,6 +2908,26 @@ Keep it natural and conversational - avoid formal assessment language.`;
       }
     });
   }
+}
+
+// Format grammar analysis result into a readable technicalFeedback string
+function formatGrammarFeedback(grammarResult: any): string {
+  const score = grammarResult.analysis?.overallScore ?? 0;
+  const errors: any[] = grammarResult.analysis?.errors ?? [];
+  const complexity: string = grammarResult.analysis?.complexity ?? '';
+  const strengths: string[] = grammarResult.analysis?.strengths ?? [];
+
+  if (errors.length === 0) {
+    return `Grammar ${score}/100 · ${complexity} · No errors — great writing! ✓`;
+  }
+
+  const errorLines = errors
+    .slice(0, 3)
+    .map((e: any) => `• ${e.type}: "${e.original}" → "${e.correction}"`)
+    .join('\n');
+
+  const strengthLine = strengths[0] ? `\n✓ ${strengths[0]}` : '';
+  return `Grammar ${score}/100 · ${complexity}\n${errorLines}${strengthLine}`;
 }
 
 // 🆕 Gerar feedback técnico DETALHADO usando dados ocultos do Azure
