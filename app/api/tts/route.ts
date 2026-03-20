@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const mp3 = await openai.audio.speech.create({
-      model: 'tts-1',
+      model: 'tts-1-hd',
       voice: 'coral',       // same voice as Live Voice for consistency
       input: text,
       response_format: 'mp3',
