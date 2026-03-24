@@ -4,18 +4,16 @@
 import React from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import { supabase } from '@/lib/supabase';
+
+// Expo Go (SDK 53+) removed remote push notifications — skip registration there
+const IS_EXPO_GO = Constants.appOwnership === 'expo';
 
 const EXPO_PROJECT_ID = 'da14586b-2944-4150-b8ad-5ff7e32af6e2';
 
-// How notifications appear while the app is open
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
+// Note: setNotificationHandler is called inside the hook to avoid
+// crashing during module-level TurboModule initialization.
 
 // ── XP milestone thresholds ──────────────────────────────────────────────────
 const XP_MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000];
@@ -44,6 +42,21 @@ export function usePushNotifications(userId?: string) {
   const responseListener = React.useRef<Notifications.Subscription>();
 
   React.useEffect(() => {
+    // Configure how notifications appear while the app is open.
+    // Must run inside useEffect (not at module level) to avoid TurboModule
+    // initialization crash on iOS.
+    try {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+    } catch (e) {
+      console.warn('⚠️ setNotificationHandler failed:', e);
+    }
+
     if (!userId) return;
 
     let mounted = true;
