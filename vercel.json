@@ -15,6 +15,15 @@
     },
     "app/api/leads/route.ts": {
       "maxDuration": 30
+    },
+    "app/api/assistant/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/tts/route.ts": {
+      "maxDuration": 30
+    },
+    "app/api/transcribe/route.ts": {
+      "maxDuration": 30
     }
   }
 }

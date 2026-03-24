@@ -119,44 +119,35 @@ async function handleTextMessageWithGrammar(
       console.log('🎓 Advanced will use grammar analysis with modern business personality...');
     }
 
-    // Para Inter/Advanced: usar análise completa de gramática
-    console.log('🔍 Starting comprehensive grammar analysis with context...');
+    // Para Advanced: rodar grammar analysis e Charlotte response em paralelo
+    // (grammar analysis usa o resultado só para technicalFeedback, não bloqueia a resposta)
+    console.log('🔍 Starting parallel grammar analysis + response...');
 
-    // 1. 🎯 ANÁLISE COMPLETA DE GRAMÁTICA
-    const grammarResult = await grammarAnalysisService.analyzeText(
-      transcription, 
-      userLevel, 
-      userName
-    );
+    const [grammarResult, charlotteResponse] = await Promise.all([
+      // 1. Grammar analysis para technicalFeedback (lightweight, paralela)
+      grammarAnalysisService.analyzeText(transcription, userLevel, userName)
+        .catch((e) => { console.warn('⚠️ Grammar analysis failed:', e?.message); return null; }),
+      // 2. Charlotte's conversational response (independent)
+      generateContextualFeedbackDirect(transcription, userLevel, userName, conversationContext),
+    ]);
 
-    console.log('📊 Grammar analysis completed:', {
-      score: grammarResult.analysis.overallScore,
-      errors: grammarResult.analysis.errors.length,
-      xp: grammarResult.xpAwarded,
-      complexity: grammarResult.analysis.complexity
+    console.log('📊 Parallel complete:', {
+      grammarScore: grammarResult?.analysis?.overallScore ?? 'n/a',
+      responseLength: charlotteResponse?.length ?? 0,
     });
 
-    // 2. 🎨 COMBINAR FEEDBACK DE GRAMÁTICA COM RESPOSTA CONVERSACIONAL CONTEXTUALIZADA
-    const combinedFeedback = await generateContextualFeedback(
-      transcription,
-      grammarResult,
-      userLevel,
-      userName,
-      conversationContext
-    );
-
     // 3. 📈 PREPARAR RESPOSTA COMPLETA
+    const xpAwarded = grammarResult?.xpAwarded ?? 10;
     const response: AssistantResponse = {
-      feedback: combinedFeedback,
-      xpAwarded: grammarResult.xpAwarded,
-      nextChallenge: grammarResult.nextChallenge,
-      tips: grammarResult.analysis.suggestions.slice(0, 2),
-      encouragement: grammarResult.encouragement,
-      // 🆕 Dados de gramática para o frontend
-      grammarScore: grammarResult.analysis.overallScore,
-      grammarErrors: grammarResult.analysis.errors.length,
-      textComplexity: grammarResult.analysis.complexity,
-      technicalFeedback: formatGrammarFeedback(grammarResult),
+      feedback: charlotteResponse,
+      xpAwarded,
+      nextChallenge: grammarResult?.nextChallenge,
+      tips: grammarResult?.analysis?.suggestions?.slice(0, 2) ?? [],
+      encouragement: grammarResult?.encouragement ?? '',
+      grammarScore: grammarResult?.analysis?.overallScore ?? 0,
+      grammarErrors: grammarResult?.analysis?.errors?.length ?? 0,
+      textComplexity: grammarResult?.analysis?.complexity ?? 'intermediate',
+      technicalFeedback: grammarResult ? formatGrammarFeedback(grammarResult) : '',
     };
 
     console.log('✅ Text with grammar analysis and context response ready');
@@ -734,6 +725,92 @@ Create a natural, conversational response that acknowledges their message and sm
     
     // Fallback: usar apenas o feedback de gramática
     return grammarResult.feedback;
+  }
+}
+
+// 🎯 Charlotte's conversational response WITHOUT needing grammarResult (runs in parallel)
+async function generateContextualFeedbackDirect(
+  originalText: string,
+  userLevel: string,
+  userName?: string,
+  conversationContext?: string
+): Promise<string> {
+
+  const systemPrompt = userLevel === 'Advanced'
+    ? `You are Charlotte, a modern business professional in your early 30s. Think startup founder, tech consultant, or someone who works at Google/Netflix - smart, direct, contemporary.
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+ADVANCED USER COMMUNICATION STYLE:
+- Be direct and helpful - answer what they're actually asking for
+- Use the conversation context to provide relevant, specific responses
+- MINIMAL grammar corrections - only if it affects understanding
+- Focus on content over form for Advanced users
+- Sound like a smart colleague, not a teacher
+
+CONTEXT-AWARE RESPONSES:
+- If they ask for "examples" after a topic was discussed, give examples of THAT topic
+- If they say "explain more" or "tell me more", expand on the previous topic
+- Use the recent conversation to understand what they really want
+- Don't make them repeat themselves or be overly explicit
+
+GRAMMAR FEEDBACK (MINIMAL):
+- Only correct if it's confusing or significantly impacts meaning
+- Skip minor issues like missing "some" or capitalization for short responses (sure, yes, ok are perfectly fine)
+- Skip corrections for single-word responses or casual acknowledgments
+- Focus on communication effectiveness, not perfection
+
+Create a response that directly addresses what they're asking for based on the conversation context.`
+    : `You are Charlotte, an English tutor. Create a natural, conversational response that maintains conversation flow.
+
+User Level: ${userLevel}
+Student name: ${userName || 'there'}
+
+${conversationContext ? `\n${conversationContext}\n` : ''}
+
+IMPORTANT CONVERSATION RULES:
+- Use the conversation context to avoid repetitive greetings
+- Build naturally on previous topics and messages
+- Don't say "Hi ${userName}" or "Hey ${userName}" if you've already greeted recently
+- Reference previous conversation when relevant
+- Keep the conversation flowing naturally
+
+Create a response that:
+1. Responds naturally to their message content (considering conversation history)
+2. Maintains an encouraging, conversational tone
+3. Continues the conversation naturally based on context
+
+Keep it natural - feel like a helpful friend having a real conversation.`;
+
+  const userPrompt = `Student said: "${originalText}"
+
+IMPORTANT: Look at the conversation context above. What is the user actually asking for based on the recent conversation? Respond directly and helpfully.`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 300,
+      temperature: 0.7,
+    });
+
+    const response = completion.choices[0]?.message?.content;
+    if (!response) return `Great point, ${userName || 'there'}! Keep it up! 😊`;
+
+    // Fix punctuation for Advanced (convert statements-as-questions to proper questions)
+    if (userLevel === 'Advanced') {
+      let fixed = response.trim();
+      fixed = fixed.replace(/\b(what's|whats|what|where|when|who|how|why|do|does|did|is|are|can|could|would|will|should|have|has|had)\b[^?]*\.$/gi, (m) => m.slice(0, -1) + '?');
+      return fixed;
+    }
+
+    return response;
+  } catch (error) {
+    console.error('Error in generateContextualFeedbackDirect:', error);
+    return `Great practice, ${userName || 'there'}! Keep it up! 😊`;
   }
 }
 
