@@ -12,7 +12,7 @@ import {
   Image,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
@@ -227,6 +227,7 @@ export default function LiveVoiceModal({
   userName = 'Student',
   onXPGained,
 }: LiveVoiceModalProps) {
+  const insets = useSafeAreaInsets();
   const [status, setStatus] = React.useState<ConnectionStatus>('disconnected');
   const [isMuted, setIsMuted] = React.useState(false);
   const [isSpeaker, setIsSpeaker] = React.useState(false);
@@ -708,10 +709,7 @@ export default function LiveVoiceModal({
       transparent={false}
       hardwareAccelerated
     >
-      <SafeAreaView
-        style={{ flex: 1, backgroundColor: '#07071C' }}
-        edges={['top', 'bottom']}
-      >
+      <View style={{ flex: 1, backgroundColor: '#07071C', paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 24 }}>
 
           {/* ── TOP: Nome + Timer ─────────────────────────────────── */}
@@ -772,6 +770,7 @@ export default function LiveVoiceModal({
             {/* Mute */}
             <TouchableOpacity
               onPress={handleMute}
+              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
               style={{
                 width: 56, height: 56, borderRadius: 28,
                 backgroundColor: isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
@@ -789,6 +788,7 @@ export default function LiveVoiceModal({
             {/* End call */}
             <TouchableOpacity
               onPress={handleEndCall}
+              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
               style={{
                 width: 68, height: 68, borderRadius: 34,
                 backgroundColor: '#ef4444',
@@ -804,6 +804,7 @@ export default function LiveVoiceModal({
             {/* Speaker / Ouvido */}
             <TouchableOpacity
               onPress={handleSpeakerToggle}
+              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
               style={{
                 width: 56, height: 56, borderRadius: 28,
                 backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
@@ -820,7 +821,7 @@ export default function LiveVoiceModal({
           </View>
 
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
