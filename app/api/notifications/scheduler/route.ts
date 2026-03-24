@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import NotificationScheduler from '@/lib/notification-scheduler';
+import { runExpoNotifications } from '@/lib/expo-notification-service';
+import { getSupabase } from '@/lib/supabase';
 
 /**
  * 🕐 API para executar o sistema de agendamento de notificações
@@ -73,9 +75,18 @@ export async function GET(request: NextRequest) {
     // Se for chamada do Vercel Cron, executar tarefas
     if (isVercelCron) {
       console.log('🕐 [SCHEDULER API] Vercel Cron detected, executing scheduled tasks...');
-      
+
+      const supabase = getSupabase();
+      const hour = new Date().getUTCHours();
+
+      // Web push (PWA users)
       await NotificationScheduler.runScheduledTasks();
-      
+
+      // Expo push (React Native users)
+      if (supabase) {
+        await runExpoNotifications(supabase, hour);
+      }
+
       return NextResponse.json({
         success: true,
         message: '✅ Vercel Cron: Scheduled tasks completed successfully',
