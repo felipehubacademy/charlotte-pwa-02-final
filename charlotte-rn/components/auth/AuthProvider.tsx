@@ -23,7 +23,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Register push notifications after login
-  usePushNotifications(session?.user?.id);
+  // Temporarily disabled: crashing on iOS 26 in production builds
+  // TODO: re-enable after confirming expo-notifications iOS 26 compatibility
+  // usePushNotifications(session?.user?.id);
 
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     const { data, error } = await supabase
@@ -40,25 +42,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        const userProfile = await fetchProfile(session.user.id);
-        setProfile(userProfile);
-      }
-      setIsLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
         setSession(session);
         if (session?.user) {
           const userProfile = await fetchProfile(session.user.id);
           setProfile(userProfile);
-        } else {
-          setProfile(null);
         }
         setIsLoading(false);
+      })
+      .catch((error) => {
+        console.error('[AuthProvider] getSession error:', error);
+        setIsLoading(false); // never leave the app stuck on loading
+      });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        try {
+          setSession(session);
+          if (session?.user) {
+            const userProfile = await fetchProfile(session.user.id);
+            setProfile(userProfile);
+          } else {
+            setProfile(null);
+          }
+        } catch (error) {
+          console.error('[AuthProvider] onAuthStateChange error:', error);
+        } finally {
+          setIsLoading(false);
+        }
       }
     );
 
