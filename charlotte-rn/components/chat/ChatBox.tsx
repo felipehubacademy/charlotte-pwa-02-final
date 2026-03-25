@@ -1,0 +1,431 @@
+import React from 'react';
+import {
+  View,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  Animated,
+} from 'react-native';
+import {
+  Play, Pause, SpeakerHigh,
+  Globe, Microphone, ArrowsClockwise,
+  ChatCenteredText,
+} from 'phosphor-react-native';
+import { AppText } from '@/components/ui/Text';
+import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
+import { translationService, TranslationResult } from '@/lib/translation-service';
+
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  audioUrl?: string;   // remote URL (Charlotte's TTS response)
+  audioUri?: string;   // local file URI (user's recorded audio)
+  audioDuration?: number;
+  isTyping?: boolean;
+  isRecording?: boolean;
+  timestamp?: Date;
+  messageType?: 'text' | 'audio' | 'image';
+  technicalFeedback?: string;
+}
+
+interface ChatBoxProps {
+  messages: Message[];
+  transcript: string;
+  finalTranscript: string;
+  isProcessingMessage: boolean;
+  isProcessingAudio?: boolean;
+  userLevel: string;
+  onPlayAudio?: (messageId: string) => void;
+  playingMessageId?: string | null;
+}
+
+// Typing indicator — dots for text, mic pulse for audio
+const TypingIndicator = ({ isAudio = false }: { isAudio?: boolean }) => {
+  const dots = [0, 1, 2].map(() => React.useRef(new Animated.Value(0)).current);
+  const pulse = React.useRef(new Animated.Value(0.5)).current;
+
+  React.useEffect(() => {
+    if (isAudio) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 0.5, duration: 600, useNativeDriver: true }),
+        ])
+      ).start();
+      return () => pulse.stopAnimation();
+    } else {
+      const animations = dots.map((dot, i) =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(i * 200),
+            Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
+            Animated.timing(dot, { toValue: 0, duration: 400, useNativeDriver: true }),
+          ])
+        )
+      );
+      animations.forEach(a => a.start());
+      return () => animations.forEach(a => a.stop());
+    }
+  }, [isAudio]);
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, alignSelf: 'flex-start' }}>
+      <CharlotteAvatar size="xs" />
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#212121', borderRadius: 18, borderBottomLeftRadius: 5, paddingHorizontal: 14, paddingVertical: 12 }}>
+        {isAudio ? (
+          <Animated.View style={{ opacity: pulse }}>
+            <Microphone size={16} color="#A3FF3C" weight="fill" />
+          </Animated.View>
+        ) : (
+          dots.map((dot, i) => (
+            <Animated.View
+              key={i}
+              style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)', opacity: dot }}
+            />
+          ))
+        )}
+      </View>
+    </View>
+  );
+};
+
+// Audio waveform indicator
+const AudioRecordingIndicator = () => (
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#212121', borderRadius: 18, borderBottomLeftRadius: 5, alignSelf: 'flex-start', marginBottom: 16 }}>
+    <CharlotteAvatar size="xs" />
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      <Microphone size={14} color="#A3FF3C" weight="fill" />
+      <AppText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>Recording...</AppText>
+    </View>
+  </View>
+);
+
+const MessageBubble: React.FC<{
+  message: Message;
+  userLevel: string;
+  isPlaying: boolean;
+  onTogglePlay: () => void;
+}> = ({ message, userLevel, isPlaying, onTogglePlay }) => {
+  const [showTranslation, setShowTranslation] = React.useState(false);
+  const [showTranscription, setShowTranscription] = React.useState(false);
+  const [showTechnicalFeedback, setShowTechnicalFeedback] = React.useState(false);
+  const [translation, setTranslation] = React.useState('');
+  const [isTranslating, setIsTranslating] = React.useState(false);
+  const [translationError, setTranslationError] = React.useState(false);
+  const [transcription, setTranscription] = React.useState('');
+
+  const isUser = message.role === 'user';
+  const isNovice = userLevel === 'Novice';
+  const hasAudio = !!(message.audioUrl || message.audioUri);
+  const isAudioResponse = !isUser && !!message.technicalFeedback;
+  // Charlotte's audio response — text hidden by default, revealed via "Ver texto"
+  const isCharlotteAudio = !isUser && message.messageType === 'audio' && !!message.audioUrl;
+
+  const fetchTranslation = async () => {
+    if (translation) return; // já temos
+    setIsTranslating(true);
+    setTranslationError(false);
+    try {
+      const result: TranslationResult = await translationService.translateToPortuguese(
+        message.content,
+        'Charlotte English tutor conversation',
+        userLevel
+      );
+      setTranslation(result.success ? result.translatedText : result.translatedText);
+      if (!result.success) setTranslationError(true);
+    } catch {
+      setTranslationError(true);
+      setTranslation('Desculpe, não foi possível traduzir esta mensagem no momento.');
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  const handleTranslation = async () => {
+    if (!showTranslation && !translation && !isTranslating) {
+      await fetchTranslation();
+    }
+    setShowTranslation(v => !v);
+  };
+
+  const handleTranscription = () => {
+    // Use the actual content (already available — it's the text sent to TTS)
+    setTranscription(message.content || '');
+    setShowTranscription(v => !v);
+  };
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <View style={{ flexDirection: 'row', marginBottom: 16, justifyContent: isUser ? 'flex-end' : 'flex-start', alignItems: 'flex-start' }}>
+      {/* Avatar for assistant messages — alinhado ao topo */}
+      {!isUser && (
+        <View style={{ marginRight: 8, marginTop: 2 }}>
+          <CharlotteAvatar size="xs" />
+        </View>
+      )}
+      <View style={{ maxWidth: '78%', marginLeft: isUser ? 48 : 0, marginRight: isUser ? 0 : 8 }}>
+
+        {/* Bubble */}
+        <View
+          style={{
+            paddingHorizontal: 14,
+            paddingVertical: 10,
+            borderRadius: 20,
+            backgroundColor: isUser ? '#A3FF3C' : '#212121',
+            borderBottomRightRadius: isUser ? 5 : 20,
+            borderBottomLeftRadius: isUser ? 20 : 5,
+          }}
+        >
+          {/* Text content — hidden for Charlotte's audio responses (shown via "Ver texto") */}
+          {!!message.content && !isCharlotteAudio && (
+            <AppText
+              style={{ fontSize: 14, lineHeight: 21, color: isUser ? '#000' : 'rgba(255,255,255,0.92)' }}
+            >
+              {message.content}
+            </AppText>
+          )}
+
+          {/* Image */}
+          {message.messageType === 'image' && !!message.audioUrl && (
+            <View className={message.content ? 'mt-3 pt-3 border-t border-white/10' : ''}>
+              <Image
+                source={{ uri: message.audioUrl }}
+                className="w-32 h-32 rounded-lg"
+                resizeMode="cover"
+              />
+            </View>
+          )}
+
+          {/* Audio player */}
+          {hasAudio && message.messageType !== 'image' && (
+            <View
+              style={{
+                flexDirection: 'row', alignItems: 'center', gap: 10,
+                // Only add separator if there's visible text above (not for Charlotte audio)
+                ...(!isCharlotteAudio && message.content ? { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' } : {}),
+              }}
+            >
+              <TouchableOpacity
+                onPress={onTogglePlay}
+                style={{
+                  padding: 7, borderRadius: 20,
+                  backgroundColor: isUser ? 'rgba(0,0,0,0.15)' : 'rgba(163,255,60,0.15)',
+                }}
+              >
+                {isPlaying
+                  ? <Pause size={14} color={isUser ? '#000' : '#A3FF3C'} weight="fill" />
+                  : <Play  size={14} color={isUser ? '#000' : '#A3FF3C'} weight="fill" />
+                }
+              </TouchableOpacity>
+
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 2, height: 28 }}>
+                {Array.from({ length: 22 }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={{
+                      flex: 1,
+                      height: 4 + ((i * 7 + 3) % 16),
+                      borderRadius: 2,
+                      backgroundColor: isUser
+                        ? `rgba(0,0,0,${0.25 + (i % 3) * 0.1})`
+                        : `rgba(163,255,60,${0.35 + (i % 3) * 0.15})`,
+                    }}
+                  />
+                ))}
+              </View>
+
+              <SpeakerHigh size={14} color={isUser ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)'} weight="regular" />
+            </View>
+          )}
+        </View>
+
+        {/* Feedback button below user's own bubble (grammar / pronunciation) */}
+        {isUser && !!message.technicalFeedback && !isNovice && (
+          <View style={{ flexDirection: 'row', marginTop: 6, paddingHorizontal: 4, justifyContent: 'flex-end' }}>
+            <TouchableOpacity
+              onPress={() => setShowTechnicalFeedback(v => !v)}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+            >
+              <SpeakerHigh size={12} color="#A3FF3C" weight="regular" />
+              <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>
+                {showTechnicalFeedback ? 'Hide feedback' : 'Feedback'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Action buttons below assistant messages */}
+        {!isUser && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6, paddingHorizontal: 2 }}>
+            {isNovice && (
+              <TouchableOpacity
+                onPress={handleTranslation}
+                disabled={isTranslating}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                {isTranslating
+                  ? <ArrowsClockwise size={12} color="rgba(255,255,255,0.4)" weight="regular" />
+                  : <Globe size={12} color="#A3FF3C" weight="regular" />
+                }
+                <AppText style={{ fontSize: 12, color: isTranslating ? 'rgba(255,255,255,0.4)' : '#A3FF3C' }}>
+                  {isTranslating ? 'Traduzindo...' : 'Traduzir'}
+                </AppText>
+              </TouchableOpacity>
+            )}
+
+            {isAudioResponse && userLevel !== 'Novice' && (
+              <TouchableOpacity
+                onPress={() => setShowTechnicalFeedback(v => !v)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                <SpeakerHigh size={12} color="#A3FF3C" weight="regular" />
+                <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>Feedback</AppText>
+              </TouchableOpacity>
+            )}
+
+            {/* "Ver texto" — shows Charlotte's TTS text; available for all levels on audio responses */}
+            {isCharlotteAudio && !!message.content && (
+              <TouchableOpacity
+                onPress={handleTranscription}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                <ChatCenteredText size={12} color="#A3FF3C" weight="regular" />
+                <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>
+                  {showTranscription
+                    ? (userLevel === 'Novice' ? 'Esconder' : 'Hide text')
+                    : (userLevel === 'Novice' ? 'Ver texto' : 'Show text')}
+                </AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Translation panel */}
+        {showTranslation && (
+          <View style={{ marginTop: 8, padding: 12, backgroundColor: 'rgba(163,255,60,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(163,255,60,0.2)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+              <Globe size={12} color="#A3FF3C" weight="regular" />
+              <AppText style={{ fontSize: 11, color: '#A3FF3C', fontWeight: '600' }}>
+                Tradução em Português{translationError ? ' (básica)' : ''}
+              </AppText>
+            </View>
+            {isTranslating ? (
+              <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>Traduzindo...</AppText>
+            ) : (
+              <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>
+                {translation || 'Tradução não disponível.'}
+              </AppText>
+            )}
+            {translationError && !isTranslating && (
+              <TouchableOpacity
+                onPress={() => { setTranslation(''); setTranslationError(false); fetchTranslation(); }}
+                style={{ marginTop: 6 }}
+              >
+                <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>Tentar novamente</AppText>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {/* Transcription panel */}
+        {showTranscription && (
+          <View style={{ marginTop: 8, padding: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
+              <ChatCenteredText size={12} color="#A3FF3C" weight="regular" />
+              <AppText style={{ fontSize: 11, color: '#A3FF3C', fontWeight: '600' }}>Transcription</AppText>
+            </View>
+            <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)' }}>{transcription}</AppText>
+          </View>
+        )}
+
+        {/* Technical Feedback panel */}
+        {showTechnicalFeedback && !!message.technicalFeedback && (
+          <View style={{ marginTop: 8, padding: 14, backgroundColor: 'rgba(163,255,60,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
+              <SpeakerHigh size={13} color="#A3FF3C" weight="regular" />
+              <AppText style={{ fontSize: 13, color: '#A3FF3C', fontWeight: '600' }}>Pronunciation Analysis</AppText>
+            </View>
+            <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>
+              {message.technicalFeedback}
+            </AppText>
+          </View>
+        )}
+
+        {/* Timestamp */}
+        <AppText style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4, paddingHorizontal: 4, textAlign: isUser ? 'right' : 'left' }}>
+          {message.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </AppText>
+      </View>
+    </View>
+  );
+};
+
+// Main ChatBox
+const ChatBox: React.FC<ChatBoxProps> = ({
+  messages,
+  transcript,
+  finalTranscript,
+  isProcessingMessage,
+  isProcessingAudio = false,
+  userLevel,
+  onPlayAudio,
+  playingMessageId,
+}) => {
+  const flatListRef = React.useRef<FlatList>(null);
+
+  // FlatList inverted = messages appear at bottom, newest on top
+  // We reverse so index 0 = newest (inverted FlatList renders it at bottom)
+  const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
+
+  const renderItem = ({ item }: { item: Message }) => (
+    <MessageBubble
+      message={item}
+      userLevel={userLevel}
+      isPlaying={playingMessageId === item.id}
+      onTogglePlay={() => onPlayAudio?.(item.id)}
+    />
+  );
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#16153A' }}>
+      <FlatList
+        ref={flatListRef}
+        data={reversedMessages}
+        keyExtractor={item => item.id}
+        renderItem={renderItem}
+        inverted
+        style={{ backgroundColor: '#16153A' }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 14, paddingVertical: 12, paddingBottom: 4, backgroundColor: '#16153A' }}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <>
+            {/* Shown at the "bottom" of the list (top in inverted) */}
+            {isProcessingMessage && <TypingIndicator isAudio={isProcessingAudio} />}
+
+            {/* Live transcript while recording */}
+            {!!(transcript || finalTranscript) && (
+              <View className="bg-primary/10 rounded-xl p-3 mb-4 border border-primary/20">
+                <AppText className="text-xs text-primary font-medium mb-1">
+                  🎙 Listening...
+                </AppText>
+                <AppText className="text-sm text-white">
+                  <AppText className="text-white/50">{transcript}</AppText>
+                  <AppText className="text-white font-medium">{finalTranscript}</AppText>
+                </AppText>
+              </View>
+            )}
+          </>
+        }
+      />
+    </View>
+  );
+};
+
+export default ChatBox;

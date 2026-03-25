@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { v4 as uuidv4 } from 'uuid';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { HubSpotService } from '@/lib/hubspot-service';
-import { AzureADUserService } from '@/lib/azure-ad-user-service';
-
-// Configuração do Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Inicializar HubSpot se configurado
 if (process.env.HUBSPOT_API_KEY) {
-  HubSpotService.initialize(process.env.HUBSPOT_API_KEY, process.env.HUBSPOT_DEFAULT_OWNER_ID);
+  HubSpotService.initialize(
+    process.env.HUBSPOT_API_KEY,
+    process.env.HUBSPOT_DEFAULT_OWNER_ID
+  );
 }
 
 interface LeadData {
@@ -25,11 +20,15 @@ interface LeadData {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseAdmin();
+
   try {
     const body: LeadData = await request.json();
     const { nome, email, telefone, nivel, senha, confirmarSenha } = body;
 
-    // Validação básica
+    // ----------------------------------------------------------
+    // 1. Validar inputs
+    // ----------------------------------------------------------
     if (!nome || !email || !telefone || !nivel || !senha || !confirmarSenha) {
       return NextResponse.json(
         { error: 'Todos os campos são obrigatórios' },
@@ -37,7 +36,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar senhas
     if (senha.length < 6) {
       return NextResponse.json(
         { error: 'Senha deve ter pelo menos 6 caracteres' },
@@ -52,277 +50,239 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return NextResponse.json(
-        { error: 'Email inválido' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email inválido' }, { status: 400 });
     }
 
-    // Validar telefone brasileiro
     const phoneRegex = /^\(\d{2}\)\s\d{4,5}-\d{4}$/;
     if (!phoneRegex.test(telefone)) {
       return NextResponse.json(
-        { error: 'Formato de telefone inválido' },
+        { error: 'Formato de telefone inválido. Use: (XX) XXXXX-XXXX' },
         { status: 400 }
       );
     }
 
-    // Verificar se email já existe
-    const { data: existingLead } = await supabase
+    // ----------------------------------------------------------
+    // 2. Verificar se email já existe em leads
+    // ----------------------------------------------------------
+    interface ExistingLead {
+      id: string;
+      status: string;
+      user_id: string | null;
+    }
+
+    const { data: existingLeadRaw } = await supabase
       .from('leads')
       .select('id, status, user_id')
       .eq('email', email)
-      .single();
+      .maybeSingle();
+
+    const existingLead = existingLeadRaw as ExistingLead | null;
+
+    if (existingLead?.user_id) {
+      // Já tem conta criada — redirecionar para instalação
+      return NextResponse.json(
+        {
+          success: true,
+          message: 'Lead já cadastrado',
+          redirect: '/install',
+        },
+        { status: 200 }
+      );
+    }
+
+    // ----------------------------------------------------------
+    // 3. Criar lead no Supabase (tabela leads)
+    // ----------------------------------------------------------
+    let leadId: string;
 
     if (existingLead) {
-      // Se já existe e tem user_id, redirecionar para instalação
-      if (existingLead.user_id) {
-        return NextResponse.json(
-          { 
-            success: true, 
-            message: 'Lead já cadastrado',
-            redirect: '/install'
-          },
-          { status: 200 }
-        );
-      }
-      
-      // Se existe mas não tem user_id, atualizar dados
+      // Atualizar lead existente sem user_id
       const { error: updateError } = await supabase
         .from('leads')
         .update({
           nome,
           telefone,
           nivel_ingles: nivel,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', existingLead.id);
 
       if (updateError) {
-        console.error('Erro ao atualizar lead:', updateError);
+        console.error('❌ Erro ao atualizar lead:', updateError);
         return NextResponse.json(
           { error: 'Erro ao processar cadastro' },
           { status: 500 }
         );
       }
 
-      // Criar conta temporária
-      const { data: userData, error: authError } = await supabase.auth.admin.createUser({
-        email,
-        password: senha, // Senha fornecida pelo usuário
-        email_confirm: true,
-        user_metadata: {
+      leadId = existingLead.id;
+    } else {
+      const { data: newLeadRaw, error: leadError } = await supabase
+        .from('leads')
+        .insert({
           nome,
+          email,
           telefone,
           nivel_ingles: nivel,
-          is_trial: true,
-          lead_id: existingLead.id
-        }
-      });
+          status: 'pending',
+        })
+        .select('id')
+        .single();
 
-      if (authError || !userData.user) {
-        console.error('Erro ao criar usuário:', authError);
+      const newLead = newLeadRaw as { id: string } | null;
+
+      if (leadError || !newLead) {
+        console.error('❌ Erro ao criar lead:', leadError);
         return NextResponse.json(
-          { error: 'Erro ao criar conta temporária' },
+          { error: 'Erro ao processar cadastro' },
           { status: 500 }
         );
       }
 
-      // Criar trial access
-      const { error: trialError } = await supabase.rpc('create_trial_access', {
-        p_user_id: userData.user.id,
-        p_lead_id: existingLead.id,
-        p_nivel_ingles: nivel
-      });
-
-      if (trialError) {
-        console.error('Erro ao criar trial access:', trialError);
-        // Tentar limpar usuário criado
-        await supabase.auth.admin.deleteUser(userData.user.id);
-        return NextResponse.json(
-          { error: 'Erro ao configurar acesso temporário' },
-          { status: 500 }
-        );
-      }
-
-      // Enviar para HubSpot (se configurado)
-      const hubspotContact = await HubSpotService.createContact({
-        nome,
-        email,
-        telefone,
-        nivel_ingles: nivel,
-        lead_id: existingLead.id
-      });
-
-      if (hubspotContact) {
-        // Atualizar lead com HubSpot ID
-        await supabase
-          .from('leads')
-          .update({ hubspot_contact_id: hubspotContact.id })
-          .eq('id', existingLead.id);
-      }
-
-      return NextResponse.json(
-        { 
-          success: true, 
-          message: 'Lead atualizado e conta criada',
-          redirect: '/install'
-        },
-        { status: 200 }
-      );
+      leadId = newLead.id;
     }
 
-    // Criar lead no banco
-    const { data: newLead, error: leadError } = await supabase
-      .from('leads')
-      .insert({
+    // ----------------------------------------------------------
+    // 4. Criar usuário via supabaseAdmin.createUser()
+    // ----------------------------------------------------------
+    const newUser = await supabase.auth.admin.createUser({
+      email,
+      password: senha,
+      email_confirm: true,
+      app_metadata: { user_level: nivel },
+      user_metadata: {
         nome,
-        email,
         telefone,
         nivel_ingles: nivel,
-        status: 'pending'
-      })
-      .select()
-      .single();
+        is_trial: true,
+        lead_id: leadId,
+      },
+    });
 
-    if (leadError || !newLead) {
-      console.error('Erro ao criar lead:', leadError);
+    if (newUser.error || !newUser.data.user) {
+      console.error('❌ Erro ao criar usuário Supabase Auth:', newUser.error);
       return NextResponse.json(
-        { error: 'Erro ao processar cadastro' },
+        { error: 'Erro ao criar conta de acesso' },
         { status: 500 }
       );
     }
 
-    // Criar usuário no Azure AD (definitivo)
-    console.log('🔧 Criando usuário no Azure AD...');
-    const azureService = new AzureADUserService();
-    
+    const userId = newUser.data.user.id;
+
+    // ----------------------------------------------------------
+    // 5. Definir user_level e trial_expires_at no profile
+    // ----------------------------------------------------------
+    const trialExpiresAt = new Date();
+    trialExpiresAt.setDate(trialExpiresAt.getDate() + 7);
+
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: userId,
+          email,
+          name: nome,
+          user_level: nivel,
+          is_active: true,
+          trial_expires_at: trialExpiresAt.toISOString(),
+          entra_id: userId, // backward compat
+          last_activity: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'id' }
+      );
+
+    if (profileError) {
+      console.warn('⚠️ Erro ao criar profile:', profileError.message);
+      // Não bloquear o fluxo — profile pode ser criado no login
+    }
+
+    // Atualizar lead com user_id e data de expiração
+    await supabase
+      .from('leads')
+      .update({
+        user_id: userId,
+        data_expiracao: trialExpiresAt.toISOString(),
+        status: 'converted',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', leadId);
+
+    // ----------------------------------------------------------
+    // 6. Criar registro em trial_access
+    // ----------------------------------------------------------
+    const { error: trialError } = await supabase.rpc('create_trial_access', {
+      p_user_id: userId,
+      p_lead_id: leadId,
+      p_nivel_ingles: nivel,
+    });
+
+    if (trialError) {
+      console.warn('⚠️ Erro ao criar trial_access via RPC:', trialError.message);
+      // Tentar inserir diretamente como fallback
+      await supabase.from('trial_access').insert({
+        user_id: userId,
+        lead_id: leadId,
+        data_fim: trialExpiresAt.toISOString(),
+        nivel_ingles: nivel,
+        status: 'active',
+      });
+    }
+
+    // ----------------------------------------------------------
+    // 7. Disparar HubSpot (manter existente)
+    // ----------------------------------------------------------
+    let hubspotContactId: string | null = null;
+    let hubspotDealId: string | null = null;
+
     try {
-      console.log('📋 Chamando createTrialUser com parâmetros:');
-      console.log('  - displayName:', nome);
-      console.log('  - email:', email);
-      console.log('  - nivel:', nivel);
-      console.log('  - password:', '***');
-      
-      const azureUser = await azureService.createTrialUser(nome, email, nivel, senha);
-      
-      console.log('📊 Resultado do createTrialUser:', azureUser);
-      
-      if (!azureUser) {
-        console.error('❌ Azure AD retornou null');
-        return NextResponse.json(
-          { error: 'Erro ao criar conta no sistema corporativo' },
-          { status: 500 }
-        );
-      }
-      
-      console.log('✅ Usuário criado no Azure AD:', azureUser.id);
-      
-      const azureUserId = azureUser.id;
-      console.log('✅ Usuário criado no Azure AD:', azureUserId);
-      
-      // Atualizar lead com Azure ID
-      const expirationDate = new Date();
-      expirationDate.setDate(expirationDate.getDate() + 7);
-      
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({
-          azure_user_id: azureUserId,
-          data_expiracao: expirationDate.toISOString(),
-          status: 'converted'
-        })
-        .eq('id', newLead.id);
-
-      if (updateError) {
-        console.error('Erro ao atualizar lead:', updateError);
-        return NextResponse.json(
-          { error: 'Erro ao atualizar lead' },
-          { status: 500 }
-        );
-      }
-
-      // Enviar para HubSpot (se configurado) - Criar contato e deal
       const hubspotResult = await HubSpotService.createContactAndDeal({
         nome,
         email,
         telefone,
         nivel_ingles: nivel,
-        lead_id: newLead.id
+        lead_id: leadId,
       });
 
       if (hubspotResult.contact) {
-        // Atualizar lead com HubSpot ID
+        hubspotContactId = hubspotResult.contact.id;
+        hubspotDealId = hubspotResult.deal?.id || null;
+
         await supabase
           .from('leads')
-          .update({ 
-            hubspot_contact_id: hubspotResult.contact.id,
-            hubspot_deal_id: hubspotResult.deal?.id || null
+          .update({
+            hubspot_contact_id: hubspotContactId,
+            hubspot_deal_id: hubspotDealId,
           })
-          .eq('id', newLead.id);
-        
-        console.log('✅ Lead atualizado com HubSpot IDs:', {
-          contact: hubspotResult.contact.id,
-          deal: hubspotResult.deal?.id || 'N/A'
-        });
+          .eq('id', leadId);
       }
-
-      // Agendar email de boas-vindas
-      await scheduleWelcomeEmail(newLead.id, azureUserId);
-
-      return NextResponse.json(
-        { 
-          success: true, 
-          message: 'Lead criado e conta temporária ativada',
-          data: {
-            leadId: newLead.id,
-            azureUserId: azureUserId,
-            hubspotContactId: hubspotResult.contact?.id,
-            hubspotDealId: hubspotResult.deal?.id
-          },
-          redirect: '/install'
-        },
-        { status: 200 }
-      );
-      
-    } catch (azureError) {
-      console.error('❌ Erro específico do Azure AD:', azureError);
-      console.error('❌ Stack trace:', azureError instanceof Error ? azureError.stack : 'N/A');
-      return NextResponse.json(
-        { 
-          error: 'Erro ao criar conta no sistema corporativo',
-          details: azureError instanceof Error ? azureError.message : 'Erro desconhecido'
-        },
-        { status: 500 }
-      );
+    } catch (hubspotErr) {
+      console.warn('⚠️ HubSpot error (non-blocking):', hubspotErr);
     }
 
+    // ----------------------------------------------------------
+    // 8. Retornar { success, userId, leadId }
+    // ----------------------------------------------------------
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Conta criada com sucesso',
+        userId,
+        leadId,
+        hubspotContactId,
+        hubspotDealId,
+        redirect: '/install',
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    console.error('Erro na API de leads:', error);
+    console.error('❌ Erro na API de leads:', error);
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
     );
-  }
-}
-
-
-// Função para agendar email de boas-vindas
-async function scheduleWelcomeEmail(leadId: string, azureUserId: string) {
-  try {
-    await supabase
-      .from('email_notifications')
-      .insert({
-        lead_id: leadId,
-        azure_user_id: azureUserId,
-        tipo: 'welcome',
-        status: 'pending',
-        data_agendamento: new Date().toISOString()
-      });
-  } catch (error) {
-    console.error('Erro ao agendar email de boas-vindas:', error);
   }
 }

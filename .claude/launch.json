@@ -1,0 +1,40 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "Charlotte PWA (Next.js dev)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "/Users/felipexavier/charlotte-pwa-02-final",
+      "port": 3000
+    },
+    {
+      "name": "Charlotte RN (Expo iOS)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "ios"],
+      "cwd": "/Users/felipexavier/charlotte-pwa-02-final/charlotte-rn",
+      "port": 8081
+    },
+    {
+      "name": "Charlotte RN (Expo Android)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "android"],
+      "cwd": "/Users/felipexavier/charlotte-pwa-02-final/charlotte-rn",
+      "port": 8081
+    },
+    {
+      "name": "Charlotte RN (Expo — QR scan)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start"],
+      "cwd": "/Users/felipexavier/charlotte-pwa-02-final/charlotte-rn",
+      "port": 8081
+    },
+    {
+      "name": "Audio Spike (Expo iOS)",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "ios"],
+      "cwd": "/Users/felipexavier/charlotte-pwa-02-final/charlotte-audio-spike",
+      "port": 8082
+    }
+  ]
+}

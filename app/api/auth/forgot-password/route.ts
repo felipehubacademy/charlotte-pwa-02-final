@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { SimpleEmailService } from '@/lib/simple-email-service';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Força route handler dinâmico (não analisa em build time)
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseAdmin();
+
   try {
     const { email } = await request.json();
 
@@ -28,11 +28,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se existe um lead com este email
-    const { data: lead, error: leadError } = await supabase
+    interface LeadRecord {
+      id: string;
+      nome: string;
+      email: string;
+      user_id: string | null;
+      data_expiracao: string;
+    }
+
+    const { data: leadRaw, error: leadError } = await supabase
       .from('leads')
       .select('id, nome, email, user_id, data_expiracao')
       .eq('email', email)
       .single();
+
+    const lead = leadRaw as LeadRecord | null;
 
     if (leadError || !lead) {
       return NextResponse.json(

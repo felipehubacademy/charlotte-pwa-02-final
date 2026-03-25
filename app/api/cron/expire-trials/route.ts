@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import TrialAzureIntegration from '@/lib/trial-azure-integration';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { disableUser } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseAdmin();
+
   try {
-    // Verificar token de autenticação
+    // ----------------------------------------------------------
+    // 1. Validar CRON_SECRET_TOKEN
+    // ----------------------------------------------------------
     const authHeader = request.headers.get('authorization');
     const expectedToken = process.env.CRON_SECRET_TOKEN;
-    
+
     if (!expectedToken) {
       console.error('CRON_SECRET_TOKEN não configurado');
       return NextResponse.json(
@@ -24,80 +29,113 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.substring(7);
     if (token !== expectedToken) {
-      return NextResponse.json(
-        { error: 'Token inválido' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
-    // Verificar se é para processar um lead específico
-    const body = await request.json().catch(() => ({}));
-    const leadId = body.leadId;
-
-    if (leadId) {
-      // Processar lead específico
-      console.log(`🔄 Processando trial específico: ${leadId}`);
-      const success = await TrialAzureIntegration.expireTrial(leadId);
-      
-      if (success) {
-        console.log(`✅ Trial ${leadId} expirado com sucesso`);
-        return NextResponse.json({
-          success: true,
-          message: 'Trial expirado com sucesso',
-          leadId
-        });
-      } else {
-        console.error(`❌ Erro ao expirar trial ${leadId}`);
-        return NextResponse.json(
-          { error: 'Erro ao expirar trial' },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Processar todos os trials expirados (comportamento original)
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { data: expiredTrials, error } = await supabase
+    // ----------------------------------------------------------
+    // 2. Buscar leads com data_expiracao < now() e status != 'expired'
+    // ----------------------------------------------------------
+    const { data: expiredLeadsRaw, error: queryError } = await supabase
       .from('leads')
-      .select('id, azure_user_id')
-      .eq('status', 'converted')
-      .lt('data_expiracao', new Date().toISOString());
+      .select('id, user_id, email, nivel_ingles')
+      .lt('data_expiracao', new Date().toISOString())
+      .neq('status', 'expired');
 
-    if (error) {
-      console.error('Erro ao buscar trials expirados:', error);
+    if (queryError) {
+      console.error('❌ Erro ao buscar trials expirados:', queryError);
       return NextResponse.json(
         { error: 'Erro ao buscar trials expirados' },
         { status: 500 }
       );
     }
 
+    interface ExpiredLead {
+      id: string;
+      user_id: string | null;
+      email: string;
+      nivel_ingles: string;
+    }
+
+    const leads = (expiredLeadsRaw || []) as ExpiredLead[];
+    console.log(`🔍 Encontrados ${leads.length} trials para expirar`);
+
     let expiredCount = 0;
-    for (const trial of expiredTrials || []) {
-      const success = await TrialAzureIntegration.expireTrial(trial.id);
-      if (success) {
+
+    for (const lead of leads) {
+      try {
+        // --------------------------------------------------------
+        // 3. UPDATE leads SET status = 'expired'
+        // --------------------------------------------------------
+        const { error: leadUpdateError } = await supabase
+          .from('leads')
+          .update({
+            status: 'expired',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', lead.id);
+
+        if (leadUpdateError) {
+          console.error(`❌ Erro ao expirar lead ${lead.id}:`, leadUpdateError);
+          continue;
+        }
+
+        // --------------------------------------------------------
+        // 4. UPDATE profiles SET is_active = false
+        // --------------------------------------------------------
+        if (lead.user_id) {
+          const { error: profileUpdateError } = await supabase
+            .from('profiles')
+            .update({
+              is_active: false,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', lead.user_id);
+
+          if (profileUpdateError) {
+            console.warn(
+              `⚠️ Erro ao desativar profile ${lead.user_id}:`,
+              profileUpdateError.message
+            );
+          }
+
+          // Banir usuário no Supabase Auth para bloquear novos logins
+          await disableUser(lead.user_id);
+        }
+
+        // Atualizar trial_access também
+        await supabase
+          .from('trial_access')
+          .update({
+            status: 'expired',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('lead_id', lead.id)
+          .eq('status', 'active');
+
         expiredCount++;
+        console.log(`✅ Trial expirado: lead=${lead.id}, user=${lead.user_id}`);
+      } catch (leadErr) {
+        console.error(`❌ Erro ao processar lead ${lead.id}:`, leadErr);
       }
     }
-    
-    console.log(`✅ Cron job executado: ${expiredCount} trials expirados`);
-    
+
+    console.log(`✅ Cron job finalizado: ${expiredCount} trials expirados`);
+
+    // ----------------------------------------------------------
+    // 5. Retornar { expiredCount }
+    // ----------------------------------------------------------
     return NextResponse.json({
       success: true,
       message: `${expiredCount} trials expirados`,
-      expiredCount: expiredCount,
-      timestamp: new Date().toISOString()
+      expiredCount,
+      timestamp: new Date().toISOString(),
     });
-
   } catch (error) {
-    console.error('Erro no cron job de expiração:', error);
+    console.error('❌ Erro no cron job de expiração:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Erro interno do servidor',
-        details: error instanceof Error ? error.message : 'Erro desconhecido'
+        details: error instanceof Error ? error.message : 'Erro desconhecido',
       },
       { status: 500 }
     );

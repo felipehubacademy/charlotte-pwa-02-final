@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-// Configuração do Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Força route handler dinâmico (não analisa em build time)
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseAdmin();
+
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('user_id');
@@ -20,7 +19,17 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar se usuário tem trial ativo
-    const { data: trialData, error: trialError } = await supabase
+    interface TrialRecord {
+      id: string;
+      data_inicio: string;
+      data_fim: string;
+      status: string;
+      nivel_ingles: string;
+      lead_id: string;
+      leads: { nome: string; email: string; telefone: string }[];
+    }
+
+    const { data: trialRaw, error: trialError } = await supabase
       .from('trial_access')
       .select(`
         id,
@@ -38,6 +47,8 @@ export async function GET(request: NextRequest) {
       .eq('user_id', userId)
       .eq('status', 'active')
       .single();
+
+    const trialData = trialRaw as TrialRecord | null;
 
     if (trialError || !trialData) {
       return NextResponse.json(
@@ -77,6 +88,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseAdmin();
+
   try {
     const body = await request.json();
     const { user_id, action } = body;

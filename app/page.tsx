@@ -4,33 +4,30 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { LogIn, MessageSquare, Mic, Camera, ArrowRight, Sparkles } from 'lucide-react';
+import { MessageSquare, Mic, Camera, Sparkles } from 'lucide-react';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import BannerManager from '@/components/BannerManager';
 import PWAInstaller from '@/components/PWAInstaller';
-// Removido: imports relacionados ao login trial via email/senha
-// Agora todos usam Microsoft Entra ID
+import TrialLoginForm from '@/components/auth/TrialLoginForm';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [isMobile, setIsMobile] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
-  // Removido: sistema de login trial via email/senha
-  // Agora todos usam Microsoft Entra ID
 
   useEffect(() => {
     setIsMounted(true);
     const checkMobile = () => {
-      const isMobileDevice = window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      console.log('📱 [LOGIN] Mobile check:', {
-        width: window.innerWidth,
-        userAgent: navigator.userAgent,
-        isMobile: isMobileDevice
-      });
+      const isMobileDevice =
+        window.innerWidth <= 768 ||
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+          navigator.userAgent
+        );
       setIsMobile(isMobileDevice);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -42,25 +39,26 @@ export default function LoginPage() {
     }
   }, [isAuthenticated, router]);
 
-  // Removido: verificação de trial user via Supabase Auth
-  // Agora todos os usuários (incluindo trials) usam Microsoft Entra ID
+  const handleLoginError = (error: string) => {
+    toast.error(error);
+  };
 
-  // Removido: handlers de login trial
-  // Agora todos usam Microsoft Entra ID
+  const handleLoginSuccess = () => {
+    router.push('/chat');
+  };
 
   // Loading state OR not mounted yet
   if (isLoading || !isMounted) {
     return (
       <div className="min-h-screen bg-secondary flex items-center justify-center">
         <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary/30 border-t-primary mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-2 border-primary/30 border-t-primary mx-auto"></div>
         </div>
       </div>
     );
   }
 
-  // Mobile Layout (Primary)
-  console.log('📱 [LOGIN] Rendering layout, isMobile:', isMobile);
+  // Mobile Layout
   if (isMobile) {
     return (
       <div className="h-screen bg-secondary overflow-hidden select-none">
@@ -74,13 +72,11 @@ export default function LoginPage() {
         {/* Grid Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(163,255,60,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(163,255,60,0.03)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
 
-        <div className="relative z-10 h-screen flex flex-col">
-          {/* Mobile Header - Empty for clean look */}
+        <div className="relative z-10 h-screen flex flex-col overflow-y-auto">
           <div className="flex-shrink-0 pt-safe py-2"></div>
 
-          {/* Mobile Main Content */}
-          <div className="flex-1 flex flex-col justify-center px-6 py-12">
-            <motion.div 
+          <div className="flex-1 flex flex-col justify-center px-6 py-6">
+            <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
@@ -88,7 +84,7 @@ export default function LoginPage() {
             >
               {/* Avatar */}
               <div className="flex justify-center">
-                <CharlotteAvatar 
+                <CharlotteAvatar
                   size="xl"
                   showStatus={true}
                   isOnline={true}
@@ -102,13 +98,12 @@ export default function LoginPage() {
                   <h1 className="text-4xl font-bold text-white">
                     <span className="text-primary">Charlotte</span>
                   </h1>
-                  
                   <p className="text-white/50 text-sm font-medium -mt-1">
                     by Hub Academy
                   </p>
                 </div>
-                
-                <div className="pt-4 space-y-1">
+
+                <div className="pt-2 space-y-1">
                   <p className="text-lg text-white/90 font-medium leading-relaxed">
                     Pratique Inglês
                   </p>
@@ -118,39 +113,24 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Login Button - Mobile (Apenas Microsoft Entra) */}
-              <motion.button
+              {/* Login Form */}
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.4 }}
-                onClick={login}
-                disabled={isLoading}
-                className="w-full bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-6 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm active:scale-95 flex items-center justify-center space-x-2 min-h-[56px]"
               >
-                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
-                  <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
-                  <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
-                  <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
-                  <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
-                </svg>
-                <span className="flex-shrink-0">
-                  {isLoading ? (
-                    <span className="inline-flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                      Entrando...
-                    </span>
-                  ) : (
-                    'Entrar com Microsoft'
-                  )}
-                </span>
-              </motion.button>
-          
-          {/* 🎯 PWAInstaller - Só para mobile */}
-          <div className="mt-4">
-            <PWAInstaller />
-          </div>
+                <TrialLoginForm
+                  onSuccess={handleLoginSuccess}
+                  onError={handleLoginError}
+                />
+              </motion.div>
 
-              {/* Feature Icons - Below Button */}
+              {/* PWA Installer */}
+              <div className="mt-4">
+                <PWAInstaller />
+              </div>
+
+              {/* Feature Icons */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -177,30 +157,29 @@ export default function LoginPage() {
                 </div>
               </motion.div>
 
-              {/* Hub Academy Logo - Mobile */}
+              {/* Hub Academy Logo */}
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 1.0 }}
                 className="flex justify-center pt-4"
               >
-                <img 
-                  src="/logos/hub-white.png" 
-                  alt="Hub Academy" 
+                <img
+                  src="/logos/hub-white.png"
+                  alt="Hub Academy"
                   className="h-8 w-auto opacity-40"
                 />
               </motion.div>
             </motion.div>
           </div>
 
-          {/* Mobile Footer - Clean */}
           <div className="flex-shrink-0 pb-safe py-4"></div>
         </div>
       </div>
     );
   }
 
-  // Desktop Layout (Secondary)
+  // Desktop Layout
   return (
     <div className="h-screen bg-secondary overflow-hidden">
       {/* Background Elements */}
@@ -214,8 +193,8 @@ export default function LoginPage() {
       <div className="absolute inset-0 bg-[linear-gradient(rgba(163,255,60,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(163,255,60,0.03)_1px,transparent_1px)] bg-[size:32px_32px]"></div>
 
       <div className="relative z-10 h-screen flex flex-col">
-        {/* Desktop Header - Minimal */}
-        <motion.header 
+        {/* Header */}
+        <motion.header
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -228,17 +207,17 @@ export default function LoginPage() {
           </div>
         </motion.header>
 
-        {/* Desktop Main Content */}
+        {/* Main Content */}
         <div className="flex-1 flex items-center justify-center px-6">
           <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-12 items-center">
-            {/* Left Column - Content */}
+            {/* Left Column - Login Form */}
             <motion.div
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="space-y-8 md:col-span-1"
+              className="space-y-6 md:col-span-1"
             >
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="inline-flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-full px-4 py-2 text-sm text-primary">
                   <Sparkles className="w-4 h-4" />
                   <span>Powered by Advanced AI</span>
@@ -248,7 +227,6 @@ export default function LoginPage() {
                   <h1 className="text-5xl font-bold text-white leading-tight">
                     <span className="text-primary">Charlotte</span>
                   </h1>
-
                   <p className="text-white/50 text-lg font-medium -mt-2">
                     by Hub Academy
                   </p>
@@ -264,20 +242,11 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Login Button - Desktop (Apenas Microsoft Entra) */}
-              <button
-                onClick={login}
-                disabled={isLoading}
-                className="bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium text-base py-3.5 px-8 rounded-xl border border-[#0078d4] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm flex items-center justify-center space-x-2 will-change-transform"
-              >
-                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 21 21" fill="currentColor">
-                  <rect x="1" y="1" width="9" height="9" fill="currentColor"/>
-                  <rect x="1" y="11" width="9" height="9" fill="currentColor"/>
-                  <rect x="11" y="1" width="9" height="9" fill="currentColor"/>
-                  <rect x="11" y="11" width="9" height="9" fill="currentColor"/>
-                </svg>
-                <span className="flex-shrink-0">{isLoading ? 'Entrando...' : 'Entrar com Microsoft'}</span>
-              </button>
+              {/* Login Form */}
+              <TrialLoginForm
+                onSuccess={handleLoginSuccess}
+                onError={handleLoginError}
+              />
             </motion.div>
 
             {/* Center Column - Avatar */}
@@ -289,14 +258,14 @@ export default function LoginPage() {
             >
               <div className="relative">
                 <div className="w-80 h-80 bg-primary/10 rounded-full flex items-center justify-center">
-                  <CharlotteAvatar 
+                  <CharlotteAvatar
                     size="xl"
                     showStatus={true}
                     isOnline={true}
                     animate={true}
                   />
                 </div>
-                
+
                 {/* Floating elements */}
                 <div className="absolute -top-4 -right-4 w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center animate-pulse">
                   <MessageSquare className="w-8 h-8 text-primary" />
@@ -314,19 +283,19 @@ export default function LoginPage() {
               transition={{ duration: 0.8, delay: 0.6 }}
               className="flex justify-center items-center md:col-span-1"
             >
-              <img 
-                src="/logos/hub-white.png" 
-                alt="Hub Academy" 
+              <img
+                src="/logos/hub-white.png"
+                alt="Hub Academy"
                 className="h-16 w-auto opacity-50"
               />
             </motion.div>
           </div>
         </div>
 
-        {/* Desktop Footer - Clean */}
+        {/* Footer */}
         <div className="flex-shrink-0 p-6"></div>
-        
-        {/* 🎯 Banner Manager - Mostra PWA antes do login (DESKTOP) */}
+
+        {/* Banner Manager */}
         <BannerManager />
       </div>
     </div>

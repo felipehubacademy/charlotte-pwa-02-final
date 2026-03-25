@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { HybridAuthService } from '@/lib/hybrid-auth-service';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface TrialLoginFormProps {
-  onSuccess: (user: any) => void;
-  onError: (error: string) => void;
+  onSuccess?: (user: unknown) => void;
+  onError?: (error: string) => void;
 }
 
 export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormProps) {
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,24 +19,24 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!email || !password) {
-      onError('Por favor, preencha todos os campos');
+      onError?.('Por favor, preencha todos os campos');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const result = await HybridAuthService.loginTrialUser(email, password);
-      
-      if (result.success) {
-        onSuccess(result.user);
+      const result = await login(email, password);
+
+      if (result.error) {
+        onError?.(result.error);
       } else {
-        onError(result.error || 'Erro no login');
+        onSuccess?.(null);
       }
-    } catch (error) {
-      onError('Erro inesperado. Tente novamente.');
+    } catch {
+      onError?.('Erro inesperado. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -50,9 +51,7 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
     >
       <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
         <div className="text-center mb-6">
-          <p className="text-white/70 text-sm">
-            Entre com os seus dados
-          </p>
+          <p className="text-white/70 text-sm">Entre com os seus dados</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -87,11 +86,7 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                 disabled={isLoading}
               >
-                {showPassword ? (
-                  <EyeOff className="w-5 h-5" />
-                ) : (
-                  <Eye className="w-5 h-5" />
-                )}
+                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
             </div>
           </div>
@@ -117,18 +112,18 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
 
         <div className="mt-4 text-center space-y-2">
           <p className="text-white/60 text-xs">
-            <a 
-              href="/forgot-password" 
+            <a
+              href="/forgot-password"
               className="text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Esqueceu sua senha?
             </a>
           </p>
-          
+
           <p className="text-white/60 text-xs">
             Não tem acesso trial?{' '}
-            <a 
-              href="/landing" 
+            <a
+              href="/landing"
               className="text-primary hover:text-primary/80 font-medium transition-colors"
             >
               Cadastre-se aqui

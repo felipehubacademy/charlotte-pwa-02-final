@@ -82,7 +82,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#16153A' }} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#16153A' }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: '#16153A' }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}

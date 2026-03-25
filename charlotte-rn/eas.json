@@ -1,0 +1,63 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://charlotte-pwa-02-final-kby0fu1y3.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fnvjibzreepubageztoi.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZudmppYnpyZWVwdWJhZ2V6dG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTYyNTgsImV4cCI6MjA2MzkzMjI1OH0.lm1h39VOgl-VwxnpGEFkvFrNRGIEeA1sQFI7xTJTsnw"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://charlotte-pwa-02-final-kby0fu1y3.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fnvjibzreepubageztoi.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZudmppYnpyZWVwdWJhZ2V6dG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTYyNTgsImV4cCI6MjA2MzkzMjI1OH0.lm1h39VOgl-VwxnpGEFkvFrNRGIEeA1sQFI7xTJTsnw"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "https://charlotte-pwa-02-final-kby0fu1y3.vercel.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://fnvjibzreepubageztoi.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZudmppYnpyZWVwdWJhZ2V6dG9pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDgzNTYyNTgsImV4cCI6MjA2MzkzMjI1OH0.lm1h39VOgl-VwxnpGEFkvFrNRGIEeA1sQFI7xTJTsnw"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "felipe.xavier1987@gmail.com",
+        "ascAppId": "6760943273"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-service-account.json",
+        "track": "internal"
+      }
+    }
+  }
+}

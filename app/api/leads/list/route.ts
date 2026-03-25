@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Força route handler dinâmico (não analisa em build time)
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const supabase = getSupabaseAdmin();
+
   try {
     // Buscar leads recentes
     const { data: leads, error } = await supabase

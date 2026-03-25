@@ -1,8 +1,7 @@
 // lib/simple-email-service.ts
-// Serviço de email simplificado usando Resend
+// Serviço de email usando Resend
 
-import { Client } from '@microsoft/microsoft-graph-client';
-import { ClientCredentialAuthProvider } from './client-credential-auth-provider';
+import { Resend } from 'resend';
 
 export interface EmailTemplate {
   subject: string;
@@ -14,7 +13,7 @@ export class SimpleEmailService {
   // Template de email de boas-vindas
   static getWelcomeTemplate(nome: string, nivel: string): EmailTemplate {
     const subject = `🎉 Bem-vindo(a) ao Charlotte, ${nome}!`;
-    
+
     const html = `
       <!DOCTYPE html>
       <html>
@@ -27,7 +26,7 @@ export class SimpleEmailService {
         <div style="text-align: center; margin-bottom: 30px;">
           <h1 style="color: #a3ff3c; font-size: 28px; margin: 0;">Bem-vindo ao Charlotte!</h1>
         </div>
-        
+
         <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
           <h2 style="color: #333; margin-top: 0;">Olá, ${nome}! 👋</h2>
           <p>Seu teste grátis de 7 dias no Charlotte foi ativado com sucesso!</p>
@@ -46,7 +45,7 @@ export class SimpleEmailService {
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install" 
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install"
              style="background: #a3ff3c; color: #000; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
             📱 Instalar App Agora
           </a>
@@ -90,46 +89,35 @@ Hub Academy - Charlotte IA
     return { subject, html, text };
   }
 
-  // Enviar email usando Microsoft Graph
+  // Enviar email usando Resend
   static async sendEmail(to: string, template: EmailTemplate): Promise<boolean> {
     try {
-      console.log('📧 Enviando email via Microsoft Graph...');
-      
-      const clientId = process.env.MICROSOFT_GRAPH_CLIENT_ID;
-      const clientSecret = process.env.MICROSOFT_GRAPH_CLIENT_SECRET;
-      const tenantId = process.env.MICROSOFT_GRAPH_TENANT_ID;
-      const fromEmail = process.env.MICROSOFT_GRAPH_FROM_EMAIL;
+      const apiKey = process.env.RESEND_API_KEY;
+      const fromEmail =
+        process.env.RESEND_FROM_EMAIL || 'Charlotte <noreply@hubacademy.com.br>';
 
-      if (!clientId || !clientSecret || !tenantId || !fromEmail) {
-        console.error('❌ Microsoft Graph não configurado');
+      if (!apiKey) {
+        console.error('❌ RESEND_API_KEY não configurada');
         return false;
       }
 
-      const authProvider = new ClientCredentialAuthProvider(clientId, clientSecret, tenantId);
-      const client = Client.initWithMiddleware({ authProvider });
+      const resend = new Resend(apiKey);
 
-      const message = {
-        message: {
-          subject: template.subject,
-          body: {
-            contentType: 'HTML',
-            content: template.html,
-          },
-          toRecipients: [
-            {
-              emailAddress: {
-                address: to,
-              },
-            },
-          ],
-        },
-        saveToSentItems: true,
-      };
+      const { error } = await resend.emails.send({
+        from: fromEmail,
+        to,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
 
-      await client.api(`/users/${fromEmail}/sendMail`).post(message);
-      console.log('✅ Email enviado via Microsoft Graph');
+      if (error) {
+        console.error('❌ Resend error:', error);
+        return false;
+      }
+
+      console.log('✅ Email enviado via Resend para:', to);
       return true;
-
     } catch (error) {
       console.error('❌ Erro ao enviar email:', error);
       return false;

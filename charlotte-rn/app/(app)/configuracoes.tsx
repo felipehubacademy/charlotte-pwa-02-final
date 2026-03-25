@@ -57,13 +57,12 @@ function SettingRow({ icon, label, value, valueColor, onPress, destructive = fal
     <TouchableOpacity
       onPress={onPress}
       activeOpacity={onPress ? 0.7 : 1}
-      hitSlop={{ top: 4, bottom: 4, left: 0, right: 0 }}
       style={{
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 14,
-        paddingVertical: 14,
+        paddingVertical: 16,
         backgroundColor: '#1A1939',
         borderRadius: 14,
         marginBottom: 6,

@@ -303,7 +303,9 @@ export default function LiveVoiceModal({
       playerRef.current?.pause();
       playerRef.current?.remove();
       playerRef.current = createAudioPlayer({ uri: path });
-      playerRef.current.play(); // applyAudioMode já setado em connect() — sem await aqui
+      // Re-apply speaker mode: iOS reseta a sessão de áudio quando o mic começa a gravar
+      await applyAudioMode();
+      playerRef.current.play();
 
       setCharlotteSpeaking(true);
 

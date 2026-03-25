@@ -74,8 +74,9 @@ export default function ChatHeader({
 
 const styles = {
   iconBtn: {
-    padding: 7,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },

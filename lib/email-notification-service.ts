@@ -4,11 +4,12 @@
 import { createClient } from '@supabase/supabase-js';
 import { SimpleEmailService } from './simple-email-service';
 
-// Configuração do Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Supabase client (lazy, via getter)
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(url, key);
+}
 
 export interface EmailTemplate {
   subject: string;
@@ -449,7 +450,7 @@ Charlotte by Hub Academy
   static async processEmailQueue(): Promise<void> {
     try {
       // Buscar emails pendentes
-      const { data: pendingEmails, error } = await supabase
+      const { data: pendingEmails, error } = await getSupabase()
         .from('email_notifications')
         .select(`
           id,
@@ -471,7 +472,7 @@ Charlotte by Hub Academy
       for (const email of pendingEmails || []) {
         try {
           // Buscar dados do lead
-          const { data: leadData, error: leadError } = await supabase
+          const { data: leadData, error: leadError } = await getSupabase()
             .from('leads')
             .select('nome, email, nivel_ingles')
             .eq('id', email.lead_id)
@@ -512,7 +513,7 @@ Charlotte by Hub Academy
           const success = await this.sendEmail(leadData.email, template);
 
           // Atualizar status do email
-          await supabase
+          await getSupabase()
             .from('email_notifications')
             .update({
               status: success ? 'sent' : 'failed',
@@ -525,7 +526,7 @@ Charlotte by Hub Academy
           console.error('Erro ao processar email:', error);
           
           // Marcar como falha
-          await supabase
+          await getSupabase()
             .from('email_notifications')
             .update({
               status: 'failed',
@@ -547,7 +548,7 @@ Charlotte by Hub Academy
       const dataAgendamento = new Date();
       dataAgendamento.setDate(dataAgendamento.getDate() + daysFromNow);
 
-      await supabase
+      await getSupabase()
         .from('email_notifications')
         .insert({
           lead_id: leadId,
@@ -567,7 +568,7 @@ Charlotte by Hub Academy
       const dataAgendamento = new Date();
       dataAgendamento.setDate(dataAgendamento.getDate() + 7); // 7 dias após o cadastro
 
-      await supabase
+      await getSupabase()
         .from('email_notifications')
         .insert({
           lead_id: leadId,

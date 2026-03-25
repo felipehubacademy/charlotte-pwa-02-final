@@ -3,11 +3,12 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Configuração do Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Supabase client (lazy, via getter)
+function getSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  return createClient(url, key);
+}
 
 export interface TrialStatus {
   hasTrial: boolean;
@@ -32,7 +33,7 @@ export class TrialAccessService {
   // Verificar status do trial de um usuário
   static async getTrialStatus(userId: string): Promise<TrialStatus> {
     try {
-      const { data: trialData, error } = await supabase
+      const { data: trialData, error } = await getSupabase()
         .from('trial_access')
         .select(`
           id,
@@ -102,7 +103,7 @@ export class TrialAccessService {
   // Expirar trials automaticamente
   static async expireTrials(): Promise<number> {
     try {
-      const { data: expiredCount, error } = await supabase.rpc('expire_trials');
+      const { data: expiredCount, error } = await getSupabase().rpc('expire_trials');
 
       if (error) {
         console.error('Erro ao expirar trials:', error);
@@ -125,7 +126,7 @@ export class TrialAccessService {
     nivelIngles: string
   ): Promise<boolean> {
     try {
-      const { error } = await supabase.rpc('create_trial_access', {
+      const { error } = await getSupabase().rpc('create_trial_access', {
         p_user_id: userId,
         p_lead_id: leadId,
         p_nivel_ingles: nivelIngles
@@ -147,7 +148,7 @@ export class TrialAccessService {
   // Cancelar trial de um usuário
   static async cancelTrial(userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
+      const { error } = await getSupabase()
         .from('trial_access')
         .update({ 
           status: 'cancelled',
@@ -172,7 +173,7 @@ export class TrialAccessService {
   // Converter trial em assinatura paga
   static async convertTrial(userId: string): Promise<boolean> {
     try {
-      const { error } = await supabase
+      const { error } = await getSupabase()
         .from('trial_access')
         .update({ 
           status: 'converted',
@@ -202,7 +203,7 @@ export class TrialAccessService {
     convertedTrials: number;
   }> {
     try {
-      const { data: stats, error } = await supabase
+      const { data: stats, error } = await getSupabase()
         .from('trial_access')
         .select('status')
         .not('status', 'is', null);
@@ -253,7 +254,7 @@ export class TrialAccessService {
       const threeDaysFromNow = new Date();
       threeDaysFromNow.setDate(threeDaysFromNow.getDate() + 3);
 
-      const { data: expiringTrials, error } = await supabase
+      const { data: expiringTrials, error } = await getSupabase()
         .from('trial_access')
         .select(`
           id,
@@ -283,7 +284,7 @@ export class TrialAccessService {
         // Agendar email de lembrete se ainda não foi enviado
         if (daysRemaining <= 3) {
           // Verificar se já existe notificação de lembrete
-          const { data: existingReminder } = await supabase
+          const { data: existingReminder } = await getSupabase()
             .from('email_notifications')
             .select('id')
             .eq('lead_id', trial.leads[0].id)
