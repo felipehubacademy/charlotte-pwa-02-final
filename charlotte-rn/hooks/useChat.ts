@@ -95,11 +95,11 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
 
-  // Load real totalXP from user_stats on mount
+  // Load real totalXP from user_progress on mount
   React.useEffect(() => {
     if (!userId) return;
     supabase
-      .from('user_stats')
+      .from('user_progress')
       .select('total_xp')
       .eq('user_id', userId)
       .maybeSingle()

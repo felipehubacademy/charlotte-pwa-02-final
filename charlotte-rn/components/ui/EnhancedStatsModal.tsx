@@ -100,7 +100,7 @@ export default function EnhancedStatsModal({
 
       const [statsRes, historyRes, achievementsRes] = await Promise.all([
         supabase
-          .from('user_stats')
+          .from('user_progress')
           .select('streak_days, total_practices')
           .eq('user_id', userId)
           .maybeSingle(),
