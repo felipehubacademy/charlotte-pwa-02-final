@@ -37,16 +37,14 @@ const ExpoSecureStoreAdapter = {
       for (let i = 0; i < value.length; i += CHUNK_SIZE) {
         chunks.push(value.slice(i, i + CHUNK_SIZE));
       }
-      await Promise.all([
-        ...chunks.map(async (chunk, i) => {
-          await SecureStore.deleteItemAsync(`${key}.__chunk${i}`).catch(() => {});
-          await SecureStore.setItemAsync(`${key}.__chunk${i}`, chunk);
-        }),
-        (async () => {
-          await SecureStore.deleteItemAsync(`${key}.__chunks`).catch(() => {});
-          await SecureStore.setItemAsync(`${key}.__chunks`, String(chunks.length));
-        })(),
-      ]);
+      // Write chunks sequentially — parallel Keychain ops cause lock contention on iOS 26
+      for (let i = 0; i < chunks.length; i++) {
+        await SecureStore.deleteItemAsync(`${key}.__chunk${i}`).catch(() => {});
+        await SecureStore.setItemAsync(`${key}.__chunk${i}`, chunks[i]);
+      }
+      // Write count last so a partial write is never mistaken for a complete session
+      await SecureStore.deleteItemAsync(`${key}.__chunks`).catch(() => {});
+      await SecureStore.setItemAsync(`${key}.__chunks`, String(chunks.length));
     } else {
       await SecureStore.deleteItemAsync(key).catch(() => {});
       await SecureStore.setItemAsync(key, value);
@@ -57,14 +55,13 @@ const ExpoSecureStoreAdapter = {
       const countStr = await SecureStore.getItemAsync(`${key}.__chunks`);
       if (countStr) {
         const count = parseInt(countStr, 10);
-        await Promise.all([
-          ...Array.from({ length: count }, (_, i) =>
-            SecureStore.deleteItemAsync(`${key}.__chunk${i}`)
-          ),
-          SecureStore.deleteItemAsync(`${key}.__chunks`),
-        ]);
+        // Delete sequentially to avoid Keychain lock contention on iOS 26
+        for (let i = 0; i < count; i++) {
+          await SecureStore.deleteItemAsync(`${key}.__chunk${i}`).catch(() => {});
+        }
+        await SecureStore.deleteItemAsync(`${key}.__chunks`).catch(() => {});
       }
-      await SecureStore.deleteItemAsync(key);
+      await SecureStore.deleteItemAsync(key).catch(() => {});
     } catch {}
   },
 };
