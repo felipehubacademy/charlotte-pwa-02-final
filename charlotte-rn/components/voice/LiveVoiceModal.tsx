@@ -230,7 +230,7 @@ export default function LiveVoiceModal({
   const insets = useSafeAreaInsets();
   const [status, setStatus] = React.useState<ConnectionStatus>('disconnected');
   const [isMuted, setIsMuted] = React.useState(false);
-  const [isSpeaker, setIsSpeaker] = React.useState(false);
+  const [isSpeaker, setIsSpeaker] = React.useState(true); // viva-voz ativo por padrão
   const [errorMsg, setErrorMsg] = React.useState('');
   const [charlotteSpeaking, setCharlotteSpeaking] = React.useState(false);
   const [userSpeaking, setUserSpeaking] = React.useState(false);
@@ -241,7 +241,7 @@ export default function LiveVoiceModal({
   const audioChunksRef    = React.useRef<string[]>([]);
   const micActiveRef           = React.useRef(false);
   const isMutedRef             = React.useRef(false);
-  const isSpeakerRef           = React.useRef(false);
+  const isSpeakerRef           = React.useRef(true); // sincronizado com isSpeaker inicial
   const charlotteSpeakingRef   = React.useRef(false);
   const lastCharlotteDoneRef   = React.useRef(0);
   const responseActiveRef      = React.useRef(false); // servidor gerando resposta agora
