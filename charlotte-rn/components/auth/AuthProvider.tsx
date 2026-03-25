@@ -23,9 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Register push notifications after login
-  // Temporarily disabled: crashing on iOS 26 in production builds
-  // TODO: re-enable after confirming expo-notifications iOS 26 compatibility
-  // usePushNotifications(session?.user?.id);
+  usePushNotifications(session?.user?.id);
 
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     const { data, error } = await supabase

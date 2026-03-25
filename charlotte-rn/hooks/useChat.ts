@@ -8,6 +8,7 @@ import { Message } from '@/components/chat/ChatBox';
 import { ConversationContextManager } from '@/lib/conversation-context';
 import { transcribeAudio } from '@/hooks/useAudioRecorder';
 import { checkXPMilestone, sendXPMilestoneNotification } from '@/hooks/usePushNotifications';
+import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
@@ -93,6 +94,22 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
+
+  // Load real totalXP from DB on mount
+  React.useEffect(() => {
+    if (!userId) return;
+    supabase
+      .from('user_practices')
+      .select('xp_awarded')
+      .eq('user_id', userId)
+      .then(({ data }) => {
+        if (data) {
+          const sum = data.reduce((acc: number, r: any) => acc + (r.xp_awarded ?? 0), 0);
+          setTotalXP(sum);
+        }
+      })
+      .catch(() => {});
+  }, [userId]);
 
   // Welcome message on mount
   React.useEffect(() => {

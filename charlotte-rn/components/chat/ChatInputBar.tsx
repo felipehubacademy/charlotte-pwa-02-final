@@ -51,6 +51,10 @@ export default function ChatInputBar({
   const isInPreview       = !!previewUri;
   const hasText           = text.trim().length > 0;
 
+  // Fix: race condition between async startRecording and onPressOut
+  // If onPressOut fires before startRecording completes, we cancel immediately after start
+  const pressReleasedRef = React.useRef(false);
+
   // Wave animation while recording
   React.useEffect(() => {
     if (isRecording) {
@@ -81,12 +85,18 @@ export default function ChatInputBar({
 
   const handleMicPressIn = async () => {
     if (disabled || isProcessingAudio || isInPreview) return;
+    pressReleasedRef.current = false;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     await startRecording();
+    // onPressOut arrived before startRecording completed → cancel immediately
+    if (pressReleasedRef.current) {
+      await cancelRecording();
+    }
   };
 
   const handleMicPressOut = async () => {
-    if (!isRecording) return;
+    pressReleasedRef.current = true;
+    if (!isRecording) return; // not started yet; handleMicPressIn will cancel via the ref
     const result = await stopRecording();
     if (result && result.duration >= 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -288,6 +298,7 @@ export default function ChatInputBar({
         <TouchableOpacity
           onPress={isRecording || isInPreview ? undefined : onLiveVoicePress}
           disabled={disabled || isRecording || isInPreview}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           style={{
             width: 48,
             height: 48,
