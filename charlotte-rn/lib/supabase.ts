@@ -38,12 +38,17 @@ const ExpoSecureStoreAdapter = {
         chunks.push(value.slice(i, i + CHUNK_SIZE));
       }
       await Promise.all([
-        ...chunks.map((chunk, i) =>
-          SecureStore.setItemAsync(`${key}.__chunk${i}`, chunk)
-        ),
-        SecureStore.setItemAsync(`${key}.__chunks`, String(chunks.length)),
+        ...chunks.map(async (chunk, i) => {
+          await SecureStore.deleteItemAsync(`${key}.__chunk${i}`).catch(() => {});
+          await SecureStore.setItemAsync(`${key}.__chunk${i}`, chunk);
+        }),
+        (async () => {
+          await SecureStore.deleteItemAsync(`${key}.__chunks`).catch(() => {});
+          await SecureStore.setItemAsync(`${key}.__chunks`, String(chunks.length));
+        })(),
       ]);
     } else {
+      await SecureStore.deleteItemAsync(key).catch(() => {});
       await SecureStore.setItemAsync(key, value);
     }
   },
