@@ -83,11 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    setProfile(null);
+    // onAuthStateChange fires with session=null and clears profile — no need to setProfile here
   };
 
   const resetPassword = async (email: string) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      // Deep link opens the app directly on iOS/Android.
+      // On web (PWA) it falls back to the Supabase project URL.
+      redirectTo: 'charlotte://auth/callback',
+    });
     if (error) throw error;
   };
 

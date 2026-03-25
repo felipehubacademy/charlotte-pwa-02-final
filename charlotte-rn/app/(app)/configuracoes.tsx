@@ -140,10 +140,10 @@ export default function ConfiguracoesScreen() {
         {
           text: 'Sair',
           style: 'destructive',
-          onPress: async () => {
-            await signOut();
-            router.replace('/(auth)/login');
-          },
+          // signOut() triggers onAuthStateChange → session=null → (app)/_layout.tsx
+          // detects !isAuthenticated and renders <Redirect href="/(auth)/login" />.
+          // Calling router.replace() here simultaneously caused a double-navigation crash.
+          onPress: () => { signOut().catch(console.error); },
         },
       ]
     );

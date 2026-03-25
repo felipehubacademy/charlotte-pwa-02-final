@@ -49,7 +49,7 @@ export default function SimpleXPCounter({
           useNativeDriver: true,
         }),
         Animated.timing(floatY, {
-          toValue: -28,
+          toValue: 28,   // floats downward — away from notch, below header
           duration: 1400,
           useNativeDriver: true,
         }),
@@ -72,11 +72,11 @@ export default function SimpleXPCounter({
       hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
       style={{ position: 'relative', alignItems: 'center', justifyContent: 'center' }}
     >
-      {/* Floating +XP badge */}
+      {/* Floating +XP badge — translates downward so it stays below the header notch */}
       <Animated.View
         style={{
           position: 'absolute',
-          top: -ringSize / 2,
+          top: ringSize / 2 + 4,   // starts just below the badge, animates further down
           opacity: floatOpacity,
           transform: [{ translateY: floatY }],
           zIndex: 10,

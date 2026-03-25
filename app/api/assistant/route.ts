@@ -24,6 +24,7 @@ interface AssistantRequest {
   messageType?: 'text' | 'audio' | 'image'; // 🆕 Adicionado suporte para imagens
   conversationContext?: string; // 🆕 Contexto da conversa
   imageData?: string; // 🆕 Dados da imagem em base64
+  mode?: 'grammar' | 'pronunciation' | 'chat'; // 🆕 Chat mode (RN app only — optional for backward compat)
 }
 
 // ✅ Interface atualizada para incluir dados de gramática
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: AssistantRequest = await request.json();
-    const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext, imageData } = body;
+    const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext, imageData, mode } = body;
 
     console.log('Processing for user:', { userName: userName ? 'user-***' : 'unknown', userLevel, hasTranscription: !!transcription });
     console.log('Pronunciation scores:', pronunciationData);
@@ -63,6 +64,16 @@ export async function POST(request: NextRequest) {
       console.log('📝 Context preview:', conversationContext.substring(0, 200) + '...');
     }
     console.log('Has image data:', !!imageData);
+    console.log('Mode:', mode);
+
+    // 🆕 MODE-BASED ROUTING (RN app only — PWA doesn't send mode)
+    if (mode === 'grammar') {
+      return await handleGrammarMode(transcription, userLevel, userName, conversationContext);
+    }
+    if (mode === 'pronunciation') {
+      return await handlePronunciationMode(transcription, pronunciationData, userLevel, userName);
+    }
+    // mode === 'chat' or undefined → fall through to existing logic (unchanged)
 
     // ✅ VERIFICAR TIPO DE MENSAGEM
     if (messageType === 'image' && imageData) {
@@ -4194,5 +4205,110 @@ Your response should help the student learn new vocabulary through visual associ
     };
 
     return NextResponse.json({ success: true, result: fallbackResponse });
+  }
+}
+
+// ── GRAMMAR MODE ──────────────────────────────────────────────────────────────
+const GRAMMAR_SYSTEM_PROMPTS: Record<string, string> = {
+  Novice: `Você é Charlotte, professora de inglês. Fale SEMPRE em português com o aluno.
+Analise CADA frase enviada: identifique erros gramaticais, explique o erro em PT, mostre a versão correta em EN.
+Formato: ❌ frase original → ✅ versão correta + explicação breve.
+Se não houver erros, elogie e dê uma dica de vocabulário.
+Tom: didático, paciente, encorajador.`,
+
+  Inter: `You are Charlotte, an English teacher. Speak predominantly in English; use Portuguese only when essential.
+Analyze every sentence for grammar errors. Format: ❌ original → ✅ corrected + brief explanation.
+If no errors, praise and give a vocabulary or idiom tip.
+Tone: encouraging, clear.`,
+
+  Advanced: `You are Charlotte, an English teacher. Speak 100% in English.
+Provide detailed grammar analysis: identify error type (tense, agreement, preposition, article, etc.), explain the rule, give the corrected version.
+If no errors, engage with the content and suggest a stylistic improvement.
+Tone: collegial, precise.`,
+};
+
+async function handleGrammarMode(
+  transcription: string,
+  userLevel: 'Novice' | 'Inter' | 'Advanced',
+  userName?: string,
+  conversationContext?: string
+): Promise<NextResponse> {
+  try {
+    const systemPrompt = GRAMMAR_SYSTEM_PROMPTS[userLevel] ?? GRAMMAR_SYSTEM_PROMPTS.Inter;
+    const messages: any[] = [{ role: 'system', content: systemPrompt }];
+    if (conversationContext) {
+      messages.push({ role: 'user', content: `[Conversation context]: ${conversationContext}` });
+    }
+    messages.push({ role: 'user', content: transcription });
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 400,
+      temperature: 0.7,
+    });
+
+    const feedback = response.choices[0]?.message?.content ?? 'Great effort! Keep practicing.';
+    return NextResponse.json({
+      success: true,
+      result: { feedback, technicalFeedback: '', xpAwarded: 5, tips: [], encouragement: '' },
+    });
+  } catch (error: any) {
+    console.error('❌ handleGrammarMode error:', error);
+    return NextResponse.json({ success: false, error: error?.message ?? 'Grammar mode failed' }, { status: 500 });
+  }
+}
+
+// ── PRONUNCIATION MODE ────────────────────────────────────────────────────────
+const PRONUNCIATION_SYSTEM_PROMPTS: Record<string, string> = {
+  Novice: `Você é Charlotte, professora de inglês. Analise a pronúncia do aluno em português.
+Mostre: transcrição do que foi dito, palavras com pronúncia incorreta, como pronunciar corretamente (representação fonética simples).
+Se a pronúncia estiver boa, elogie e sugira uma frase para praticar.
+Tom: paciente, encorajador.`,
+
+  Inter: `You are Charlotte. Analyze the student's pronunciation.
+Show: transcription, mispronounced words with phonetic guide, one practice tip.
+Keep response concise and actionable. Tone: encouraging.`,
+
+  Advanced: `You are Charlotte. Analyze the audio for pronunciation accuracy, word stress, sentence intonation, and fluency.
+Provide IPA notation for corrections. Suggest connected speech and rhythm improvements.
+Tone: professional coach.`,
+};
+
+async function handlePronunciationMode(
+  transcription: string,
+  pronunciationData: any,
+  userLevel: 'Novice' | 'Inter' | 'Advanced',
+  userName?: string
+): Promise<NextResponse> {
+  try {
+    const systemPrompt = PRONUNCIATION_SYSTEM_PROMPTS[userLevel] ?? PRONUNCIATION_SYSTEM_PROMPTS.Inter;
+    let userContent = `The student said: "${transcription}"`;
+    if (pronunciationData) {
+      userContent += `\n\nPronunciation assessment scores:
+- Overall: ${pronunciationData.pronunciationScore}/100
+- Accuracy: ${pronunciationData.accuracyScore}/100
+- Fluency: ${pronunciationData.fluencyScore}/100
+- Completeness: ${pronunciationData.completenessScore}/100`;
+    }
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      max_tokens: 400,
+      temperature: 0.7,
+    });
+
+    const feedback = response.choices[0]?.message?.content ?? 'Good effort! Keep practicing your pronunciation.';
+    return NextResponse.json({
+      success: true,
+      result: { feedback, technicalFeedback: '', xpAwarded: 8, tips: [], encouragement: '' },
+    });
+  } catch (error: any) {
+    console.error('❌ handlePronunciationMode error:', error);
+    return NextResponse.json({ success: false, error: error?.message ?? 'Pronunciation mode failed' }, { status: 500 });
   }
 }

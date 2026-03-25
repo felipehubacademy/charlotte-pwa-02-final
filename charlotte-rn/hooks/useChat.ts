@@ -9,6 +9,7 @@ import { ConversationContextManager } from '@/lib/conversation-context';
 import { transcribeAudio } from '@/hooks/useAudioRecorder';
 import { checkXPMilestone, sendXPMilestoneNotification } from '@/hooks/usePushNotifications';
 import { supabase } from '@/lib/supabase';
+import { ChatMode } from '@/lib/levelConfig';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
@@ -86,9 +87,10 @@ interface UseChatOptions {
   userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName: string;
   userId: string;
+  mode?: ChatMode;
 }
 
-export function useChat({ userLevel, userName, userId }: UseChatOptions) {
+export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
@@ -111,15 +113,27 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
 
   // Welcome message on mount
   React.useEffect(() => {
-    const welcomeMessages: Record<string, string> = {
-      Advanced: `Hey ${userName}! Ready to practice? What's on your mind today? 😊`,
-      Inter: `Hi ${userName}! Great to see you. Let's practice some English today! 😊`,
-      Novice: `Olá ${userName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir! 😊`,
+    const welcomeMessages: Record<string, Record<string, string>> = {
+      grammar: {
+        Advanced: `Hi ${userName}! Let's sharpen your grammar. Type a sentence and I'll give you a detailed analysis.`,
+        Inter: `Hi ${userName}! Send me a sentence in English and I'll help you improve your grammar.`,
+        Novice: `Olá ${userName}! Escreva uma frase em inglês e eu vou analisar sua gramática. Pode ser simples! 😊`,
+      },
+      pronunciation: {
+        Advanced: `Hi ${userName}! Let's work on your pronunciation. Hold the mic and say something — I'll analyze stress, intonation, and fluency.`,
+        Inter: `Hi ${userName}! Hold the mic button and say something in English. I'll check your pronunciation and give you tips!`,
+        Novice: `Olá ${userName}! Segure o botão do microfone e fale em inglês. Vou analisar sua pronúncia! 🎤`,
+      },
+      chat: {
+        Advanced: `Hey ${userName}! Ready to practice? What's on your mind today? 😊`,
+        Inter: `Hi ${userName}! Great to see you. Let's practice some English today! 😊`,
+        Novice: `Olá ${userName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir! 😊`,
+      },
     };
     const welcome: Message = {
       id: 'welcome-0',
       role: 'assistant',
-      content: welcomeMessages[userLevel] ?? welcomeMessages.Inter,
+      content: (welcomeMessages[mode] ?? welcomeMessages.chat)[userLevel] ?? (welcomeMessages.chat)[userLevel],
       messageType: 'text',
       timestamp: new Date(),
     };
@@ -151,6 +165,7 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
           userLevel,
           userName,
           messageType,
+          mode,
           conversationContext: contextString,
         }),
       });
@@ -166,7 +181,7 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
         xpAwarded: (data.result.xpAwarded as number) ?? 10,
       };
     },
-    [userLevel, userName]
+    [userLevel, userName, mode]
   );
 
   /**
@@ -226,7 +241,8 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
         // Stamp grammar feedback onto the user's own message so it shows below their bubble
-        if (technicalFeedback) {
+        // Note: backend may return '' when analysis fails — treat that as "no feedback"
+        if (technicalFeedback?.trim()) {
           setMessages(prev =>
             prev.map(m => m.id === userMsg.id ? { ...m, technicalFeedback } : m)
           );
@@ -314,7 +330,7 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
         // Stamp pronunciation/grammar feedback onto the user's audio bubble
-        if (technicalFeedback) {
+        if (technicalFeedback?.trim()) {
           setMessages(prev =>
             prev.map(m => m.id === tempId ? { ...m, technicalFeedback } : m)
           );

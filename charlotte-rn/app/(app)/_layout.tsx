@@ -20,7 +20,7 @@ export default function AppLayout() {
     <>
       <TrialExpiredModal />
       <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="chat" />
+        <Stack.Screen name="(tabs)" />
         <Stack.Screen
           name="configuracoes"
           options={{ animation: 'slide_from_right' }}

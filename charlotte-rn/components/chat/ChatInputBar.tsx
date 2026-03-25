@@ -12,6 +12,7 @@ interface ChatInputBarProps {
   onSendAudio: (uri: string, duration: number) => void;
   onLiveVoicePress: () => void;
   disabled?: boolean;
+  mode?: 'grammar' | 'pronunciation' | 'chat';
 }
 
 const BAR_COUNT = 20;
@@ -27,6 +28,7 @@ export default function ChatInputBar({
   onSendAudio,
   onLiveVoicePress,
   disabled = false,
+  mode = 'chat',
 }: ChatInputBarProps) {
   const insets = useSafeAreaInsets();
   const [text, setText] = React.useState('');
@@ -186,8 +188,9 @@ export default function ChatInputBar({
           )}
 
           {/* ── DEFAULT + RECORDING content ──
-              TextInput always mounted so keyboard stays open if it was open. */}
-          {!isInPreview && (
+              TextInput always mounted for grammar/chat so keyboard stays open if it was open.
+              For pronunciation mode, show mic hint or recording state instead. */}
+          {!isInPreview && (mode === 'grammar' || mode === 'chat') && (
             <View style={{ flex: 1, position: 'relative', minHeight: 36, justifyContent: 'center' }}>
 
               {/* TextInput — hidden via opacity when recording, never unmounted */}
@@ -248,6 +251,45 @@ export default function ChatInputBar({
             </View>
           )}
 
+          {/* ── PRONUNCIATION MODE content ── */}
+          {!isInPreview && mode === 'pronunciation' && !isRecording && (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 4 }}>
+              <AppText style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>Hold to record</AppText>
+            </View>
+          )}
+
+          {!isInPreview && mode === 'pronunciation' && isRecording && (
+            <View style={{
+              flex: 1,
+              flexDirection: 'row',
+              alignItems: 'center',
+              minHeight: 36,
+            }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginRight: 10 }} />
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', height: 32, gap: 2 }}>
+                {barAnims.map((anim, i) => (
+                  <Animated.View
+                    key={i}
+                    style={{
+                      flex: 1, height: 24, borderRadius: 2,
+                      backgroundColor: '#A3FF3C',
+                      transform: [{ scaleY: anim }],
+                    }}
+                  />
+                ))}
+              </View>
+              <AppText style={{
+                color: '#fff', fontSize: 13, marginLeft: 10, minWidth: 36,
+                ...(Platform.OS === 'ios' ? { fontVariant: ['tabular-nums'] } : { fontFamily: 'monospace' }),
+              }}>
+                {formatDuration(duration)}
+              </AppText>
+              <TouchableOpacity onPress={handleCancelRecording} style={styles.iconBtn}>
+                <X size={20} color="#ef4444" weight="bold" />
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* ── ACTION BUTTON — always at same position/size ── */}
           <View style={{ paddingBottom: 3, paddingRight: 2 }}>
             {isInPreview ? (
@@ -255,8 +297,8 @@ export default function ChatInputBar({
               <TouchableOpacity onPress={handleSendPreview} style={styles.actionBtn}>
                 <ArrowUp size={18} color="#16153A" weight="bold" />
               </TouchableOpacity>
-            ) : hasText ? (
-              // Has text: send text button
+            ) : mode === 'grammar' && hasText ? (
+              // Grammar + has text: send text button
               <TouchableOpacity
                 onPress={handleSendText}
                 disabled={disabled}
@@ -264,12 +306,24 @@ export default function ChatInputBar({
               >
                 <ArrowUp size={18} color="#16153A" weight="bold" />
               </TouchableOpacity>
-            ) : isFocused && !isRecording ? (
-              // Keyboard open, no text: invisible spacer — mic hidden to avoid
+            ) : mode === 'grammar' ? (
+              // Grammar + no text: invisible spacer (no mic)
+              <View style={{ width: 36, height: 36 }} />
+            ) : hasText && mode === 'chat' ? (
+              // Chat + has text: send text button
+              <TouchableOpacity
+                onPress={handleSendText}
+                disabled={disabled}
+                style={[styles.actionBtn, { opacity: disabled ? 0.4 : 1 }]}
+              >
+                <ArrowUp size={18} color="#16153A" weight="bold" />
+              </TouchableOpacity>
+            ) : isFocused && !isRecording && mode === 'chat' ? (
+              // Chat + keyboard open, no text: invisible spacer — mic hidden to avoid
               // press-and-hold breaking when keyboard dismisses and bar shifts
               <View style={{ width: 36, height: 36 }} />
             ) : (
-              // Keyboard closed: mic / stop button
+              // Pronunciation (always) or Chat keyboard closed: mic / stop button
               // Stays mounted during recording so onPressOut always fires
               <TouchableOpacity
                 onPressIn={handleMicPressIn}
@@ -294,27 +348,33 @@ export default function ChatInputBar({
           </View>
         </View>
 
-        {/* Phone — always mounted, always normal color; disabled during recording/preview */}
-        <TouchableOpacity
-          onPress={isRecording || isInPreview ? undefined : onLiveVoicePress}
-          disabled={disabled || isRecording || isInPreview}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={{
-            width: 48,
-            height: 48,
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: disabled ? 0.3 : 1,
-          }}
-        >
-          <Phone size={26} color="rgba(255,255,255,0.55)" weight="regular" />
-        </TouchableOpacity>
+        {/* Phone — only rendered in chat mode */}
+        {mode === 'chat' && (
+          <TouchableOpacity
+            onPress={isRecording || isInPreview ? undefined : onLiveVoicePress}
+            disabled={disabled || isRecording || isInPreview}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{
+              width: 48,
+              height: 48,
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: disabled ? 0.3 : 1,
+            }}
+          >
+            <Phone size={26} color="rgba(255,255,255,0.55)" weight="regular" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Hint text — always mounted when !disabled && !hasText to avoid height jump */}
       {!disabled && !hasText && (
         <AppText style={{ color: 'rgba(255,255,255,0.38)', fontSize: 11, textAlign: 'center', marginTop: 5, letterSpacing: 0.2 }}>
-          Hold mic to record · Phone for live call
+          {mode === 'grammar'
+            ? 'Type a sentence for grammar analysis'
+            : mode === 'pronunciation'
+            ? 'Hold mic to record • Charlotte analyzes your pronunciation'
+            : 'Hold mic to record · Phone for live call'}
         </AppText>
       )}
     </View>

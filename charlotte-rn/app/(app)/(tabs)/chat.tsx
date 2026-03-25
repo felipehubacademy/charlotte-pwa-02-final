@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
+import { useAudioPlayer, useAudioPlayerStatus, type AudioSource } from 'expo-audio';
 import { useAuth } from '@/hooks/useAuth';
 import ChatHeader from '@/components/chat/ChatHeader';
 import ChatBox from '@/components/chat/ChatBox';
@@ -22,7 +22,7 @@ export default function ChatScreen() {
   const userId = profile?.id ?? '';
 
   const { messages, isProcessing, isProcessingAudio, sessionXP, totalXP, sendTextMessage, sendAudioMessage } =
-    useChat({ userLevel, userName, userId });
+    useChat({ userLevel, userName, userId, mode: 'chat' });
 
   const [showOnboarding, setShowOnboarding] = React.useState(false);
   const [showLiveVoice, setShowLiveVoice] = React.useState(false);
@@ -30,31 +30,25 @@ export default function ChatScreen() {
   const [achievements, setAchievements] = React.useState<Achievement[]>([]);
   const [playingMessageId, setPlayingMessageId] = React.useState<string | null>(null);
 
-  // ── Audio player for message bubbles ──────────────────────────────────
-  // Source is derived from the currently-playing message (local uri or remote url)
   const playingMessage = React.useMemo(
     () => messages.find(m => m.id === playingMessageId) ?? null,
     [messages, playingMessageId]
   );
   const audioSource = playingMessage?.audioUri ?? playingMessage?.audioUrl ?? undefined;
-  const player = useAudioPlayer(audioSource);
+
+  const player = useAudioPlayer(undefined);
   const playerStatus = useAudioPlayerStatus(player);
 
-  // Keep TTS playback at a comfortable level (avoids post-recording "shouting" effect)
-  React.useEffect(() => {
-    player.volume = 0.75;
-  }, [player]);
-
-  // Auto-clear playingMessageId when audio finishes
   React.useEffect(() => {
     if (playerStatus.didJustFinish) {
       setPlayingMessageId(null);
     }
   }, [playerStatus.didJustFinish]);
 
-  // Play / pause when playingMessageId changes
   React.useEffect(() => {
     if (playingMessageId && audioSource) {
+      player.replace(audioSource as AudioSource);
+      player.volume = 0.75;
       player.play();
     } else {
       player.pause();
@@ -63,7 +57,6 @@ export default function ChatScreen() {
 
   const handleTogglePlay = (id: string) => {
     if (playingMessageId === id) {
-      // Same message — toggle pause/play
       if (playerStatus.playing) {
         player.pause();
         setPlayingMessageId(null);
@@ -72,7 +65,6 @@ export default function ChatScreen() {
         setPlayingMessageId(id);
       }
     } else {
-      // Different message — switch
       setPlayingMessageId(id);
     }
   };
@@ -115,6 +107,7 @@ export default function ChatScreen() {
           onSendAudio={sendAudioMessage}
           onLiveVoicePress={() => setShowLiveVoice(true)}
           disabled={isProcessing}
+          mode="chat"
         />
       </KeyboardAvoidingView>
 

@@ -16,7 +16,7 @@ interface ButtonProps {
 const variantStyles: Record<Variant, { container: string; text: string }> = {
   primary: {
     container: 'bg-primary active:opacity-80',
-    text: 'text-secondary font-bold',
+    text: 'text-[#16153A] font-bold',
   },
   secondary: {
     container: 'bg-surface border border-primary active:opacity-80',
