@@ -66,11 +66,14 @@ const ExpoSecureStoreAdapter = {
   },
 };
 
+// DIAGNOSTIC BUILD 12: disable SecureStore to isolate Keychain hang on iOS 26.
+// If login works with persistSession: false, the issue is in SecureStore/Keychain.
+// TODO: re-enable session persistence after root cause is confirmed.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: ExpoSecureStoreAdapter,
     autoRefreshToken: true,
-    persistSession: true,
+    persistSession: false,
     detectSessionInUrl: false,
   },
 });
