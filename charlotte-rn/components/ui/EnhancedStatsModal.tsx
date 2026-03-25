@@ -37,6 +37,7 @@ interface RecentActivity {
 
 interface RealData {
   streak: number;
+  totalPractices: number;
   recentActivity: RecentActivity[];
   achievements: Achievement[];
   loading: boolean;
@@ -47,28 +48,6 @@ function calculateLevel(xp: number) {
   return Math.floor(Math.sqrt(xp / 50)) + 1;
 }
 
-function calculateStreak(practices: any[]): number {
-  if (!practices?.length) return 0;
-  const byDay = new Map<string, boolean>();
-  practices.forEach(p => {
-    byDay.set(new Date(p.created_at).toDateString(), true);
-  });
-  let streak = 0;
-  const cur = new Date();
-  const today = cur.toDateString();
-  while (true) {
-    const s = cur.toDateString();
-    if (byDay.has(s)) {
-      streak++;
-      cur.setDate(cur.getDate() - 1);
-    } else if (s === today) {
-      cur.setDate(cur.getDate() - 1);
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
 
 const card = {
   backgroundColor: 'rgba(255,255,255,0.04)',
@@ -98,6 +77,7 @@ export default function EnhancedStatsModal({
   const [activeTab, setActiveTab] = React.useState<TabType>('stats');
   const [realData, setRealData] = React.useState<RealData>({
     streak: 0,
+    totalPractices: 0,
     recentActivity: [],
     achievements: [],
     loading: true,
@@ -118,11 +98,17 @@ export default function EnhancedStatsModal({
     try {
       const today = new Date().toISOString().split('T')[0];
 
-      const [historyRes, achievementsRes] = await Promise.all([
+      const [statsRes, historyRes, achievementsRes] = await Promise.all([
+        supabase
+          .from('user_stats')
+          .select('streak_days, total_practices')
+          .eq('user_id', userId)
+          .maybeSingle(),
         supabase
           .from('user_practices')
           .select('practice_type, xp_awarded, created_at')
           .eq('user_id', userId)
+          .gte('created_at', today)
           .order('created_at', { ascending: false })
           .limit(50),
         supabase
@@ -133,10 +119,8 @@ export default function EnhancedStatsModal({
           .limit(50),
       ]);
 
-      const practices = historyRes.data ?? [];
+      const todayPractices = historyRes.data ?? [];
       const dbAchievements = achievementsRes.data ?? [];
-
-      const todayPractices = practices.filter(p => p.created_at.startsWith(today));
 
       const typeLabels: Record<string, string> = {
         text_message: 'Text Practice',
@@ -146,7 +130,7 @@ export default function EnhancedStatsModal({
         camera_object: 'Object Recognition',
       };
 
-      const recentActivity: RecentActivity[] = todayPractices.map(p => ({
+      const recentActivity: RecentActivity[] = todayPractices.map((p: any) => ({
         type: typeLabels[p.practice_type] ?? 'Practice',
         xp: p.xp_awarded ?? 0,
         timestamp: new Date(p.created_at),
@@ -164,7 +148,8 @@ export default function EnhancedStatsModal({
       }));
 
       setRealData({
-        streak: calculateStreak(practices),
+        streak: statsRes.data?.streak_days ?? 0,
+        totalPractices: statsRes.data?.total_practices ?? 0,
         recentActivity,
         achievements,
         loading: false,
@@ -250,9 +235,9 @@ export default function EnhancedStatsModal({
         <View style={[card, { flex: 1 }]}>
           <ChatDots size={22} color="#60A5FA" weight="duotone" />
           <AppText style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, marginTop: 8, marginBottom: 2 }}>
-            {isPortuguese ? 'Hoje' : 'Today'}
+            Total
           </AppText>
-          <AppText style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>{realData.recentActivity.length}</AppText>
+          <AppText style={{ color: '#fff', fontSize: 22, fontWeight: '800' }}>{realData.totalPractices}</AppText>
           <AppText style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
             {isPortuguese ? 'práticas' : 'practices'}
           </AppText>

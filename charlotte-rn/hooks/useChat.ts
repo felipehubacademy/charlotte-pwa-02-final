@@ -95,18 +95,16 @@ export function useChat({ userLevel, userName, userId }: UseChatOptions) {
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
 
-  // Load real totalXP from DB on mount
+  // Load real totalXP from user_stats on mount
   React.useEffect(() => {
     if (!userId) return;
     supabase
-      .from('user_practices')
-      .select('xp_awarded')
+      .from('user_stats')
+      .select('total_xp')
       .eq('user_id', userId)
+      .maybeSingle()
       .then(({ data }) => {
-        if (data) {
-          const sum = data.reduce((acc: number, r: any) => acc + (r.xp_awarded ?? 0), 0);
-          setTotalXP(sum);
-        }
+        if (data) setTotalXP(data.total_xp ?? 0);
       })
       .catch(() => {});
   }, [userId]);
