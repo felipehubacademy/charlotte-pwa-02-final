@@ -27,13 +27,11 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
-      {/* Home — tab bar oculta, é a landing page */}
+      {/* Home — primeiro tab, sempre visível na barra */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
-          tabBarStyle: { display: 'none' },   // sem tab bar na home
-          tabBarItemStyle: { display: 'none' }, // e sem o item na barra
           tabBarIcon: ({ color, size }) => (
             <House size={size} color={color} weight="bold" />
           ),
