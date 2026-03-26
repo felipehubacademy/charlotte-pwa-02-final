@@ -1,15 +1,15 @@
 import { Tabs } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { TextT, Microphone, ChatTeardropText } from 'phosphor-react-native';
+import { TextT, Microphone, ChatTeardropText, House } from 'phosphor-react-native';
 import { LEVEL_CONFIG, UserLevel } from '@/lib/levelConfig';
 
 export default function TabsLayout() {
   const { profile } = useAuth();
-  const level = (profile?.user_level ?? 'Novice') as UserLevel;
+  const level  = (profile?.user_level ?? 'Novice') as UserLevel;
   const config = LEVEL_CONFIG[level];
 
   const showPronunciation = config.tabs.includes('pronunciation');
-  const showChat = config.tabs.includes('chat');
+  const showChat          = config.tabs.includes('chat');
 
   return (
     <Tabs
@@ -27,6 +27,19 @@ export default function TabsLayout() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
+      {/* Home — tab bar oculta, é a landing page */}
+      <Tabs.Screen
+        name="index"
+        options={{
+          title: 'Home',
+          tabBarStyle: { display: 'none' },   // sem tab bar na home
+          tabBarItemStyle: { display: 'none' }, // e sem o item na barra
+          tabBarIcon: ({ color, size }) => (
+            <House size={size} color={color} weight="bold" />
+          ),
+        }}
+      />
+
       <Tabs.Screen
         name="grammar"
         options={{

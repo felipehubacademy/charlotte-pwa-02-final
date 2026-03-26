@@ -36,7 +36,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signIn(email.trim().toLowerCase(), password);
-      router.replace('/(app)/chat');
+      router.replace('/(app)/(tabs)');
     } catch (e: any) {
       const msg = e?.message ?? '';
       if (msg.includes('Invalid login credentials')) setError('E-mail ou senha incorretos.');

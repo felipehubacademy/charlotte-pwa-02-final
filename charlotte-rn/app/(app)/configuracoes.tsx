@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
 import * as Notifications from 'expo-notifications';
+import { supabase } from '@/lib/supabase';
 import {
   CaretLeft,
   CaretRight,
@@ -120,6 +121,7 @@ function SectionTitle({ label }: { label: string }) {
 
 export default function ConfiguracoesScreen() {
   const { profile, signOut } = useAuth();
+  const userId = profile?.id;
   const [reminderHour, setReminderHour] = React.useState<number | null>(null);
 
   // Load saved reminder hour on mount
@@ -162,6 +164,14 @@ export default function ConfiguracoesScreen() {
           setReminderHour(h);
           await SecureStore.setItemAsync(REMINDER_KEY, String(h));
           await scheduleOrCancelDailyReminder(h);
+          // Sincroniza com o banco para uso futuro em notificações server-side
+          if (userId) {
+            supabase.from('users')
+              .update({ preferred_reminder_time: `${String(h).padStart(2, '0')}:00:00` })
+              .eq('id', userId)
+              .then(() => {})
+              .catch(() => {});
+          }
         },
       })),
       {
@@ -171,6 +181,13 @@ export default function ConfiguracoesScreen() {
           setReminderHour(null);
           await SecureStore.deleteItemAsync(REMINDER_KEY).catch(() => {});
           await scheduleOrCancelDailyReminder(null);
+          if (userId) {
+            supabase.from('users')
+              .update({ preferred_reminder_time: null })
+              .eq('id', userId)
+              .then(() => {})
+              .catch(() => {});
+          }
         },
       },
       { text: 'Cancelar', style: 'cancel' as const },

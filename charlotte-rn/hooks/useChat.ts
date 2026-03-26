@@ -316,6 +316,27 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 
         if (!transcription) {
           console.warn('⚠️ Transcription returned null — aborting');
+          // Show a visible error on the user's audio bubble instead of silent fail
+          setMessages(prev =>
+            prev.map(m =>
+              m.id === tempId
+                ? {
+                    ...m,
+                    isRecording: false,
+                    technicalFeedback: "Couldn't hear you clearly. Try again in a quiet place 🎤",
+                  }
+                : m
+            )
+          );
+          // Add a short Charlotte reply so the user knows what happened
+          const errorMsg: Message = {
+            id: generateId(),
+            role: 'assistant',
+            content: "I didn't catch that — the audio was too short or silent. Hold the mic button and speak clearly.",
+            messageType: 'text',
+            timestamp: new Date(),
+          };
+          setMessages(prev => [...prev, errorMsg]);
           setIsProcessing(false);
           setIsProcessingAudio(false);
           return;
@@ -353,6 +374,15 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         setMessages(prev =>
           prev.map(m => (m.id === tempId ? { ...m, isRecording: false } : m))
         );
+        // Show Charlotte reply so the user isn't left staring at a broken bubble
+        const errMsg: Message = {
+          id: generateId(),
+          role: 'assistant',
+          content: "Sorry, I had trouble processing that. Please try again! 🙏",
+          messageType: 'text',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errMsg]);
       } finally {
         setIsProcessing(false);
         setIsProcessingAudio(false);

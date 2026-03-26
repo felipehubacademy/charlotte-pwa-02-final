@@ -44,8 +44,8 @@ export default function ChangePasswordScreen() {
           .eq('id', session.user.id);
       }
 
-      // 3. Redireciona para o chat
-      router.replace('/(app)/chat');
+      // 3. Redireciona para a home
+      router.replace('/(app)/(tabs)');
     } catch (e: any) {
       setError(e?.message ?? 'Erro ao salvar senha. Tente novamente.');
     } finally {

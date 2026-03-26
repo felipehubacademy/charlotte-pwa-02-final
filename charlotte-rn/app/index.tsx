@@ -19,7 +19,7 @@ export default function Index() {
   }
 
   if (user) {
-    return <Redirect href="/(app)/chat" />;
+    return <Redirect href="/(app)/(tabs)" />;
   }
 
   return <Redirect href="/(auth)/login" />;
