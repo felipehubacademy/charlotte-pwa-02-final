@@ -167,29 +167,19 @@ export default function LearnSessionScreen() {
   const accentBg     = !currentStep ? C.goldBg
     : currentStep.kind === 'grammar' ? C.goldBg : C.violetBg;
 
-  // ── TTS — CDN first, fallback POST, local cache ────────────
+  // ── TTS — local cache → ElevenLabs API ────────────────────
   const fetchTTS = useCallback(async (text: string): Promise<string | null> => {
     try {
       const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
       await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => {});
-      // cdnKey matches filenames in public/tts/ (no prefix)
-      // localKey has v2_ prefix to bust any old OpenAI-cached files on device
-      const cdnKey   = text.slice(0, 80).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      const localKey = 'v2_' + text.slice(0, 76).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      const localUri = `${cacheDir}${localKey}.mp3`;
+      const key      = 'el_' + text.slice(0, 76).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const localUri = `${cacheDir}${key}.mp3`;
 
-      // 1. Local cache hit
+      // 1. Local cache hit — instant
       const info = await FileSystem.getInfoAsync(localUri);
       if (info.exists) return localUri;
 
-      // 2. Download pre-generated file from CDN (public/tts/)
-      const cdnUrl = `${API_BASE_URL}/tts/${cdnKey}.mp3`;
-      const dl = await FileSystem.downloadAsync(cdnUrl, localUri);
-      if (dl.status === 200) return localUri;
-      // Non-200 = CDN 404 — delete the bad file so it's not cached
-      await FileSystem.deleteAsync(localUri, { idempotent: true });
-
-      // 3. Fallback: generate on-demand via API
+      // 2. Generate via ElevenLabs API and cache result
       const res = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -722,13 +712,18 @@ export default function LearnSessionScreen() {
               )}
 
               {/* Play Charlotte button */}
-              {pronStatus !== 'loading_audio' && (
+              {pronStatus === 'loading_audio' ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20, marginBottom: 12 }}>
+                  <ActivityIndicator color={accent} />
+                  <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 10 }}>Preparing audio…</AppText>
+                </View>
+              ) : (
                 <TouchableOpacity
                   onPress={handlePlayCharlotte}
                   style={{
                     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
                     backgroundColor: accentBg, borderRadius: 16, borderWidth: 1.5,
-                    borderColor: accent + '40', paddingVertical: 14, marginBottom: 20,
+                    borderColor: accent + '40', paddingVertical: 14, marginBottom: 16,
                   }}
                 >
                   {isPlaying
@@ -741,12 +736,30 @@ export default function LearnSessionScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Loading audio */}
-              {pronStatus === 'loading_audio' && (
-                <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-                  <ActivityIndicator color={accent} />
-                  <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 10 }}>Preparing audio…</AppText>
-                </View>
+              {/* Record button — inside card so it's always visible */}
+              {currentStep.phrase.type === 'repeat' && pronStatus !== 'result' && pronStatus !== 'loading_audio' && (
+                pronStatus === 'assessing' ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 14 }}>
+                    <ActivityIndicator color={accent} />
+                    <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 8 }}>Analysing pronunciation…</AppText>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPressIn={startRecording}
+                    onPressOut={stopRecording}
+                    activeOpacity={0.8}
+                    style={{
+                      backgroundColor: pronStatus === 'recording' ? '#DC2626' : '#7C3AED',
+                      borderRadius: 16, paddingVertical: 18,
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                    }}
+                  >
+                    <Microphone size={22} color="#FFF" weight="fill" />
+                    <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
+                      {pronStatus === 'recording' ? 'Recording… release to stop' : 'Hold to speak'}
+                    </AppText>
+                  </TouchableOpacity>
+                )
               )}
 
 
@@ -851,37 +864,13 @@ export default function LearnSessionScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Pronunciation: Repeat ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && (
-            pronStatus === 'result' ? (
-              <TouchableOpacity onPress={handleNext}
-                style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? 'Finish' : 'Next'}</AppText>
-                {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
-              </TouchableOpacity>
-            ) : pronStatus === 'loading_audio' ? (
-              <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-                <ActivityIndicator color={accent} />
-                <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 8 }}>Loading audio…</AppText>
-              </View>
-            ) : pronStatus === 'assessing' ? (
-              <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-                <ActivityIndicator color={accent} />
-                <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 8 }}>Analysing pronunciation…</AppText>
-              </View>
-            ) : (
-              <Pressable onPressIn={startRecording} onPressOut={stopRecording}
-                style={({ pressed }) => ({
-                  backgroundColor: pronStatus === 'recording' ? '#DC2626' : pressed ? accent + 'CC' : accent,
-                  borderRadius: 20, paddingVertical: 18,
-                  alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 10,
-                })}>
-                <Microphone size={22} color="#FFF" weight="fill" />
-                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
-                  {pronStatus === 'recording' ? 'Recording… release to stop' : 'Hold to speak'}
-                </AppText>
-              </Pressable>
-            )
+          {/* ── Pronunciation: Repeat — only Next button in CTA (record is in card) ── */}
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && pronStatus === 'result' && (
+            <TouchableOpacity onPress={handleNext}
+              style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? 'Finish' : 'Next'}</AppText>
+              {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
+            </TouchableOpacity>
           )}
 
           {/* ── Pronunciation: Listen & Write ── */}
