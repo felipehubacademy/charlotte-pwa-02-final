@@ -156,8 +156,9 @@ export default function LearnSessionScreen() {
   const charlottePlayId = 'learn-session-phrase';
   const isPlaying = playingMessageId === charlottePlayId;
 
-  const recorder     = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recordingRef = useRef(false);
+  const recorder          = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recordingRef      = useRef(false);
+  const recordingStartRef = useRef(0);
 
   // ── Colour by step kind ────────────────────────────────────
   const currentStep  = steps[stepIdx];
@@ -171,7 +172,8 @@ export default function LearnSessionScreen() {
     try {
       const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
       await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => {});
-      const key = text.slice(0, 80).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      // v2_ prefix busts old OpenAI-cached files; change prefix to re-download all
+      const key = 'v2_' + text.slice(0, 76).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
       const localUri = `${cacheDir}${key}.mp3`;
 
       // 1. Local cache hit
@@ -275,6 +277,7 @@ export default function LearnSessionScreen() {
   const startRecording = async () => {
     if (recordingRef.current) return;
     recordingRef.current = true;
+    recordingStartRef.current = Date.now();
     setPronStatus('recording');
     try {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
@@ -289,6 +292,17 @@ export default function LearnSessionScreen() {
 
   const stopRecording = async () => {
     if (!recordingRef.current || !currentStep || currentStep.kind !== 'pronunciation') return;
+
+    // Ignore accidental taps shorter than 800ms
+    const elapsed = Date.now() - recordingStartRef.current;
+    if (elapsed < 800) {
+      recordingRef.current = false;
+      try { await recorder.stop(); } catch {}
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      setPronStatus('listening');
+      return;
+    }
+
     recordingRef.current = false;
     setPronStatus('assessing');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
