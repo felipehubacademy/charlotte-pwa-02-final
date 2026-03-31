@@ -31,7 +31,7 @@ export default function ChangePasswordScreen() {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const confirmRef                      = useRef<TextInput>(null);
-  const { session, refreshProfile }     = useAuth();
+  const { session }                     = useAuth();
 
   const handleSave = async () => {
     if (password.length < 8) {
@@ -55,9 +55,9 @@ export default function ChangePasswordScreen() {
           .eq('id', session.user.id);
       }
 
-      // Refresh profile so mustChangePassword becomes false,
-      // which triggers /(auth)/_layout to redirect to /(app) automatically.
-      await refreshProfile();
+      // Navigate directly — don't rely on refreshProfile → useEffect chain
+      // which can hang when onAuthStateChange fires concurrently.
+      router.replace('/(app)/index');
     } catch (e: any) {
       setError(e?.message ?? 'Erro ao salvar senha. Tente novamente.');
     } finally {
