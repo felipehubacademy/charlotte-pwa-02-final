@@ -6,12 +6,10 @@ import { useAuth } from '@/hooks/useAuth';
 import ChatHeader from '@/components/chat/ChatHeader';
 import ChatBox from '@/components/chat/ChatBox';
 import ChatInputBar from '@/components/chat/ChatInputBar';
-import AchievementNotification from '@/components/achievements/AchievementNotification';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
-import { Achievement } from '@/lib/types/achievement';
 
 export default function ChatScreen() {
   const { profile, signOut } = useAuth();
@@ -24,7 +22,6 @@ export default function ChatScreen() {
 
   const [showOnboarding, setShowOnboarding] = React.useState(false);
   const [showStats, setShowStats]           = React.useState(false);
-  const [achievements, setAchievements]     = React.useState<Achievement[]>([]);
 
   const { playingMessageId, toggle } = useMessageAudioPlayer();
 
@@ -74,10 +71,6 @@ export default function ChatScreen() {
         />
       </KeyboardAvoidingView>
 
-      <AchievementNotification
-        achievements={achievements}
-        onDismiss={id => setAchievements(prev => prev.filter(a => a.id !== id))}
-      />
       <EnhancedStatsModal
         isOpen={showStats}
         onClose={() => setShowStats(false)}

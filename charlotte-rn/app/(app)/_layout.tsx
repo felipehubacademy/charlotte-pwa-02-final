@@ -1,6 +1,8 @@
 import { Stack, Redirect } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { TrialExpiredModal } from '@/components/auth/TrialExpiredModal';
+import { XPToastProvider } from '@/components/ui/XPToastProvider';
+import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
 
 export default function AppLayout() {
   const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
@@ -17,7 +19,8 @@ export default function AppLayout() {
   }
 
   return (
-    <>
+    <XPToastProvider>
+      <AchievementsProvider>
       <TrialExpiredModal />
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="index" options={{ animation: 'none' }} />
@@ -30,6 +33,7 @@ export default function AppLayout() {
         <Stack.Screen name="learn-trail" />
         <Stack.Screen name="learn-session" />
       </Stack>
-    </>
+      </AchievementsProvider>
+    </XPToastProvider>
   );
 }
