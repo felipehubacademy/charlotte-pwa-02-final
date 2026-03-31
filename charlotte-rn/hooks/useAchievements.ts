@@ -35,7 +35,7 @@ export function useAchievements(userId: string | undefined) {
         'postgres_changes',
         {
           event: 'INSERT',
-          schema: 'public',           // compat view lives in public schema
+          schema: 'charlotte',        // actual table — Realtime doesn't fire on views
           table: 'user_achievements',
           filter: `user_id=eq.${userId}`,
         },

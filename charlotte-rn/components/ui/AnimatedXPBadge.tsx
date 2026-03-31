@@ -37,7 +37,8 @@ export default function AnimatedXPBadge({
   const { triggerToast, registerBadge } = useXPToast();
 
   const prevXP          = useRef(xp);
-  const isInitialLoad   = useRef(true);   // true until first non-zero DB value arrives
+  const isInitialLoad   = useRef(true);   // true until DB value has been received
+  const initTimerRef    = useRef<ReturnType<typeof setTimeout>>();
   const [displayXP, setDisplayXP] = useState(xp);
   const animValue       = useRef(new Animated.Value(xp)).current;
   const scaleAnim       = useRef(new Animated.Value(1)).current;
@@ -56,24 +57,34 @@ export default function AnimatedXPBadge({
     }, 150);
   };
 
+  // ── After 2s, mark DB load done regardless (handles 0-XP new users) ────────
+  useEffect(() => {
+    initTimerRef.current = setTimeout(() => {
+      isInitialLoad.current = false;
+    }, 2000);
+    return () => {
+      if (initTimerRef.current) clearTimeout(initTimerRef.current);
+    };
+  }, []);
+
   // ── XP change handler ─────────────────────────────────────────────────────
   useEffect(() => {
     const delta = xp - prevXP.current;
 
     if (delta <= 0) {
-      // Snap (reset or no change)
+      // Snap (reset or no change) — do NOT clear isInitialLoad here
       prevXP.current = xp;
       animValue.setValue(xp);
       setDisplayXP(xp);
-      isInitialLoad.current = false;
       return;
     }
 
     prevXP.current = xp;
 
-    // On initial DB load: snap silently — don't animate, don't toast
+    // First positive delta after mount = DB value arriving — snap silently
     if (isInitialLoad.current) {
       isInitialLoad.current = false;
+      if (initTimerRef.current) clearTimeout(initTimerRef.current);
       animValue.setValue(xp);
       setDisplayXP(xp);
       return;

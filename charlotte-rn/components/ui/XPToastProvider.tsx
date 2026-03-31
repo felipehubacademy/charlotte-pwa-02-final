@@ -49,7 +49,7 @@ export function XPToastProvider({ children }: { children: React.ReactNode }) {
 
   // Toast starts here (vertically centered, horizontally centered)
   const startLeft = SCREEN_W / 2 - 48;
-  const startTop  = SCREEN_H * 0.40;
+  const startTop  = SCREEN_H * 0.22;
 
   // Animated values
   const opacity    = useRef(new Animated.Value(0)).current;
