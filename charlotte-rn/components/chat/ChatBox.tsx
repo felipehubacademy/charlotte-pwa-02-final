@@ -5,7 +5,9 @@ import {
   TouchableOpacity,
   Image,
   Animated,
+  StyleSheet,
 } from 'react-native';
+import Svg, { Defs, Pattern, Circle, Rect } from 'react-native-svg';
 import {
   Play, Pause, SpeakerHigh,
   Globe, Microphone, ArrowsClockwise,
@@ -14,19 +16,23 @@ import {
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { translationService, TranslationResult } from '@/lib/translation-service';
+import PronunciationScoreCard, { PronunciationData } from '@/components/chat/PronunciationScoreCard';
 
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  audioUrl?: string;   // remote URL (Charlotte's TTS response)
-  audioUri?: string;   // local file URI (user's recorded audio)
+  audioUrl?: string;          // remote URL (Charlotte's TTS response)
+  audioUri?: string;          // local file URI (user's recorded audio)
   audioDuration?: number;
   isTyping?: boolean;
   isRecording?: boolean;
   timestamp?: Date;
-  messageType?: 'text' | 'audio' | 'image';
+  messageType?: 'text' | 'audio' | 'image' | 'pronunciation_score';
   technicalFeedback?: string;
+  pronunciationData?: PronunciationData; // score card data
+  isDemonstration?: boolean;             // Charlotte demonstrating a word via TTS
+  isSeparator?: boolean;                 // Visual divider between history and current session
 }
 
 interface ChatBoxProps {
@@ -36,7 +42,7 @@ interface ChatBoxProps {
   isProcessingMessage: boolean;
   isProcessingAudio?: boolean;
   userLevel: string;
-  onPlayAudio?: (messageId: string) => void;
+  onPlayAudio?: (messageId: string, uri: string) => void;
   playingMessageId?: string | null;
 }
 
@@ -72,7 +78,7 @@ const TypingIndicator = ({ isAudio = false }: { isAudio?: boolean }) => {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16, alignSelf: 'flex-start' }}>
       <CharlotteAvatar size="xs" />
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#212121', borderRadius: 18, borderBottomLeftRadius: 5, paddingHorizontal: 14, paddingVertical: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F0EFFA', borderRadius: 18, borderBottomLeftRadius: 5, paddingHorizontal: 14, paddingVertical: 12 }}>
         {isAudio ? (
           <Animated.View style={{ opacity: pulse }}>
             <Microphone size={16} color="#A3FF3C" weight="fill" />
@@ -81,7 +87,7 @@ const TypingIndicator = ({ isAudio = false }: { isAudio?: boolean }) => {
           dots.map((dot, i) => (
             <Animated.View
               key={i}
-              style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.7)', opacity: dot }}
+              style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(22,21,58,0.45)', opacity: dot }}
             />
           ))
         )}
@@ -92,7 +98,7 @@ const TypingIndicator = ({ isAudio = false }: { isAudio?: boolean }) => {
 
 // Audio waveform indicator
 const AudioRecordingIndicator = () => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#212121', borderRadius: 18, borderBottomLeftRadius: 5, alignSelf: 'flex-start', marginBottom: 16 }}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#F0EFFA', borderRadius: 18, borderBottomLeftRadius: 5, alignSelf: 'flex-start', marginBottom: 16 }}>
     <CharlotteAvatar size="xs" />
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
       <Microphone size={14} color="#A3FF3C" weight="fill" />
@@ -120,7 +126,8 @@ const MessageBubble: React.FC<{
   const hasAudio = !!(message.audioUrl || message.audioUri);
   const isAudioResponse = !isUser && !!message.technicalFeedback;
   // Charlotte's audio response — text hidden by default, revealed via "Ver texto"
-  const isCharlotteAudio = !isUser && message.messageType === 'audio' && !!message.audioUrl;
+  const isCharlotteAudio  = !isUser && message.messageType === 'audio' && !!message.audioUrl;
+  const isDemonstration   = !!message.isDemonstration;
 
   const fetchTranslation = async () => {
     if (translation) return; // já temos
@@ -178,15 +185,31 @@ const MessageBubble: React.FC<{
             paddingHorizontal: 14,
             paddingVertical: 10,
             borderRadius: 20,
-            backgroundColor: isUser ? '#A3FF3C' : '#212121',
+            backgroundColor: isUser ? '#A3FF3C' : '#F0EFFA',
             borderBottomRightRadius: isUser ? 5 : 20,
             borderBottomLeftRadius: isUser ? 20 : 5,
           }}
         >
+          {/* Demo badge — shown for pronunciation demonstration messages */}
+          {isDemonstration && (
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', gap: 5,
+              marginBottom: 8,
+              backgroundColor: 'rgba(163,255,60,0.12)',
+              borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+              alignSelf: 'flex-start',
+            }}>
+              <SpeakerHigh size={11} color="#3D8800" weight="fill" />
+              <AppText style={{ fontSize: 10, fontWeight: '700', color: '#3D8800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
+                Demonstration
+              </AppText>
+            </View>
+          )}
+
           {/* Text content — hidden for Charlotte's audio responses (shown via "Ver texto") */}
           {!!message.content && !isCharlotteAudio && (
             <AppText
-              style={{ fontSize: 14, lineHeight: 21, color: isUser ? '#000' : 'rgba(255,255,255,0.92)' }}
+              style={{ fontSize: 14, lineHeight: 21, color: isUser ? '#16153A' : '#16153A' }}
             >
               {message.content}
             </AppText>
@@ -208,20 +231,27 @@ const MessageBubble: React.FC<{
             <View
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 10,
-                // Only add separator if there's visible text above (not for Charlotte audio)
-                ...(!isCharlotteAudio && message.content ? { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' } : {}),
+                ...(!isCharlotteAudio && !isDemonstration && message.content
+                  ? { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(22,21,58,0.08)' }
+                  : {}),
               }}
             >
+              {/* Play/Pause button
+                  User bubble  → dark on green
+                  Demo bubble  → navy on navy-tint (high contrast on lavender)
+                  Charlotte    → navy on navy-tint (replaces near-invisible lime on lavender) */}
               <TouchableOpacity
                 onPress={onTogglePlay}
                 style={{
                   padding: 7, borderRadius: 20,
-                  backgroundColor: isUser ? 'rgba(0,0,0,0.15)' : 'rgba(163,255,60,0.15)',
+                  backgroundColor: isUser
+                    ? 'rgba(0,0,0,0.18)'
+                    : 'rgba(22,21,58,0.12)',
                 }}
               >
                 {isPlaying
-                  ? <Pause size={14} color={isUser ? '#000' : '#A3FF3C'} weight="fill" />
-                  : <Play  size={14} color={isUser ? '#000' : '#A3FF3C'} weight="fill" />
+                  ? <Pause size={14} color={isUser ? '#000' : '#16153A'} weight="fill" />
+                  : <Play  size={14} color={isUser ? '#000' : '#16153A'} weight="fill" />
                 }
               </TouchableOpacity>
 
@@ -235,13 +265,16 @@ const MessageBubble: React.FC<{
                       borderRadius: 2,
                       backgroundColor: isUser
                         ? `rgba(0,0,0,${0.25 + (i % 3) * 0.1})`
-                        : `rgba(163,255,60,${0.35 + (i % 3) * 0.15})`,
+                        : `rgba(22,21,58,${0.18 + (i % 3) * 0.08})`,
                     }}
                   />
                 ))}
               </View>
 
-              <SpeakerHigh size={14} color={isUser ? 'rgba(0,0,0,0.35)' : 'rgba(255,255,255,0.35)'} weight="regular" />
+              <SpeakerHigh size={14}
+                color={isUser ? 'rgba(0,0,0,0.35)' : 'rgba(22,21,58,0.35)'}
+                weight="regular"
+              />
             </View>
           )}
         </View>
@@ -296,8 +329,8 @@ const MessageBubble: React.FC<{
                 onPress={handleTranscription}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
               >
-                <ChatCenteredText size={12} color="#A3FF3C" weight="regular" />
-                <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>
+                <ChatCenteredText size={12} color="#4B4A72" weight="regular" />
+                <AppText style={{ fontSize: 12, color: '#4B4A72' }}>
                   {showTranscription
                     ? (userLevel === 'Novice' ? 'Esconder' : 'Hide text')
                     : (userLevel === 'Novice' ? 'Ver texto' : 'Show text')}
@@ -309,17 +342,17 @@ const MessageBubble: React.FC<{
 
         {/* Translation panel */}
         {showTranslation && (
-          <View style={{ marginTop: 8, padding: 12, backgroundColor: 'rgba(163,255,60,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(163,255,60,0.2)' }}>
+          <View style={{ marginTop: 8, padding: 12, backgroundColor: '#F0FFD9', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(61,136,0,0.2)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-              <Globe size={12} color="#A3FF3C" weight="regular" />
-              <AppText style={{ fontSize: 11, color: '#A3FF3C', fontWeight: '600' }}>
+              <Globe size={12} color="#3D8800" weight="regular" />
+              <AppText style={{ fontSize: 11, color: '#3D8800', fontWeight: '600' }}>
                 Tradução em Português{translationError ? ' (básica)' : ''}
               </AppText>
             </View>
             {isTranslating ? (
-              <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.6)' }}>Traduzindo...</AppText>
+              <AppText style={{ fontSize: 14, color: 'rgba(22,21,58,0.5)' }}>Traduzindo...</AppText>
             ) : (
-              <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>
+              <AppText style={{ fontSize: 14, color: '#16153A', lineHeight: 20 }}>
                 {translation || 'Tradução não disponível.'}
               </AppText>
             )}
@@ -336,30 +369,30 @@ const MessageBubble: React.FC<{
 
         {/* Transcription panel */}
         {showTranscription && (
-          <View style={{ marginTop: 8, padding: 12, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
+          <View style={{ marginTop: 8, padding: 12, backgroundColor: '#F4F3FA', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(22,21,58,0.1)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-              <ChatCenteredText size={12} color="#A3FF3C" weight="regular" />
-              <AppText style={{ fontSize: 11, color: '#A3FF3C', fontWeight: '600' }}>Transcription</AppText>
+              <ChatCenteredText size={12} color="#3D8800" weight="regular" />
+              <AppText style={{ fontSize: 11, color: '#3D8800', fontWeight: '600' }}>Transcription</AppText>
             </View>
-            <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)' }}>{transcription}</AppText>
+            <AppText style={{ fontSize: 14, color: '#16153A' }}>{transcription}</AppText>
           </View>
         )}
 
         {/* Technical Feedback panel */}
         {showTechnicalFeedback && !!message.technicalFeedback && (
-          <View style={{ marginTop: 8, padding: 14, backgroundColor: 'rgba(163,255,60,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)' }}>
+          <View style={{ marginTop: 8, padding: 14, backgroundColor: '#F0FFD9', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(61,136,0,0.2)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
-              <SpeakerHigh size={13} color="#A3FF3C" weight="regular" />
-              <AppText style={{ fontSize: 13, color: '#A3FF3C', fontWeight: '600' }}>Pronunciation Analysis</AppText>
+              <SpeakerHigh size={13} color="#3D8800" weight="regular" />
+              <AppText style={{ fontSize: 13, color: '#3D8800', fontWeight: '600' }}>Pronunciation Analysis</AppText>
             </View>
-            <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.9)', lineHeight: 20 }}>
+            <AppText style={{ fontSize: 14, color: '#16153A', lineHeight: 20 }}>
               {message.technicalFeedback}
             </AppText>
           </View>
         )}
 
         {/* Timestamp */}
-        <AppText style={{ fontSize: 10, color: 'rgba(255,255,255,0.35)', marginTop: 4, paddingHorizontal: 4, textAlign: isUser ? 'right' : 'left' }}>
+        <AppText style={{ fontSize: 10, color: 'rgba(22,21,58,0.35)', marginTop: 4, paddingHorizontal: 4, textAlign: isUser ? 'right' : 'left' }}>
           {message.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </AppText>
       </View>
@@ -384,25 +417,58 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   // We reverse so index 0 = newest (inverted FlatList renders it at bottom)
   const reversedMessages = React.useMemo(() => [...messages].reverse(), [messages]);
 
-  const renderItem = ({ item }: { item: Message }) => (
-    <MessageBubble
-      message={item}
-      userLevel={userLevel}
-      isPlaying={playingMessageId === item.id}
-      onTogglePlay={() => onPlayAudio?.(item.id)}
-    />
-  );
+  const renderItem = ({ item }: { item: Message }) => {
+    if (item.isSeparator) {
+      return (
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 12, paddingHorizontal: 16 }}>
+          <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(22,21,58,0.08)' }} />
+          <View style={{ marginHorizontal: 10 }}>
+            <AppText style={{ fontSize: 11, color: '#9896B8' }}>new session</AppText>
+          </View>
+          <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(22,21,58,0.08)' }} />
+        </View>
+      );
+    }
+    if (item.messageType === 'pronunciation_score' && item.pronunciationData) {
+      return (
+        <PronunciationScoreCard
+          data={item.pronunciationData}
+          timestamp={item.timestamp}
+        />
+      );
+    }
+    return (
+      <MessageBubble
+        message={item}
+        userLevel={userLevel}
+        isPlaying={playingMessageId === item.id}
+        onTogglePlay={() => {
+          const uri = item.audioUri ?? item.audioUrl ?? '';
+          if (uri) onPlayAudio?.(item.id, uri);
+        }}
+      />
+    );
+  };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#16153A' }}>
+    <View style={{ flex: 1, backgroundColor: '#F4F3FA' }}>
+      {/* Subtle dot texture — like WhatsApp */}
+      <Svg style={StyleSheet.absoluteFill}>
+        <Defs>
+          <Pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+            <Circle cx="2" cy="2" r="1.1" fill="rgba(22,21,58,0.055)" />
+          </Pattern>
+        </Defs>
+        <Rect width="100%" height="100%" fill="url(#dots)" />
+      </Svg>
       <FlatList
         ref={flatListRef}
         data={reversedMessages}
         keyExtractor={item => item.id}
         renderItem={renderItem}
         inverted
-        style={{ backgroundColor: '#16153A' }}
-        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 14, paddingVertical: 12, paddingBottom: 4, backgroundColor: '#16153A' }}
+        style={{ backgroundColor: 'transparent' }}
+        contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 14, paddingVertical: 12, paddingBottom: 4 }}
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
@@ -412,9 +478,10 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             {/* Live transcript while recording */}
             {!!(transcript || finalTranscript) && (
               <View className="bg-primary/10 rounded-xl p-3 mb-4 border border-primary/20">
-                <AppText className="text-xs text-primary font-medium mb-1">
-                  🎙 Listening...
-                </AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                  <Microphone size={12} color="#A3FF3C" weight="fill" />
+                  <AppText className="text-xs text-primary font-medium">Listening...</AppText>
+                </View>
                 <AppText className="text-sm text-white">
                   <AppText className="text-white/50">{transcript}</AppText>
                   <AppText className="text-white font-medium">{finalTranscript}</AppText>

@@ -10,6 +10,7 @@ import { transcribeAudio } from '@/hooks/useAudioRecorder';
 import { checkXPMilestone, sendXPMilestoneNotification } from '@/hooks/usePushNotifications';
 import { supabase } from '@/lib/supabase';
 import { ChatMode } from '@/lib/levelConfig';
+import { PronunciationData } from '@/components/chat/PronunciationScoreCard';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
@@ -51,6 +52,32 @@ function delay(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
+/** Persist a practice event to user_practices (fires DB trigger → user_progress). */
+async function savePractice(
+  userId: string,
+  practiceType: 'text_message' | 'audio_message',
+  xpEarned: number,
+): Promise<void> {
+  const { error } = await supabase.from('user_practices').insert({
+    user_id:       userId,
+    practice_type: practiceType,
+    xp_earned:     xpEarned,
+  });
+  if (error) console.warn('⚠️ savePractice error:', error.message, error.code);
+}
+
+/** Persist a chat message for history (fire-and-forget, chat mode only). */
+function saveChatMessage(
+  userId: string,
+  role: 'user' | 'assistant',
+  content: string,
+  mode: ChatMode,
+): void {
+  if (!userId || mode !== 'chat') return;
+  supabase.from('chat_messages').insert({ user_id: userId, role, content, mode })
+    .then(({ error }) => { if (error) console.warn('⚠️ saveChatMessage:', error.message); });
+}
+
 /** Call TTS endpoint and save the mp3 to a local temp file. Returns local URI or null. */
 async function fetchTTS(text: string): Promise<string | null> {
   try {
@@ -70,7 +97,6 @@ async function fetchTTS(text: string): Promise<string | null> {
       console.warn('❌ TTS response missing audio field:', JSON.stringify(data).slice(0, 200));
       return null;
     }
-    // Write base64 mp3 to a temp file so expo-audio can play it
     const uri = `${FileSystem.cacheDirectory}tts_${Date.now()}.mp3`;
     await FileSystem.writeAsStringAsync(uri, data.audio, {
       encoding: 'base64' as any,
@@ -96,6 +122,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
+  const historyLoadedRef = useRef(false);
 
   // Load real totalXP from user_progress on mount
   React.useEffect(() => {
@@ -111,38 +138,64 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       .catch(() => {});
   }, [userId]);
 
-  // Welcome message on mount
-  React.useEffect(() => {
-    const welcomeMessages: Record<string, Record<string, string>> = {
-      grammar: {
-        Advanced: `Hi ${userName}! Let's sharpen your grammar. Type a sentence and I'll give you a detailed analysis.`,
-        Inter: `Hi ${userName}! Send me a sentence in English and I'll help you improve your grammar.`,
-        Novice: `Olá ${userName}! Escreva uma frase em inglês e eu vou analisar sua gramática. Pode ser simples! 😊`,
-      },
-      pronunciation: {
-        Advanced: `Hi ${userName}! Let's work on your pronunciation. Hold the mic and say something — I'll analyze stress, intonation, and fluency.`,
-        Inter: `Hi ${userName}! Hold the mic button and say something in English. I'll check your pronunciation and give you tips!`,
-        Novice: `Olá ${userName}! Segure o botão do microfone e fale em inglês. Vou analisar sua pronúncia! 🎤`,
-      },
-      chat: {
-        Advanced: `Hey ${userName}! Ready to practice? What's on your mind today? 😊`,
-        Inter: `Hi ${userName}! Great to see you. Let's practice some English today! 😊`,
-        Novice: `Olá ${userName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir! 😊`,
-      },
-    };
-    const welcome: Message = {
-      id: 'welcome-0',
-      role: 'assistant',
-      content: (welcomeMessages[mode] ?? welcomeMessages.chat)[userLevel] ?? (welcomeMessages.chat)[userLevel],
-      messageType: 'text',
-      timestamp: new Date(),
-    };
-    setMessages([welcome]);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   const contextManagerRef = useRef(
     new ConversationContextManager(userLevel, userName)
   );
+
+  // ── Load chat history on mount (chat mode only) ───────────────────────────
+  React.useEffect(() => {
+    if (!userId || mode !== 'chat' || historyLoadedRef.current) return;
+    historyLoadedRef.current = true;
+
+    supabase
+      .from('chat_messages')
+      .select('role, content, created_at')
+      .eq('user_id', userId)
+      .eq('mode', 'chat')
+      .order('created_at', { ascending: false })
+      .limit(30)
+      .then(({ data, error }) => {
+        if (error) { console.warn('⚠️ load chat history:', error.message); return; }
+        if (!data || data.length === 0) {
+          // No history — show welcome message
+          setMessages([buildWelcome(mode, userLevel, userName)]);
+          return;
+        }
+
+        const history = [...data].reverse(); // oldest first
+
+        // Seed context manager so LLM has prior context
+        history.slice(-8).forEach(row => {
+          contextManagerRef.current.addMessage(row.role as 'user' | 'assistant', row.content, 'text');
+        });
+
+        const historyMsgs: Message[] = history.map(row => ({
+          id: `hist-${row.created_at}`,
+          role: row.role as 'user' | 'assistant',
+          content: row.content,
+          messageType: 'text' as const,
+          timestamp: new Date(row.created_at),
+        }));
+
+        // Add a subtle session separator after history
+        const separator: Message = {
+          id: 'session-sep',
+          role: 'assistant',
+          content: '— new session —',
+          messageType: 'text',
+          timestamp: new Date(),
+          isSeparator: true,
+        };
+
+        setMessages([...historyMsgs, separator]);
+      });
+  }, [userId, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Welcome message on mount — only for non-chat modes (chat shows history or welcome async)
+  React.useEffect(() => {
+    if (mode === 'chat') return; // handled above with history
+    setMessages([buildWelcome(mode, userLevel, userName)]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addMessage = useCallback((msg: Message) => {
     setMessages(prev => [...prev, msg]);
@@ -185,8 +238,13 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
   );
 
   /**
-   * Adds assistant messages one-by-one with 1500ms delay.
-   * When respondWithAudio=true, also fetches TTS for each part.
+   * Delivers assistant messages one-by-one with 1500ms delay.
+   *
+   * TTS routing:
+   *   - grammar mode  → NEVER (text only)
+   *   - chat text in  → NEVER (text → text)
+   *   - chat audio in → YES   (audio → audio)
+   *   - pronunciation → handled separately (demo TTS only)
    */
   const deliverSequentially = useCallback(
     async (
@@ -197,7 +255,6 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       for (let i = 0; i < parts.length; i++) {
         if (i > 0) await delay(1500);
 
-        // Fetch TTS in parallel while building the message
         const audioUri = respondWithAudio ? await fetchTTS(parts[i]) : null;
 
         const msg: Message = {
@@ -231,8 +288,10 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 
       addMessage(userMsg);
       setIsProcessing(true);
-
       contextManagerRef.current.addMessage('user', text.trim(), 'text');
+
+      // Save user message to history
+      saveChatMessage(userId, 'user', text.trim(), mode);
 
       try {
         const { feedback, technicalFeedback, xpAwarded } =
@@ -240,8 +299,6 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
-        // Stamp grammar feedback onto the user's own message so it shows below their bubble
-        // Note: backend may return '' when analysis fails — treat that as "no feedback"
         if (technicalFeedback?.trim()) {
           setMessages(prev =>
             prev.map(m => m.id === userMsg.id ? { ...m, technicalFeedback } : m)
@@ -249,7 +306,12 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         }
 
         const parts = splitIntoMultipleMessages(feedback, userLevel);
+
+        // Text input → text output always (no TTS regardless of mode)
         await deliverSequentially(parts, technicalFeedback, false);
+
+        // Save assistant reply to history
+        saveChatMessage(userId, 'assistant', feedback, mode);
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setSessionXP(prev => prev + xpAwarded);
@@ -258,6 +320,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           if (milestone) sendXPMilestoneNotification(milestone);
           return prev + xpAwarded;
         });
+        if (userId) savePractice(userId, 'text_message', xpAwarded);
       } catch (error) {
         console.error('❌ sendTextMessage error:', error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -273,22 +336,20 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         setIsProcessing(false);
       }
     },
-    [isProcessing, addMessage, getAssistantResponse, deliverSequentially, userLevel, userName]
+    [isProcessing, addMessage, getAssistantResponse, deliverSequentially, userLevel, userName, userId, mode]
   );
 
   /**
-   * Send a recorded audio message.
-   * Charlotte responds with audio (TTS) when user sends audio.
+   * Pronunciation mode — full pipeline:
+   * record → transcribe → Azure assessment → score card → Charlotte text (no TTS) → demo TTS
    */
-  const sendAudioMessage = useCallback(
+  const sendPronunciationAudio = useCallback(
     async (audioUri: string, audioDuration: number) => {
-      if (isProcessing) return;
-
       setIsProcessing(true);
       setIsProcessingAudio(true);
 
       const tempId = generateId();
-      const recordingMsg: Message = {
+      addMessage({
         id: tempId,
         role: 'user',
         content: '',
@@ -297,69 +358,165 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         messageType: 'audio',
         timestamp: new Date(),
         isRecording: true,
-      };
-      addMessage(recordingMsg);
+      });
 
       try {
-        // 1. Transcribe
-        console.log('🎤 Transcribing audio:', audioUri);
+        // ── 1. Transcribe ───────────────────────────────────────
         const transcription = await transcribeAudio(audioUri);
-        console.log('📝 Transcription result:', transcription);
-
-        // Keep content empty — we don't show the transcription on the user's bubble,
-        // only use it internally to call the assistant API
         setMessages(prev =>
-          prev.map(m =>
-            m.id === tempId ? { ...m, content: '', isRecording: false } : m
-          )
+          prev.map(m => m.id === tempId ? { ...m, content: '', isRecording: false } : m)
         );
 
         if (!transcription) {
-          console.warn('⚠️ Transcription returned null — aborting');
-          // Show a visible error on the user's audio bubble instead of silent fail
           setMessages(prev =>
-            prev.map(m =>
-              m.id === tempId
-                ? {
-                    ...m,
-                    isRecording: false,
-                    technicalFeedback: "Couldn't hear you clearly. Try again in a quiet place 🎤",
-                  }
-                : m
-            )
+            prev.map(m => m.id === tempId ? {
+              ...m, isRecording: false,
+              technicalFeedback: "Couldn't hear you clearly. Try again in a quiet place 🎤",
+            } : m)
           );
-          // Add a short Charlotte reply so the user knows what happened
-          const errorMsg: Message = {
-            id: generateId(),
-            role: 'assistant',
-            content: "I didn't catch that — the audio was too short or silent. Hold the mic button and speak clearly.",
-            messageType: 'text',
-            timestamp: new Date(),
-          };
-          setMessages(prev => [...prev, errorMsg]);
-          setIsProcessing(false);
-          setIsProcessingAudio(false);
+          setMessages(prev => [...prev, {
+            id: generateId(), role: 'assistant',
+            content: "I didn't catch that. Hold the mic and speak clearly.",
+            messageType: 'text', timestamp: new Date(),
+          }]);
           return;
         }
 
         contextManagerRef.current.addMessage('user', transcription, 'audio');
 
-        // 2. Get assistant response
-        const { feedback, technicalFeedback, xpAwarded } =
-          await getAssistantResponse(transcription, 'audio');
+        // ── 2. Azure pronunciation assessment ───────────────────
+        let pronunciationData: PronunciationData | null = null;
+        let mispronounced: string[] = [];
+        let azureAvailable = false;
+        try {
+          const isWav = audioUri.toLowerCase().endsWith('.wav');
+          const formData = new FormData();
+          formData.append('audio', {
+            uri: audioUri,
+            name: isWav ? 'recording.wav' : 'recording.m4a',
+            type: isWav ? 'audio/wav' : 'audio/x-m4a',
+          } as unknown as Blob);
+          console.log('🔬 Calling /api/pronunciation...');
+          const res = await fetch(`${API_BASE_URL}/api/pronunciation`, {
+            method: 'POST',
+            body: formData,
+          });
+          console.log('🔬 Pronunciation API status:', res.status);
+          if (res.ok) {
+            const json = await res.json();
+            console.log('🔬 Pronunciation result:', JSON.stringify(json).slice(0, 300));
+            if (json.success && json.result) {
+              azureAvailable = true;
+              pronunciationData = {
+                text:               json.result.text               ?? transcription,
+                pronunciationScore: json.result.pronunciationScore ?? 0,
+                accuracyScore:      json.result.accuracyScore      ?? 0,
+                fluencyScore:       json.result.fluencyScore       ?? 0,
+                completenessScore:  json.result.completenessScore  ?? 0,
+                prosodyScore:       json.result.prosodyScore,
+                words:              json.result.words              ?? [],
+              };
+              mispronounced = (json.result.words ?? [])
+                .filter((w: { errorType?: string; accuracyScore: number }) =>
+                  w.errorType === 'Mispronunciation' && w.accuracyScore < 70
+                )
+                .map((w: { word: string }) => w.word);
+            } else {
+              console.warn('⚠️ Pronunciation API returned failure:', json.error ?? 'unknown');
+            }
+          } else {
+            const errText = await res.text().catch(() => '');
+            console.warn('⚠️ Pronunciation API HTTP error:', res.status, errText.slice(0, 200));
+          }
+        } catch (e) {
+          console.warn('⚠️ Pronunciation API unreachable:', e);
+        }
+
+        // ── 3. Score card bubble ────────────────────────────────
+        if (azureAvailable && pronunciationData) {
+          setMessages(prev => [...prev, {
+            id: generateId(),
+            role: 'assistant',
+            content: '',
+            messageType: 'pronunciation_score',
+            pronunciationData,
+            timestamp: new Date(),
+          }]);
+        } else {
+          setMessages(prev => [...prev, {
+            id: generateId(),
+            role: 'assistant',
+            content: '',
+            messageType: 'pronunciation_score',
+            pronunciationData: {
+              text:               transcription,
+              pronunciationScore: -1,
+              accuracyScore:      -1,
+              fluencyScore:       -1,
+              completenessScore:  -1,
+              words:              [],
+            },
+            timestamp: new Date(),
+          }]);
+        }
+
+        // ── 4. Charlotte feedback — TEXT only in pronunciation mode ──
+        const { feedback, xpAwarded } =
+          await getAssistantResponse(transcription, 'audio', pronunciationData);
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
-        // Stamp pronunciation/grammar feedback onto the user's audio bubble
-        if (technicalFeedback?.trim()) {
-          setMessages(prev =>
-            prev.map(m => m.id === tempId ? { ...m, technicalFeedback } : m)
-          );
-        }
+        setMessages(prev => [...prev, {
+          id: generateId(),
+          role: 'assistant',
+          content: feedback,
+          messageType: 'text',
+          timestamp: new Date(),
+        }]);
 
-        const parts = splitIntoMultipleMessages(feedback, userLevel);
-        // Charlotte responds with audio when user sends audio
-        await deliverSequentially(parts, technicalFeedback, true);
+        // ── 5. Demo TTS — only for mispronounced words ──────────
+        if (
+          mispronounced.length > 0 &&
+          pronunciationData &&
+          pronunciationData.pronunciationScore < 75
+        ) {
+          const top = mispronounced.slice(0, 2);
+
+          let demoText = '';
+          try {
+            const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ words: top }),
+            });
+            if (sentRes.ok) {
+              const sentJson = await sentRes.json();
+              const sentences: string[] = sentJson.sentences ?? [];
+              if (sentences.length > 0) {
+                demoText = sentences
+                  .map((s, i) => `Here's how to say "${top[i]}": ${s}`)
+                  .join('  ');
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️ demo-sentence fetch failed, skipping demo:', e);
+          }
+
+          if (demoText) {
+            const demoUri = await fetchTTS(demoText);
+            if (demoUri) {
+              setMessages(prev => [...prev, {
+                id: generateId(),
+                role: 'assistant',
+                content: demoText,
+                messageType: 'audio',
+                audioUrl: demoUri,
+                isDemonstration: true,
+                timestamp: new Date(),
+              }]);
+            }
+          }
+        }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setSessionXP(prev => prev + xpAwarded);
@@ -368,27 +525,130 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           if (milestone) sendXPMilestoneNotification(milestone);
           return prev + xpAwarded;
         });
+        if (userId) savePractice(userId, 'audio_message', xpAwarded);
+
       } catch (error) {
-        console.error('❌ sendAudioMessage error:', error);
+        console.error('❌ pronunciation flow error:', error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        setMessages(prev =>
-          prev.map(m => (m.id === tempId ? { ...m, isRecording: false } : m))
-        );
-        // Show Charlotte reply so the user isn't left staring at a broken bubble
-        const errMsg: Message = {
-          id: generateId(),
-          role: 'assistant',
-          content: "Sorry, I had trouble processing that. Please try again! 🙏",
-          messageType: 'text',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, errMsg]);
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, isRecording: false } : m));
+        setMessages(prev => [...prev, {
+          id: generateId(), role: 'assistant',
+          content: "Sorry, I had trouble with that. Please try again!",
+          messageType: 'text', timestamp: new Date(),
+        }]);
       } finally {
         setIsProcessing(false);
         setIsProcessingAudio(false);
       }
     },
-    [isProcessing, addMessage, getAssistantResponse, deliverSequentially, userLevel]
+    [addMessage, getAssistantResponse, userLevel, userId]
+  );
+
+  /**
+   * Send a recorded audio message.
+   * - pronunciation mode → full assessment pipeline
+   * - chat mode          → transcribe → GPT → TTS response (audio in → audio out)
+   * - grammar mode       → transcribe → GPT → text response (no TTS)
+   */
+  const sendAudioMessage = useCallback(
+    async (audioUri: string, audioDuration: number) => {
+      if (isProcessing) return;
+
+      if (mode === 'pronunciation') {
+        await sendPronunciationAudio(audioUri, audioDuration);
+        return;
+      }
+
+      setIsProcessing(true);
+      setIsProcessingAudio(true);
+
+      const tempId = generateId();
+      addMessage({
+        id: tempId,
+        role: 'user',
+        content: '',
+        audioUri,
+        audioDuration,
+        messageType: 'audio',
+        timestamp: new Date(),
+        isRecording: true,
+      });
+
+      try {
+        console.log('🎤 Transcribing audio:', audioUri);
+        const transcription = await transcribeAudio(audioUri);
+        console.log('📝 Transcription result:', transcription);
+
+        setMessages(prev =>
+          prev.map(m => m.id === tempId ? { ...m, content: '', isRecording: false } : m)
+        );
+
+        if (!transcription) {
+          console.warn('⚠️ Transcription returned null — aborting');
+          setMessages(prev =>
+            prev.map(m => m.id === tempId ? {
+              ...m, isRecording: false,
+              technicalFeedback: "Couldn't hear you clearly. Try again in a quiet place 🎤",
+            } : m)
+          );
+          setMessages(prev => [...prev, {
+            id: generateId(), role: 'assistant',
+            content: "I didn't catch that — the audio was too short or silent. Hold the mic button and speak clearly.",
+            messageType: 'text', timestamp: new Date(),
+          }]);
+          setIsProcessing(false);
+          setIsProcessingAudio(false);
+          return;
+        }
+
+        contextManagerRef.current.addMessage('user', transcription, 'audio');
+
+        // Save transcription as user message in chat history
+        saveChatMessage(userId, 'user', transcription, mode);
+
+        const { feedback, technicalFeedback, xpAwarded } =
+          await getAssistantResponse(transcription, 'audio');
+
+        contextManagerRef.current.addMessage('assistant', feedback, 'text');
+
+        if (technicalFeedback?.trim()) {
+          setMessages(prev =>
+            prev.map(m => m.id === tempId ? { ...m, technicalFeedback } : m)
+          );
+        }
+
+        const parts = splitIntoMultipleMessages(feedback, userLevel);
+
+        // chat audio in → audio out (TTS); grammar audio in → text out
+        const withAudio = mode === 'chat';
+        await deliverSequentially(parts, technicalFeedback, withAudio);
+
+        // Save assistant reply to chat history
+        saveChatMessage(userId, 'assistant', feedback, mode);
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setSessionXP(prev => prev + xpAwarded);
+        setTotalXP(prev => {
+          const milestone = checkXPMilestone(prev, prev + xpAwarded);
+          if (milestone) sendXPMilestoneNotification(milestone);
+          return prev + xpAwarded;
+        });
+        if (userId) savePractice(userId, 'audio_message', xpAwarded);
+      } catch (error) {
+        console.error('❌ sendAudioMessage error:', error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, isRecording: false } : m));
+        setMessages(prev => [...prev, {
+          id: generateId(), role: 'assistant',
+          content: "Sorry, I had trouble processing that. Please try again!",
+          messageType: 'text', timestamp: new Date(),
+        }]);
+      } finally {
+        setIsProcessing(false);
+        setIsProcessingAudio(false);
+      }
+    },
+    [isProcessing, mode, sendPronunciationAudio, addMessage, getAssistantResponse, deliverSequentially, userLevel, userId]
   );
 
   return {
@@ -399,5 +659,34 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
     totalXP,
     sendTextMessage,
     sendAudioMessage,
+  };
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function buildWelcome(mode: ChatMode, userLevel: string, userName: string): Message {
+  const welcomeMessages: Record<string, Record<string, string>> = {
+    grammar: {
+      Advanced: `Hi ${userName}! Let's sharpen your grammar. Type a sentence and I'll give you a detailed analysis.`,
+      Inter: `Hi ${userName}! Send me a sentence in English and I'll help you improve your grammar.`,
+      Novice: `Olá ${userName}! Escreva uma frase em inglês e eu vou analisar sua gramática. Pode ser simples! 😊`,
+    },
+    pronunciation: {
+      Advanced: `Hi ${userName}! Let's work on your pronunciation. Hold the mic and say something — I'll analyze stress, intonation, and fluency.`,
+      Inter: `Hi ${userName}! Hold the mic button and say something in English. I'll check your pronunciation and give you tips!`,
+      Novice: `Olá ${userName}! Segure o botão do microfone e fale em inglês. Vou analisar sua pronúncia! 🎤`,
+    },
+    chat: {
+      Advanced: `Hey ${userName}! Ready to practice? What's on your mind today? 😊`,
+      Inter: `Hi ${userName}! Great to see you. Let's practice some English today! 😊`,
+      Novice: `Olá ${userName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir! 😊`,
+    },
+  };
+  return {
+    id: 'welcome-0',
+    role: 'assistant',
+    content: (welcomeMessages[mode] ?? welcomeMessages.chat)[userLevel] ?? welcomeMessages.chat[userLevel],
+    messageType: 'text',
+    timestamp: new Date(),
   };
 }
