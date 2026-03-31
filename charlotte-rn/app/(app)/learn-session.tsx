@@ -167,19 +167,25 @@ export default function LearnSessionScreen() {
   const accentBg     = !currentStep ? C.goldBg
     : currentStep.kind === 'grammar' ? C.goldBg : C.violetBg;
 
-  // ── TTS — local cache → ElevenLabs API ────────────────────
+  // ── TTS — local cache → pre-generated file → ElevenLabs API ──
   const fetchTTS = useCallback(async (text: string): Promise<string | null> => {
     try {
       const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
       await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => {});
-      const key      = 'el_' + text.slice(0, 76).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      const localUri = `${cacheDir}${key}.mp3`;
+      const fileKey  = text.slice(0, 80).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const localUri = `${cacheDir}el_${fileKey}.mp3`;
 
       // 1. Local cache hit — instant
       const info = await FileSystem.getInfoAsync(localUri);
       if (info.exists) return localUri;
 
-      // 2. Generate via ElevenLabs API and cache result
+      // 2. Pre-generated file via API route (bypasses CDN stale-404 cache)
+      const fileUrl = `${API_BASE_URL}/api/tts/file/${fileKey}.mp3`;
+      const dl = await FileSystem.downloadAsync(fileUrl, localUri);
+      if (dl.status === 200) return localUri;
+      await FileSystem.deleteAsync(localUri, { idempotent: true });
+
+      // 3. Fallback: generate via ElevenLabs API and cache
       const res = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
