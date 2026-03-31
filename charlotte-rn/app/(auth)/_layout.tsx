@@ -4,18 +4,18 @@ import { router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function AuthLayout() {
-  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
 
   // Navigate authenticated users to the app group —
   // UNLESS they still need to create a first-time password.
-  // Using useEffect + router.replace (instead of <Redirect>) avoids the
-  // "index not found in current navigator" error that occurs when redirecting
-  // from within a nested group layout.
+  // We wait for profile to be non-null before redirecting: right after login,
+  // session is set but profile is still loading (null), which makes
+  // mustChangePassword temporarily false — causing a premature redirect.
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !mustChangePassword) {
+    if (!isLoading && isAuthenticated && profile !== null && !mustChangePassword) {
       router.replace('/(app)/index');
     }
-  }, [isLoading, isAuthenticated, mustChangePassword]);
+  }, [isLoading, isAuthenticated, mustChangePassword, profile]);
 
   return (
     <Stack
