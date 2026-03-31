@@ -736,31 +736,6 @@ export default function LearnSessionScreen() {
                 </TouchableOpacity>
               )}
 
-              {/* Record button — inside card so it's always visible */}
-              {currentStep.phrase.type === 'repeat' && pronStatus !== 'result' && pronStatus !== 'loading_audio' && (
-                pronStatus === 'assessing' ? (
-                  <View style={{ alignItems: 'center', paddingVertical: 14 }}>
-                    <ActivityIndicator color={accent} />
-                    <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 8 }}>Analysing pronunciation…</AppText>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    onPressIn={startRecording}
-                    onPressOut={stopRecording}
-                    activeOpacity={0.8}
-                    style={{
-                      backgroundColor: pronStatus === 'recording' ? '#DC2626' : '#7C3AED',
-                      borderRadius: 16, paddingVertical: 18,
-                      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-                    }}
-                  >
-                    <Microphone size={22} color="#FFF" weight="fill" />
-                    <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
-                      {pronStatus === 'recording' ? 'Recording… release to stop' : 'Hold to speak'}
-                    </AppText>
-                  </TouchableOpacity>
-                )
-              )}
 
 
               {/* Listen & Write: text input */}
@@ -864,13 +839,40 @@ export default function LearnSessionScreen() {
             </TouchableOpacity>
           )}
 
-          {/* ── Pronunciation: Repeat — only Next button in CTA (record is in card) ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && pronStatus === 'result' && (
-            <TouchableOpacity onPress={handleNext}
-              style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? 'Finish' : 'Next'}</AppText>
-              {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
-            </TouchableOpacity>
+          {/* ── Pronunciation: Repeat ── */}
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && (
+            pronStatus === 'result' ? (
+              <TouchableOpacity onPress={handleNext}
+                style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? 'Finish' : 'Next'}</AppText>
+                {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
+              </TouchableOpacity>
+            ) : pronStatus === 'loading_audio' ? (
+              <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <ActivityIndicator color={accent} />
+              </View>
+            ) : pronStatus === 'assessing' ? (
+              <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <ActivityIndicator color={accent} />
+                <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 6 }}>Analysing…</AppText>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPressIn={startRecording}
+                onPressOut={stopRecording}
+                activeOpacity={0.8}
+                style={{
+                  backgroundColor: pronStatus === 'recording' ? '#DC2626' : '#7C3AED',
+                  borderRadius: 16, paddingVertical: 16,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                }}
+              >
+                <Microphone size={22} color="#FFF" weight="fill" />
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
+                  {pronStatus === 'recording' ? 'Recording… release to stop' : 'Hold to speak'}
+                </AppText>
+              </TouchableOpacity>
+            )
           )}
 
           {/* ── Pronunciation: Listen & Write ── */}

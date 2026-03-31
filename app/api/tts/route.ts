@@ -11,8 +11,10 @@ const VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel — clear American English
 export async function POST(request: NextRequest) {
   try {
     if (!ELEVENLABS_API_KEY) {
+      console.error('TTS: ELEVENLABS_API_KEY not set');
       return NextResponse.json({ error: 'ElevenLabs API key not configured' }, { status: 500 });
     }
+    console.log('TTS: using ElevenLabs Rachel');
 
     const { text } = await request.json();
 
