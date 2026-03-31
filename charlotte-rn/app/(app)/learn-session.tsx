@@ -188,8 +188,8 @@ export default function LearnSessionScreen() {
       const info = await FileSystem.getInfoAsync(localUri);
       if (info.exists) return localUri;
 
-      // 2. Pre-generated file via API route (bypasses CDN stale-404 cache)
-      const fileUrl = `${API_BASE_URL}/api/tts/file/${fileKey}.mp3`;
+      // 2. Pre-generated file via API route (query param avoids Next.js dot-in-segment bug)
+      const fileUrl = `${API_BASE_URL}/api/tts/file?k=${fileKey}`;
       const dl = await FileSystem.downloadAsync(fileUrl, localUri);
       if (dl.status === 200) return localUri;
       await FileSystem.deleteAsync(localUri, { idempotent: true });
