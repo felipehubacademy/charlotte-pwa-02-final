@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  experimental: {
+    outputFileTracingIncludes: {
+      '/api/tts/file': ['./public/tts/**/*.mp3'],
+    },
+  },
   serverExternalPackages: ['fluent-ffmpeg'],
   webpack: (config, { isServer }) => {
     if (!isServer) {
