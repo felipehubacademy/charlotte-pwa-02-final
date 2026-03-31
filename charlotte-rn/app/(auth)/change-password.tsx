@@ -45,9 +45,8 @@ export default function ChangePasswordScreen() {
     setError(null);
     setLoading(true);
     try {
-      const { error: authError } = await supabase.auth.updateUser({ password });
-      if (authError) throw authError;
-
+      // 1. Update DB flag FIRST so that when updateUser fires onAuthStateChange,
+      //    the profile refresh picks up must_change_password=false immediately.
       if (session?.user?.id) {
         await supabase
           .from('users')
@@ -55,11 +54,24 @@ export default function ChangePasswordScreen() {
           .eq('id', session.user.id);
       }
 
-      // Navigate directly — don't rely on refreshProfile → useEffect chain
-      // which can hang when onAuthStateChange fires concurrently.
-      router.replace('/(app)/index');
+      // 2. Update auth password — triggers onAuthStateChange (USER_UPDATED)
+      //    → AuthProvider refreshes profile → mustChangePassword becomes false
+      //    → /(auth)/_layout useEffect fires → router.replace('/(app)/index')
+      const { error: authError } = await supabase.auth.updateUser({ password });
+      if (authError) {
+        // Roll back flag if auth update fails
+        if (session?.user?.id) {
+          await supabase.from('users').update({ must_change_password: true }).eq('id', session.user.id);
+        }
+        throw authError;
+      }
     } catch (e: any) {
-      setError(e?.message ?? 'Erro ao salvar senha. Tente novamente.');
+      const msg = (e?.message ?? '') as string;
+      setError(
+        msg.includes('different from the old password')
+          ? 'A nova senha deve ser diferente da senha temporária.'
+          : msg || 'Erro ao salvar senha. Tente novamente.'
+      );
     } finally {
       setLoading(false);
     }
