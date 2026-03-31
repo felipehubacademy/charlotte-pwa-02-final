@@ -1,18 +1,17 @@
-// app/api/tts/route.ts — OpenAI Text-to-Speech for Charlotte's audio responses
+// app/api/tts/route.ts — ElevenLabs TTS (Rachel) for Charlotte's audio responses
+// Used as fallback when pre-generated CDN files are not available.
 
 import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
 
 export const dynamic = 'force-dynamic';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || 'placeholder',
-});
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
+const VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // Rachel — clear American English
 
 export async function POST(request: NextRequest) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ error: 'OpenAI API key not configured' }, { status: 500 });
+    if (!ELEVENLABS_API_KEY) {
+      return NextResponse.json({ error: 'ElevenLabs API key not configured' }, { status: 500 });
     }
 
     const { text } = await request.json();
@@ -21,16 +20,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing text field' }, { status: 400 });
     }
 
-    const mp3 = await openai.audio.speech.create({
-      model: 'tts-1',
-      voice: 'coral',       // same voice as Live Voice for consistency
-      input: text,
-      response_format: 'mp3',
-      speed: 0.85,
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY,
+        'Content-Type': 'application/json',
+        'Accept': 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_multilingual_v2',
+        voice_settings: {
+          stability: 0.55,
+          similarity_boost: 0.80,
+          style: 0.10,
+          use_speaker_boost: true,
+        },
+      }),
     });
 
-    // Return as base64 so React Native can play without a separate download step
-    const buffer = Buffer.from(await mp3.arrayBuffer());
+    if (!res.ok) {
+      const err = await res.text();
+      console.error('ElevenLabs TTS error:', err);
+      return NextResponse.json({ error: 'Failed to synthesize speech' }, { status: 500 });
+    }
+
+    const buffer = Buffer.from(await res.arrayBuffer());
     const base64 = buffer.toString('base64');
 
     return NextResponse.json({ audio: base64, mimeType: 'audio/mp3' });
