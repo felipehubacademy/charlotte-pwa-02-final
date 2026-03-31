@@ -10,6 +10,19 @@ import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
+// ── Light theme ───────────────────────────────────────────────
+const C = {
+  bg:        '#F4F3FA',
+  card:      '#FFFFFF',
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  navyLight: '#9896B8',
+  border:    'rgba(22,21,58,0.10)',
+  green:     '#A3FF3C',
+  greenDark: '#3D8800',
+  red:       '#DC2626',
+};
+
 export default function ChangePasswordScreen() {
   const [password, setPassword]         = useState('');
   const [confirm, setConfirm]           = useState('');
@@ -18,7 +31,7 @@ export default function ChangePasswordScreen() {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const confirmRef                      = useRef<TextInput>(null);
-  const { session }                     = useAuth();
+  const { session, refreshProfile }     = useAuth();
 
   const handleSave = async () => {
     if (password.length < 8) {
@@ -32,11 +45,9 @@ export default function ChangePasswordScreen() {
     setError(null);
     setLoading(true);
     try {
-      // 1. Atualiza a senha no Supabase Auth
       const { error: authError } = await supabase.auth.updateUser({ password });
       if (authError) throw authError;
 
-      // 2. Marca must_change_password = false na tabela users
       if (session?.user?.id) {
         await supabase
           .from('users')
@@ -44,8 +55,9 @@ export default function ChangePasswordScreen() {
           .eq('id', session.user.id);
       }
 
-      // 3. Redireciona para a home
-      router.replace('/(app)/(tabs)');
+      // Refresh profile so mustChangePassword becomes false,
+      // which triggers /(auth)/_layout to redirect to /(app) automatically.
+      await refreshProfile();
     } catch (e: any) {
       setError(e?.message ?? 'Erro ao salvar senha. Tente novamente.');
     } finally {
@@ -53,40 +65,46 @@ export default function ChangePasswordScreen() {
     }
   };
 
+  const strongEnough = password.length >= 8;
+  const matches      = confirm.length > 0 && password === confirm;
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#16153A' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 32 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Ícone */}
+
+          {/* Icon + title */}
           <View style={{ alignItems: 'center', marginBottom: 36 }}>
             <View style={{
               width: 72, height: 72, borderRadius: 36,
-              backgroundColor: 'rgba(163,255,60,0.1)',
+              backgroundColor: 'rgba(163,255,60,0.12)',
               alignItems: 'center', justifyContent: 'center', marginBottom: 20,
             }}>
-              <Lock size={32} color="#A3FF3C" weight="duotone" />
+              <Lock size={32} color={C.navy} weight="duotone" />
             </View>
-            <AppText style={{ fontSize: 26, fontWeight: '800', color: '#fff', textAlign: 'center' }}>
+            <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, textAlign: 'center' }}>
               Crie sua senha
             </AppText>
-            <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+            <AppText style={{ fontSize: 14, color: C.navyMid, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
               É seu primeiro acesso.{'\n'}Defina uma senha pessoal para continuar.
             </AppText>
           </View>
 
-          {/* Campos */}
-          <View style={{ gap: 12, marginBottom: 24 }}>
+          {/* Fields */}
+          <View style={{ gap: 12, marginBottom: 20 }}>
+
+            {/* Password */}
             <View style={inputWrap}>
-              <Lock size={18} color="rgba(255,255,255,0.35)" weight="regular" style={{ marginRight: 10 }} />
+              <Lock size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
               <TextInput
                 value={password}
                 onChangeText={t => { setPassword(t); setError(null); }}
                 placeholder="Nova senha"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholderTextColor={C.navyLight}
                 secureTextEntry={!showPassword}
                 textContentType="newPassword"
                 autoComplete="new-password"
@@ -96,20 +114,21 @@ export default function ChangePasswordScreen() {
               />
               <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={{ padding: 6 }}>
                 {showPassword
-                  ? <EyeSlash size={18} color="rgba(255,255,255,0.35)" weight="regular" />
-                  : <Eye     size={18} color="rgba(255,255,255,0.35)" weight="regular" />
+                  ? <EyeSlash size={18} color={C.navyLight} weight="regular" />
+                  : <Eye     size={18} color={C.navyLight} weight="regular" />
                 }
               </TouchableOpacity>
             </View>
 
+            {/* Confirm */}
             <View style={inputWrap}>
-              <Lock size={18} color="rgba(255,255,255,0.35)" weight="regular" style={{ marginRight: 10 }} />
+              <Lock size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
               <TextInput
                 ref={confirmRef}
                 value={confirm}
                 onChangeText={t => { setConfirm(t); setError(null); }}
                 placeholder="Confirmar senha"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholderTextColor={C.navyLight}
                 secureTextEntry={!showConfirm}
                 textContentType="newPassword"
                 autoComplete="new-password"
@@ -119,42 +138,56 @@ export default function ChangePasswordScreen() {
               />
               <TouchableOpacity onPress={() => setShowConfirm(v => !v)} style={{ padding: 6 }}>
                 {showConfirm
-                  ? <EyeSlash size={18} color="rgba(255,255,255,0.35)" weight="regular" />
-                  : <Eye     size={18} color="rgba(255,255,255,0.35)" weight="regular" />
+                  ? <EyeSlash size={18} color={C.navyLight} weight="regular" />
+                  : <Eye     size={18} color={C.navyLight} weight="regular" />
                 }
               </TouchableOpacity>
             </View>
 
-            {/* Requisito mínimo */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <CheckCircle
-                size={13}
-                color={password.length >= 8 ? '#A3FF3C' : 'rgba(255,255,255,0.25)'}
-                weight={password.length >= 8 ? 'fill' : 'regular'}
-              />
-              <AppText style={{ fontSize: 12, color: password.length >= 8 ? '#A3FF3C' : 'rgba(255,255,255,0.35)' }}>
-                Mínimo 8 caracteres
-              </AppText>
+            {/* Validation hints */}
+            <View style={{ gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <CheckCircle
+                  size={13}
+                  color={strongEnough ? C.greenDark : C.navyLight}
+                  weight={strongEnough ? 'fill' : 'regular'}
+                />
+                <AppText style={{ fontSize: 12, color: strongEnough ? C.greenDark : C.navyLight }}>
+                  Mínimo 8 caracteres
+                </AppText>
+              </View>
+              {confirm.length > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <CheckCircle
+                    size={13}
+                    color={matches ? C.greenDark : C.red}
+                    weight={matches ? 'fill' : 'regular'}
+                  />
+                  <AppText style={{ fontSize: 12, color: matches ? C.greenDark : C.red }}>
+                    {matches ? 'Senhas coincidem' : 'Senhas não coincidem'}
+                  </AppText>
+                </View>
+              )}
             </View>
 
             {!!error && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <WarningCircle size={15} color="#f87171" weight="fill" />
-                <AppText style={{ color: '#f87171', fontSize: 13 }}>{error}</AppText>
+                <WarningCircle size={15} color={C.red} weight="fill" />
+                <AppText style={{ color: C.red, fontSize: 13 }}>{error}</AppText>
               </View>
             )}
           </View>
 
-          {/* Botão */}
+          {/* Submit */}
           <TouchableOpacity
             onPress={handleSave}
             disabled={loading}
             style={{
-              backgroundColor: loading ? 'rgba(163,255,60,0.5)' : '#A3FF3C',
+              backgroundColor: loading ? `${C.green}80` : C.green,
               borderRadius: 14, paddingVertical: 16, alignItems: 'center',
             }}
           >
-            <AppText style={{ color: '#16153A', fontWeight: '700', fontSize: 15 }}>
+            <AppText style={{ color: C.navy, fontWeight: '700', fontSize: 15 }}>
               {loading ? 'Salvando...' : 'Salvar e entrar'}
             </AppText>
           </TouchableOpacity>
@@ -168,15 +201,15 @@ export default function ChangePasswordScreen() {
 const inputWrap = {
   flexDirection: 'row' as const,
   alignItems: 'center' as const,
-  backgroundColor: '#1A1939',
+  backgroundColor: '#FFFFFF',
   borderRadius: 14,
   borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.09)',
+  borderColor: 'rgba(22,21,58,0.10)',
   paddingHorizontal: 16,
   paddingVertical: 15,
 };
 
 const inputStyle = {
-  color: '#fff',
+  color: '#16153A',
   fontSize: 15,
 };
