@@ -45,27 +45,33 @@ export default function ChangePasswordScreen() {
     setError(null);
     setLoading(true);
     try {
-      // 1. Update DB flag FIRST so that when updateUser fires onAuthStateChange,
-      //    the profile refresh picks up must_change_password=false immediately.
+      console.log('[CP] 1 — atualizando DB flag...');
       if (session?.user?.id) {
-        await supabase
+        const { error: dbErr } = await supabase
           .from('users')
           .update({ must_change_password: false })
           .eq('id', session.user.id);
+        console.log('[CP] 2 — DB flag result:', dbErr ?? 'ok');
+      } else {
+        console.log('[CP] 2 — sem session.user.id!', session);
       }
 
-      // 2. Update auth password — triggers onAuthStateChange (USER_UPDATED)
-      //    → AuthProvider refreshes profile → mustChangePassword becomes false
-      //    → /(auth)/_layout useEffect fires → router.replace('/(app)/index')
+      console.log('[CP] 3 — chamando updateUser...');
       const { error: authError } = await supabase.auth.updateUser({ password });
+      console.log('[CP] 4 — updateUser result:', authError ?? 'ok');
+
       if (authError) {
-        // Roll back flag if auth update fails
         if (session?.user?.id) {
           await supabase.from('users').update({ must_change_password: true }).eq('id', session.user.id);
         }
         throw authError;
       }
+
+      console.log('[CP] 5 — navegando para /(app)/index...');
+      router.replace('/(app)/index');
+      console.log('[CP] 6 — navegação chamada');
     } catch (e: any) {
+      console.log('[CP] ERRO:', e);
       const msg = (e?.message ?? '') as string;
       setError(
         msg.includes('different from the old password')
@@ -73,6 +79,7 @@ export default function ChangePasswordScreen() {
           : msg || 'Erro ao salvar senha. Tente novamente.'
       );
     } finally {
+      console.log('[CP] finally — setLoading(false)');
       setLoading(false);
     }
   };
