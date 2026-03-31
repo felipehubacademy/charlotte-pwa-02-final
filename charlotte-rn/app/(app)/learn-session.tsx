@@ -13,7 +13,7 @@ import {
 } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useAudioRecorder, RecordingPresets, setAudioModeAsync } from 'expo-audio';
+import { useAudioRecorder, setAudioModeAsync } from 'expo-audio';
 import Constants from 'expo-constants';
 import { useAuth } from '@/hooks/useAuth';
 import { AppText } from '@/components/ui/Text';
@@ -156,7 +156,16 @@ export default function LearnSessionScreen() {
   const charlottePlayId = 'learn-session-phrase';
   const isPlaying = playingMessageId === charlottePlayId;
 
-  const recorder          = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // WAV/PCM 16kHz mono — required by Azure Speech SDK (M4A causes NoMatch)
+  const recorder = useAudioRecorder({
+    extension: '.wav',
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 256000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  });
   const recordingRef      = useRef(false);
   const recordingStartRef = useRef(0);
 
