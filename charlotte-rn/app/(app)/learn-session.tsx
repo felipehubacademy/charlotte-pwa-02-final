@@ -172,16 +172,18 @@ export default function LearnSessionScreen() {
     try {
       const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
       await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => {});
-      // v2_ prefix busts old OpenAI-cached files; change prefix to re-download all
-      const key = 'v2_' + text.slice(0, 76).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
-      const localUri = `${cacheDir}${key}.mp3`;
+      // cdnKey matches filenames in public/tts/ (no prefix)
+      // localKey has v2_ prefix to bust any old OpenAI-cached files on device
+      const cdnKey   = text.slice(0, 80).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const localKey = 'v2_' + text.slice(0, 76).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const localUri = `${cacheDir}${localKey}.mp3`;
 
       // 1. Local cache hit
       const info = await FileSystem.getInfoAsync(localUri);
       if (info.exists) return localUri;
 
       // 2. Download pre-generated file from CDN (public/tts/)
-      const cdnUrl = `${API_BASE_URL}/tts/${key}.mp3`;
+      const cdnUrl = `${API_BASE_URL}/tts/${cdnKey}.mp3`;
       const dl = await FileSystem.downloadAsync(cdnUrl, localUri);
       if (dl.status === 200) return localUri;
       // Non-200 = CDN 404 — delete the bad file so it's not cached
@@ -226,9 +228,14 @@ export default function LearnSessionScreen() {
     // Reuse audio if same phrase text (e.g. repeat then listen_write)
     if (ph.text !== lastPhraseText.current) {
       const uri = await fetchTTS(ph.text);
-      if (!uri) { setPronStatus('error'); return; }
-      setCharlotteAudioUri(uri);
-      lastPhraseText.current = ph.text;
+      // If TTS fails, still proceed — record button must always appear
+      if (uri) {
+        setCharlotteAudioUri(uri);
+        lastPhraseText.current = ph.text;
+      } else {
+        setCharlotteAudioUri(null);
+        lastPhraseText.current = null;
+      }
     }
     // Force speaker (iOS: .playback category routes to speaker, not earpiece)
     await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
