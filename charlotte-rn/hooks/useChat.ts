@@ -66,14 +66,14 @@ async function savePractice(
   if (error) console.warn('⚠️ savePractice error:', error.message, error.code);
 }
 
-/** Persist a chat message for history (fire-and-forget, chat mode only). */
+/** Persist a chat message for history and pedagogical analysis (fire-and-forget). */
 function saveChatMessage(
   userId: string,
   role: 'user' | 'assistant',
   content: string,
   mode: ChatMode,
 ): void {
-  if (!userId || mode !== 'chat') return;
+  if (!userId) return;
   supabase.from('chat_messages').insert({ user_id: userId, role, content, mode })
     .then(({ error }) => { if (error) console.warn('⚠️ saveChatMessage:', error.message); });
 }
@@ -473,6 +473,15 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           messageType: 'text',
           timestamp: new Date(),
         }]);
+
+        // Save transcription + score summary for pedagogical analysis
+        if (transcription) {
+          const scoreNote = pronunciationData
+            ? ` [score:${pronunciationData.pronunciationScore} mispronounced:${mispronounced.join(',')}]`
+            : '';
+          saveChatMessage(userId, 'user', transcription + scoreNote, 'pronunciation');
+          saveChatMessage(userId, 'assistant', feedback, 'pronunciation');
+        }
 
         // ── 5. Demo TTS — only for mispronounced words ──────────
         if (
