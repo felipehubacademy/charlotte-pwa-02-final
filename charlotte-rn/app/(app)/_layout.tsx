@@ -19,12 +19,16 @@ export default function AppLayout() {
   return (
     <>
       <TrialExpiredModal />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="configuracoes"
-          options={{ animation: 'slide_from_right' }}
-        />
+      <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="index" options={{ animation: 'none' }} />
+        <Stack.Screen name="grammar" />
+        <Stack.Screen name="pronunciation" />
+        <Stack.Screen name="chat" />
+        <Stack.Screen name="configuracoes" />
+        <Stack.Screen name="learn-grammar" />
+        <Stack.Screen name="learn-pronunciation" />
+        <Stack.Screen name="learn-trail" />
+        <Stack.Screen name="learn-session" />
       </Stack>
     </>
   );

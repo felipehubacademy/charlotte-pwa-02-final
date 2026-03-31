@@ -1,95 +1,99 @@
 /**
  * useMessageAudioPlayer
  *
- * Replaces the `useAudioPlayer(undefined) + player.replace()` pattern that
- * failed to hot-swap audio sources reliably on expo-audio SDK 54.
- *
- * Uses `createAudioPlayer` imperatively: each play creates a fresh player
- * instance bound to the exact URI, guaranteeing the correct track plays.
+ * Single persistent AudioPlayer that switches sources via replace().
+ * Calling play() before isLoaded is a race on expo-audio — we wait for
+ * the playbackStatusUpdate 'isLoaded' event before playing.
  */
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { createAudioPlayer, AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, AudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { AudioStatus } from 'expo-audio/build/Audio.types';
 
 export function useMessageAudioPlayer() {
-  const playerRef              = useRef<AudioPlayer | null>(null);
+  const playerRef    = useRef<AudioPlayer | null>(null);
+  const currentIdRef = useRef<string | null>(null);
+  const pendingPlay  = useRef<string | null>(null); // id waiting for isLoaded
+  const subRef       = useRef<ReturnType<AudioPlayer['addListener']> | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
-  const [playing, setPlaying]     = useState(false);
 
-  // Release player when the screen unmounts
+  // Create a single player on mount; destroy on unmount
   useEffect(() => {
+    const p = createAudioPlayer(null);
+    playerRef.current = p;
     return () => {
-      playerRef.current?.remove();
+      subRef.current?.remove();
+      try { p.pause(); p.remove(); } catch {}
     };
   }, []);
 
-  /** Stop and destroy the current player instance */
-  const _stop = useCallback(() => {
-    try { playerRef.current?.remove(); } catch {}
-    playerRef.current = null;
-    setPlaying(false);
-    setPlayingId(null);
-  }, []);
+  const toggle = useCallback((id: string, uri: string) => {
+    const player = playerRef.current;
+    if (!player) return;
 
-  /** Start playing a message's audio. Always creates a fresh player. */
-  const _play = useCallback((id: string, uri: string) => {
-    // Destroy any previous player first
-    try { playerRef.current?.remove(); } catch {}
-    playerRef.current = null;
+    const isSame = currentIdRef.current === id;
 
-    const p = createAudioPlayer({ uri });
-    p.volume = 0.75;
+    // ── Same bubble ────────────────────────────────────────────
+    if (isSame) {
+      pendingPlay.current = null; // cancel any pending-load
+      if (player.playing) {
+        try { player.pause(); } catch {}
+        setPlayingId(null);
+      } else {
+        try { player.play(); } catch {}
+        setPlayingId(id);
+      }
+      return;
+    }
 
-    // Listen for natural end of playback
-    const sub = p.addListener('playbackStatusUpdate', (status: any) => {
-      if (status.didJustFinish) {
-        sub.remove();
-        setPlaying(false);
+    // ── Different bubble — replace source ──────────────────────
+    subRef.current?.remove();
+    subRef.current = null;
+
+    // Ensure speaker output (resets after recording or live voice call)
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+
+    try { player.pause(); } catch {}
+
+    currentIdRef.current = id;
+    pendingPlay.current  = id;
+
+    // Replace source — native layer starts loading
+    try { player.replace({ uri }); } catch {}
+
+    // Listen for load + finish events
+    subRef.current = player.addListener('playbackStatusUpdate', (status: AudioStatus) => {
+      // Wait for load before playing (avoids "play before ready" race)
+      if (pendingPlay.current === id && status.isLoaded && !status.playing) {
+        pendingPlay.current = null;
+        try { player.play(); } catch {}
+        setPlayingId(id);
+      }
+
+      // Natural end of playback
+      if (status.didJustFinish && currentIdRef.current === id) {
+        subRef.current?.remove();
+        subRef.current = null;
+        currentIdRef.current = null;
         setPlayingId(null);
       }
     });
 
-    playerRef.current = p;
-    p.play();
+    // Optimistically show as "playing" immediately for snappy UI
     setPlayingId(id);
-    setPlaying(true);
   }, []);
 
-  /**
-   * Toggle playback for a message.
-   * - Same id + playing  → pause & stop
-   * - Same id + paused   → resume
-   * - Different id       → stop current, start new
-   */
-  const toggle = useCallback(
-    (id: string, uri: string) => {
-      if (playingId === id) {
-        if (playing) {
-          _stop();
-        } else {
-          // Resume — reuse existing player if still alive
-          if (playerRef.current) {
-            playerRef.current.play();
-            setPlaying(true);
-            setPlayingId(id);
-          } else {
-            _play(id, uri); // player was removed, recreate
-          }
-        }
-      } else {
-        _play(id, uri);
-      }
-    },
-    [playingId, playing, _play, _stop]
-  );
+  const stop = useCallback(() => {
+    subRef.current?.remove();
+    subRef.current = null;
+    pendingPlay.current = null;
+    try { playerRef.current?.pause(); } catch {}
+    currentIdRef.current = null;
+    setPlayingId(null);
+  }, []);
 
   return {
-    /** ID of the message currently playing (or null) */
     playingMessageId: playingId,
-    /** Whether audio is actively playing */
-    isPlaying: playing,
-    /** Toggle playback — pass the message id and its audio URI */
     toggle,
-    /** Imperatively stop playback */
-    stop: _stop,
+    stop,
   };
 }

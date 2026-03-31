@@ -637,6 +637,8 @@ export default function LiveVoiceModal({
     setStatus('disconnected');
     setCharlotteSpeaking(false);
     setUserSpeaking(false);
+    // Reset to speaker/playback mode so chat audio after call uses speaker
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
   }, [stopRingTone]);
 
   const handleEndCall = React.useCallback(() => {

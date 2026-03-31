@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       voice: 'coral',       // same voice as Live Voice for consistency
       input: text,
       response_format: 'mp3',
-      speed: 1.0,
+      speed: 0.85,
     });
 
     // Return as base64 so React Native can play without a separate download step
