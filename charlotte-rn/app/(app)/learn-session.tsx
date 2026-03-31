@@ -225,20 +225,22 @@ export default function LearnSessionScreen() {
     resultAnim.setValue(0);
     stopAudio();
 
-    // Reuse audio if same phrase text (e.g. repeat then listen_write)
-    if (ph.text !== lastPhraseText.current) {
-      const uri = await fetchTTS(ph.text);
-      // If TTS fails, still proceed — record button must always appear
-      if (uri) {
-        setCharlotteAudioUri(uri);
-        lastPhraseText.current = ph.text;
-      } else {
-        setCharlotteAudioUri(null);
-        lastPhraseText.current = null;
+    try {
+      // Reuse audio if same phrase text (e.g. repeat then listen_write)
+      if (ph.text !== lastPhraseText.current) {
+        const uri = await fetchTTS(ph.text);
+        if (uri) {
+          setCharlotteAudioUri(uri);
+          lastPhraseText.current = ph.text;
+        } else {
+          setCharlotteAudioUri(null);
+          lastPhraseText.current = null;
+        }
       }
-    }
-    // Force speaker (iOS: .playback category routes to speaker, not earpiece)
-    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    } catch {}
+
+    // Always transition to listening — record button must always appear
     setPronStatus('listening');
   }, [fetchTTS, stopAudio, resultAnim]);
 
