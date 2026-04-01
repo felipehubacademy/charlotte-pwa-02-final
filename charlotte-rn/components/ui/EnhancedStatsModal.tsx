@@ -65,15 +65,16 @@ const RARITY_COLORS: Record<string, string> = {
 function AchievementIcon({ category, rarity, size = 22 }: { category: string; rarity: string; size?: number }) {
   const color = RARITY_COLORS[rarity] ?? '#22C55E';
   switch (category) {
-    case 'xp':          return <Lightning    size={size} color={color} weight="duotone" />;
-    case 'streak':      return <Fire         size={size} color={color} weight="duotone" />;
-    case 'audio':       return <Microphone   size={size} color={color} weight="duotone" />;
+    case 'xp':
+    case 'xp_milestone': return <Lightning    size={size} color={color} weight="duotone" />;
+    case 'streak':       return <Fire         size={size} color={color} weight="duotone" />;
+    case 'audio':        return <Microphone   size={size} color={color} weight="duotone" />;
     case 'grammar':
-    case 'text':        return <PencilLine   size={size} color={color} weight="duotone" />;
-    case 'learn':       return <GraduationCap size={size} color={color} weight="duotone" />;
-    case 'habit':       return <Sun          size={size} color={color} weight="duotone" />;
-    case 'consistency': return <CalendarCheck size={size} color={color} weight="duotone" />;
-    default:            return <Star         size={size} color={color} weight="duotone" />;
+    case 'text':         return <PencilLine   size={size} color={color} weight="duotone" />;
+    case 'learn':        return <GraduationCap size={size} color={color} weight="duotone" />;
+    case 'habit':        return <Sun          size={size} color={color} weight="duotone" />;
+    case 'consistency':  return <CalendarCheck size={size} color={color} weight="duotone" />;
+    default:             return <Star         size={size} color={color} weight="duotone" />;
   }
 }
 
@@ -87,7 +88,7 @@ interface EnhancedStatsModalProps {
   userName?: string;
 }
 
-interface RecentActivity { type: string; xp: number; timestamp: Date; isMission: boolean; }
+interface RecentActivity { type: string; xp: number; timestamp: Date; isMission: boolean; isAchievement: boolean; }
 interface RealData {
   streak: number; totalPractices: number; todayXP: number;
   recentActivity: RecentActivity[]; achievements: Achievement[];
@@ -146,7 +147,8 @@ export default function EnhancedStatsModal({
         camera_object:    'Object Recognition',
       };
       const getActivityLabel = (type: string) => {
-        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';
+        if (type.startsWith('mission_reward_'))     return isPortuguese ? 'Missão Concluída'        : 'Mission Complete';
+        if (type.startsWith('achievement_reward_')) return isPortuguese ? 'Conquista Desbloqueada'  : 'Achievement Unlocked';
         return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
       };
 
@@ -157,10 +159,11 @@ export default function EnhancedStatsModal({
         totalPractices: historyRes.data?.length    ?? 0,
         todayXP:        todayXPsum,
         recentActivity: (historyRes.data ?? []).map((p: any) => ({
-          type: getActivityLabel(p.practice_type),
-          xp: p.xp_earned ?? 0,
-          timestamp: new Date(p.created_at),
-          isMission: p.practice_type.startsWith('mission_reward_'),
+          type:          getActivityLabel(p.practice_type),
+          xp:            p.xp_earned ?? 0,
+          timestamp:     new Date(p.created_at),
+          isMission:     p.practice_type.startsWith('mission_reward_'),
+          isAchievement: p.practice_type.startsWith('achievement_reward_'),
         })),
         achievements: (achievementsRes.data ?? []).map((a: any) => ({
           id: a.id, type: a.achievement_type ?? 'general',
@@ -259,9 +262,8 @@ export default function EnhancedStatsModal({
             }}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  {a.isMission && (
-                    <Target size={13} color="#D97706" weight="fill" />
-                  )}
+                  {a.isMission     && <Target size={13} color="#D97706" weight="fill" />}
+                  {a.isAchievement && <Trophy size={13} color="#A855F7" weight="fill" />}
                   <AppText style={{ color: C.navy, fontSize: 13, fontWeight: '600' }}>{a.type}</AppText>
                 </View>
                 <AppText style={{ color: C.navyLight, fontSize: 11, marginTop: 1 }}>
