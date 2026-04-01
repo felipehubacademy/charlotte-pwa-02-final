@@ -37,7 +37,6 @@ function AuthGuard() {
 
     if (lastRoute.current === target) return;
     lastRoute.current = target;
-    console.log('[AuthGuard] →', target);
     router.replace(target as any);
   }, [isLoading, isAuthenticated, mustChangePassword, profile]);
 

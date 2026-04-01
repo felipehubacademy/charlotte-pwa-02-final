@@ -24,7 +24,6 @@ const C = {
 };
 
 export default function FirstAccessScreen() {
-  console.log('[FA-RENDER] FirstAccessScreen montando');
   const [password, setPassword]         = useState('');
   const [confirm, setConfirm]           = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,38 +45,26 @@ export default function FirstAccessScreen() {
     setError(null);
     setLoading(true);
     try {
-      console.log('[FA] 1 — atualizando DB flag...');
       if (session?.user?.id) {
         const { error: dbErr } = await supabase
           .from('users')
           .update({ must_change_password: false })
           .eq('id', session.user.id);
-        console.log('[FA] 2 — DB flag result:', dbErr ?? 'ok');
-      } else {
-        console.log('[FA] 2 — sem session.user.id!', session);
+        if (dbErr) throw dbErr;
       }
 
-      console.log('[FA] 3 — chamando updateUser...');
       const { error: authError } = await supabase.auth.updateUser({ password });
-      console.log('[FA] 4 — updateUser result:', authError ?? 'ok');
 
       if (authError) {
-        // Roll back flag if auth update fails
         if (session?.user?.id) {
           await supabase.from('users').update({ must_change_password: true }).eq('id', session.user.id);
         }
         throw authError;
       }
 
-      // USER_UPDATED does not trigger fetchProfile (deadlock prevention in AuthProvider).
-      // Refresh manually so mustChangePassword clears in context, then navigate within
-      // the same (app) Stack — no cross-group navigation needed.
-      console.log('[FA] 5 — refreshProfile...');
       await refreshProfile();
-      console.log('[FA] 6 — navigando para home');
       router.replace('/(app)');
     } catch (e: any) {
-      console.log('[FA] ERRO:', e);
       const msg = (e?.message ?? '') as string;
       setError(
         msg.includes('different from the old password')
@@ -85,7 +72,6 @@ export default function FirstAccessScreen() {
           : msg || 'Erro ao salvar senha. Tente novamente.'
       );
     } finally {
-      console.log('[FA] finally — setLoading(false)');
       setLoading(false);
     }
   };
