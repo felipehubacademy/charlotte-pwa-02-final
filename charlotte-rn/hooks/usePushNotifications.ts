@@ -5,10 +5,14 @@ import React from 'react';
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 
-// Expo Go (SDK 53+) removed remote push notifications — skip registration there
-const IS_EXPO_GO = Constants.appOwnership === 'expo';
+// Expo Go (SDK 53+) removed remote push notifications — skip registration there.
+// appOwnership deprecated in SDK 52; use executionEnvironment as primary check.
+const IS_EXPO_GO =
+  (Constants as any).executionEnvironment === 'storeClient' ||
+  Constants.appOwnership === 'expo';
 
 const EXPO_PROJECT_ID = 'da14586b-2944-4150-b8ad-5ff7e32af6e2';
 
@@ -85,21 +89,35 @@ export function usePushNotifications(userId?: string) {
       console.log('📱 Push received:', notification.request.content.title);
     });
 
-    // User tapped a notification
+    // User tapped a notification — deep link to the right screen
     responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
       const data = response.notification.request.content.data as any;
       console.log('👆 Push tapped:', data);
-      // Future: router.push(data.screen) for deep linking
+
+      // Map notification type → app route
+      try {
+        switch (data?.type) {
+          case 'streak_reminder':
+          case 'daily_reminder':
+          case 'charlotte_message':
+            router.push('/(app)/chat');
+            break;
+          case 'xp_milestone':
+            router.push('/(app)');  // home → stats visible
+            break;
+          default:
+            router.push('/(app)');
+        }
+      } catch (e) {
+        console.warn('⚠️ Push deep link failed:', e);
+      }
     });
 
     return () => {
       mounted = false;
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      // SDK 54: subscriptions expose .remove() directly (removeNotificationSubscription removed)
+      notificationListener.current?.remove?.();
+      responseListener.current?.remove?.();
     };
   }, [userId]);
 }

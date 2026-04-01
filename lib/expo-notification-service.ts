@@ -69,13 +69,13 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // Users with streak > 0 who haven't practiced today
+    // Users with streak > 0 who haven't practiced today in EITHER app (PWA or RN)
     const { data: usersAtRisk } = await supabase
-      .from('user_progress')
+      .from('rn_user_progress')
       .select('user_id, streak_days, users!inner(expo_push_token, user_level, name)')
       .gt('streak_days', 0)
       .not('user_id', 'in',
-        `(SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
+        `(SELECT DISTINCT user_id FROM rn_user_practices WHERE created_at::date = '${today}' UNION SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
       );
 
     if (!usersAtRisk?.length) {
@@ -107,14 +107,13 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // Active users with expo token who haven't practiced today
+    // Users with expo token who haven't practiced today in EITHER app (PWA or RN)
     const { data: users } = await supabase
       .from('users')
       .select('id, name, expo_push_token, user_level')
-      .eq('is_active', true)
       .not('expo_push_token', 'is', null)
       .not('id', 'in',
-        `(SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
+        `(SELECT DISTINCT user_id FROM rn_user_practices WHERE created_at::date = '${today}' UNION SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
       );
 
     if (!users?.length) {
