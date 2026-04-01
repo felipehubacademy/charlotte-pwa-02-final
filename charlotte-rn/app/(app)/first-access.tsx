@@ -32,6 +32,7 @@ export default function FirstAccessScreen() {
   const [error, setError]               = useState<string | null>(null);
   const confirmRef                      = useRef<TextInput>(null);
   const { session, refreshProfile }     = useAuth();
+  const userEmail                       = session?.user?.email ?? '';
 
   const handleSave = async () => {
     if (password.length < 8) {
@@ -104,6 +105,15 @@ export default function FirstAccessScreen() {
               É seu primeiro acesso.{'\n'}Defina uma senha pessoal para continuar.
             </AppText>
           </View>
+
+          {/* Hidden username field so iOS offers "Save to Face ID / Keychain" */}
+          <TextInput
+            value={userEmail}
+            textContentType="username"
+            autoComplete="username"
+            style={{ width: 0, height: 0, position: 'absolute', opacity: 0 }}
+            editable={false}
+          />
 
           {/* Fields */}
           <View style={{ gap: 12, marginBottom: 20 }}>
