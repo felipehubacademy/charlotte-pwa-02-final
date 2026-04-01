@@ -30,11 +30,14 @@ export function useAchievements(userId: string | undefined) {
   }, [userId]);
 
   /**
-   * Poll for achievements newer than what we've already seen.
+   * Run the full achievement check (via RPC) then poll for newly earned ones.
    * Call this after every practice save / XP-earning event.
    */
   const checkForNewAchievements = useCallback(async () => {
     if (!userId || !initializedRef.current) return;
+
+    // Run server-side achievement evaluation (awards any newly earned achievements)
+    await supabase.rpc('rn_award_achievements', { p_user_id: userId });
 
     const { data, error } = await supabase
       .from('user_achievements')
