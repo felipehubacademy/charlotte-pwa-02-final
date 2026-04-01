@@ -9,11 +9,10 @@ export default function AppLayout() {
 
   // AuthGuard in app/_layout.tsx handles all redirects at root level.
   // Return null while auth state is still resolving to avoid flash.
-  // mustChangePassword is intentionally NOT included here — removing it from the
-  // null guard ensures the Stack (and its routes) are always mounted while
-  // authenticated. AuthGuard in app/_layout.tsx redirects mustChangePassword
-  // users to /first-access; if routes aren't mounted, router.replace('/(app)/index')
-  // fails with "not found" when the user finishes the first-access flow.
+  // Return null while loading or unauthenticated.
+  // first-access is registered in this Stack so that navigation from
+  // first-access → index happens within the same Stack (no cross-group issues).
+  // mustChangePassword users land on /(app)/first-access via AuthGuard.
   if (isLoading || !isAuthenticated || (profile === null)) return null;
 
   return (
@@ -21,6 +20,7 @@ export default function AppLayout() {
       <AchievementsProvider>
       <TrialExpiredModal />
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+        <Stack.Screen name="first-access" options={{ animation: 'none' }} />
         <Stack.Screen name="index" options={{ animation: 'none' }} />
         <Stack.Screen name="grammar" />
         <Stack.Screen name="pronunciation" />

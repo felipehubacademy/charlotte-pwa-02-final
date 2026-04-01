@@ -23,8 +23,8 @@ const C = {
   red:       '#DC2626',
 };
 
-export default function ChangePasswordScreen() {
-  console.log('[CP-RENDER] ChangePasswordScreen montando');
+export default function FirstAccessScreen() {
+  console.log('[FA-RENDER] FirstAccessScreen montando');
   const [password, setPassword]         = useState('');
   const [confirm, setConfirm]           = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -46,20 +46,20 @@ export default function ChangePasswordScreen() {
     setError(null);
     setLoading(true);
     try {
-      console.log('[CP] 1 — atualizando DB flag...');
+      console.log('[FA] 1 — atualizando DB flag...');
       if (session?.user?.id) {
         const { error: dbErr } = await supabase
           .from('users')
           .update({ must_change_password: false })
           .eq('id', session.user.id);
-        console.log('[CP] 2 — DB flag result:', dbErr ?? 'ok');
+        console.log('[FA] 2 — DB flag result:', dbErr ?? 'ok');
       } else {
-        console.log('[CP] 2 — sem session.user.id!', session);
+        console.log('[FA] 2 — sem session.user.id!', session);
       }
 
-      console.log('[CP] 3 — chamando updateUser...');
+      console.log('[FA] 3 — chamando updateUser...');
       const { error: authError } = await supabase.auth.updateUser({ password });
-      console.log('[CP] 4 — updateUser result:', authError ?? 'ok');
+      console.log('[FA] 4 — updateUser result:', authError ?? 'ok');
 
       if (authError) {
         // Roll back flag if auth update fails
@@ -69,13 +69,15 @@ export default function ChangePasswordScreen() {
         throw authError;
       }
 
-      // USER_UPDATED event does NOT trigger fetchProfile (deadlock prevention).
-      // Manually refresh so mustChangePassword becomes false, then AuthGuard navigates.
-      console.log('[CP] 5 — refreshProfile...');
+      // USER_UPDATED does not trigger fetchProfile (deadlock prevention in AuthProvider).
+      // Refresh manually so mustChangePassword clears in context, then navigate within
+      // the same (app) Stack — no cross-group navigation needed.
+      console.log('[FA] 5 — refreshProfile...');
       await refreshProfile();
-      console.log('[CP] 6 — refreshProfile done, AuthGuard should navigate');
+      console.log('[FA] 6 — navigando para home');
+      router.replace('/(app)/index');
     } catch (e: any) {
-      console.log('[CP] ERRO:', e);
+      console.log('[FA] ERRO:', e);
       const msg = (e?.message ?? '') as string;
       setError(
         msg.includes('different from the old password')
@@ -83,7 +85,7 @@ export default function ChangePasswordScreen() {
           : msg || 'Erro ao salvar senha. Tente novamente.'
       );
     } finally {
-      console.log('[CP] finally — setLoading(false)');
+      console.log('[FA] finally — setLoading(false)');
       setLoading(false);
     }
   };

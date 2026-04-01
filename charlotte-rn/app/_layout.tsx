@@ -29,10 +29,8 @@ function AuthGuard() {
     if (!isAuthenticated) {
       target = '/(auth)/login';
     } else if (mustChangePassword) {
-      target = '/first-access';
-    } else if (lastRoute.current === '/first-access') {
-      // mustChangePassword just cleared → navigate into the app
-      target = '/(app)/index';
+      // first-access lives inside (app) Stack so navigation to index is within-Stack
+      target = '/(app)/first-access';
     } else {
       return;
     }
@@ -61,7 +59,6 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(app)" />
-            <Stack.Screen name="first-access" />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
