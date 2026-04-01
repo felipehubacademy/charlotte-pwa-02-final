@@ -88,7 +88,7 @@ export default function LearnTrailScreen() {
             Charlotte
           </AppText>
           <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
-            Learning Trail
+            Trilha de Aprendizado
           </AppText>
         </View>
         <View style={{ width: 22 }} />
@@ -120,7 +120,7 @@ export default function LearnTrailScreen() {
                 {LEVEL_LABELS[level]}
               </AppText>
               <AppText style={{ fontSize: 12, color: C.navyLight, fontWeight: '500' }}>
-                {modules.length} modules · {total} topics
+                {modules.length} módulos · {total} tópicos
               </AppText>
             </View>
             <AppText style={{ fontSize: 18, fontWeight: '900', color: accent }}>{pct}%</AppText>
@@ -131,14 +131,14 @@ export default function LearnTrailScreen() {
             <View style={{ height: 6, width: `${pct}%` as any, backgroundColor: accent, borderRadius: 3 }} />
           </View>
           <AppText style={{ fontSize: 11, color: C.navyLight, fontWeight: '600', marginTop: 6 }}>
-            {completed} of {total} topics completed
+            {completed} de {total} tópicos concluídos
           </AppText>
         </View>
 
         {loading ? (
           <View style={{ alignItems: 'center', paddingTop: 40 }}>
             <ActivityIndicator color={accent} />
-            <AppText style={{ color: C.navyLight, marginTop: 12, fontSize: 13 }}>Loading your progress…</AppText>
+            <AppText style={{ color: C.navyLight, marginTop: 12, fontSize: 13 }}>Carregando seu progresso…</AppText>
           </View>
         ) : (
           modules.map((mod, mIdx) => (
@@ -221,7 +221,7 @@ export default function LearnTrailScreen() {
                             }}>
                               <BookOpen size={11} color={C.gold} weight="fill" />
                               <AppText style={{ fontSize: 10, fontWeight: '700', color: C.gold }}>
-                                {topic.grammar.length} grammar
+                                {topic.grammar.length} gramática
                               </AppText>
                             </View>
                           )}
@@ -243,7 +243,7 @@ export default function LearnTrailScreen() {
                               paddingHorizontal: 7, paddingVertical: 3,
                             }}>
                               <AppText style={{ fontSize: 10, fontWeight: '700', color: C.navyLight }}>
-                                Coming soon
+                                Em breve
                               </AppText>
                             </View>
                           )}
@@ -257,12 +257,12 @@ export default function LearnTrailScreen() {
                           paddingHorizontal: 12, paddingVertical: 8,
                           flexDirection: 'row', alignItems: 'center', gap: 4,
                         }}>
-                          <AppText style={{ fontSize: 12, fontWeight: '800', color: '#FFF' }}>Start</AppText>
+                          <AppText style={{ fontSize: 12, fontWeight: '800', color: '#FFF' }}>Iniciar</AppText>
                           <CaretRight size={12} color="#FFF" weight="bold" />
                         </View>
                       )}
                       {complete && (
-                        <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green }}>Done</AppText>
+                        <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green }}>Feito</AppText>
                       )}
                     </TouchableOpacity>
                   );

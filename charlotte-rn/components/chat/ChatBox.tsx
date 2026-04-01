@@ -304,10 +304,10 @@ const MessageBubble: React.FC<{
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
               >
                 {isTranslating
-                  ? <ArrowsClockwise size={12} color="rgba(255,255,255,0.4)" weight="regular" />
-                  : <Globe size={12} color="#A3FF3C" weight="regular" />
+                  ? <ArrowsClockwise size={12} color="#9896B8" weight="regular" />
+                  : <Globe size={12} color="#4B4A72" weight="regular" />
                 }
-                <AppText style={{ fontSize: 12, color: isTranslating ? 'rgba(255,255,255,0.4)' : '#A3FF3C' }}>
+                <AppText style={{ fontSize: 12, color: isTranslating ? '#9896B8' : '#4B4A72' }}>
                   {isTranslating ? 'Traduzindo...' : 'Traduzir'}
                 </AppText>
               </TouchableOpacity>

@@ -286,7 +286,7 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
   const list: Mission[] = [];
 
   list.push({
-    id: 'messages', label: 'Send 5 messages', sub: 'Any practice mode counts',
+    id: 'messages', label: 'Envie 5 mensagens', sub: 'Qualquer modo de prática vale',
     xpReward: 20,
     completed: data.todayMessages >= 5,
     progress: Math.min(data.todayMessages / 5, 1),
@@ -299,11 +299,11 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
 
   if (config.tabs.includes('pronunciation')) {
     list.push({
-      id: 'audio', label: 'Record your voice', sub: 'Hold the mic and say something',
+      id: 'audio', label: 'Grave sua voz', sub: 'Segure o microfone e fale algo',
       xpReward: 15,
       completed: data.todayAudios >= 1,
       progress: data.todayAudios >= 1 ? 1 : 0,
-      progressLabel: data.todayAudios >= 1 ? 'Done' : '0 / 1',
+      progressLabel: data.todayAudios >= 1 ? 'Feito' : '0 / 1',
       accentColor: C.blue,
       accentBg: C.blueBg,
       icon: <Microphone size={22} color={C.blue} weight="fill" />,
@@ -312,7 +312,7 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
   }
 
   list.push({
-    id: 'xp', label: 'Earn 30 XP', sub: 'Keep the conversation going',
+    id: 'xp', label: 'Ganhe 30 XP', sub: 'Mantenha a conversa fluindo',
     xpReward: 10,
     completed: data.todayXP >= 30,
     progress: Math.min(data.todayXP / 30, 1),
@@ -350,11 +350,11 @@ export default function HomeScreen() {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const [prog, prac, lb] = await Promise.all([
       supabase.from('user_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
-      supabase.from('user_practices').select('practice_type,xp_awarded').eq('user_id', userId).gte('created_at', today.toISOString()),
+      supabase.from('user_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', today.toISOString()),
       supabase.from('user_leaderboard_cache').select('rank').eq('user_id', userId).maybeSingle(),
     ]);
     const practices = prac.data ?? [];
-    const todayXP   = practices.reduce((s, p) => s + (p.xp_awarded ?? 0), 0);
+    const todayXP   = practices.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
     setData({
       streakDays:    prog.data?.streak_days ?? 0,
       totalXP:       prog.data?.total_xp    ?? 0,
@@ -595,7 +595,7 @@ export default function HomeScreen() {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 }}>
                     <AppText style={{ fontSize: 11, color: C.navyMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                      Today's XP
+                      XP de hoje
                     </AppText>
                     <AppText style={{ fontSize: 11, fontWeight: '800',
                       color: todayXP >= DAILY_XP_GOAL ? C.greenDark : C.navyLight }}>
@@ -619,7 +619,7 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             DAILY MISSIONS — zigzag path nodes
         ══════════════════════════════════════════ */}
-        <SectionHeader label="Daily missions" badge={`${doneMissions}/${missions.length}`} />
+        <SectionHeader label="Missões do dia" badge={`${doneMissions}/${missions.length}`} />
 
         <View style={{ paddingHorizontal: 20 }}>
           {missions.map((m, index) => (
@@ -635,7 +635,7 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             LEARN — structured lessons
         ══════════════════════════════════════════ */}
-        <SectionHeader label="Learn with Charlotte" />
+        <SectionHeader label="Aprender com Charlotte" />
 
         <View style={{ paddingHorizontal: 20 }}>
           <TouchableOpacity
@@ -662,10 +662,10 @@ export default function HomeScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>
-                  Learning Trail
+                  Trilha de Aprendizado
                 </AppText>
                 <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>
-                  Guided lessons — Grammar & Pronunciation
+                  Aulas guiadas — Gramática & Pronúncia
                 </AppText>
               </View>
               <CaretRight size={18} color={C.navyLight} weight="bold" />
@@ -675,7 +675,7 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             PRACTICE — destination cards
         ══════════════════════════════════════════ */}
-        <SectionHeader label="Practice with Charlotte" />
+        <SectionHeader label="Praticar com Charlotte" />
 
         <View style={{ paddingHorizontal: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {modeCards.map(card => (
@@ -685,9 +685,9 @@ export default function HomeScreen() {
               onPress={() => {
                 if (card.locked) {
                   Alert.alert(
-                    `${card.lockLevel} Feature`,
-                    `${card.title} will be unlocked when you reach the ${card.lockLevel} level. Keep practising!`,
-                    [{ text: 'Got it' }]
+                    `Recurso ${card.lockLevel}`,
+                    `${card.title} será desbloqueado ao atingir o nível ${card.lockLevel}. Continue praticando!`,
+                    [{ text: 'Entendido' }]
                   );
                 } else if (card.mode === 'live') {
                   setShowLiveVoice(true);
@@ -729,7 +729,7 @@ export default function HomeScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 3 }}>
-            Today's tip
+            Dica do dia
           </AppText>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
             <View style={{ backgroundColor: tipStyle.bg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
@@ -804,7 +804,7 @@ export default function HomeScreen() {
               {/* Example */}
               <View style={{ backgroundColor: tipStyle.bg, borderRadius: 16, padding: 16 }}>
                 <AppText style={{ fontSize: 10, fontWeight: '700', color: tipStyle.color, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
-                  Example
+                  Exemplo
                 </AppText>
                 <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 23 }}>
                   "{tip.example}"
@@ -840,7 +840,7 @@ function SectionHeader({ label, badge }: { label: string; badge?: string }) {
       </AppText>
       {badge ? (
         <View style={{ backgroundColor: C.navyGhost, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 }}>
-          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyMid }}>{badge} done</AppText>
+          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyMid }}>{badge} feito</AppText>
         </View>
       ) : null}
     </View>
@@ -912,7 +912,7 @@ function MissionNode({ mission, alignRight, showConnector }: {
           {mission.completed ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
               <CheckCircle size={12} color={mission.accentColor} weight="fill" />
-              <AppText style={{ fontSize: 12, color: C.navyLight }}>Completed today</AppText>
+              <AppText style={{ fontSize: 12, color: C.navyLight }}>Concluída hoje</AppText>
             </View>
           ) : (
             <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 3 }}>
