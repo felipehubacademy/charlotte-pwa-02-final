@@ -345,6 +345,10 @@ export default function HomeScreen() {
   const [showLiveVoice, setShowLiveVoice] = useState(false);
   const [showStats, setShowStats]         = useState(false);
 
+  // Track which mission rewards were already granted today (persisted in rn_user_practices)
+  const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
+  const rewardSeedLoadedRef = React.useRef(false);
+
   const fetchData = useCallback(async () => {
     if (!userId) return;
     const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -356,6 +360,14 @@ export default function HomeScreen() {
     const todayXP     = practices.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
     const userTotalXP = prog.data?.total_xp ?? 0;
 
+    // Seed already-rewarded missions from DB (only once per session)
+    if (!rewardSeedLoadedRef.current) {
+      rewardSeedLoadedRef.current = true;
+      practices
+        .filter(p => p.practice_type.startsWith('mission_reward_'))
+        .forEach(p => rewardedMissionsRef.current.add(p.practice_type));
+    }
+
     // Dynamic rank: count rn_leaderboard_cache entries in same level with strictly higher total_xp
     const { count: higherCount } = await supabase
       .from('rn_leaderboard_cache')
@@ -364,15 +376,32 @@ export default function HomeScreen() {
       .gt('total_xp', userTotalXP);
     const computedRank = (higherCount ?? 0) + 1;
 
-    setData({
+    const newData: HomeData = {
       streakDays:    prog.data?.streak_days ?? 0,
       totalXP:       userTotalXP,
       todayXP,
       rank:          computedRank,
       todayMessages: practices.filter(p => ['text_message','audio_message'].includes(p.practice_type)).length,
       todayAudios:   practices.filter(p => p.practice_type === 'audio_message').length,
-    });
-  }, [userId]);
+    };
+    setData(newData);
+
+    // Grant mission rewards for newly completed missions (idempotent via rewardedMissionsRef)
+    const missions = buildMissions(newData, level);
+    for (const m of missions) {
+      const rewardKey = `mission_reward_${m.id}`;
+      if (m.completed && !rewardedMissionsRef.current.has(rewardKey)) {
+        rewardedMissionsRef.current.add(rewardKey);
+        supabase.from('rn_user_practices').insert({
+          user_id:       userId,
+          practice_type: rewardKey,
+          xp_earned:     m.xpReward,
+        }).then(({ error }) => {
+          if (error) console.warn('⚠️ mission reward error:', error.message);
+        });
+      }
+    }
+  }, [userId, level]);
 
   useEffect(() => {
     if (!userId) return;
@@ -767,7 +796,7 @@ export default function HomeScreen() {
       <EnhancedStatsModal
         isOpen={showStats}
         onClose={() => setShowStats(false)}
-        sessionXP={0}
+        sessionXP={data?.todayXP ?? 0}
         totalXP={totalXP}
         userId={userId}
         userLevel={level}
