@@ -9,7 +9,12 @@ export default function AppLayout() {
 
   // AuthGuard in app/_layout.tsx handles all redirects at root level.
   // Return null while auth state is still resolving to avoid flash.
-  if (isLoading || !isAuthenticated || (profile === null) || mustChangePassword) return null;
+  // mustChangePassword is intentionally NOT included here — removing it from the
+  // null guard ensures the Stack (and its routes) are always mounted while
+  // authenticated. AuthGuard in app/_layout.tsx redirects mustChangePassword
+  // users to /first-access; if routes aren't mounted, router.replace('/(app)/index')
+  // fails with "not found" when the user finishes the first-access flow.
+  if (isLoading || !isAuthenticated || (profile === null)) return null;
 
   return (
     <XPToastProvider>
