@@ -21,18 +21,21 @@ function AuthGuard() {
   const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
 
   useEffect(() => {
+    console.log('[AuthGuard]', { isLoading, isAuthenticated, mustChangePassword, profile: profile?.email ?? null });
     if (isLoading) return;
-    // Wait for profile to load before deciding
     if (isAuthenticated && profile === null) return;
 
     if (!isAuthenticated) {
+      console.log('[AuthGuard] → /(auth)/login');
       router.replace('/(auth)/login');
       return;
     }
     if (mustChangePassword) {
+      console.log('[AuthGuard] → /(auth)/change-password');
       router.replace('/(auth)/change-password');
       return;
     }
+    console.log('[AuthGuard] → sem ação');
   }, [isLoading, isAuthenticated, mustChangePassword, profile]);
 
   return null;
