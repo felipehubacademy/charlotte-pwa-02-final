@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { CaretLeft, Lock, Eye, EyeSlash, CheckCircle } from 'phosphor-react-native';
 import { supabase } from '@/lib/supabase';
 import { AppText } from '@/components/ui/Text';
+import { useAuth } from '@/hooks/useAuth';
 
 const C = {
   bg:        '#F4F3FA',
@@ -31,6 +32,9 @@ const C = {
 };
 
 export default function ChangePasswordScreen() {
+  const { profile } = useAuth();
+  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
+
   const [current,    setCurrent]    = useState('');
   const [newPass,    setNewPass]    = useState('');
   const [confirm,    setConfirm]    = useState('');
@@ -41,33 +45,33 @@ export default function ChangePasswordScreen() {
   const [success,    setSuccess]    = useState(false);
 
   const validate = () => {
-    if (!current.trim())           return 'Informe sua senha atual.';
-    if (newPass.length < 6)        return 'A nova senha deve ter pelo menos 6 caracteres.';
-    if (newPass !== confirm)       return 'As senhas não coincidem.';
-    if (newPass === current)       return 'A nova senha deve ser diferente da atual.';
+    if (!current.trim())           return isPt ? 'Informe sua senha atual.' : 'Please enter your current password.';
+    if (newPass.length < 6)        return isPt ? 'A nova senha deve ter pelo menos 6 caracteres.' : 'New password must be at least 6 characters.';
+    if (newPass !== confirm)       return isPt ? 'As senhas não coincidem.' : 'Passwords do not match.';
+    if (newPass === current)       return isPt ? 'A nova senha deve ser diferente da atual.' : 'New password must be different from current.';
     return null;
   };
 
   const handleSubmit = async () => {
     const err = validate();
-    if (err) { Alert.alert('Atenção', err); return; }
+    if (err) { Alert.alert(isPt ? 'Atenção' : 'Attention', err); return; }
 
     setLoading(true);
     try {
       // Re-authenticate with current password to confirm identity
       const { data: session } = await supabase.auth.getSession();
       const email = session?.session?.user?.email;
-      if (!email) throw new Error('Sessão não encontrada. Faça login novamente.');
+      if (!email) throw new Error(isPt ? 'Sessão não encontrada. Faça login novamente.' : 'Session not found. Please log in again.');
 
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: current });
-      if (signInError) throw new Error('Senha atual incorreta.');
+      if (signInError) throw new Error(isPt ? 'Senha atual incorreta.' : 'Current password is incorrect.');
 
       const { error: updateError } = await supabase.auth.updateUser({ password: newPass });
       if (updateError) throw updateError;
 
       setSuccess(true);
     } catch (e: any) {
-      Alert.alert('Erro', e.message ?? 'Não foi possível alterar a senha.');
+      Alert.alert(isPt ? 'Erro' : 'Error', e.message ?? (isPt ? 'Não foi possível alterar a senha.' : 'Could not change password.'));
     } finally {
       setLoading(false);
     }
@@ -92,7 +96,7 @@ export default function ChangePasswordScreen() {
         >
           <CaretLeft size={22} color={C.navy} weight="bold" />
         </TouchableOpacity>
-        <AppText style={{ fontSize: 17, fontWeight: '700', color: C.navy }}>Alterar senha</AppText>
+        <AppText style={{ fontSize: 17, fontWeight: '700', color: C.navy }}>{isPt ? 'Alterar senha' : 'Change password'}</AppText>
       </View>
 
       <KeyboardAvoidingView
@@ -115,10 +119,10 @@ export default function ChangePasswordScreen() {
             }}>
               <CheckCircle size={56} color={C.greenDark} weight="duotone" />
               <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy, marginTop: 16, textAlign: 'center' }}>
-                Senha alterada!
+                {isPt ? 'Senha alterada!' : 'Password changed!'}
               </AppText>
               <AppText style={{ fontSize: 14, color: C.navyLight, marginTop: 8, textAlign: 'center' }}>
-                Sua senha foi atualizada com sucesso.
+                {isPt ? 'Sua senha foi atualizada com sucesso.' : 'Your password was updated successfully.'}
               </AppText>
               <TouchableOpacity
                 onPress={() => router.back()}
@@ -130,31 +134,33 @@ export default function ChangePasswordScreen() {
                   paddingHorizontal: 40,
                 }}
               >
-                <AppText style={{ fontSize: 15, fontWeight: '700', color: C.navy }}>Voltar</AppText>
+                <AppText style={{ fontSize: 15, fontWeight: '700', color: C.navy }}>{isPt ? 'Voltar' : 'Back'}</AppText>
               </TouchableOpacity>
             </View>
           ) : (
             <>
               <AppText style={{ fontSize: 13, color: C.navyLight, marginBottom: 20 }}>
-                Informe sua senha atual e escolha uma nova senha com pelo menos 6 caracteres.
+                {isPt
+                  ? 'Informe sua senha atual e escolha uma nova senha com pelo menos 6 caracteres.'
+                  : 'Enter your current password and choose a new one with at least 6 characters.'}
               </AppText>
 
               <PasswordField
-                label="Senha atual"
+                label={isPt ? 'Senha atual' : 'Current password'}
                 value={current}
                 onChangeText={setCurrent}
                 show={showCur}
                 onToggle={() => setShowCur(v => !v)}
               />
               <PasswordField
-                label="Nova senha"
+                label={isPt ? 'Nova senha' : 'New password'}
                 value={newPass}
                 onChangeText={setNewPass}
                 show={showNew}
                 onToggle={() => setShowNew(v => !v)}
               />
               <PasswordField
-                label="Confirmar nova senha"
+                label={isPt ? 'Confirmar nova senha' : 'Confirm new password'}
                 value={confirm}
                 onChangeText={setConfirm}
                 show={showConf}
@@ -177,7 +183,7 @@ export default function ChangePasswordScreen() {
               >
                 {loading
                   ? <ActivityIndicator color={C.navy} />
-                  : <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>Alterar senha</AppText>
+                  : <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>{isPt ? 'Alterar senha' : 'Change password'}</AppText>
                 }
               </TouchableOpacity>
             </>

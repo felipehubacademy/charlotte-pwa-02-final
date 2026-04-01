@@ -7,6 +7,7 @@ const WHATSAPP_URL = 'https://wa.me/5500000000000?text=Olá! Quero continuar usa
 
 export function TrialExpiredModal() {
   const { profile, hasAccess, signOut } = useAuth();
+  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
 
   // Mostra se logado mas sem acesso (trial expirado, inativo, ou sem assinatura)
   const visible = !!profile && !hasAccess;
@@ -21,10 +22,12 @@ export function TrialExpiredModal() {
               <Timer size={30} color="#A3FF3C" weight="duotone" />
             </View>
             <AppText style={{ fontSize: 20, fontWeight: '700', color: '#fff', textAlign: 'center' }}>
-              Acesso encerrado
+              {isPt ? 'Acesso encerrado' : 'Access expired'}
             </AppText>
             <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 20 }}>
-              Seu período de acesso expirou. Fale com nossa equipe para continuar praticando com a Charlotte.
+              {isPt
+                ? 'Seu período de acesso expirou. Fale com nossa equipe para continuar praticando com a Charlotte.'
+                : 'Your access period has expired. Contact our team to continue practising with Charlotte.'}
             </AppText>
           </View>
 
@@ -33,7 +36,9 @@ export function TrialExpiredModal() {
             style={{ backgroundColor: '#A3FF3C', borderRadius: 14, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
           >
             <WhatsappLogo size={18} color="#16153A" weight="fill" />
-            <AppText style={{ color: '#16153A', fontWeight: '700', fontSize: 15 }}>Falar com a equipe</AppText>
+            <AppText style={{ color: '#16153A', fontWeight: '700', fontSize: 15 }}>
+              {isPt ? 'Falar com a equipe' : 'Contact the team'}
+            </AppText>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -41,7 +46,9 @@ export function TrialExpiredModal() {
             style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 }}
           >
             <SignOut size={15} color="rgba(255,255,255,0.35)" weight="regular" />
-            <AppText style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>Sair da conta</AppText>
+            <AppText style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14 }}>
+              {isPt ? 'Sair da conta' : 'Sign out'}
+            </AppText>
           </TouchableOpacity>
 
         </View>

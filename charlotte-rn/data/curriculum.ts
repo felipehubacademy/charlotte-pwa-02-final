@@ -530,7 +530,7 @@ const INTER_MODULES: Module[] = [
 const ADVANCED_MODULES: Module[] = [
   // ── Module 1 — Estruturas Formais & Complexas C1 ─────────────────────────
   {
-    title: 'Estruturas Formais & Complexas C1',
+    title: 'Formal & Complex Structures C1',
     topics: [
       {
         title: 'Advanced inversion — negative adverbials',
@@ -709,7 +709,7 @@ const ADVANCED_MODULES: Module[] = [
         ],
       },
       {
-        title: 'Discourse coherence — coesão e referência textual',
+        title: 'Discourse coherence — cohesion & textual reference',
         pronunciation: [
           { type: 'repeat',       text: 'Furthermore, the results suggest a positive trend.',          focus: 'discourse marker stress' },
           { type: 'listen_write', text: 'Nevertheless, the challenges remain significant.',           focus: '"Nevertheless" formal contrast' },
@@ -735,7 +735,7 @@ const ADVANCED_MODULES: Module[] = [
 
   // ── Module 2 — Vocabulário & Registro C1 ─────────────────────────────────
   {
-    title: 'Vocabulário & Registro C1',
+    title: 'Vocabulary & Register C1',
     topics: [
       { title: 'Phrasal verbs Set 3 + collocations C1',                      grammar: [], pronunciation: [] },
       { title: 'Idioms & fixed expressions Set 3',                           grammar: [], pronunciation: [] },

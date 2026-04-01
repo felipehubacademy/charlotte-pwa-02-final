@@ -422,9 +422,12 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
                 prosodyScore:       json.result.prosodyScore,
                 words:              json.result.words              ?? [],
               };
+              // Catch mispronounced words: explicit Azure error OR accuracy below 82.
+              // Without reference text Azure always returns errorType:'None', so we
+              // rely on word-level accuracy to identify weak spots.
               mispronounced = (json.result.words ?? [])
                 .filter((w: { errorType?: string; accuracyScore: number }) =>
-                  w.errorType === 'Mispronunciation' && w.accuracyScore < 70
+                  w.errorType === 'Mispronunciation' || w.accuracyScore < 82
                 )
                 .map((w: { word: string }) => w.word);
             } else {
@@ -489,32 +492,105 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           saveChatMessage(userId, 'assistant', feedback, 'pronunciation');
         }
 
-        // ── 5. Demo TTS — only for mispronounced words ──────────
-        if (
-          mispronounced.length > 0 &&
-          pronunciationData &&
-          pronunciationData.pronunciationScore < 75
-        ) {
-          const top = mispronounced.slice(0, 2);
-
-          let demoText = '';
+        // ── 5a. Semantic / minimal-pair check ───────────────────
+        // Detect words that were pronounced correctly but don't fit the
+        // sentence meaning (e.g. "word" → "world", "sheep" → "ship").
+        // Azure can't catch these — GPT reads the context.
+        interface SemanticCorrection { heard: string; likely: string }
+        let semanticCorrections: SemanticCorrection[] = [];
+        if (transcription && transcription.trim().length > 3) {
           try {
-            const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
+            const semRes = await fetch(`${API_BASE_URL}/api/pronunciation-semantic`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ words: top }),
+              body: JSON.stringify({ text: transcription }),
             });
-            if (sentRes.ok) {
-              const sentJson = await sentRes.json();
-              const sentences: string[] = sentJson.sentences ?? [];
-              if (sentences.length > 0) {
-                demoText = sentences
-                  .map((s, i) => `Here's how to say "${top[i]}": ${s}`)
-                  .join('  ');
+            if (semRes.ok) {
+              const semJson = await semRes.json();
+              semanticCorrections = semJson.corrections ?? [];
+              if (semanticCorrections.length > 0) {
+                console.log('🔤 Semantic corrections detected:', semanticCorrections);
               }
             }
           } catch (e) {
-            console.warn('⚠️ demo-sentence fetch failed, skipping demo:', e);
+            console.warn('⚠️ pronunciation-semantic check failed, skipping:', e);
+          }
+        }
+
+        // ── 5b. Demo TTS — mispronounced words, minimal-pair errors, OR low prosody ────
+        // Three independent paths:
+        //   a) Specific weak words found (Azure accuracy < 82) → always demo
+        //   b) Semantic / minimal-pair error → demo the CORRECT intended word
+        //   c) Prosody-only issue (no flagged words) → demo when overall < 88
+        const lowProsody = pronunciationData != null &&
+          (pronunciationData.prosodyScore ?? 100) < 82;
+
+        const shouldDemo =
+          pronunciationData != null &&
+          (
+            mispronounced.length > 0 ||                                        // path a
+            semanticCorrections.length > 0 ||                                  // path b
+            (lowProsody && pronunciationData.pronunciationScore < 88)           // path c
+          );
+
+        if (shouldDemo && pronunciationData) {
+          let demoText = '';
+
+          // Path b — semantic correction takes priority: demo the INTENDED word
+          if (semanticCorrections.length > 0) {
+            const correctWords = semanticCorrections.map(c => c.likely);
+            try {
+              const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ words: correctWords }),
+              });
+              if (sentRes.ok) {
+                const sentJson = await sentRes.json();
+                const sentences: string[] = sentJson.sentences ?? [];
+                if (sentences.length > 0) {
+                  demoText = sentences
+                    .map((s, i) =>
+                      `You said "${semanticCorrections[i].heard}" — did you mean "${correctWords[i]}"? Here's how: ${s}`
+                    )
+                    .join('  ');
+                }
+              }
+            } catch (e) {
+              console.warn('⚠️ demo-sentence (semantic) failed, skipping:', e);
+            }
+          }
+
+          // Path a / c — accuracy or prosody issues: demo weak/content words
+          if (!demoText) {
+            let demoWords = mispronounced.slice(0, 2);
+            if (demoWords.length === 0 && transcription) {
+              // prosody-only path: pick content words from transcription
+              demoWords = transcription
+                .split(/\s+/)
+                .filter(w => w.length > 3)
+                .slice(0, 2);
+            }
+            if (demoWords.length > 0) {
+              try {
+                const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ words: demoWords }),
+                });
+                if (sentRes.ok) {
+                  const sentJson = await sentRes.json();
+                  const sentences: string[] = sentJson.sentences ?? [];
+                  if (sentences.length > 0) {
+                    demoText = sentences
+                      .map((s, i) => `Here's how to say "${demoWords[i]}": ${s}`)
+                      .join('  ');
+                  }
+                }
+              } catch (e) {
+                console.warn('⚠️ demo-sentence fetch failed, skipping demo:', e);
+              }
+            }
           }
 
           if (demoText) {

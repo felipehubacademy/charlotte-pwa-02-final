@@ -508,23 +508,23 @@ export default function LearnSessionScreen() {
             <CheckCircle size={40} color={accent} weight="fill" />
           </View>
           <AppText style={{ fontSize: 24, fontWeight: '900', color: C.navy, marginBottom: 8, letterSpacing: -0.5 }}>
-            Tópico concluído!
+            {isPortuguese ? 'Tópico concluído!' : 'Topic complete!'}
           </AppText>
           <AppText style={{ fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
             {topicTitle}
           </AppText>
           <AppText style={{ fontSize: 13, color: C.navyLight, textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
-            {sessionXP} XP ganhos
-            {avgScore !== null ? ` · Pronúncia média ${avgScore}` : ''}
+            {sessionXP} {isPortuguese ? 'XP ganhos' : 'XP earned'}
+            {avgScore !== null ? (isPortuguese ? ` · Pronúncia média ${avgScore}` : ` · Avg pronunciation ${avgScore}`) : ''}
           </AppText>
           <TouchableOpacity
             onPress={() => router.replace('/(app)/learn-trail')}
             style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, paddingHorizontal: 40, marginBottom: 16 }}
           >
-            <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>Continuar trilha</AppText>
+            <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{isPortuguese ? 'Continuar trilha' : 'Continue trail'}</AppText>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.back()}>
-            <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>Voltar</AppText>
+            <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>{isPortuguese ? 'Voltar' : 'Back'}</AppText>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -684,7 +684,7 @@ export default function LearnSessionScreen() {
                   >
                     {userAnswer
                       ? <AppText style={{ fontSize: 17, fontWeight: '700', color: accent }}>{userAnswer}</AppText>
-                      : <AppText style={{ fontSize: 14, color: C.navyLight }}>toque em uma palavra abaixo</AppText>
+                      : <AppText style={{ fontSize: 14, color: C.navyLight }}>{isPortuguese ? 'toque em uma palavra abaixo' : 'tap a word below'}</AppText>
                     }
                   </TouchableOpacity>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>

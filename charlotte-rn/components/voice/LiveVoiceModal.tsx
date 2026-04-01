@@ -245,6 +245,7 @@ export default function LiveVoiceModal({
   const charlotteSpeakingRef   = React.useRef(false);
   const lastCharlotteDoneRef   = React.useRef(0);
   const responseActiveRef      = React.useRef(false); // servidor gerando resposta agora
+  const currentRecRef          = React.useRef<InstanceType<typeof AudioModule.AudioRecorder> | null>(null);
 
   const callTime = useCallTimer(status === 'connected');
 
@@ -359,6 +360,7 @@ export default function LiveVoiceModal({
       let recorderUri: string | null = null;
       try {
         const rec = new AudioModule.AudioRecorder(MIC_OPTIONS);
+        currentRecRef.current = rec;
         await rec.prepareToRecordAsync();
         rec.record();
 
@@ -366,10 +368,12 @@ export default function LiveVoiceModal({
 
         if (!micActiveRef.current) {
           await rec.stop().catch(() => {});
+          currentRecRef.current = null;
           break;
         }
 
         await rec.stop();
+        currentRecRef.current = null;
         recorderUri = rec.uri;
 
         if (recorderUri && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -399,6 +403,7 @@ export default function LiveVoiceModal({
           FileSystem.deleteAsync(recorderUri, { idempotent: true }).catch(() => {});
         }
       } catch (e) {
+        currentRecRef.current = null;
         if (recorderUri) FileSystem.deleteAsync(recorderUri, { idempotent: true }).catch(() => {});
         await sleep(300);
       }
@@ -467,7 +472,7 @@ export default function LiveVoiceModal({
     try {
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
-        setErrorMsg('Permissão de microfone negada');
+        setErrorMsg(userLevel === 'Novice' ? 'Permissão de microfone negada' : 'Microphone permission denied');
         setStatus('error');
         return;
       }
@@ -504,11 +509,12 @@ export default function LiveVoiceModal({
             voice: 'coral',
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
+            max_response_output_tokens: 150,
             turn_detection: {
               type: 'server_vad',
               threshold: 0.75,
               prefix_padding_ms: 300,
-              silence_duration_ms: 500, // 650→500: -150ms por turno sem cortar falas naturais
+              silence_duration_ms: 500,
             },
           },
         }));
@@ -608,7 +614,7 @@ export default function LiveVoiceModal({
       ws.onerror = () => {
         stopRingTone();
         setStatus('error');
-        setErrorMsg('Falha na conexão. Tente novamente.');
+        setErrorMsg(userLevel === 'Novice' ? 'Falha na conexão. Tente novamente.' : 'Connection failed. Please try again.');
       };
 
       ws.onclose = () => {
@@ -619,7 +625,7 @@ export default function LiveVoiceModal({
       };
     } catch (error: any) {
       setStatus('error');
-      setErrorMsg(error.message || 'Não foi possível conectar');
+      setErrorMsg(error.message || (userLevel === 'Novice' ? 'Não foi possível conectar' : 'Could not connect'));
     }
   }, [userLevel, userName, isSpeaker, applyAudioMode, startRingTone, stopRingTone, startMicStream, playCharlotteAudio]);
 
@@ -627,6 +633,11 @@ export default function LiveVoiceModal({
   const disconnect = React.useCallback(() => {
     micActiveRef.current = false;
     responseActiveRef.current = false;
+    // Immediately stop any active recorder so iOS releases the mic indicator at once
+    if (currentRecRef.current) {
+      currentRecRef.current.stop().catch(() => {});
+      currentRecRef.current = null;
+    }
     wsRef.current?.close();
     wsRef.current = null;
     stopRingTone();
@@ -691,13 +702,17 @@ export default function LiveVoiceModal({
               Live Voice
             </AppText>
             <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 22 }}>
-              Live Voice está disponível no iOS.{'\n'}Suporte Android chegando em breve.
+              {userLevel === 'Novice'
+                ? `Live Voice está disponível no iOS.\nSuporte Android chegando em breve.`
+                : `Live Voice is available on iOS.\nAndroid support coming soon.`}
             </AppText>
             <TouchableOpacity
               onPress={onClose}
               style={{ marginTop: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 32, paddingVertical: 14 }}
             >
-              <AppText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' }}>Fechar</AppText>
+              <AppText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' }}>
+                {userLevel === 'Novice' ? 'Fechar' : 'Close'}
+              </AppText>
             </TouchableOpacity>
           </View>
         </SafeAreaView>
@@ -730,7 +745,7 @@ export default function LiveVoiceModal({
               </AppText>
             )}
             {status === 'connecting' && (
-              <AppText style={{ color: '#F97316', fontSize: 13 }}>Chamando...</AppText>
+              <AppText style={{ color: '#F97316', fontSize: 13 }}>{userLevel === 'Novice' ? 'Chamando...' : 'Calling...'}</AppText>
             )}
             {status === 'error' && (
               <AppText style={{ color: '#ef4444', fontSize: 13 }}>{errorMsg}</AppText>
