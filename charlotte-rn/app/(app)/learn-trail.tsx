@@ -55,6 +55,7 @@ export default function LearnTrailScreen() {
   const { profile } = useAuth();
   const level = (profile?.user_level ?? 'Inter') as TrailLevel;
   const userId = profile?.id;
+  const isPortuguese = level === 'Novice';
 
   const { progress, loading, isTopicComplete, isCurrent, isLocked } = useLearnProgress(userId, level);
 
@@ -88,7 +89,7 @@ export default function LearnTrailScreen() {
             Charlotte
           </AppText>
           <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
-            Trilha de Aprendizado
+            {isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail'}
           </AppText>
         </View>
         <View style={{ width: 22 }} />
@@ -120,7 +121,7 @@ export default function LearnTrailScreen() {
                 {LEVEL_LABELS[level]}
               </AppText>
               <AppText style={{ fontSize: 12, color: C.navyLight, fontWeight: '500' }}>
-                {modules.length} módulos · {total} tópicos
+                {modules.length} {isPortuguese ? 'módulos' : 'modules'} · {total} {isPortuguese ? 'tópicos' : 'topics'}
               </AppText>
             </View>
             <AppText style={{ fontSize: 18, fontWeight: '900', color: accent }}>{pct}%</AppText>
@@ -131,14 +132,14 @@ export default function LearnTrailScreen() {
             <View style={{ height: 6, width: `${pct}%` as any, backgroundColor: accent, borderRadius: 3 }} />
           </View>
           <AppText style={{ fontSize: 11, color: C.navyLight, fontWeight: '600', marginTop: 6 }}>
-            {completed} de {total} tópicos concluídos
+            {completed} {isPortuguese ? 'de' : 'of'} {total} {isPortuguese ? 'tópicos concluídos' : 'topics completed'}
           </AppText>
         </View>
 
         {loading ? (
           <View style={{ alignItems: 'center', paddingTop: 40 }}>
             <ActivityIndicator color={accent} />
-            <AppText style={{ color: C.navyLight, marginTop: 12, fontSize: 13 }}>Carregando seu progresso…</AppText>
+            <AppText style={{ color: C.navyLight, marginTop: 12, fontSize: 13 }}>{isPortuguese ? 'Carregando seu progresso…' : 'Loading your progress…'}</AppText>
           </View>
         ) : (
           modules.map((mod, mIdx) => (
@@ -221,7 +222,7 @@ export default function LearnTrailScreen() {
                             }}>
                               <BookOpen size={11} color={C.gold} weight="fill" />
                               <AppText style={{ fontSize: 10, fontWeight: '700', color: C.gold }}>
-                                {topic.grammar.length} gramática
+                                {topic.grammar.length} {isPortuguese ? 'gramática' : 'grammar'}
                               </AppText>
                             </View>
                           )}
@@ -233,7 +234,7 @@ export default function LearnTrailScreen() {
                             }}>
                               <Microphone size={11} color={C.violet} weight="fill" />
                               <AppText style={{ fontSize: 10, fontWeight: '700', color: C.violet }}>
-                                {topic.pronunciation.length} pron
+                                {topic.pronunciation.length} {isPortuguese ? 'pron' : 'pronun'}
                               </AppText>
                             </View>
                           )}
@@ -243,7 +244,7 @@ export default function LearnTrailScreen() {
                               paddingHorizontal: 7, paddingVertical: 3,
                             }}>
                               <AppText style={{ fontSize: 10, fontWeight: '700', color: C.navyLight }}>
-                                Em breve
+                                {isPortuguese ? 'Em breve' : 'Coming soon'}
                               </AppText>
                             </View>
                           )}
@@ -257,12 +258,12 @@ export default function LearnTrailScreen() {
                           paddingHorizontal: 12, paddingVertical: 8,
                           flexDirection: 'row', alignItems: 'center', gap: 4,
                         }}>
-                          <AppText style={{ fontSize: 12, fontWeight: '800', color: '#FFF' }}>Iniciar</AppText>
+                          <AppText style={{ fontSize: 12, fontWeight: '800', color: '#FFF' }}>{isPortuguese ? 'Iniciar' : 'Start'}</AppText>
                           <CaretRight size={12} color="#FFF" weight="bold" />
                         </View>
                       )}
                       {complete && (
-                        <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green }}>Feito</AppText>
+                        <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green }}>{isPortuguese ? 'Feito' : 'Done'}</AppText>
                       )}
                     </TouchableOpacity>
                   );

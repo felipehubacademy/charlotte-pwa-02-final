@@ -283,10 +283,13 @@ function XPRing({ todayXP, goal }: { todayXP: number; goal: number }) {
 
 function buildMissions(data: HomeData, level: UserLevel): Mission[] {
   const config = LEVEL_CONFIG[level];
+  const isPt = level === 'Novice';
   const list: Mission[] = [];
 
   list.push({
-    id: 'messages', label: 'Envie 5 mensagens', sub: 'Qualquer modo de prática vale',
+    id: 'messages',
+    label: isPt ? 'Envie 5 mensagens' : 'Send 5 messages',
+    sub:   isPt ? 'Qualquer modo de prática vale' : 'Any practice mode counts',
     xpReward: 20,
     completed: data.todayMessages >= 5,
     progress: Math.min(data.todayMessages / 5, 1),
@@ -299,11 +302,13 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
 
   if (config.tabs.includes('pronunciation')) {
     list.push({
-      id: 'audio', label: 'Grave sua voz', sub: 'Segure o microfone e fale algo',
+      id: 'audio',
+      label: isPt ? 'Grave sua voz' : 'Record your voice',
+      sub:   isPt ? 'Segure o microfone e fale algo' : 'Hold the mic and say something',
       xpReward: 15,
       completed: data.todayAudios >= 1,
       progress: data.todayAudios >= 1 ? 1 : 0,
-      progressLabel: data.todayAudios >= 1 ? 'Feito' : '0 / 1',
+      progressLabel: data.todayAudios >= 1 ? (isPt ? 'Feito' : 'Done') : '0 / 1',
       accentColor: C.blue,
       accentBg: C.blueBg,
       icon: <Microphone size={22} color={C.blue} weight="fill" />,
@@ -312,7 +317,9 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
   }
 
   list.push({
-    id: 'xp', label: 'Ganhe 30 XP', sub: 'Mantenha a conversa fluindo',
+    id: 'xp',
+    label: isPt ? 'Ganhe 30 XP' : 'Earn 30 XP',
+    sub:   isPt ? 'Mantenha a conversa fluindo' : 'Keep the conversation going',
     xpReward: 10,
     completed: data.todayXP >= 30,
     progress: Math.min(data.todayXP / 30, 1),
@@ -443,6 +450,8 @@ export default function HomeScreen() {
   const firstName    = (name.split(' ')[0] ?? name);
   const daySeed      = Math.floor(Date.now() / 86400000);
   const tip          = getTip(level, daySeed);
+
+  const isPortuguese    = level === 'Novice';
 
   const hasGrammar      = config.tabs.includes('grammar');
   const hasPronun       = config.tabs.includes('pronunciation');
@@ -647,7 +656,7 @@ export default function HomeScreen() {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 }}>
                     <AppText style={{ fontSize: 11, color: C.navyMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                      XP de hoje
+                      {isPortuguese ? 'XP de hoje' : "Today's XP"}
                     </AppText>
                     <AppText style={{ fontSize: 11, fontWeight: '800',
                       color: todayXP >= DAILY_XP_GOAL ? C.greenDark : C.navyLight }}>
@@ -671,7 +680,7 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             DAILY MISSIONS — zigzag path nodes
         ══════════════════════════════════════════ */}
-        <SectionHeader label="Missões do dia" badge={`${doneMissions}/${missions.length}`} />
+        <SectionHeader label={isPortuguese ? 'Missões do dia' : 'Daily Missions'} badge={`${doneMissions}/${missions.length}`} isPt={isPortuguese} />
 
         <View style={{ paddingHorizontal: 20 }}>
           {missions.map((m, index) => (
@@ -680,6 +689,7 @@ export default function HomeScreen() {
               mission={m}
               alignRight={index % 2 === 1}
               showConnector={index < missions.length - 1}
+              isPt={isPortuguese}
             />
           ))}
         </View>
@@ -687,7 +697,7 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             LEARN — structured lessons
         ══════════════════════════════════════════ */}
-        <SectionHeader label="Aprender com Charlotte" />
+        <SectionHeader label={isPortuguese ? 'Aprender com Charlotte' : 'Learn with Charlotte'} />
 
         <View style={{ paddingHorizontal: 20 }}>
           <TouchableOpacity
@@ -714,10 +724,10 @@ export default function HomeScreen() {
               </View>
               <View style={{ flex: 1 }}>
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>
-                  Trilha de Aprendizado
+                  {isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail'}
                 </AppText>
                 <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>
-                  Aulas guiadas — Gramática & Pronúncia
+                  {isPortuguese ? 'Aulas guiadas — Gramática & Pronúncia' : 'Guided lessons — Grammar & Pronunciation'}
                 </AppText>
               </View>
               <CaretRight size={18} color={C.navyLight} weight="bold" />
@@ -727,7 +737,7 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             PRACTICE — destination cards
         ══════════════════════════════════════════ */}
-        <SectionHeader label="Praticar com Charlotte" />
+        <SectionHeader label={isPortuguese ? 'Praticar com Charlotte' : 'Practise with Charlotte'} />
 
         <View style={{ paddingHorizontal: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
           {modeCards.map(card => (
@@ -737,9 +747,11 @@ export default function HomeScreen() {
               onPress={() => {
                 if (card.locked) {
                   Alert.alert(
-                    `Recurso ${card.lockLevel}`,
-                    `${card.title} será desbloqueado ao atingir o nível ${card.lockLevel}. Continue praticando!`,
-                    [{ text: 'Entendido' }]
+                    isPortuguese ? `Recurso ${card.lockLevel}` : `${card.lockLevel} Feature`,
+                    isPortuguese
+                      ? `${card.title} será desbloqueado ao atingir o nível ${card.lockLevel}. Continue praticando!`
+                      : `${card.title} unlocks when you reach the ${card.lockLevel} level. Keep practising!`,
+                    [{ text: isPortuguese ? 'Entendido' : 'Got it' }]
                   );
                 } else if (card.mode === 'live') {
                   setShowLiveVoice(true);
@@ -781,7 +793,7 @@ export default function HomeScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.9, marginBottom: 3 }}>
-            Dica do dia
+            {isPortuguese ? 'Dica do dia' : 'Tip of the day'}
           </AppText>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
             <View style={{ backgroundColor: tipStyle.bg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
@@ -857,7 +869,7 @@ export default function HomeScreen() {
               {/* Example */}
               <View style={{ backgroundColor: tipStyle.bg, borderRadius: 16, padding: 16 }}>
                 <AppText style={{ fontSize: 10, fontWeight: '700', color: tipStyle.color, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>
-                  Exemplo
+                  {isPortuguese ? 'Exemplo' : 'Example'}
                 </AppText>
                 <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 23 }}>
                   "{tip.example}"
@@ -885,7 +897,7 @@ const cardShadow = Platform.select({
   android: { elevation: 4 },
 });
 
-function SectionHeader({ label, badge }: { label: string; badge?: string }) {
+function SectionHeader({ label, badge, isPt }: { label: string; badge?: string; isPt?: boolean }) {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 28, marginBottom: 16 }}>
       <AppText style={{ fontSize: 17, fontWeight: '800', color: C.navy, flex: 1 }}>
@@ -893,7 +905,7 @@ function SectionHeader({ label, badge }: { label: string; badge?: string }) {
       </AppText>
       {badge ? (
         <View style={{ backgroundColor: C.navyGhost, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3 }}>
-          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyMid }}>{badge} feito</AppText>
+          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyMid }}>{badge} {isPt ? 'feito' : 'done'}</AppText>
         </View>
       ) : null}
     </View>
@@ -902,10 +914,11 @@ function SectionHeader({ label, badge }: { label: string; badge?: string }) {
 
 // Mission node — circular, zigzag, with connector line between them
 
-function MissionNode({ mission, alignRight, showConnector }: {
+function MissionNode({ mission, alignRight, showConnector, isPt }: {
   mission: Mission;
   alignRight: boolean;
   showConnector: boolean;
+  isPt?: boolean;
 }) {
   const NODE = 58;
 
@@ -965,7 +978,7 @@ function MissionNode({ mission, alignRight, showConnector }: {
           {mission.completed ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
               <CheckCircle size={12} color={mission.accentColor} weight="fill" />
-              <AppText style={{ fontSize: 12, color: C.navyLight }}>Concluída hoje</AppText>
+              <AppText style={{ fontSize: 12, color: C.navyLight }}>{isPt ? 'Concluída hoje' : 'Completed today'}</AppText>
             </View>
           ) : (
             <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 3 }}>
