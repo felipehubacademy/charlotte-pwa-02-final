@@ -47,13 +47,13 @@ const C = {
 const REMINDER_KEY = 'push_reminder_hour';
 const REMINDER_OPTIONS = [6, 7, 8, 9, 10, 11, 12, 17, 18, 19, 20, 21, 22];
 
-async function scheduleOrCancelDailyReminder(hour: number | null) {
+async function scheduleOrCancelDailyReminder(hour: number | null, isPt = true) {
   await Notifications.cancelAllScheduledNotificationsAsync();
   if (hour === null) return;
   await Notifications.scheduleNotificationAsync({
     content: {
-      title: 'Hora de praticar!',
-      body: 'Que tal conversar com a Charlotte hoje?',
+      title: isPt ? 'Hora de praticar!' : 'Time to practise!',
+      body:  isPt ? 'Que tal conversar com a Charlotte hoje?' : 'How about a session with Charlotte today?',
       sound: true,
     },
     trigger: {
@@ -136,6 +136,7 @@ function SectionTitle({ label }: { label: string }) {
 export default function ConfiguracoesScreen() {
   const { profile, signOut } = useAuth();
   const userId = profile?.id;
+  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
   const [reminderHour, setReminderHour] = React.useState<number | null>(null);
 
   React.useEffect(() => {
@@ -146,12 +147,12 @@ export default function ConfiguracoesScreen() {
 
   const handleSignOut = () => {
     Alert.alert(
-      'Sair da conta',
-      'Tem certeza que deseja sair?',
+      isPt ? 'Sair da conta' : 'Sign out',
+      isPt ? 'Tem certeza que deseja sair?' : 'Are you sure you want to sign out?',
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: isPt ? 'Cancelar' : 'Cancel', style: 'cancel' },
         {
-          text: 'Sair', style: 'destructive',
+          text: isPt ? 'Sair' : 'Sign out', style: 'destructive',
           onPress: () => { signOut().catch(console.error); },
         },
       ]
@@ -165,7 +166,7 @@ export default function ConfiguracoesScreen() {
         onPress: async () => {
           setReminderHour(h);
           await SecureStore.setItemAsync(REMINDER_KEY, String(h));
-          await scheduleOrCancelDailyReminder(h);
+          await scheduleOrCancelDailyReminder(h, isPt);
           if (userId) {
             supabase.from('users')
               .update({ preferred_reminder_time: `${String(h).padStart(2, '0')}:00:00` })
@@ -174,11 +175,11 @@ export default function ConfiguracoesScreen() {
         },
       })),
       {
-        text: 'Desativar', style: 'destructive' as const,
+        text: isPt ? 'Desativar' : 'Disable', style: 'destructive' as const,
         onPress: async () => {
           setReminderHour(null);
           await SecureStore.deleteItemAsync(REMINDER_KEY).catch(() => {});
-          await scheduleOrCancelDailyReminder(null);
+          await scheduleOrCancelDailyReminder(null, isPt);
           if (userId) {
             supabase.from('users')
               .update({ preferred_reminder_time: null })
@@ -186,9 +187,13 @@ export default function ConfiguracoesScreen() {
           }
         },
       },
-      { text: 'Cancelar', style: 'cancel' as const },
+      { text: isPt ? 'Cancelar' : 'Cancel', style: 'cancel' as const },
     ];
-    Alert.alert('Lembrete diário', 'Escolha o horário do seu lembrete:', buttons);
+    Alert.alert(
+      isPt ? 'Lembrete diário' : 'Daily reminder',
+      isPt ? 'Escolha o horário do seu lembrete:' : 'Choose your reminder time:',
+      buttons
+    );
   };
 
   const userLevel          = profile?.user_level ?? '—';
@@ -197,17 +202,17 @@ export default function ConfiguracoesScreen() {
   const isInstitutional    = !!profile?.lms_role;
 
   const accessLabel = (() => {
-    if (!isActive)                             return { text: 'Inativa',       color: C.error };
-    if (isInstitutional)                       return { text: 'Institucional', color: C.greenDark };
-    if (subscriptionStatus === 'active')       return { text: 'Ativa',         color: C.greenDark };
-    if (subscriptionStatus === 'trial')        return { text: 'Trial',         color: '#1D4ED8' };
-    if (subscriptionStatus === 'expired')      return { text: 'Expirada',      color: C.error };
-    return                                            { text: 'Sem acesso',    color: C.error };
+    if (!isActive)                             return { text: isPt ? 'Inativa'       : 'Inactive',      color: C.error };
+    if (isInstitutional)                       return { text: isPt ? 'Institucional' : 'Institutional', color: C.greenDark };
+    if (subscriptionStatus === 'active')       return { text: isPt ? 'Ativa'         : 'Active',        color: C.greenDark };
+    if (subscriptionStatus === 'trial')        return { text: 'Trial',                                  color: '#1D4ED8' };
+    if (subscriptionStatus === 'expired')      return { text: isPt ? 'Expirada'      : 'Expired',       color: C.error };
+    return                                            { text: isPt ? 'Sem acesso'    : 'No access',     color: C.error };
   })();
 
   const reminderLabel = reminderHour !== null
     ? `${reminderHour.toString().padStart(2, '0')}:00`
-    : 'Desativado';
+    : isPt ? 'Desativado' : 'Disabled';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
@@ -229,7 +234,7 @@ export default function ConfiguracoesScreen() {
         >
           <CaretLeft size={22} color={C.navy} weight="bold" />
         </TouchableOpacity>
-        <AppText style={{ fontSize: 17, fontWeight: '700', color: C.navy }}>Configurações</AppText>
+        <AppText style={{ fontSize: 17, fontWeight: '700', color: C.navy }}>{isPt ? 'Configurações' : 'Settings'}</AppText>
       </View>
 
       <ScrollView
@@ -269,38 +274,38 @@ export default function ConfiguracoesScreen() {
           </View>
         </View>
 
-        {/* Conta */}
-        <SectionTitle label="Conta" />
+        {/* Account */}
+        <SectionTitle label={isPt ? 'Conta' : 'Account'} />
         <SettingRow
           icon={<ShieldCheck size={18} color={C.greenDark} weight="duotone" />}
-          label="Nível"
+          label={isPt ? 'Nível' : 'Level'}
           value={userLevel}
         />
         <SettingRow
           icon={<CheckCircle size={18} color={accessLabel.color} weight="duotone" />}
-          label="Acesso"
+          label={isPt ? 'Acesso' : 'Access'}
           value={accessLabel.text}
           valueColor={accessLabel.color}
         />
         <SettingRow
           icon={<Key size={18} color={C.navyMid} weight="duotone" />}
-          label="Alterar senha"
+          label={isPt ? 'Alterar senha' : 'Change password'}
           onPress={() => router.push('/(app)/change-password')}
           chevron
         />
 
-        {/* Notificações */}
-        <SectionTitle label="Notificações" />
+        {/* Notifications */}
+        <SectionTitle label={isPt ? 'Notificações' : 'Notifications'} />
         <SettingRow
           icon={<Clock size={18} color={C.navyMid} weight="duotone" />}
-          label="Lembrete diário"
+          label={isPt ? 'Lembrete diário' : 'Daily reminder'}
           value={reminderLabel}
           onPress={handleReminderPress}
           chevron
         />
 
-        {/* Sobre */}
-        <SectionTitle label="Sobre" />
+        {/* About */}
+        <SectionTitle label={isPt ? 'Sobre' : 'About'} />
         <SettingRow
           icon={<DeviceMobile size={18} color={C.navyMid} weight="duotone" />}
           label="Charlotte"
@@ -311,11 +316,11 @@ export default function ConfiguracoesScreen() {
           label="Hub Academy"
         />
 
-        {/* Sessão */}
-        <SectionTitle label="Sessão" />
+        {/* Session */}
+        <SectionTitle label={isPt ? 'Sessão' : 'Session'} />
         <SettingRow
           icon={<SignOut size={18} color={C.error} weight="duotone" />}
-          label="Sair da conta"
+          label={isPt ? 'Sair da conta' : 'Sign out'}
           onPress={handleSignOut}
           destructive
           chevron
