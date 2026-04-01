@@ -311,7 +311,9 @@ export default function EnhancedStatsModal({
                   <AppText style={{ color: C.navy, fontWeight: '700', fontSize: 14, flex: 1, marginRight: 8 }}>
                     {ach.title}
                   </AppText>
-                  <AppText style={{ color: C.greenDark, fontSize: 12, fontWeight: '800' }}>+{ach.xpBonus} XP</AppText>
+                  {ach.xpBonus > 0 && (
+                    <AppText style={{ color: C.greenDark, fontSize: 12, fontWeight: '800' }}>+{ach.xpBonus} XP</AppText>
+                  )}
                 </View>
                 <AppText style={{ color: C.navyMid, fontSize: 12, marginBottom: 4 }}>{ach.description}</AppText>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

@@ -241,20 +241,32 @@ export default function AchievementNotification({ achievements, onDismiss }: Pro
                 {current.description}
               </AppText>
 
-              {/* Rarity pill */}
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-                paddingHorizontal: 14, paddingVertical: 6,
-                borderRadius: 20,
-                backgroundColor: rarityBg,
-                borderWidth: 1,
-                borderColor: `${rarityColor}30`,
-                marginBottom: 28,
-              }}>
-                <Star size={12} color={rarityColor} weight="fill" />
-                <AppText style={{ color: rarityColor, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  {current.rarity}
-                </AppText>
+              {/* Rarity + XP bonus row */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 28 }}>
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  paddingHorizontal: 12, paddingVertical: 6,
+                  borderRadius: 20, backgroundColor: rarityBg,
+                  borderWidth: 1, borderColor: `${rarityColor}30`,
+                }}>
+                  <Star size={12} color={rarityColor} weight="fill" />
+                  <AppText style={{ color: rarityColor, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                    {current.rarity}
+                  </AppText>
+                </View>
+                {current.xpBonus > 0 && (
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 5,
+                    paddingHorizontal: 12, paddingVertical: 6,
+                    borderRadius: 20, backgroundColor: C.greenBg,
+                    borderWidth: 1, borderColor: `${C.green}60`,
+                  }}>
+                    <Lightning size={12} color={C.greenDark} weight="fill" />
+                    <AppText style={{ color: C.greenDark, fontSize: 12, fontWeight: '800' }}>
+                      +{current.xpBonus} XP
+                    </AppText>
+                  </View>
+                )}
               </View>
 
               {/* Dismiss button */}
