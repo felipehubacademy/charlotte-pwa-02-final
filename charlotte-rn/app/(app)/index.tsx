@@ -279,58 +279,153 @@ function XPRing({ todayXP, goal }: { todayXP: number; goal: number }) {
   );
 }
 
-// ── Build missions ────────────────────────────────────────────
+// ── Daily mission pool + seeded rotation ─────────────────────
+//
+// 8 mission templates — 3 are picked each day using a day-based seed.
+// Same missions all day; different missions tomorrow.
+// IDs must stay stable — they're used as `mission_reward_<id>` in DB.
+
+interface MissionTemplate {
+  id: string;
+  label:  (isPt: boolean) => string;
+  sub:    (isPt: boolean) => string;
+  xpReward: number;
+  accentColor: string;
+  accentBg:   string;
+  icon:    React.ReactElement;
+  levels: 'all' | 'pronunciation'; // 'pronunciation' = only Inter/Advanced
+  getCompleted:     (d: HomeData) => boolean;
+  getProgress:      (d: HomeData) => number;
+  getProgressLabel: (d: HomeData, isPt: boolean) => string;
+}
+
+const MISSION_POOL: MissionTemplate[] = [
+  {
+    id: 'messages_5',
+    label: isPt => isPt ? 'Envie 5 mensagens' : 'Send 5 messages',
+    sub:   isPt => isPt ? 'Qualquer modo de prática vale' : 'Any practice mode counts',
+    xpReward: 20, accentColor: C.greenDark, accentBg: C.greenBg, levels: 'all',
+    icon: <ChatTeardropText size={22} color={C.greenDark} weight="fill" />,
+    getCompleted:     d => d.todayMessages >= 5,
+    getProgress:      d => Math.min(d.todayMessages / 5, 1),
+    getProgressLabel: d => `${Math.min(d.todayMessages, 5)} / 5`,
+  },
+  {
+    id: 'messages_10',
+    label: isPt => isPt ? 'Envie 10 mensagens' : 'Send 10 messages',
+    sub:   isPt => isPt ? 'Continue praticando hoje!' : 'Keep the practice going!',
+    xpReward: 35, accentColor: C.greenDark, accentBg: C.greenBg, levels: 'all',
+    icon: <ChatTeardropText size={22} color={C.greenDark} weight="fill" />,
+    getCompleted:     d => d.todayMessages >= 10,
+    getProgress:      d => Math.min(d.todayMessages / 10, 1),
+    getProgressLabel: d => `${Math.min(d.todayMessages, 10)} / 10`,
+  },
+  {
+    id: 'xp_30',
+    label: isPt => isPt ? 'Ganhe 30 XP' : 'Earn 30 XP',
+    sub:   isPt => isPt ? 'Mantenha a conversa fluindo' : 'Keep the conversation going',
+    xpReward: 10, accentColor: C.gold, accentBg: '#FFFBEB', levels: 'all',
+    icon: <Lightning size={22} color={C.gold} weight="fill" />,
+    getCompleted:     d => d.todayXP >= 30,
+    getProgress:      d => Math.min(d.todayXP / 30, 1),
+    getProgressLabel: d => `${Math.min(d.todayXP, 30)} / 30 XP`,
+  },
+  {
+    id: 'xp_60',
+    label: isPt => isPt ? 'Ganhe 60 XP hoje' : 'Earn 60 XP today',
+    sub:   isPt => isPt ? 'Vá além do básico hoje!' : 'Push beyond the basics today!',
+    xpReward: 20, accentColor: C.gold, accentBg: '#FFFBEB', levels: 'all',
+    icon: <Lightning size={22} color={C.gold} weight="fill" />,
+    getCompleted:     d => d.todayXP >= 60,
+    getProgress:      d => Math.min(d.todayXP / 60, 1),
+    getProgressLabel: d => `${Math.min(d.todayXP, 60)} / 60 XP`,
+  },
+  {
+    id: 'streak',
+    label: isPt => isPt ? 'Mantenha sua sequência' : 'Keep your streak alive',
+    sub:   isPt => isPt ? 'Pratique 2 dias seguidos' : 'Practice 2 days in a row',
+    xpReward: 25, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
+    icon: <Fire size={22} color={C.orange} weight="fill" />,
+    getCompleted:     d => d.streakDays >= 2,
+    getProgress:      d => Math.min(d.streakDays / 2, 1),
+    getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 2)} / 2 ${isPt ? 'dias' : 'days'}`,
+  },
+  {
+    id: 'text_3',
+    label: isPt => isPt ? 'Escreva 3 mensagens' : 'Write 3 text messages',
+    sub:   isPt => isPt ? 'Pratique no Grammar ou Chat' : 'Practice in Grammar or Chat mode',
+    xpReward: 15, accentColor: C.pink, accentBg: C.pinkBg, levels: 'all',
+    icon: <TextT size={22} color={C.pink} weight="fill" />,
+    getCompleted:     d => (d.todayMessages - d.todayAudios) >= 3,
+    getProgress:      d => Math.min((d.todayMessages - d.todayAudios) / 3, 1),
+    getProgressLabel: d => `${Math.min(d.todayMessages - d.todayAudios, 3)} / 3`,
+  },
+  {
+    id: 'audio_1',
+    label: isPt => isPt ? 'Grave sua voz' : 'Record your voice',
+    sub:   isPt => isPt ? 'Segure o microfone e fale algo' : 'Hold the mic and say something',
+    xpReward: 15, accentColor: C.blue, accentBg: C.blueBg, levels: 'pronunciation',
+    icon: <Microphone size={22} color={C.blue} weight="fill" />,
+    getCompleted:     d => d.todayAudios >= 1,
+    getProgress:      d => d.todayAudios >= 1 ? 1 : 0,
+    getProgressLabel: (d, isPt) => d.todayAudios >= 1 ? (isPt ? 'Feito' : 'Done') : '0 / 1',
+  },
+  {
+    id: 'audio_3',
+    label: isPt => isPt ? 'Grave 3 áudios' : 'Record 3 voice messages',
+    sub:   isPt => isPt ? 'Pratique a pronúncia com áudios' : 'Practice pronunciation with audio',
+    xpReward: 30, accentColor: C.blue, accentBg: C.blueBg, levels: 'pronunciation',
+    icon: <Microphone size={22} color={C.blue} weight="fill" />,
+    getCompleted:     d => d.todayAudios >= 3,
+    getProgress:      d => Math.min(d.todayAudios / 3, 1),
+    getProgressLabel: d => `${Math.min(d.todayAudios, 3)} / 3`,
+  },
+];
+
+/** Fisher-Yates shuffle seeded with a simple LCG — deterministic. */
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const out = [...arr];
+  let s = seed | 1; // ensure non-zero
+  const rand = () => {
+    s = Math.imul(s ^ (s >>> 15), s | 1);
+    s ^= s + Math.imul(s ^ (s >>> 7), s | 61);
+    return ((s ^ (s >>> 14)) >>> 0) / 0x100000000;
+  };
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 function buildMissions(data: HomeData, level: UserLevel): Mission[] {
-  const config = LEVEL_CONFIG[level];
+  const hasPronunciation = LEVEL_CONFIG[level].tabs.includes('pronunciation');
   const isPt = level === 'Novice';
-  const list: Mission[] = [];
 
-  list.push({
-    id: 'messages',
-    label: isPt ? 'Envie 5 mensagens' : 'Send 5 messages',
-    sub:   isPt ? 'Qualquer modo de prática vale' : 'Any practice mode counts',
-    xpReward: 20,
-    completed: data.todayMessages >= 5,
-    progress: Math.min(data.todayMessages / 5, 1),
-    progressLabel: `${Math.min(data.todayMessages, 5)} / 5`,
-    accentColor: C.greenDark,
-    accentBg: C.greenBg,
-    icon: <ChatTeardropText size={22} color={C.greenDark} weight="fill" />,
-    doneIcon: <CheckCircle size={26} color={C.greenDark} weight="fill" />,
-  });
+  // Filter pool by level capability
+  const available = MISSION_POOL.filter(t =>
+    t.levels === 'all' || (t.levels === 'pronunciation' && hasPronunciation)
+  );
 
-  if (config.tabs.includes('pronunciation')) {
-    list.push({
-      id: 'audio',
-      label: isPt ? 'Grave sua voz' : 'Record your voice',
-      sub:   isPt ? 'Segure o microfone e fale algo' : 'Hold the mic and say something',
-      xpReward: 15,
-      completed: data.todayAudios >= 1,
-      progress: data.todayAudios >= 1 ? 1 : 0,
-      progressLabel: data.todayAudios >= 1 ? (isPt ? 'Feito' : 'Done') : '0 / 1',
-      accentColor: C.blue,
-      accentBg: C.blueBg,
-      icon: <Microphone size={22} color={C.blue} weight="fill" />,
-      doneIcon: <CheckCircle size={26} color={C.blue} weight="fill" />,
-    });
-  }
+  // Day seed — changes once per UTC day; offset by level so each level rotates differently
+  const dayNum  = Math.floor(Date.now() / 86400000);
+  const lvlOff  = level === 'Novice' ? 0 : level === 'Inter' ? 137 : 271;
+  const shuffled = seededShuffle(available, dayNum + lvlOff);
 
-  list.push({
-    id: 'xp',
-    label: isPt ? 'Ganhe 30 XP' : 'Earn 30 XP',
-    sub:   isPt ? 'Mantenha a conversa fluindo' : 'Keep the conversation going',
-    xpReward: 10,
-    completed: data.todayXP >= 30,
-    progress: Math.min(data.todayXP / 30, 1),
-    progressLabel: `${Math.min(data.todayXP, 30)} / 30 XP`,
-    accentColor: C.gold,
-    accentBg: '#FFFBEB',
-    icon: <Lightning size={22} color={C.gold} weight="fill" />,
-    doneIcon: <CheckCircle size={26} color={C.gold} weight="fill" />,
-  });
-
-  return list;
+  // Pick 3 missions for today
+  return shuffled.slice(0, 3).map(t => ({
+    id:            t.id,
+    label:         t.label(isPt),
+    sub:           t.sub(isPt),
+    xpReward:      t.xpReward,
+    completed:     t.getCompleted(data),
+    progress:      t.getProgress(data),
+    progressLabel: t.getProgressLabel(data, isPt),
+    accentColor:   t.accentColor,
+    accentBg:      t.accentBg,
+    icon:          t.icon,
+    doneIcon:      <CheckCircle size={26} color={t.accentColor} weight="fill" />,
+  }));
 }
 
 // ──────────────────────────────────────────────────────────────
