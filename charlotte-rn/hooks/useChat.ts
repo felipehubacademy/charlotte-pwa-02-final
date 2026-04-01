@@ -390,50 +390,14 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 
         contextManagerRef.current.addMessage('user', transcription, 'audio');
 
-        // ── 2. Semantic check FIRST — build reference text for Azure ──
-        // Run GPT minimal-pair detection before Azure so we can pass the
-        // corrected text as referenceText → Azure switches to reference mode,
-        // which properly flags Mispronunciation / Omission / Insertion errors.
-        interface SemanticCorrectionEarly { heard: string; likely: string }
-        let earlySemanticCorrections: SemanticCorrectionEarly[] = [];
-        let referenceText: string | null = null;
-        if (transcription && transcription.trim().length > 3) {
-          try {
-            const semRes = await fetch(`${API_BASE_URL}/api/pronunciation-semantic`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: transcription }),
-            });
-            if (semRes.ok) {
-              const semJson = await semRes.json();
-              earlySemanticCorrections = semJson.corrections ?? [];
-              if (earlySemanticCorrections.length > 0) {
-                // Build reference text: replace each heard word with the intended word
-                let ref = transcription;
-                for (const c of earlySemanticCorrections) {
-                  ref = ref.replace(new RegExp(`\\b${c.heard}\\b`, 'gi'), c.likely);
-                }
-                referenceText = ref;
-                console.log('🔤 [two-pass] Semantic corrections found — Azure will use ref text:', {
-                  original: transcription,
-                  referenceText,
-                  corrections: earlySemanticCorrections,
-                });
-              }
-            }
-          } catch (e) {
-            console.warn('⚠️ Early semantic check failed, continuing without ref text:', e);
-          }
-        }
-
-        // Always use Whisper's transcript as Azure reference text (guarantees
-        // reference mode, which gives proper errorType detection and meaningful
-        // scores). If semantic corrections were found, use the corrected version
-        // so Azure can also flag the substituted word.
-        if (!referenceText && transcription) {
-          referenceText = transcription;
-          console.log('🔤 [azure] No semantic corrections — using Whisper transcript as ref text:', referenceText);
-        }
+        // ── 2. Azure pronunciation assessment — always in reference mode ──
+        // Whisper already produces the semantically-intended form of what the user
+        // said (e.g. it transcribes "world" even if the user said "word").
+        // We use that as the reference so Azure can detect the phonetic gap between
+        // what the user said and what the correct word sounds like.
+        // The semantic/minimal-pair check runs AFTER Azure — only for demo feedback.
+        const referenceText = transcription; // always use Whisper's transcript
+        console.log('🔤 [azure] Using Whisper transcript as ref text:', referenceText);
 
         // ── 3. Azure pronunciation assessment (with ref text if available) ──
         let pronunciationData: PronunciationData | null = null;
@@ -447,12 +411,10 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
             name: isWav ? 'recording.wav' : 'recording.m4a',
             type: isWav ? 'audio/wav' : 'audio/x-m4a',
           } as unknown as Blob);
-          // Always pass reference text — Azure in reference mode is far more
-          // reliable than free-speech mode (which can hallucinate transcriptions).
-          if (referenceText) {
-            formData.append('referenceText', referenceText);
-          }
-          console.log('🔬 Calling /api/pronunciation...', referenceText ? `(ref: "${referenceText.slice(0, 60)}")` : '(free speech)');
+          // Always pass Whisper's transcript as reference — Azure reference mode
+          // gives proper per-word errorType detection and reliable scores.
+          formData.append('referenceText', referenceText);
+          console.log(`🔬 Calling /api/pronunciation... (ref: "${referenceText.slice(0, 60)}")`);
           const res = await fetch(`${API_BASE_URL}/api/pronunciation`, {
             method: 'POST',
             body: formData,
@@ -541,10 +503,31 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           saveChatMessage(userId, 'assistant', feedback, 'pronunciation');
         }
 
-        // ── 5a. Semantic corrections — reuse results from step 2 ──
-        // Already fetched before the Azure call so we could pass referenceText.
-        // Just alias here for clarity in the demo logic below.
-        const semanticCorrections = earlySemanticCorrections;
+        // ── 5a. Semantic check — POST-Azure, for demo feedback only ──
+        // Now that Azure has already scored the audio against Whisper's transcript,
+        // we check if Whisper itself over-corrected (e.g. user said "word" but
+        // context made Whisper write "world"). This detection is used ONLY to
+        // generate a targeted demo — it no longer influences Azure scoring.
+        interface SemanticCorrection { heard: string; likely: string }
+        let semanticCorrections: SemanticCorrection[] = [];
+        if (transcription && transcription.trim().length > 3) {
+          try {
+            const semRes = await fetch(`${API_BASE_URL}/api/pronunciation-semantic`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: transcription }),
+            });
+            if (semRes.ok) {
+              const semJson = await semRes.json();
+              semanticCorrections = semJson.corrections ?? [];
+              if (semanticCorrections.length > 0) {
+                console.log('🔤 [semantic] Minimal-pair error detected (demo only):', semanticCorrections);
+              }
+            }
+          } catch (e) {
+            console.warn('⚠️ Semantic check failed, skipping demo for minimal pairs:', e);
+          }
+        }
 
         // ── 5b. Demo TTS — mispronounced words, minimal-pair errors, OR low prosody ────
         // Three independent paths:
