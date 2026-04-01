@@ -75,7 +75,7 @@ BEGIN
   -- ── XP milestone achievements ────────────────────────────────────────────
   FOREACH v_milestone IN ARRAY v_milestones LOOP
     IF v_old_xp < v_milestone AND v_new_xp >= v_milestone THEN
-      INSERT INTO public.user_achievements (
+      INSERT INTO charlotte.user_achievements (
         user_id, achievement_id, achievement_type,
         title, description,
         achievement_name, achievement_description,
@@ -176,5 +176,6 @@ BEGIN
 END;
 $$;
 
--- ── 3. Ensure Realtime is enabled for user_achievements ──────────────────────
-ALTER PUBLICATION supabase_realtime ADD TABLE public.user_achievements;
+-- ── 3. Ensure Realtime is enabled for charlotte.user_achievements ────────────
+-- public.user_achievements is a VIEW — Realtime must point to the real table
+ALTER PUBLICATION supabase_realtime ADD TABLE charlotte.user_achievements;

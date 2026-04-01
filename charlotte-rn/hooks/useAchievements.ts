@@ -35,7 +35,7 @@ export function useAchievements(userId: string | undefined) {
         'postgres_changes',
         {
           event: 'INSERT',
-          schema: 'public',
+          schema: 'charlotte',
           table: 'user_achievements',
           filter: `user_id=eq.${userId}`,
         },
