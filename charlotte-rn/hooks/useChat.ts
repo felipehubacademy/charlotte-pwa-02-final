@@ -426,6 +426,15 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           }
         }
 
+        // Always use Whisper's transcript as Azure reference text (guarantees
+        // reference mode, which gives proper errorType detection and meaningful
+        // scores). If semantic corrections were found, use the corrected version
+        // so Azure can also flag the substituted word.
+        if (!referenceText && transcription) {
+          referenceText = transcription;
+          console.log('🔤 [azure] No semantic corrections — using Whisper transcript as ref text:', referenceText);
+        }
+
         // ── 3. Azure pronunciation assessment (with ref text if available) ──
         let pronunciationData: PronunciationData | null = null;
         let mispronounced: string[] = [];
@@ -438,11 +447,12 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
             name: isWav ? 'recording.wav' : 'recording.m4a',
             type: isWav ? 'audio/wav' : 'audio/x-m4a',
           } as unknown as Blob);
-          // Pass reference text when we have semantic corrections → two-pass mode
+          // Always pass reference text — Azure in reference mode is far more
+          // reliable than free-speech mode (which can hallucinate transcriptions).
           if (referenceText) {
             formData.append('referenceText', referenceText);
           }
-          console.log('🔬 Calling /api/pronunciation...', referenceText ? '(with ref text)' : '(free speech)');
+          console.log('🔬 Calling /api/pronunciation...', referenceText ? `(ref: "${referenceText.slice(0, 60)}")` : '(free speech)');
           const res = await fetch(`${API_BASE_URL}/api/pronunciation`, {
             method: 'POST',
             body: formData,
