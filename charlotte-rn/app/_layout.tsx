@@ -1,18 +1,45 @@
 import '../global.css';
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '@/components/auth/AuthProvider';
+import { useAuth } from '@/hooks/useAuth';
 
 // Mantém a splash screen visível enquanto carrega
 SplashScreen.preventAutoHideAsync();
 
+/**
+ * Handles all auth-based navigation at the ROOT level where the full
+ * route tree is visible. Avoids cross-group <Redirect> issues inside
+ * nested layouts which cause "not found" errors.
+ */
+function AuthGuard() {
+  const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
+
+  useEffect(() => {
+    if (isLoading) return;
+    // Wait for profile to load before deciding
+    if (isAuthenticated && profile === null) return;
+
+    if (!isAuthenticated) {
+      router.replace('/(auth)/login');
+      return;
+    }
+    if (mustChangePassword) {
+      router.replace('/(auth)/change-password');
+      return;
+    }
+  }, [isLoading, isAuthenticated, mustChangePassword, profile]);
+
+  return null;
+}
+
 export default function RootLayout() {
   useEffect(() => {
-    // Esconde a splash screen após a montagem do layout raiz
     SplashScreen.hideAsync();
   }, []);
 
@@ -20,7 +47,8 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AuthProvider>
-          <StatusBar style="light" backgroundColor="#16153A" />
+          <AuthGuard />
+          <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />

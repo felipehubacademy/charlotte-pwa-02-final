@@ -1,4 +1,4 @@
-import { Stack, Redirect } from 'expo-router';
+import { Stack } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import { TrialExpiredModal } from '@/components/auth/TrialExpiredModal';
 import { XPToastProvider } from '@/components/ui/XPToastProvider';
@@ -7,19 +7,9 @@ import { AchievementsProvider } from '@/components/achievements/AchievementsProv
 export default function AppLayout() {
   const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
 
-  // Wait until both session AND profile are resolved.
-  // If we render while profile=null, mustChangePassword is temporarily false,
-  // which causes the Stack to mount and then try to <Redirect> mid-render → not-found.
-  if (isLoading || (isAuthenticated && profile === null)) return null;
-
-  if (!isAuthenticated) {
-    return <Redirect href="/(auth)/login" />;
-  }
-
-  // Aluno institucional com senha temporária → forçar troca antes de entrar
-  if (mustChangePassword) {
-    return <Redirect href="/(auth)/change-password" />;
-  }
+  // AuthGuard in app/_layout.tsx handles all redirects at root level.
+  // Return null while auth state is still resolving to avoid flash.
+  if (isLoading || !isAuthenticated || (profile === null) || mustChangePassword) return null;
 
   return (
     <XPToastProvider>
