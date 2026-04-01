@@ -1,5 +1,5 @@
 import '../global.css';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack } from 'expo-router';
 import { router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -19,23 +19,21 @@ SplashScreen.preventAutoHideAsync();
  */
 function AuthGuard() {
   const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
+  const lastRoute = useRef<string | null>(null);
 
   useEffect(() => {
-    console.log('[AuthGuard]', { isLoading, isAuthenticated, mustChangePassword, profile: profile?.email ?? null });
     if (isLoading) return;
     if (isAuthenticated && profile === null) return;
 
-    if (!isAuthenticated) {
-      console.log('[AuthGuard] → /(auth)/login');
-      router.replace('/(auth)/login');
-      return;
-    }
-    if (mustChangePassword) {
-      console.log('[AuthGuard] → /first-access');
-      router.replace('/first-access');
-      return;
-    }
-    console.log('[AuthGuard] → sem ação');
+    let target: string;
+    if (!isAuthenticated)      target = '/(auth)/login';
+    else if (mustChangePassword) target = '/first-access';
+    else                         return; // already in the right place
+
+    if (lastRoute.current === target) return; // avoid duplicate navigations
+    lastRoute.current = target;
+    console.log('[AuthGuard] →', target);
+    router.replace(target as any);
   }, [isLoading, isAuthenticated, mustChangePassword, profile]);
 
   return null;
