@@ -522,6 +522,8 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
               semanticCorrections = semJson.corrections ?? [];
               if (semanticCorrections.length > 0) {
                 console.log('🔤 [semantic] Minimal-pair error detected (demo only):', semanticCorrections);
+              } else {
+                console.log('🔤 [semantic] No minimal-pair errors found — sentence is semantically correct');
               }
             }
           } catch (e) {
