@@ -1,7 +1,21 @@
 import React from 'react';
 import { View, FlatList, ActivityIndicator } from 'react-native';
+import { Trophy, Medal, MedalMilitary, TrendUp } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
+
+const C = {
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  navyLight: '#9896B8',
+  border:    'rgba(22,21,58,0.07)',
+  bg:        '#F4F3FA',
+  green:     '#A3FF3C',
+  greenDark: '#3D8800',
+  greenBg:   'rgba(163,255,60,0.1)',
+  greenBorder: 'rgba(163,255,60,0.3)',
+  rowBg:     'rgba(22,21,58,0.03)',
+};
 
 export interface LeaderboardEntry {
   userId: string;
@@ -13,19 +27,19 @@ export interface LeaderboardEntry {
   avatarColor: string;
 }
 
-interface LeaderboardData {
-  entries: LeaderboardEntry[];
-  totalUsers: number;
-  lastUpdated: Date;
-}
-
 interface LevelLeaderboardProps {
   userLevel: 'Novice' | 'Inter' | 'Advanced';
   userId?: string;
+  userName?: string;
   refreshTrigger?: number;
 }
 
 const AVATAR_COLORS = ['#A3FF3C', '#60a5fa', '#f472b6', '#fb923c', '#a78bfa'];
+const PODIUM_ICONS: React.ReactNode[] = [
+  <Trophy key="1" size={22} color="#facc15" weight="fill" />,
+  <Medal key="2" size={20} color="#9ca3af" weight="fill" />,
+  <MedalMilitary key="3" size={20} color="#fb923c" weight="fill" />,
+];
 
 function generateAvatarColor(name: string): string {
   let hash = 0;
@@ -33,69 +47,79 @@ function generateAvatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
 }
 
-const PODIUM_ICONS = ['🏆', '🥈', '🥉'];
-
-const UserAvatar: React.FC<{
-  entry: LeaderboardEntry;
-  size?: number;
-  isCurrentUser?: boolean;
-}> = ({ entry, size = 36, isCurrentUser = false }) => (
-  <View
-    style={{
-      width: size,
-      height: size,
-      borderRadius: size / 2,
-      backgroundColor: entry.avatarColor,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderWidth: isCurrentUser ? 2 : 0,
-      borderColor: '#A3FF3C',
-    }}
-  >
-    <AppText style={{ color: '#16153A', fontWeight: 'bold', fontSize: size * 0.38 }}>
+const UserAvatar: React.FC<{ entry: LeaderboardEntry; size?: number; isCurrentUser?: boolean }> = ({
+  entry, size = 36, isCurrentUser = false,
+}) => (
+  <View style={{
+    width: size, height: size, borderRadius: size / 2,
+    backgroundColor: entry.avatarColor,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: isCurrentUser ? 2 : 0,
+    borderColor: C.green,
+  }}>
+    <AppText style={{ color: '#16153A', fontWeight: '800', fontSize: size * 0.38 }}>
       {entry.displayName.charAt(0).toUpperCase()}
     </AppText>
   </View>
 );
 
-const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
-  userLevel,
-  userId,
-  refreshTrigger = 0,
-}) => {
-  const isPortuguese = userLevel === 'Novice';
-  const [data, setData] = React.useState<LeaderboardData | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
+/** Format a full name to "First L." style used in leaderboard display names */
+function toDisplayName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length - 1].charAt(0).toUpperCase()}.`;
+}
 
-  React.useEffect(() => {
-    loadLeaderboard();
-  }, [userLevel, userId, refreshTrigger]);
+const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({ userLevel, userId, userName, refreshTrigger = 0 }) => {
+  const isPortuguese = userLevel === 'Novice';
+  const [entries, setEntries]   = React.useState<LeaderboardEntry[]>([]);
+  const [loading, setLoading]   = React.useState(true);
+  const [error, setError]       = React.useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = React.useState<Date | null>(null);
+
+  React.useEffect(() => { loadLeaderboard(); }, [userLevel, userId, refreshTrigger]);
 
   const loadLeaderboard = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const { data: rows, error: err } = await supabase
-        .from('user_leaderboard_cache')
-        .select('user_id, display_name, total_xp, position')
+        .from('rn_leaderboard_cache')
+        .select('user_id,display_name,total_xp')
         .eq('user_level', userLevel)
-        .order('position', { ascending: true })
+        .order('total_xp', { ascending: false })
         .limit(50);
 
       if (err) throw err;
 
-      const entries: LeaderboardEntry[] = (rows ?? []).map((row: any, i: number) => ({
-        userId: row.user_id,
-        displayName: row.display_name || 'Anonymous',
-        totalXP: row.total_xp ?? 0,
-        levelNumber: Math.floor(Math.sqrt((row.total_xp ?? 0) / 50)) + 1,
-        currentStreak: 0,
-        position: row.position ?? i + 1,
-        avatarColor: generateAvatarColor(row.display_name || 'x'),
-      }));
+      let allRows: any[] = rows ?? [];
 
-      setData({ entries, totalUsers: entries.length, lastUpdated: new Date() });
+      // If current user is missing from cache, fetch their progress and inject them
+      if (userId && !allRows.find((r: any) => r.user_id === userId)) {
+        const { data: myProg } = await supabase
+          .from('rn_user_progress')
+          .select('total_xp')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (myProg != null) {
+          const myDisplayName = userName ? toDisplayName(userName) : 'Você';
+          allRows = [
+            ...allRows,
+            { user_id: userId, display_name: myDisplayName, total_xp: myProg.total_xp ?? 0 },
+          ].sort((a, b) => (b.total_xp ?? 0) - (a.total_xp ?? 0));
+        }
+      }
+
+      setEntries(allRows.map((row: any, i: number) => ({
+        userId:        row.user_id,
+        displayName:   row.display_name || 'Anonymous',
+        totalXP:       row.total_xp ?? 0,
+        levelNumber:   Math.floor(Math.sqrt((row.total_xp ?? 0) / 50)) + 1,
+        currentStreak: 0,
+        position:      i + 1,    // real rank from total_xp DESC order
+        avatarColor:   generateAvatarColor(row.display_name || 'x'),
+      })));
+      setLastUpdated(new Date());
     } catch (e: any) {
       setError(e.message ?? 'Failed to load leaderboard');
     } finally {
@@ -103,40 +127,34 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
     }
   };
 
-  if (loading) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
-        <ActivityIndicator color="#A3FF3C" />
-      </View>
-    );
-  }
+  if (loading) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+      <ActivityIndicator color={C.navy} />
+    </View>
+  );
 
-  if (error || !data) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
-        <AppText style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14 }}>
-          {error || 'Unable to load leaderboard'}
-        </AppText>
-      </View>
-    );
-  }
+  if (error) return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 48 }}>
+      <AppText style={{ color: C.navyLight, fontSize: 14 }}>{error}</AppText>
+    </View>
+  );
 
-  const topThree = data.entries.slice(0, 3);
-  const rest = data.entries.slice(3);
-  const myPosition = data.entries.find(e => e.userId === userId);
-  const myPositionIsOutside = myPosition && myPosition.position > 50;
+  const topThree = entries.slice(0, 3);
+  const rest     = entries.slice(3);
+  const myEntry  = entries.find(e => e.userId === userId);
+  const myIsOutside = myEntry && myEntry.position > 50;
 
   return (
     <View style={{ flex: 1 }}>
       {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 4 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingHorizontal: 2 }}>
         <View>
-          <AppText style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{userLevel} Leaderboard</AppText>
-          <AppText style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
-            {data.totalUsers} {isPortuguese ? 'estudantes ativos' : 'active learners'}
+          <AppText style={{ color: C.navy, fontWeight: '800', fontSize: 16 }}>{userLevel} Leaderboard</AppText>
+          <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 1 }}>
+            {entries.length} {isPortuguese ? 'estudantes ativos' : 'active learners'}
           </AppText>
         </View>
-        <AppText style={{ fontSize: 20 }}>📈</AppText>
+        <TrendUp size={22} color={C.navyLight} weight="bold" />
       </View>
 
       {/* Podium — top 3 */}
@@ -145,46 +163,29 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
           {([1, 0, 2] as const).map((idx) => {
             const entry = topThree[idx];
             if (!entry) return <View key={idx} style={{ width: 88 }} />;
-            const isFirst = idx === 0;
-            const podiumHeight = isFirst ? 80 : 60;
+            const isFirst    = idx === 0;
+            const podiumH    = isFirst ? 80 : 60;
             const avatarSize = isFirst ? 44 : 36;
+            const isMe       = entry.userId === userId;
             return (
               <View key={entry.userId} style={{ alignItems: 'center', width: 88 }}>
-                <UserAvatar
-                  entry={entry}
-                  size={avatarSize}
-                  isCurrentUser={entry.userId === userId}
-                />
-                <View
-                  style={{
-                    height: podiumHeight,
-                    marginTop: 8,
-                    width: '100%',
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    borderRadius: 10,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    paddingHorizontal: 4,
-                  }}
-                >
-                  <AppText style={{ fontSize: 18 }}>{PODIUM_ICONS[idx]}</AppText>
-                  <AppText style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>
-                    #{entry.position}
-                  </AppText>
-                  <AppText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11 }}>
-                    {entry.totalXP.toLocaleString()}
-                  </AppText>
+                <UserAvatar entry={entry} size={avatarSize} isCurrentUser={isMe} />
+                <View style={{
+                  height: podiumH, marginTop: 8, width: '100%',
+                  backgroundColor: C.bg,
+                  borderWidth: 1, borderColor: C.border,
+                  borderRadius: 10,
+                  alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+                }}>
+                  {PODIUM_ICONS[idx]}
+                  <AppText style={{ color: C.navy, fontWeight: '800', fontSize: 12 }}>#{entry.position}</AppText>
+                  <AppText style={{ color: C.navyLight, fontSize: 11 }}>{entry.totalXP.toLocaleString()}</AppText>
                 </View>
-                <AppText
-                  style={{
-                    fontSize: 11,
-                    marginTop: 4,
-                    textAlign: 'center',
-                    color: entry.userId === userId ? '#A3FF3C' : 'rgba(255,255,255,0.8)',
-                    fontWeight: entry.userId === userId ? '600' : '400',
-                  }}
-                  numberOfLines={1}
-                >
+                <AppText style={{
+                  fontSize: 11, marginTop: 4, textAlign: 'center',
+                  color: isMe ? C.greenDark : C.navyMid,
+                  fontWeight: isMe ? '700' : '400',
+                }} numberOfLines={1}>
                   {entry.displayName}
                 </AppText>
               </View>
@@ -193,104 +194,73 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({
         </View>
       )}
 
-      {/* Rest of leaderboard */}
+      {/* Positions 4+ */}
       {rest.length > 0 && (
         <FlatList
           data={rest}
           keyExtractor={item => item.userId}
-          renderItem={({ item }) => (
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginHorizontal: 0,
-                borderRadius: 10,
-                marginBottom: 4,
-                backgroundColor: item.userId === userId
-                  ? 'rgba(163,255,60,0.12)'
-                  : 'rgba(255,255,255,0.04)',
-                borderWidth: item.userId === userId ? 1 : 0,
-                borderColor: 'rgba(163,255,60,0.3)',
-              }}
-            >
-              <AppText style={{ width: 28, textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '500' }}>
-                #{item.position}
-              </AppText>
-              <View style={{ marginLeft: 10 }}>
-                <UserAvatar
-                  entry={item}
-                  size={32}
-                  isCurrentUser={item.userId === userId}
-                />
-              </View>
-              <View style={{ flex: 1, marginLeft: 10 }}>
-                <AppText
-                  style={{
-                    fontSize: 13,
-                    fontWeight: '500',
-                    color: item.userId === userId ? '#A3FF3C' : 'rgba(255,255,255,0.9)',
-                  }}
-                  numberOfLines={1}
-                >
-                  {item.displayName}
+          renderItem={({ item }) => {
+            const isMe = item.userId === userId;
+            return (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center',
+                paddingHorizontal: 12, paddingVertical: 10,
+                borderRadius: 10, marginBottom: 4,
+                backgroundColor: isMe ? C.greenBg : C.rowBg,
+                borderWidth: isMe ? 1 : 0,
+                borderColor: C.greenBorder,
+              }}>
+                <AppText style={{ width: 28, textAlign: 'center', color: C.navyLight, fontSize: 13, fontWeight: '600' }}>
+                  #{item.position}
                 </AppText>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-                  <AppText style={{ fontSize: 11, color: 'rgba(255,255,255,0.5)' }}>
+                <View style={{ marginLeft: 10 }}>
+                  <UserAvatar entry={item} size={32} isCurrentUser={isMe} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <AppText style={{ fontSize: 13, fontWeight: '600', color: isMe ? C.greenDark : C.navy }} numberOfLines={1}>
+                    {item.displayName}
+                  </AppText>
+                  <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 1 }}>
                     {item.totalXP.toLocaleString()} XP
                   </AppText>
-                  {item.currentStreak > 0 && (
-                    <AppText style={{ fontSize: 11, color: '#fb923c' }}>
-                      🔥 {item.currentStreak}
-                    </AppText>
-                  )}
                 </View>
               </View>
-            </View>
-          )}
+            );
+          }}
           showsVerticalScrollIndicator={false}
         />
       )}
 
-      {/* My position if outside top 50 */}
-      {myPositionIsOutside && (
-        <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' }}>
-          <AppText style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12, marginBottom: 8 }}>
+      {/* My position outside top 50 */}
+      {myIsOutside && myEntry && (
+        <View style={{ marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: C.border }}>
+          <AppText style={{ color: C.navyLight, fontSize: 12, marginBottom: 8 }}>
             {isPortuguese ? 'Sua posição:' : 'Your position:'}
           </AppText>
           <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            padding: 12,
-            borderRadius: 10,
-            backgroundColor: 'rgba(163,255,60,0.12)',
-            borderWidth: 1,
-            borderColor: 'rgba(163,255,60,0.3)',
+            flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10,
+            backgroundColor: C.greenBg, borderWidth: 1, borderColor: C.greenBorder,
           }}>
-            <AppText style={{ width: 28, textAlign: 'center', color: '#A3FF3C', fontSize: 13, fontWeight: '500' }}>
-              #{myPosition.position}
+            <AppText style={{ width: 28, textAlign: 'center', color: C.greenDark, fontSize: 13, fontWeight: '700' }}>
+              #{myEntry.position}
             </AppText>
             <View style={{ marginLeft: 10 }}>
-              <UserAvatar entry={myPosition} size={32} isCurrentUser />
+              <UserAvatar entry={myEntry} size={32} isCurrentUser />
             </View>
             <View style={{ flex: 1, marginLeft: 10 }}>
-              <AppText style={{ color: '#A3FF3C', fontSize: 13, fontWeight: '500' }}>
-                {myPosition.displayName}
-              </AppText>
-              <AppText style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
-                {myPosition.totalXP.toLocaleString()} XP
-              </AppText>
+              <AppText style={{ color: C.greenDark, fontSize: 13, fontWeight: '700' }}>{myEntry.displayName}</AppText>
+              <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 1 }}>{myEntry.totalXP.toLocaleString()} XP</AppText>
             </View>
           </View>
         </View>
       )}
 
-      {/* Last updated */}
-      <AppText style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'center', marginTop: 12, paddingBottom: 8 }}>
-        {isPortuguese ? 'Atualizado' : 'Updated'}{' '}
-        {data.lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-      </AppText>
+      {lastUpdated && (
+        <AppText style={{ color: C.navyLight, fontSize: 11, textAlign: 'center', marginTop: 12, paddingBottom: 8, opacity: 0.6 }}>
+          {isPortuguese ? 'Atualizado' : 'Updated'}{' '}
+          {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </AppText>
+      )}
     </View>
   );
 };

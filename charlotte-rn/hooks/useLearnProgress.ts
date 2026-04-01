@@ -131,13 +131,13 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     });
     if (error) console.error('[useLearnProgress] history insert error', error);
 
-    // Also save to user_practices so XP flows to Home screen & user_progress
-    const { error: practiceError } = await supabase.from('user_practices').insert({
+    // Save to rn_user_practices so XP flows to rn_user_progress & rn_leaderboard_cache via trigger
+    const { error: practiceError } = await supabase.from('rn_user_practices').insert({
       user_id:       userId,
       practice_type: 'learn_exercise',
       xp_earned:     params.xpEarned,
     });
-    if (practiceError) console.error('[useLearnProgress] practice insert error', practiceError);
+    if (practiceError) console.error('[useLearnProgress] rn_practice insert error', practiceError);
   }, [userId]);
 
   // ── Derived helpers ──────────────────────────────────────────────────────

@@ -52,13 +52,13 @@ function delay(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
-/** Persist a practice event to user_practices (fires DB trigger → user_progress). */
+/** Persist a practice event to rn_user_practices (fires DB trigger → rn_user_progress + rn_leaderboard_cache). */
 async function savePractice(
   userId: string,
   practiceType: 'text_message' | 'audio_message',
   xpEarned: number,
 ): Promise<void> {
-  const { error } = await supabase.from('user_practices').insert({
+  const { error } = await supabase.from('rn_user_practices').insert({
     user_id:       userId,
     practice_type: practiceType,
     xp_earned:     xpEarned,
@@ -124,11 +124,11 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
   const [totalXP, setTotalXP] = useState(0);
   const historyLoadedRef = useRef(false);
 
-  // Load real totalXP from user_progress on mount
+  // Load real totalXP from rn_user_progress on mount
   React.useEffect(() => {
     if (!userId) return;
     supabase
-      .from('user_progress')
+      .from('rn_user_progress')
       .select('total_xp')
       .eq('user_id', userId)
       .maybeSingle()
@@ -674,21 +674,23 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildWelcome(mode: ChatMode, userLevel: string, userName: string): Message {
+  // Use only the first name for a warmer, more personal greeting
+  const firstName = userName.split(/[\s\-]+/)[0];
   const welcomeMessages: Record<string, Record<string, string>> = {
     grammar: {
-      Advanced: `Hi ${userName}! Let's sharpen your grammar. Type a sentence and I'll give you a detailed analysis.`,
-      Inter: `Hi ${userName}! Send me a sentence in English and I'll help you improve your grammar.`,
-      Novice: `Olá ${userName}! Escreva uma frase em inglês e eu vou analisar sua gramática. Pode ser simples! 😊`,
+      Advanced: `Hi ${firstName}! Let's sharpen your grammar. Type a sentence and I'll give you a detailed analysis.`,
+      Inter: `Hi ${firstName}! Send me a sentence in English and I'll help you improve your grammar.`,
+      Novice: `Olá ${firstName}! Escreva uma frase em inglês e eu vou analisar sua gramática. Pode ser simples! 😊`,
     },
     pronunciation: {
-      Advanced: `Hi ${userName}! Let's work on your pronunciation. Hold the mic and say something — I'll analyze stress, intonation, and fluency.`,
-      Inter: `Hi ${userName}! Hold the mic button and say something in English. I'll check your pronunciation and give you tips!`,
-      Novice: `Olá ${userName}! Segure o botão do microfone e fale em inglês. Vou analisar sua pronúncia! 🎤`,
+      Advanced: `Hi ${firstName}! Let's work on your pronunciation. Hold the mic and say something — I'll analyze stress, intonation, and fluency.`,
+      Inter: `Hi ${firstName}! Hold the mic button and say something in English. I'll check your pronunciation and give you tips!`,
+      Novice: `Olá ${firstName}! Segure o botão do microfone e fale em inglês. Vou analisar sua pronúncia! 🎤`,
     },
     chat: {
-      Advanced: `Hey ${userName}! Ready to practice? What's on your mind today? 😊`,
-      Inter: `Hi ${userName}! Great to see you. Let's practice some English today! 😊`,
-      Novice: `Olá ${userName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir! 😊`,
+      Advanced: `Hey ${firstName}! Ready to practice? What's on your mind today? 😊`,
+      Inter: `Hi ${firstName}! Great to see you. Let's practice some English today! 😊`,
+      Novice: `Olá ${firstName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir! 😊`,
     },
   };
   return {

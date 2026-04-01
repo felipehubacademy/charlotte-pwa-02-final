@@ -1,28 +1,42 @@
-import { View, TouchableOpacity } from 'react-native';
+import { View, TouchableOpacity, Platform } from 'react-native';
 import { router } from 'expo-router';
-import { Gear } from 'phosphor-react-native';
+import { CaretLeft } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
-import SimpleXPCounter from '@/components/ui/SimpleXPCounter';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
+import AnimatedXPBadge from '@/components/ui/AnimatedXPBadge';
+
+const C = {
+  bg:        '#FFFFFF',
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  navyLight: '#9896B8',
+  border:    'rgba(22,21,58,0.08)',
+  green:     '#22C55E',
+  orange:    '#F97316',
+  greenDark: '#3D8800',
+  gold:      '#EAB308',
+};
 
 interface ChatHeaderProps {
-  userName?: string;
-  userLevel?: string;
-  onLogout: () => void;
+  mode?: 'grammar' | 'pronunciation' | 'chat';
+  showBack?: boolean;
   totalXP?: number;
   sessionXP?: number;
+  streak?: number;
+  rank?: number | null;
   onXPCounterClick?: () => void;
+  // kept for API compatibility
+  onLiveVoicePress?: () => void;
+  userName?: string;
+  userLevel?: string;
+  onLogout?: () => void;
   onHelpPress?: () => void;
 }
 
 export default function ChatHeader({
-  userName,
-  userLevel,
-  onLogout,
-  totalXP,
-  sessionXP,
+  showBack = false,
+  totalXP = 0,
   onXPCounterClick,
-  onHelpPress,
 }: ChatHeaderProps) {
   return (
     <View style={{
@@ -30,53 +44,46 @@ export default function ChatHeader({
       paddingHorizontal: 12,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between',
-      backgroundColor: 'rgba(22,21,58,0.97)',
+      backgroundColor: C.bg,
       borderBottomWidth: 1,
-      borderBottomColor: 'rgba(255,255,255,0.07)',
+      borderBottomColor: C.border,
+      ...Platform.select({ android: { elevation: 2 } }),
     }}>
 
-      {/* Left — Charlotte avatar + status */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
+      {/* ── Left: back + Charlotte ── */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+        {showBack && (
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.iconBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <CaretLeft size={20} color={C.navy} weight="bold" />
+          </TouchableOpacity>
+        )}
         <CharlotteAvatar size="sm" showStatus isOnline />
         <View>
-          <AppText style={{ color: '#fff', fontWeight: '600', fontSize: 14, letterSpacing: 0.1 }}>Charlotte</AppText>
-          <AppText style={{ color: '#4ade80', fontSize: 11, fontWeight: '500' }}>online</AppText>
+          <AppText style={{ color: C.navy, fontWeight: '700', fontSize: 14 }}>Charlotte</AppText>
+          <AppText style={{ color: C.green, fontSize: 11, fontWeight: '600' }}>online</AppText>
         </View>
       </View>
 
-      {/* Center — XP Counter */}
-      <View style={{ position: 'absolute', left: 0, right: 0, alignItems: 'center' }} pointerEvents="box-none">
-        {totalXP !== undefined && (
-          <SimpleXPCounter totalXP={totalXP} sessionXP={sessionXP} size={42} onClick={onXPCounterClick} />
-        )}
-      </View>
-
-      {/* Right — user badge + settings (logout fica só em Configurações) */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-
-        <AppText style={{ color: 'rgba(255,255,255,0.75)', fontSize: 13, fontWeight: '500' }} numberOfLines={1}>
-          {userName?.split(' ')[0] ?? ''}
-        </AppText>
-
-        <TouchableOpacity
-          onPress={() => router.push('/(app)/configuracoes')}
-          style={styles.iconBtn}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          accessibilityLabel="Configurações"
-        >
-          <Gear size={21} color="rgba(255,255,255,0.55)" weight="regular" />
-        </TouchableOpacity>
-      </View>
+      {/* ── Right: XP pill only (streak & rank reserved for Home) ── */}
+      <TouchableOpacity
+        onPress={onXPCounterClick}
+        activeOpacity={onXPCounterClick ? 0.7 : 1}
+        style={{ flexDirection: 'row', alignItems: 'center' }}
+      >
+        {/* XP — animated count-up + floating toast */}
+        <AnimatedXPBadge xp={totalXP} iconSize={13} fontSize={12} padH={8} padV={4} />
+      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = {
   iconBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40, height: 40, borderRadius: 20,
     alignItems: 'center' as const,
     justifyContent: 'center' as const,
   },

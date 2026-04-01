@@ -57,7 +57,12 @@ export default function GrammarScreen() {
             playingMessageId={playingMessageId}
           />
           <TouchableOpacity
-            onPress={() => Alert.alert('Grammar Mode', 'Type a sentence in English and I\'ll analyse your grammar, spelling and style — with detailed corrections and tips.')}
+            onPress={() => Alert.alert(
+              userLevel === 'Novice' ? 'Modo Gramática' : 'Grammar Mode',
+              userLevel === 'Novice'
+                ? 'Digite uma frase em inglês e eu vou corrigir a gramática com uma explicação curta em português. 😊'
+                : 'Type a sentence in English and I\'ll analyse your grammar, spelling and style — with detailed corrections and tips.'
+            )}
             style={floatingHelpStyle}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityLabel="Help"

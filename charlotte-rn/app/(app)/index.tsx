@@ -348,18 +348,27 @@ export default function HomeScreen() {
   const fetchData = useCallback(async () => {
     if (!userId) return;
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const [prog, prac, lb] = await Promise.all([
-      supabase.from('user_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
-      supabase.from('user_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', today.toISOString()),
-      supabase.from('user_leaderboard_cache').select('rank').eq('user_id', userId).maybeSingle(),
+    const [prog, prac] = await Promise.all([
+      supabase.from('rn_user_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
+      supabase.from('rn_user_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', today.toISOString()),
     ]);
-    const practices = prac.data ?? [];
-    const todayXP   = practices.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
+    const practices   = prac.data ?? [];
+    const todayXP     = practices.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
+    const userTotalXP = prog.data?.total_xp ?? 0;
+
+    // Dynamic rank: count rn_leaderboard_cache entries in same level with strictly higher total_xp
+    const { count: higherCount } = await supabase
+      .from('rn_leaderboard_cache')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_level', level)
+      .gt('total_xp', userTotalXP);
+    const computedRank = (higherCount ?? 0) + 1;
+
     setData({
       streakDays:    prog.data?.streak_days ?? 0,
-      totalXP:       prog.data?.total_xp    ?? 0,
+      totalXP:       userTotalXP,
       todayXP,
-      rank:          lb.data?.rank          ?? null,
+      rank:          computedRank,
       todayMessages: practices.filter(p => ['text_message','audio_message'].includes(p.practice_type)).length,
       todayAudios:   practices.filter(p => p.practice_type === 'audio_message').length,
     });
@@ -762,6 +771,7 @@ export default function HomeScreen() {
         totalXP={totalXP}
         userId={userId}
         userLevel={level}
+        userName={name}
       />
 
       {/* ══════════════════════════════════════════

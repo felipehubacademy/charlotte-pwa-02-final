@@ -84,6 +84,7 @@ interface EnhancedStatsModalProps {
   totalXP: number;
   userId?: string;
   userLevel?: 'Novice' | 'Inter' | 'Advanced';
+  userName?: string;
 }
 
 interface RecentActivity { type: string; xp: number; timestamp: Date; }
@@ -98,7 +99,7 @@ function calculateLevel(xp: number) {
 }
 
 export default function EnhancedStatsModal({
-  isOpen, onClose, sessionXP, totalXP, userId, userLevel = 'Inter',
+  isOpen, onClose, sessionXP, totalXP, userId, userLevel = 'Inter', userName,
 }: EnhancedStatsModalProps) {
   const isPortuguese = userLevel === 'Novice';
   const [activeTab, setActiveTab] = React.useState<TabType>('stats');
@@ -122,9 +123,9 @@ export default function EnhancedStatsModal({
     setRealData(prev => ({ ...prev, loading: true, error: null }));
     try {
       const [statsRes, historyRes, achievementsRes] = await Promise.all([
-        supabase.from('user_progress').select('streak_days,total_practices').eq('user_id', userId).maybeSingle(),
-        // Last 10 practices regardless of date
-        supabase.from('user_practices').select('practice_type,xp_earned,created_at')
+        supabase.from('rn_user_progress').select('streak_days').eq('user_id', userId).maybeSingle(),
+        // Last 10 RN practices regardless of date
+        supabase.from('rn_user_practices').select('practice_type,xp_earned,created_at')
           .eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
         supabase.from('user_achievements').select('*').eq('user_id', userId)
           .order('earned_at', { ascending: false }).limit(50),
@@ -136,13 +137,14 @@ export default function EnhancedStatsModal({
         live_voice:       isPortuguese ? 'Conversa ao vivo'   : 'Live Conversation',
         pronunciation:    isPortuguese ? 'Pronúncia'          : 'Pronunciation',
         grammar:          isPortuguese ? 'Gramática'          : 'Grammar',
+        learn_exercise:   isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail',
         image_recognition:'Object Recognition',
         camera_object:    'Object Recognition',
       };
 
       setRealData({
-        streak:         statsRes.data?.streak_days     ?? 0,
-        totalPractices: statsRes.data?.total_practices ?? 0,
+        streak:         statsRes.data?.streak_days ?? 0,
+        totalPractices: historyRes.data?.length    ?? 0,
         recentActivity: (historyRes.data ?? []).map((p: any) => ({
           type: typeLabels[p.practice_type] ?? (isPortuguese ? 'Prática' : 'Practice'),
           xp: p.xp_earned ?? 0,
@@ -343,7 +345,7 @@ export default function EnhancedStatsModal({
     switch (activeTab) {
       case 'stats':        return renderStats();
       case 'achievements': return renderAchievements();
-      case 'leaderboard':  return <LevelLeaderboard userLevel={userLevel} userId={userId} refreshTrigger={leaderboardKey} />;
+      case 'leaderboard':  return <LevelLeaderboard userLevel={userLevel} userId={userId} userName={userName} refreshTrigger={leaderboardKey} />;
     }
   };
 
