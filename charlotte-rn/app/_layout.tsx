@@ -26,11 +26,18 @@ function AuthGuard() {
     if (isAuthenticated && profile === null) return;
 
     let target: string;
-    if (!isAuthenticated)      target = '/(auth)/login';
-    else if (mustChangePassword) target = '/first-access';
-    else                         return; // already in the right place
+    if (!isAuthenticated) {
+      target = '/(auth)/login';
+    } else if (mustChangePassword) {
+      target = '/first-access';
+    } else if (lastRoute.current === '/first-access') {
+      // mustChangePassword just cleared → navigate into the app
+      target = '/(app)/index';
+    } else {
+      return;
+    }
 
-    if (lastRoute.current === target) return; // avoid duplicate navigations
+    if (lastRoute.current === target) return;
     lastRoute.current = target;
     console.log('[AuthGuard] →', target);
     router.replace(target as any);

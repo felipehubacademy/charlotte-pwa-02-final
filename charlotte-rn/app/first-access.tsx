@@ -62,15 +62,14 @@ export default function ChangePasswordScreen() {
       console.log('[CP] 4 — updateUser result:', authError ?? 'ok');
 
       if (authError) {
+        // Roll back flag if auth update fails
         if (session?.user?.id) {
           await supabase.from('users').update({ must_change_password: true }).eq('id', session.user.id);
         }
         throw authError;
       }
-
-      console.log('[CP] 5 — navegando para /(app)/index...');
-      router.replace('/(app)/index');
-      console.log('[CP] 6 — navegação chamada');
+      // Navigation is handled by AuthGuard: when mustChangePassword becomes false
+      // (triggered by USER_UPDATED → profile refresh), AuthGuard navigates to /(app)/index.
     } catch (e: any) {
       console.log('[CP] ERRO:', e);
       const msg = (e?.message ?? '') as string;
