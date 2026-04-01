@@ -81,6 +81,14 @@ export async function POST(request: NextRequest) {
       size: audioFile.size
     });
 
+    // Guard: WAV files under ~8KB are essentially empty/silent — skip Whisper
+    // (WAV header = 44 bytes; 4096 bytes total = ~0.12s of audio at 16kHz mono)
+    const MIN_BYTES = audioFile.type === 'audio/vnd.wave' ? 8192 : 1024;
+    if (audioFile.size <= MIN_BYTES) {
+      console.log('Audio file too small, skipping transcription');
+      return NextResponse.json({ transcription: '', success: true });
+    }
+
     // Transcrever com Whisper
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
