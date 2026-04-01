@@ -46,7 +46,7 @@ export class GrammarAnalysisService {
   // 📊 Analisar texto e retornar análise estruturada
   async analyzeText(
     text: string, 
-    userLevel: 'Novice' | 'Intermediate' | 'Advanced',
+    userLevel: 'Novice' | 'Inter' | 'Advanced',
     userName?: string
   ): Promise<GrammarFeedback> {
     try {
@@ -119,7 +119,7 @@ export class GrammarAnalysisService {
     
     const levelInstructions = {
       'Novice': 'Focus on basic grammar, simple sentence structure, and common vocabulary. Be very encouraging and explain concepts simply using clear, basic English.',
-      'Intermediate': 'Analyze intermediate grammar, business English usage, and more complex sentence structures. Focus on practical communication skills.',
+      'Inter': 'Analyze intermediate grammar, business English usage, and more complex sentence structures. Focus on practical communication skills.',
       'Advanced': 'Provide detailed analysis of advanced grammar, sophisticated vocabulary usage, and professional writing standards.'
     };
 
@@ -227,11 +227,11 @@ Provide detailed grammar analysis focusing on the ${userLevel} level. Return onl
     // Ajuste por nível do usuário (pequenos ajustes)
     const levelMultiplier = {
       'Novice': 1.0,      // Sem multiplicador
-      'Intermediate': 0.9, // Ligeiramente menos
+      'Inter': 0.9, // Ligeiramente menos
       'Advanced': 0.8     // Menos XP para avançados
     };
 
-    const finalXP = Math.floor((baseXP + bonusXP) * levelMultiplier[userLevel as keyof typeof levelMultiplier]);
+    const finalXP = Math.floor((baseXP + bonusXP) * (levelMultiplier[userLevel as keyof typeof levelMultiplier] ?? 1.0));
     
     // 🎯 GARANTIR RANGE 5-20 XP
     const clampedXP = Math.max(5, Math.min(20, finalXP));
@@ -259,7 +259,7 @@ Provide detailed grammar analysis focusing on the ${userLevel} level. Return onl
     
     const levelInstructions = {
       'Novice': 'Use simple, encouraging English only. Focus on basic improvements and building confidence with clear explanations.',
-      'Intermediate': 'Provide clear, practical feedback. Focus on business English and communication effectiveness.',
+      'Inter': 'Provide clear, practical feedback. Focus on business English and communication effectiveness.',
       'Advanced': 'Give sophisticated, detailed feedback. Focus on professional writing and advanced language skills.'
     };
 
@@ -311,14 +311,14 @@ Provide encouraging, helpful feedback focusing on improvement.`;
 
   // 🎉 Gerar encorajamento baseado na pontuação
   private generateEncouragement(score: number, userLevel: string): string {
-    const encouragements = {
+    const encouragements: Record<string, { excellent: string; good: string; okay: string; needsWork: string }> = {
       'Novice': {
         excellent: "Fantastic! Your English writing is excellent! 🌟",
         good: "Great job! You're doing wonderful with English! 👍",
         okay: "Good work! Keep practicing - you're improving! 💪",
         needsWork: "Keep trying! Every message makes you better! 🌱"
       },
-      'Intermediate': {
+      'Inter': {
         excellent: "Outstanding grammar! Your English is really impressive! 🎉",
         good: "Great job! Your writing skills are developing well! 👏",
         okay: "Good effort! You're making solid progress! 📈",
@@ -332,8 +332,8 @@ Provide encouraging, helpful feedback focusing on improvement.`;
       }
     };
 
-    const level = encouragements[userLevel as keyof typeof encouragements];
-    
+    const level = encouragements[userLevel] ?? encouragements['Inter'];
+
     if (score >= 85) return level.excellent;
     if (score >= 70) return level.good;
     if (score >= 55) return level.okay;
@@ -349,7 +349,7 @@ Provide encouraging, helpful feedback focusing on improvement.`;
         "Write about your family using 'have' and 'has'!",
         "Tell me about your hobbies in simple sentences!"
       ],
-      'Intermediate': [
+      'Inter': [
         "Write a short business email about a meeting!",
         "Describe a problem and solution using past and future tenses!",
         "Practice using conditional sentences (if/when)!",
@@ -363,7 +363,7 @@ Provide encouraging, helpful feedback focusing on improvement.`;
       ]
     };
 
-    const levelChallenges = challenges[userLevel as keyof typeof challenges];
+    const levelChallenges = challenges[userLevel as keyof typeof challenges] ?? challenges['Inter'];
     return levelChallenges[Math.floor(Math.random() * levelChallenges.length)];
   }
 
@@ -400,7 +400,7 @@ Provide encouraging, helpful feedback focusing on improvement.`;
     
     if (userLevel === 'Novice') {
       return `Great job writing in English, ${name}! 😊 I can see you're practicing hard. Your message shows good effort, and that's what matters most. Keep writing - every message helps you improve! What would you like to talk about next?`;
-    } else if (userLevel === 'Intermediate') {
+    } else if (userLevel === 'Inter') {
       return `Nice work, ${name}! 👍 Your English communication is developing well. I appreciate the effort you put into your message. Keep practicing your writing skills - you're making good progress! What topic interests you today?`;
     } else {
       return `Excellent effort, ${name}! 🌟 Your written English shows good command of the language. Continue challenging yourself with complex ideas and sophisticated vocabulary. What would you like to explore further?`;
