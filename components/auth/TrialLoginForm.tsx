@@ -11,7 +11,8 @@ interface TrialLoginFormProps {
 }
 
 export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormProps) {
-  const { login } = useAuth();
+  const { login, loginWithMicrosoft } = useAuth();
+  const [isMsLoading, setIsMsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -109,6 +110,38 @@ export default function TrialLoginForm({ onSuccess, onError }: TrialLoginFormPro
             )}
           </motion.button>
         </form>
+
+        {/* Divider */}
+        <div className="mt-5 flex items-center gap-3">
+          <div className="flex-1 h-px bg-white/15" />
+          <span className="text-white/40 text-xs">ou acesso institucional</span>
+          <div className="flex-1 h-px bg-white/15" />
+        </div>
+
+        {/* Microsoft button */}
+        <motion.button
+          type="button"
+          disabled={isMsLoading}
+          onClick={async () => {
+            setIsMsLoading(true);
+            try { await loginWithMicrosoft(); } finally { setIsMsLoading(false); }
+          }}
+          className="mt-3 w-full flex items-center justify-center gap-3 bg-[#0078d4] hover:bg-[#106ebe] text-white font-medium py-3 px-6 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          {isMsLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+              <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+              <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+              <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+              <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+            </svg>
+          )}
+          <span>Entrar com Microsoft</span>
+        </motion.button>
 
         <div className="mt-4 text-center space-y-2">
           <p className="text-white/60 text-xs">
