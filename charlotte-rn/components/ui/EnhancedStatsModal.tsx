@@ -10,7 +10,7 @@ import {
 import {
   ChartBar, Trophy, Medal, Lightning, Star, Fire, Microphone,
   PencilLine, GraduationCap, Sun, Moon, CalendarCheck,
-  HourglassMedium, Warning, X, RocketLaunch,
+  HourglassMedium, Warning, X, RocketLaunch, Target,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
@@ -87,7 +87,7 @@ interface EnhancedStatsModalProps {
   userName?: string;
 }
 
-interface RecentActivity { type: string; xp: number; timestamp: Date; }
+interface RecentActivity { type: string; xp: number; timestamp: Date; isMission: boolean; }
 interface RealData {
   streak: number; totalPractices: number; todayXP: number;
   recentActivity: RecentActivity[]; achievements: Achievement[];
@@ -146,7 +146,7 @@ export default function EnhancedStatsModal({
         camera_object:    'Object Recognition',
       };
       const getActivityLabel = (type: string) => {
-        if (type.startsWith('mission_reward_')) return isPortuguese ? '🎯 Missão Concluída' : '🎯 Mission Complete';
+        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';
         return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
       };
 
@@ -160,6 +160,7 @@ export default function EnhancedStatsModal({
           type: getActivityLabel(p.practice_type),
           xp: p.xp_earned ?? 0,
           timestamp: new Date(p.created_at),
+          isMission: p.practice_type.startsWith('mission_reward_'),
         })),
         achievements: (achievementsRes.data ?? []).map((a: any) => ({
           id: a.id, type: a.achievement_type ?? 'general',
@@ -257,7 +258,12 @@ export default function EnhancedStatsModal({
               borderBottomColor: C.border,
             }}>
               <View style={{ flex: 1 }}>
-                <AppText style={{ color: C.navy, fontSize: 13, fontWeight: '600' }}>{a.type}</AppText>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  {a.isMission && (
+                    <Target size={13} color="#D97706" weight="fill" />
+                  )}
+                  <AppText style={{ color: C.navy, fontSize: 13, fontWeight: '600' }}>{a.type}</AppText>
+                </View>
                 <AppText style={{ color: C.navyLight, fontSize: 11, marginTop: 1 }}>
                   {a.timestamp.toLocaleDateString([], { day: '2-digit', month: 'short' })}
                   {' · '}

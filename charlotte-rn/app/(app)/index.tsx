@@ -384,23 +384,33 @@ export default function HomeScreen() {
       todayMessages: practices.filter(p => ['text_message','audio_message'].includes(p.practice_type)).length,
       todayAudios:   practices.filter(p => p.practice_type === 'audio_message').length,
     };
-    setData(newData);
 
     // Grant mission rewards for newly completed missions (idempotent via rewardedMissionsRef)
     const missions = buildMissions(newData, level);
+    let missionXPGranted = 0;
     for (const m of missions) {
       const rewardKey = `mission_reward_${m.id}`;
       if (m.completed && !rewardedMissionsRef.current.has(rewardKey)) {
         rewardedMissionsRef.current.add(rewardKey);
-        supabase.from('rn_user_practices').insert({
+        const { error } = await supabase.from('rn_user_practices').insert({
           user_id:       userId,
           practice_type: rewardKey,
           xp_earned:     m.xpReward,
-        }).then(({ error }) => {
-          if (error) console.warn('⚠️ mission reward error:', error.message);
         });
+        if (error) {
+          console.warn('⚠️ mission reward error:', error.message);
+          rewardedMissionsRef.current.delete(rewardKey); // rollback on failure
+        } else {
+          missionXPGranted += m.xpReward;
+        }
       }
     }
+    // Reflect granted reward XP immediately so Total matches Hoje
+    if (missionXPGranted > 0) {
+      newData.totalXP += missionXPGranted;
+      newData.todayXP += missionXPGranted;
+    }
+    setData(newData);
   }, [userId, level]);
 
   useEffect(() => {
