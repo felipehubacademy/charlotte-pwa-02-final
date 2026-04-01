@@ -75,7 +75,7 @@ export default function FirstAccessScreen() {
       console.log('[FA] 5 — refreshProfile...');
       await refreshProfile();
       console.log('[FA] 6 — navigando para home');
-      router.replace('/(app)/index');
+      router.replace('/(app)');
     } catch (e: any) {
       console.log('[FA] ERRO:', e);
       const msg = (e?.message ?? '') as string;
