@@ -66,17 +66,60 @@ function normalise(s: string) {
   return s.trim().toLowerCase().replace(/[''']/g, "'").replace(/\s+/g, ' ');
 }
 
+// Expand common contractions so "haven't" matches "have not", etc.
+function expandContractions(s: string) {
+  return s
+    .replace(/won't/g, 'will not')
+    .replace(/can't/g, 'cannot')
+    .replace(/n't/g, ' not')
+    .replace(/i've/g, 'i have')
+    .replace(/you've/g, 'you have')
+    .replace(/we've/g, 'we have')
+    .replace(/they've/g, 'they have')
+    .replace(/he's/g, 'he has')
+    .replace(/she's/g, 'she has')
+    .replace(/it's/g, 'it has')
+    .replace(/i'm/g, 'i am')
+    .replace(/you're/g, 'you are')
+    .replace(/we're/g, 'we are')
+    .replace(/they're/g, 'they are')
+    .replace(/i'll/g, 'i will')
+    .replace(/you'll/g, 'you will')
+    .replace(/he'll/g, 'he will')
+    .replace(/she'll/g, 'she will')
+    .replace(/we'll/g, 'we will')
+    .replace(/they'll/g, 'they will')
+    .replace(/i'd/g, 'i would')
+    .replace(/you'd/g, 'you would')
+    .replace(/he'd/g, 'he would')
+    .replace(/she'd/g, 'she would')
+    .replace(/we'd/g, 'we would')
+    .replace(/they'd/g, 'they would');
+}
+
 function checkGrammar(ex: GrammarEx, answer: string): boolean {
   const u = normalise(answer);
   const c = normalise(ex.answer);
   if (u === c) return true;
-  if (ex.type === 'multiple_choice' || ex.type === 'word_bank') return u === c;
-  if (ex.type === 'read_answer') {
-    const words = c.split(' ').filter(w => w.length > 2);
-    return words.length > 0 && words.filter(w => u.includes(w)).length >= Math.ceil(words.length * 0.7);
+
+  // Also compare with contractions expanded on both sides
+  const uExp = expandContractions(u);
+  const cExp = expandContractions(c);
+  if (uExp === cExp) return true;
+
+  if (ex.type === 'multiple_choice' || ex.type === 'word_bank') return false;
+
+  if (ex.type === 'fill_gap') {
+    // Accept full sentence containing the correct answer
+    if (u.includes(c) || uExp.includes(cExp)) return true;
+    return false;
   }
-  if (ex.type === 'fix_error' && c.length > 10) {
-    return u === c || u.includes(c) || c.includes(u);
+  if (ex.type === 'fix_error') {
+    return u.includes(c) || c.includes(u) || uExp.includes(cExp) || cExp.includes(uExp);
+  }
+  if (ex.type === 'read_answer') {
+    const words = cExp.split(' ').filter(w => w.length > 2);
+    return words.length > 0 && words.filter(w => uExp.includes(w)).length >= Math.ceil(words.length * 0.7);
   }
   return false;
 }
