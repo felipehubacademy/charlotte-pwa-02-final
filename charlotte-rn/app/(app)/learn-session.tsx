@@ -428,8 +428,8 @@ export default function LearnSessionScreen() {
       const data = await res.json();
 
       if (!data.success && data.shouldRetry) {
-        // No speech detected or retryable error — go back to listening
-        setPronStatus('listening');
+        // No speech detected — show retry prompt
+        setPronStatus('retry');
         return;
       }
 
