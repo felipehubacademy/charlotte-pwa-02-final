@@ -101,23 +101,33 @@ function checkGrammar(ex: GrammarEx, answer: string): boolean {
   const u = normalise(answer);
   const c = normalise(ex.answer);
   if (u === c) return true;
-
-  // Also compare with contractions expanded on both sides
-  const uExp = expandContractions(u);
-  const cExp = expandContractions(c);
-  if (uExp === cExp) return true;
-
   if (ex.type === 'multiple_choice' || ex.type === 'word_bank') return false;
 
+  // If the expected answer uses a contraction, don't expand — test is specifically
+  // checking the contracted form. Only expand when the answer uses the full form.
+  const answerHasContraction = /n't|'ve|'re|'ll|'d|'m/.test(c);
+
   if (ex.type === 'fill_gap') {
-    // Accept full sentence containing the correct answer
-    if (u.includes(c) || uExp.includes(cExp)) return true;
+    if (u.includes(c)) return true; // accepts full sentence
+    if (!answerHasContraction) {
+      const uExp = expandContractions(u);
+      const cExp = expandContractions(c);
+      if (uExp === cExp || uExp.includes(cExp)) return true;
+    }
     return false;
   }
   if (ex.type === 'fix_error') {
-    return u.includes(c) || c.includes(u) || uExp.includes(cExp) || cExp.includes(uExp);
+    if (u.includes(c) || c.includes(u)) return true;
+    if (!answerHasContraction) {
+      const uExp = expandContractions(u);
+      const cExp = expandContractions(c);
+      if (uExp.includes(cExp) || cExp.includes(uExp)) return true;
+    }
+    return false;
   }
   if (ex.type === 'read_answer') {
+    const cExp = answerHasContraction ? c : expandContractions(c);
+    const uExp = answerHasContraction ? u : expandContractions(u);
     const words = cExp.split(' ').filter(w => w.length > 2);
     return words.length > 0 && words.filter(w => uExp.includes(w)).length >= Math.ceil(words.length * 0.7);
   }
