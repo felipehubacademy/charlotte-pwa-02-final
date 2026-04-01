@@ -5,9 +5,12 @@ import { XPToastProvider } from '@/components/ui/XPToastProvider';
 import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
 
 export default function AppLayout() {
-  const { isAuthenticated, isLoading, mustChangePassword } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
 
-  if (isLoading) return null;
+  // Wait until both session AND profile are resolved.
+  // If we render while profile=null, mustChangePassword is temporarily false,
+  // which causes the Stack to mount and then try to <Redirect> mid-render → not-found.
+  if (isLoading || (isAuthenticated && profile === null)) return null;
 
   if (!isAuthenticated) {
     return <Redirect href="/(auth)/login" />;
