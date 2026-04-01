@@ -89,7 +89,7 @@ interface EnhancedStatsModalProps {
 
 interface RecentActivity { type: string; xp: number; timestamp: Date; }
 interface RealData {
-  streak: number; totalPractices: number;
+  streak: number; totalPractices: number; todayXP: number;
   recentActivity: RecentActivity[]; achievements: Achievement[];
   loading: boolean; error: string | null;
 }
@@ -105,7 +105,7 @@ export default function EnhancedStatsModal({
   const [activeTab, setActiveTab] = React.useState<TabType>('stats');
   const [leaderboardKey, setLeaderboardKey] = React.useState(0);
   const [realData, setRealData]   = React.useState<RealData>({
-    streak: 0, totalPractices: 0, recentActivity: [], achievements: [], loading: true, error: null,
+    streak: 0, totalPractices: 0, todayXP: 0, recentActivity: [], achievements: [], loading: true, error: null,
   });
   const tabAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -122,11 +122,15 @@ export default function EnhancedStatsModal({
     if (!userId) return;
     setRealData(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const [statsRes, historyRes, achievementsRes] = await Promise.all([
+      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const [statsRes, historyRes, todayRes, achievementsRes] = await Promise.all([
         supabase.from('rn_user_progress').select('streak_days').eq('user_id', userId).maybeSingle(),
         // Last 10 RN practices regardless of date
         supabase.from('rn_user_practices').select('practice_type,xp_earned,created_at')
           .eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
+        // Today's XP — computed fresh from DB, independent of Home screen state
+        supabase.from('rn_user_practices').select('xp_earned')
+          .eq('user_id', userId).gte('created_at', todayStart.toISOString()),
         supabase.from('user_achievements').select('*').eq('user_id', userId)
           .order('earned_at', { ascending: false }).limit(50),
       ]);
@@ -142,9 +146,12 @@ export default function EnhancedStatsModal({
         camera_object:    'Object Recognition',
       };
 
+      const todayXPsum = (todayRes.data ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
+
       setRealData({
         streak:         statsRes.data?.streak_days ?? 0,
         totalPractices: historyRes.data?.length    ?? 0,
+        todayXP:        todayXPsum,
         recentActivity: (historyRes.data ?? []).map((p: any) => ({
           type: typeLabels[p.practice_type] ?? (isPortuguese ? 'Prática' : 'Practice'),
           xp: p.xp_earned ?? 0,
@@ -217,7 +224,7 @@ export default function EnhancedStatsModal({
       {/* Stats grid row 1 */}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 0 }}>
         <StatCard icon={<Lightning size={22} color={C.greenDark} weight="duotone" />}
-          label={isPortuguese ? 'Sessão' : 'Session'} value={`+${sessionXP}`} unit="XP" />
+          label={isPortuguese ? 'Hoje' : 'Today'} value={`+${realData.todayXP}`} unit="XP" />
         <StatCard icon={<Star size={22} color="#D97706" weight="duotone" />}
           label="Total" value={totalXP.toLocaleString()} unit="XP" />
       </View>
