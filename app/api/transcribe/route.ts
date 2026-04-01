@@ -90,12 +90,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Transcrever com Whisper
+    // prompt: discourage semantic correction so minimal-pair errors are preserved
+    // (e.g. user says "word" instead of "world" — without this Whisper auto-corrects)
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
-      language: 'en', // Forçar inglês para prática
+      language: 'en',
       response_format: 'json',
-      temperature: 0.2, // Mais preciso
+      temperature: 0.2,
+      prompt: 'Transcribe exactly what was said, word for word, without correcting or improving the speech.',
     });
 
     console.log('Transcription result:', transcription.text);
