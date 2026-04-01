@@ -141,12 +141,12 @@ function scoreColor(s: number) {
   if (s >= 55) return '#FB923C';
   return C.red;
 }
-function scoreLabel(s: number) {
-  if (s >= 90) return 'Excelente!';
-  if (s >= 80) return 'Muito bom!';
-  if (s >= 70) return 'Bom trabalho!';
-  if (s >= 55) return 'Continue assim!';
-  return 'Continue praticando';
+function scoreLabel(s: number, isPt: boolean) {
+  if (s >= 90) return isPt ? 'Excelente!'      : 'Excellent!';
+  if (s >= 80) return isPt ? 'Muito bom!'      : 'Great job!';
+  if (s >= 70) return isPt ? 'Bom trabalho!'   : 'Good work!';
+  if (s >= 55) return isPt ? 'Continue assim!' : 'Keep it up!';
+  return isPt ? 'Continue praticando' : 'Keep practising';
 }
 
 function ScoreBar({ label, score }: { label: string; score: number }) {
@@ -234,7 +234,7 @@ export default function LearnSessionScreen() {
   const feedbackAnim = useRef(new Animated.Value(0)).current;
 
   // ── Pronunciation state ────────────────────────────────────
-  type PronStatus = 'loading_audio' | 'listening' | 'recording' | 'assessing' | 'result' | 'error';
+  type PronStatus = 'loading_audio' | 'listening' | 'recording' | 'assessing' | 'result' | 'error' | 'retry';
   const [pronStatus, setPronStatus]           = useState<PronStatus>('loading_audio');
   const [charlotteAudioUri, setCharlotteAudioUri] = useState<string | null>(null);
   const [listenWriteAnswer, setListenWriteAnswer] = useState('');
@@ -434,8 +434,19 @@ export default function LearnSessionScreen() {
       }
 
       if (data.result) {
-        setAssessmentResult(data.result);
         const score = data.result.pronunciationScore ?? 0;
+        const allZero = score === 0
+          && (data.result.accuracyScore ?? 0) === 0
+          && (data.result.fluencyScore ?? 0) === 0
+          && (data.result.completenessScore ?? 0) === 0;
+
+        if (allZero) {
+          // Assessment returned zeros — likely silence or very short audio → ask retry
+          setPronStatus('retry');
+          return;
+        }
+
+        setAssessmentResult(data.result);
         setSessionScores(prev => [...prev, score]);
         const xp = score >= 85 ? 15 : score >= 70 ? 10 : 5;
         setSessionXP(prev => prev + xp);
@@ -837,7 +848,9 @@ export default function LearnSessionScreen() {
                     : <SpeakerHigh size={20} color={accent} weight="fill" />
                   }
                   <AppText style={{ fontSize: 14, fontWeight: '700', color: accent }}>
-                    {isPlaying ? 'Pausar' : 'Ouça a Charlotte'}
+                    {isPlaying
+                      ? (isPortuguese ? 'Pausar' : 'Pause')
+                      : (isPortuguese ? 'Ouça a Charlotte' : 'Listen to Charlotte')}
                   </AppText>
                 </TouchableOpacity>
               )}
@@ -850,7 +863,7 @@ export default function LearnSessionScreen() {
                   <TextInput
                     value={listenWriteAnswer}
                     onChangeText={setListenWriteAnswer}
-                    placeholder="Digite o que você ouviu…"
+                    placeholder={isPortuguese ? 'Digite o que você ouviu…' : 'Type what you heard…'}
                     placeholderTextColor={C.navyLight}
                     editable={pronStatus === 'listening'}
                     style={{
@@ -889,7 +902,7 @@ export default function LearnSessionScreen() {
                   {assessmentResult && currentStep.phrase.type === 'repeat' && (
                     <View style={{ backgroundColor: C.ghost, borderRadius: 14, padding: 16, marginBottom: 12 }}>
                       <AppText style={{ fontSize: 16, fontWeight: '800', color: scoreColor(assessmentResult.pronunciationScore ?? 0), marginBottom: 12 }}>
-                        {scoreLabel(assessmentResult.pronunciationScore ?? 0)}
+                        {scoreLabel(assessmentResult.pronunciationScore ?? 0, isPortuguese)}
                       </AppText>
                       <ScoreBar label={isPortuguese ? 'Geral'      : 'Overall'}      score={assessmentResult.pronunciationScore ?? 0} />
                       <ScoreBar label={isPortuguese ? 'Precisão'   : 'Accuracy'}     score={assessmentResult.accuracyScore     ?? 0} />
@@ -920,6 +933,32 @@ export default function LearnSessionScreen() {
                   )}
                 </Animated.View>
               )}
+
+              {/* Retry prompt — shown when assessment returned all-zero scores */}
+              {pronStatus === 'retry' && (
+                <View style={{
+                  backgroundColor: '#FFF7ED', borderRadius: 14, padding: 16,
+                  borderWidth: 1, borderColor: 'rgba(251,146,60,0.3)', marginTop: 8,
+                  alignItems: 'center', gap: 12,
+                }}>
+                  <AppText style={{ fontSize: 13, color: '#92400E', textAlign: 'center', lineHeight: 19 }}>
+                    {isPortuguese
+                      ? "Não conseguimos avaliar sua pronúncia. Certifique-se de falar claramente e tente novamente."
+                      : "We couldn't assess your pronunciation. Make sure to speak clearly and try again."}
+                  </AppText>
+                  <TouchableOpacity
+                    onPress={() => setPronStatus('listening')}
+                    style={{
+                      backgroundColor: accent, borderRadius: 12,
+                      paddingHorizontal: 24, paddingVertical: 10,
+                    }}
+                  >
+                    <AppText style={{ fontSize: 13, fontWeight: '800', color: '#FFF' }}>
+                      {isPortuguese ? 'Tentar novamente' : 'Try again'}
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           )}
         </ScrollView>
@@ -947,7 +986,7 @@ export default function LearnSessionScreen() {
 
           {/* ── Pronunciation: Repeat ── */}
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && (
-            pronStatus === 'result' ? (
+            (pronStatus === 'result' || pronStatus === 'retry') ? (
               <TouchableOpacity onPress={handleNext}
                 style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>

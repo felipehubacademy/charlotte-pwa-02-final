@@ -455,18 +455,18 @@ const INTER_MODULES: Module[] = [
 
   // ── Module 8 — Fluência B1 ───────────────────────────────────────────────
   {
-    title: 'Fluência B1',
+    title: 'Fluency B1',
     topics: [
-      { title: 'Phrasal verbs — Set 1 (top 25 essenciais)',                  grammar: [], pronunciation: [] },
-      { title: 'Discourse markers — contraste, adição, causa & resultado',   grammar: [], pronunciation: [] },
-      { title: 'Future forms — revisão integrativa',                         grammar: [], pronunciation: [] },
+      { title: 'Phrasal verbs — Set 1 (top 25 essentials)',                  grammar: [], pronunciation: [] },
+      { title: 'Discourse markers — contrast, addition, cause & result',   grammar: [], pronunciation: [] },
+      { title: 'Future forms — integrative review',                         grammar: [], pronunciation: [] },
       { title: 'Future Continuous + Future Perfect',                         grammar: [], pronunciation: [] },
       { title: 'Question tags',                                              grammar: [], pronunciation: [] },
       { title: 'Emphasis — so, such, too, enough',                          grammar: [], pronunciation: [] },
-      { title: 'Prepositions em colocações',                                 grammar: [], pronunciation: [] },
+      { title: 'Prepositions in collocations',                                 grammar: [], pronunciation: [] },
       { title: 'Vocabulary chunks — feelings, health & lifestyle',           grammar: [], pronunciation: [] },
       { title: 'Vocabulary chunks — work, business & finance',               grammar: [], pronunciation: [] },
-      { title: 'B1 Review — consolidação',                                   grammar: [], pronunciation: [] },
+      { title: 'B1 Review — consolidation',                                   grammar: [], pronunciation: [] },
     ],
   },
 
@@ -483,13 +483,13 @@ const INTER_MODULES: Module[] = [
 
   // ── Module 10 — Estruturas Avançadas B2 ─────────────────────────────────
   {
-    title: 'Estruturas Avançadas B2',
+    title: 'Advanced Structures B2',
     topics: [
       { title: 'Causative — have / get something done',                      grammar: [], pronunciation: [] },
       { title: 'Advanced passive — It is said that… / He is believed to…',  grammar: [], pronunciation: [] },
       { title: 'Cleft sentences',                                            grammar: [], pronunciation: [] },
       { title: 'Advanced relative clauses — reduced + whom/of which',       grammar: [], pronunciation: [] },
-      { title: 'Stative verbs — lista estendida',                            grammar: [], pronunciation: [] },
+      { title: 'Stative verbs — extended list',                            grammar: [], pronunciation: [] },
       { title: 'Articles — advanced + zero article',                        grammar: [], pronunciation: [] },
       { title: 'Advanced prepositions — collocations',                       grammar: [], pronunciation: [] },
       { title: 'Phrasal verbs — Set 2 (top 25 intermediate)',               grammar: [], pronunciation: [] },
@@ -501,23 +501,23 @@ const INTER_MODULES: Module[] = [
 
   // ── Module 11 — Sofisticação B2 ──────────────────────────────────────────
   {
-    title: 'Sofisticação B2',
+    title: 'Sophistication B2',
     topics: [
       { title: 'Hypothesis & speculation',                                   grammar: [], pronunciation: [] },
       { title: 'Inversion — negative fronted intro',                        grammar: [], pronunciation: [] },
       { title: 'Vocabulary chunks — idioms Set 1',                          grammar: [], pronunciation: [] },
-      { title: 'Vocabulary chunks — collocações: meio ambiente & sociedade', grammar: [], pronunciation: [] },
+      { title: 'Vocabulary chunks — collocations: environment & society', grammar: [], pronunciation: [] },
       { title: 'Concession clauses',                                        grammar: [], pronunciation: [] },
       { title: 'Emphasis & focus structures',                               grammar: [], pronunciation: [] },
-      { title: 'Present Perfect — revisão e distinções B2',                 grammar: [], pronunciation: [] },
-      { title: 'Conditionals — revisão B2 + alternativas formais',         grammar: [], pronunciation: [] },
-      { title: 'Passive voice — revisão completa',                          grammar: [], pronunciation: [] },
-      { title: 'Reported Speech — revisão completa',                        grammar: [], pronunciation: [] },
-      { title: 'Modal verbs — revisão do sistema completo',                 grammar: [], pronunciation: [] },
+      { title: 'Present Perfect — review & distinctions B2',                 grammar: [], pronunciation: [] },
+      { title: 'Conditionals — B2 review + formal alternatives',         grammar: [], pronunciation: [] },
+      { title: 'Passive voice — complete review',                          grammar: [], pronunciation: [] },
+      { title: 'Reported Speech — complete review',                        grammar: [], pronunciation: [] },
+      { title: 'Modal verbs — complete system review',                 grammar: [], pronunciation: [] },
       { title: 'Vocabulary chunks — idioms Set 2',                          grammar: [], pronunciation: [] },
-      { title: 'Registro acadêmico & formal',                               grammar: [], pronunciation: [] },
+      { title: 'Academic & formal register',                               grammar: [], pronunciation: [] },
       { title: 'Cause & effect language',                                   grammar: [], pronunciation: [] },
-      { title: 'Intermediate Module Review — consolidação B1/B2',          grammar: [], pronunciation: [] },
+      { title: 'Intermediate Module Review — B1/B2 consolidation',          grammar: [], pronunciation: [] },
     ],
   },
 ];
@@ -577,7 +577,7 @@ const ADVANCED_MODULES: Module[] = [
         ],
       },
       {
-        title: 'Advanced modals — nuance completa',
+        title: 'Advanced modals — full nuance',
         pronunciation: [
           { type: 'repeat',       text: 'She must have been exhausted after the journey.',         focus: 'deduction: "must have been"' },
           { type: 'listen_write', text: 'He can\'t have forgotten — he wrote it down himself.',    focus: 'negative deduction: "can\'t have"' },
@@ -748,30 +748,30 @@ const ADVANCED_MODULES: Module[] = [
 
   // ── Module 3 — Gramática Integrada C1 ────────────────────────────────────
   {
-    title: 'Gramática Integrada C1',
+    title: 'Integrated Grammar C1',
     topics: [
       { title: 'Advanced question formation — indirect & rhetorical',        grammar: [], pronunciation: [] },
-      { title: 'Aspect review — perfect tenses em contexto C1',             grammar: [], pronunciation: [] },
+      { title: 'Aspect review — perfect tenses in context C1',             grammar: [], pronunciation: [] },
       { title: 'Gerunds & Infinitives — mastery C1',                        grammar: [], pronunciation: [] },
       { title: 'Participle clauses (Having finished… / Feeling nervous…)',  grammar: [], pronunciation: [] },
       { title: 'Advanced verb patterns',                                     grammar: [], pronunciation: [] },
-      { title: 'Idioms & collocations — fluência em produção',               grammar: [], pronunciation: [] },
+      { title: 'Idioms & collocations — fluency in production',               grammar: [], pronunciation: [] },
       { title: 'Concession & contrast — advanced',                          grammar: [], pronunciation: [] },
       { title: 'Articles — edge cases & C1 mastery',                        grammar: [], pronunciation: [] },
       { title: 'Vocabulary — connotation, register & nuance',               grammar: [], pronunciation: [] },
-      { title: 'C1 Review — integração completa',                           grammar: [], pronunciation: [] },
+      { title: 'C1 Review — full integration',                           grammar: [], pronunciation: [] },
     ],
   },
 
   // ── Module 4 — Fluência Nativa C2 ────────────────────────────────────────
   {
-    title: 'Fluência Nativa C2',
+    title: 'Native Fluency C2',
     topics: [
       { title: 'Inversion — full mastery & rhetorical use',                  grammar: [], pronunciation: [] },
       { title: 'Advanced subjunctive & formal grammar C2',                   grammar: [], pronunciation: [] },
       { title: 'Conditional sentences — C2 mastery',                        grammar: [], pronunciation: [] },
       { title: 'Perfect tenses — advanced & nuanced use C2',                grammar: [], pronunciation: [] },
-      { title: 'Discourse markers C2 — argumentation sofisticada',          grammar: [], pronunciation: [] },
+      { title: 'Discourse markers C2 — sophisticated argumentation',          grammar: [], pronunciation: [] },
       { title: 'Idioms, proverbs & cultural references',                     grammar: [], pronunciation: [] },
       { title: 'Advanced word formation',                                    grammar: [], pronunciation: [] },
       { title: 'Irony, understatement & hyperbole',                         grammar: [], pronunciation: [] },
