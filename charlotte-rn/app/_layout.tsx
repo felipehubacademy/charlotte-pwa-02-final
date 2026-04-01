@@ -31,8 +31,8 @@ function AuthGuard() {
       return;
     }
     if (mustChangePassword) {
-      console.log('[AuthGuard] → /(auth)/change-password');
-      router.replace('/(auth)/change-password');
+      console.log('[AuthGuard] → /first-access');
+      router.replace('/first-access');
       return;
     }
     console.log('[AuthGuard] → sem ação');
@@ -56,6 +56,7 @@ export default function RootLayout() {
             <Stack.Screen name="index" />
             <Stack.Screen name="(auth)" />
             <Stack.Screen name="(app)" />
+            <Stack.Screen name="first-access" />
           </Stack>
         </AuthProvider>
       </SafeAreaProvider>
