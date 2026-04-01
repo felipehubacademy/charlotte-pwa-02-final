@@ -24,6 +24,7 @@ const C = {
 };
 
 export default function ChangePasswordScreen() {
+  console.log('[CP-RENDER] ChangePasswordScreen montando');
   const [password, setPassword]         = useState('');
   const [confirm, setConfirm]           = useState('');
   const [showPassword, setShowPassword] = useState(false);
