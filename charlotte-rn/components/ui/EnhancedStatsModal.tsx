@@ -90,7 +90,7 @@ interface EnhancedStatsModalProps {
 
 interface RecentActivity { type: string; xp: number; timestamp: Date; isMission: boolean; isAchievement: boolean; }
 interface RealData {
-  streak: number; totalPractices: number; todayXP: number;
+  streak: number; totalPractices: number; todayXP: number; freshTotalXP: number;
   recentActivity: RecentActivity[]; achievements: Achievement[];
   loading: boolean; error: string | null;
 }
@@ -106,7 +106,7 @@ export default function EnhancedStatsModal({
   const [activeTab, setActiveTab] = React.useState<TabType>('stats');
   const [leaderboardKey, setLeaderboardKey] = React.useState(0);
   const [realData, setRealData]   = React.useState<RealData>({
-    streak: 0, totalPractices: 0, todayXP: 0, recentActivity: [], achievements: [], loading: true, error: null,
+    streak: 0, totalPractices: 0, todayXP: 0, freshTotalXP: 0, recentActivity: [], achievements: [], loading: true, error: null,
   });
   const tabAnim = React.useRef(new Animated.Value(0)).current;
 
@@ -124,16 +124,24 @@ export default function EnhancedStatsModal({
     setRealData(prev => ({ ...prev, loading: true, error: null }));
     try {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-      const [statsRes, historyRes, todayRes, achievementsRes] = await Promise.all([
-        supabase.from('rn_user_progress').select('streak_days').eq('user_id', userId).maybeSingle(),
-        // Last 10 RN practices regardless of date
+      const [statsRes, historyRes, todayPracticesRes, achievementsRes, todayAchievementsRes] = await Promise.all([
+        supabase.from('rn_user_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
+        // Last 10 RN practices (excluding achievement/mission rewards — shown separately)
         supabase.from('rn_user_practices').select('practice_type,xp_earned,created_at')
-          .eq('user_id', userId).order('created_at', { ascending: false }).limit(10),
-        // Today's XP — computed fresh from DB, independent of Home screen state
+          .eq('user_id', userId)
+          .not('practice_type', 'like', 'achievement_reward_%')
+          .order('created_at', { ascending: false }).limit(10),
+        // Today's XP from practices
         supabase.from('rn_user_practices').select('xp_earned')
           .eq('user_id', userId).gte('created_at', todayStart.toISOString()),
+        // All achievements for Conquistas tab
         supabase.from('user_achievements').select('*').eq('user_id', userId)
           .order('earned_at', { ascending: false }).limit(50),
+        // Today's achievements for Atividade Recente + Hoje XP bonus
+        supabase.from('user_achievements').select('achievement_name,xp_bonus,earned_at,category,rarity')
+          .eq('user_id', userId)
+          .gte('earned_at', todayStart.toISOString())
+          .order('earned_at', { ascending: false }),
       ]);
 
       const typeLabels: Record<string, string> = {
@@ -147,31 +155,47 @@ export default function EnhancedStatsModal({
         camera_object:    'Object Recognition',
       };
       const getActivityLabel = (type: string) => {
-        if (type.startsWith('mission_reward_'))     return isPortuguese ? 'Missão Concluída'        : 'Mission Complete';
-        if (type.startsWith('achievement_reward_')) return isPortuguese ? 'Conquista Desbloqueada'  : 'Achievement Unlocked';
+        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';
         return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
       };
 
-      const todayXPsum = (todayRes.data ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
+      // Today XP = practices + achievement bonuses earned today
+      const todayPracticesXP   = (todayPracticesRes.data ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
+      const todayAchievementXP = (todayAchievementsRes.data ?? []).reduce((s: number, a: any) => s + (a.xp_bonus ?? 0), 0);
+      const todayXPsum         = todayPracticesXP + todayAchievementXP;
+
+      // Build recent activity: practices + today's achievements merged and sorted by time
+      const practiceRows: RecentActivity[] = (historyRes.data ?? []).map((p: any) => ({
+        type:          getActivityLabel(p.practice_type),
+        xp:            p.xp_earned ?? 0,
+        timestamp:     new Date(p.created_at),
+        isMission:     p.practice_type.startsWith('mission_reward_'),
+        isAchievement: false,
+      }));
+      const achievementRows: RecentActivity[] = (todayAchievementsRes.data ?? []).map((a: any) => ({
+        type:          isPortuguese ? 'Conquista Desbloqueada' : 'Achievement Unlocked',
+        xp:            a.xp_bonus ?? 0,
+        timestamp:     new Date(a.earned_at),
+        isMission:     false,
+        isAchievement: true,
+      }));
+      const recentActivity = [...practiceRows, ...achievementRows]
+        .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
+        .slice(0, 12);
 
       setRealData({
         streak:         statsRes.data?.streak_days ?? 0,
         totalPractices: historyRes.data?.length    ?? 0,
         todayXP:        todayXPsum,
-        recentActivity: (historyRes.data ?? []).map((p: any) => ({
-          type:          getActivityLabel(p.practice_type),
-          xp:            p.xp_earned ?? 0,
-          timestamp:     new Date(p.created_at),
-          isMission:     p.practice_type.startsWith('mission_reward_'),
-          isAchievement: p.practice_type.startsWith('achievement_reward_'),
-        })),
+        freshTotalXP:   statsRes.data?.total_xp   ?? totalXP,
+        recentActivity,
         achievements: (achievementsRes.data ?? []).map((a: any) => ({
           id: a.id, type: a.achievement_type ?? 'general',
           title: a.achievement_name ?? 'Achievement',
           description: a.achievement_description ?? '',
           xpBonus: a.xp_bonus ?? 0,
           rarity: a.rarity ?? 'common',
-          icon: a.badge_icon ?? '🏆',
+          icon: a.badge_icon ?? '',
           category: a.category ?? 'general',
           earnedAt: new Date(a.earned_at),
         })),
@@ -189,11 +213,13 @@ export default function EnhancedStatsModal({
     );
   };
 
-  const level       = calculateLevel(totalXP);
+  // Use freshTotalXP from DB (loaded in loadData) to avoid stale prop after achievement bonuses
+  const displayTotalXP = realData.loading ? totalXP : realData.freshTotalXP;
+  const level       = calculateLevel(displayTotalXP);
   const xpForCurr   = Math.pow(level - 1, 2) * 50;
   const xpForNext   = Math.pow(level, 2) * 50;
-  const progress    = xpForNext > xpForCurr ? Math.min(100, ((totalXP - xpForCurr) / (xpForNext - xpForCurr)) * 100) : 100;
-  const xpRemaining = Math.max(0, xpForNext - totalXP);
+  const progress    = xpForNext > xpForCurr ? Math.min(100, ((displayTotalXP - xpForCurr) / (xpForNext - xpForCurr)) * 100) : 100;
+  const xpRemaining = Math.max(0, xpForNext - displayTotalXP);
 
   const TABS: { id: TabType; label: string }[] = [
     { id: 'stats',        label: 'Stats' },
@@ -234,7 +260,7 @@ export default function EnhancedStatsModal({
         <StatCard icon={<Lightning size={22} color={C.greenDark} weight="duotone" />}
           label={isPortuguese ? 'Hoje' : 'Today'} value={`+${realData.todayXP}`} unit="XP" />
         <StatCard icon={<Star size={22} color="#D97706" weight="duotone" />}
-          label="Total" value={totalXP.toLocaleString()} unit="XP" />
+          label="Total" value={displayTotalXP.toLocaleString()} unit="XP" />
       </View>
 
       {/* Stats grid row 2 */}

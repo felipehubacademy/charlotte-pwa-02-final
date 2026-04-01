@@ -352,13 +352,17 @@ export default function HomeScreen() {
   const fetchData = useCallback(async () => {
     if (!userId) return;
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const [prog, prac] = await Promise.all([
+    const [prog, prac, achToday] = await Promise.all([
       supabase.from('rn_user_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
       supabase.from('rn_user_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', today.toISOString()),
+      // Achievement bonuses earned today (go via direct UPDATE, not in rn_user_practices)
+      supabase.from('user_achievements').select('xp_bonus').eq('user_id', userId).gte('earned_at', today.toISOString()),
     ]);
-    const practices   = prac.data ?? [];
-    const todayXP     = practices.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
-    const userTotalXP = prog.data?.total_xp ?? 0;
+    const practices         = prac.data ?? [];
+    const practicesXP       = practices.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
+    const achievementXP     = (achToday.data ?? []).reduce((s: number, a: any) => s + (a.xp_bonus ?? 0), 0);
+    const todayXP           = practicesXP + achievementXP;
+    const userTotalXP       = prog.data?.total_xp ?? 0;
 
     // Seed already-rewarded missions from DB (only once per session)
     if (!rewardSeedLoadedRef.current) {
