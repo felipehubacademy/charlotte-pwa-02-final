@@ -145,6 +145,10 @@ export default function EnhancedStatsModal({
         image_recognition:'Object Recognition',
         camera_object:    'Object Recognition',
       };
+      const getActivityLabel = (type: string) => {
+        if (type.startsWith('mission_reward_')) return isPortuguese ? '🎯 Missão Concluída' : '🎯 Mission Complete';
+        return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
+      };
 
       const todayXPsum = (todayRes.data ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
 
@@ -153,7 +157,7 @@ export default function EnhancedStatsModal({
         totalPractices: historyRes.data?.length    ?? 0,
         todayXP:        todayXPsum,
         recentActivity: (historyRes.data ?? []).map((p: any) => ({
-          type: typeLabels[p.practice_type] ?? (isPortuguese ? 'Prática' : 'Practice'),
+          type: getActivityLabel(p.practice_type),
           xp: p.xp_earned ?? 0,
           timestamp: new Date(p.created_at),
         })),
