@@ -121,6 +121,7 @@ export default function LearnSessionScreen() {
   const { profile } = useAuth();
   const userId      = profile?.id;
   const userLevel   = (profile?.user_level ?? 'Inter') as string;
+  const isPortuguese = userLevel === 'Novice';
   const baseTotalXP = useTotalXP(userId);
   const [showStats, setShowStats] = useState(false);
   const { saveTopicComplete, saveExercise } = useLearnProgress(userId, level);
@@ -515,12 +516,13 @@ export default function LearnSessionScreen() {
                 }
                 <AppText style={{ fontSize: 11, fontWeight: '700', color: accent }}>
                   {currentStep.kind === 'grammar'
-                    ? (currentStep.exercise.type === 'multiple_choice' ? 'Escolha a Resposta'
-                      : currentStep.exercise.type === 'word_bank' ? 'Banco de Palavras'
-                      : currentStep.exercise.type === 'fill_gap'   ? 'Complete a Lacuna'
-                      : currentStep.exercise.type === 'fix_error'  ? 'Corrija o Erro'
-                      : 'Leia e Responda')
-                    : (currentStep.phrase.type === 'repeat' ? 'Repita Depois de Mim' : 'Ouça e Escreva')
+                    ? (currentStep.exercise.type === 'multiple_choice' ? (isPortuguese ? 'Escolha a Resposta'  : 'Choose the Answer')
+                      : currentStep.exercise.type === 'word_bank'      ? (isPortuguese ? 'Banco de Palavras'   : 'Word Bank')
+                      : currentStep.exercise.type === 'fill_gap'       ? (isPortuguese ? 'Complete a Lacuna'   : 'Fill the Gap')
+                      : currentStep.exercise.type === 'fix_error'      ? (isPortuguese ? 'Corrija o Erro'      : 'Fix the Error')
+                      :                                                   (isPortuguese ? 'Leia e Responda'     : 'Read & Answer'))
+                    : (currentStep.phrase.type === 'repeat'             ? (isPortuguese ? 'Repita Depois de Mim' : 'Repeat After Me')
+                      :                                                   (isPortuguese ? 'Ouça e Escreva'      : 'Listen & Write'))
                   }
                 </AppText>
               </View>
@@ -541,11 +543,11 @@ export default function LearnSessionScreen() {
                 <CharlotteAvatar size="xs" />
                 <View style={{ flex: 1, backgroundColor: accentBg, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 14 }}>
                   <AppText style={{ fontSize: 14, color: accent, fontWeight: '700' }}>
-                    {currentStep.exercise.type === 'multiple_choice' ? 'Escolha a opção correta para completar a frase.'
-                      : currentStep.exercise.type === 'word_bank'      ? 'Toque na palavra correta para preencher o espaço.'
-                      : currentStep.exercise.type === 'fill_gap'       ? 'Preencha o espaço com a palavra ou frase correta.'
-                      : currentStep.exercise.type === 'fix_error'      ? 'Encontre o erro e reescreva a frase corretamente.'
-                      : 'Leia o texto e responda à pergunta.'}
+                    {currentStep.exercise.type === 'multiple_choice' ? (isPortuguese ? 'Escolha a opção correta para completar a frase.'    : 'Choose the correct option to complete the sentence.')
+                      : currentStep.exercise.type === 'word_bank'      ? (isPortuguese ? 'Toque na palavra correta para preencher o espaço.' : 'Tap the correct word to fill the blank.')
+                      : currentStep.exercise.type === 'fill_gap'       ? (isPortuguese ? 'Preencha o espaço com a palavra ou frase correta.'  : 'Fill in the blank with the correct word or phrase.')
+                      : currentStep.exercise.type === 'fix_error'      ? (isPortuguese ? 'Encontre o erro e reescreva a frase corretamente.'  : 'Find the mistake and rewrite the sentence correctly.')
+                      :                                                   (isPortuguese ? 'Leia o texto e responda à pergunta.'                : 'Read the text and answer the question.')}
                   </AppText>
                 </View>
               </View>
@@ -652,9 +654,9 @@ export default function LearnSessionScreen() {
                     value={userAnswer}
                     onChangeText={setUserAnswer}
                     placeholder={
-                      currentStep.exercise.type === 'fill_gap'  ? 'Digite a palavra que falta…'
-                      : currentStep.exercise.type === 'fix_error' ? 'Reescreva a frase completa…'
-                      : 'Sua resposta…'
+                      currentStep.exercise.type === 'fill_gap'  ? (isPortuguese ? 'Digite a palavra que falta…'   : 'Type the missing word…')
+                      : currentStep.exercise.type === 'fix_error' ? (isPortuguese ? 'Reescreva a frase completa…'  : 'Rewrite the full sentence…')
+                      :                                              (isPortuguese ? 'Sua resposta…'               : 'Your answer…')
                     }
                     placeholderTextColor={C.navyLight}
                     style={{
@@ -678,7 +680,7 @@ export default function LearnSessionScreen() {
                       >
                         <LightbulbFilament size={14} color={accent} weight="fill" />
                         <AppText style={{ fontSize: 13, color: accent, fontWeight: '600' }}>
-                          {showHint ? 'Ocultar dica' : 'Mostrar dica'}
+                          {showHint ? (isPortuguese ? 'Ocultar dica' : 'Hide hint') : (isPortuguese ? 'Mostrar dica' : 'Show hint')}
                         </AppText>
                       </TouchableOpacity>
                       {showHint && (
@@ -707,7 +709,7 @@ export default function LearnSessionScreen() {
                   }}>
                     {isCorrect ? <CheckCircle size={20} color={C.green} weight="fill" /> : <XCircle size={20} color={C.red} weight="fill" />}
                     <AppText style={{ fontSize: 15, fontWeight: '700', color: isCorrect ? C.green : C.red, flex: 1 }}>
-                      {isCorrect ? 'Correto!' : 'Quase lá…'}
+                      {isCorrect ? (isPortuguese ? 'Correto!' : 'Correct!') : (isPortuguese ? 'Quase lá…' : 'Almost there…')}
                     </AppText>
                     <View style={{ backgroundColor: isCorrect ? 'rgba(61,136,0,0.12)' : 'rgba(220,38,38,0.10)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
                       <AppText style={{ fontSize: 11, fontWeight: '800', color: isCorrect ? C.green : C.red }}>
@@ -717,12 +719,12 @@ export default function LearnSessionScreen() {
                   </View>
                   {!isCorrect && (
                     <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12, marginBottom: 10 }}>
-                      <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>Resposta correta</AppText>
+                      <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>{isPortuguese ? 'Resposta correta' : 'Correct answer'}</AppText>
                       <AppText style={{ fontSize: 15, color: C.navy, fontWeight: '600' }}>{currentStep.exercise.answer}</AppText>
                     </View>
                   )}
                   <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12 }}>
-                    <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>Por quê</AppText>
+                    <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>{isPortuguese ? 'Por quê' : 'Why'}</AppText>
                     <AppText style={{ fontSize: 14, color: C.navyMid, lineHeight: 21 }}>{currentStep.exercise.explanation}</AppText>
                   </View>
                 </Animated.View>
@@ -739,8 +741,8 @@ export default function LearnSessionScreen() {
                 <View style={{ flex: 1, backgroundColor: accentBg, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 14 }}>
                   <AppText style={{ fontSize: 14, color: accent, fontWeight: '700' }}>
                     {currentStep.phrase.type === 'repeat'
-                      ? 'Ouça a Charlotte e repita a frase.'
-                      : 'Ouça a Charlotte e escreva o que ouviu.'}
+                      ? (isPortuguese ? 'Ouça a Charlotte e repita a frase.'        : 'Listen to Charlotte and repeat the phrase.')
+                      : (isPortuguese ? 'Ouça a Charlotte e escreva o que ouviu.'   : 'Listen to Charlotte and write what you hear.')}
                   </AppText>
                 </View>
               </View>
@@ -748,7 +750,7 @@ export default function LearnSessionScreen() {
               {/* Focus label */}
               <View style={{ backgroundColor: C.ghost, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, alignSelf: 'flex-start', marginBottom: 18 }}>
                 <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyMid }}>
-                  Foco: {currentStep.phrase.focus}
+                  {isPortuguese ? 'Foco:' : 'Focus:'} {currentStep.phrase.focus}
                 </AppText>
               </View>
 
@@ -766,7 +768,7 @@ export default function LearnSessionScreen() {
               {pronStatus === 'loading_audio' ? (
                 <View style={{ alignItems: 'center', paddingVertical: 20, marginBottom: 12 }}>
                   <ActivityIndicator color={accent} />
-                  <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 10 }}>Preparando áudio…</AppText>
+                  <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 10 }}>{isPortuguese ? 'Preparando áudio…' : 'Preparing audio…'}</AppText>
                 </View>
               ) : (
                 <TouchableOpacity
@@ -816,7 +818,7 @@ export default function LearnSessionScreen() {
                       }}
                     >
                       <AppText style={{ fontSize: 15, fontWeight: '800', color: listenWriteAnswer.trim() ? '#FFF' : C.navyLight }}>
-                        Verificar
+                        {isPortuguese ? 'Verificar' : 'Check'}
                       </AppText>
                     </TouchableOpacity>
                   )}
@@ -836,10 +838,10 @@ export default function LearnSessionScreen() {
                       <AppText style={{ fontSize: 16, fontWeight: '800', color: scoreColor(assessmentResult.pronunciationScore ?? 0), marginBottom: 12 }}>
                         {scoreLabel(assessmentResult.pronunciationScore ?? 0)}
                       </AppText>
-                      <ScoreBar label="Geral"       score={assessmentResult.pronunciationScore ?? 0} />
-                      <ScoreBar label="Precisão"    score={assessmentResult.accuracyScore     ?? 0} />
-                      <ScoreBar label="Fluência"    score={assessmentResult.fluencyScore       ?? 0} />
-                      <ScoreBar label="Completude"  score={assessmentResult.completenessScore  ?? 0} />
+                      <ScoreBar label={isPortuguese ? 'Geral'      : 'Overall'}      score={assessmentResult.pronunciationScore ?? 0} />
+                      <ScoreBar label={isPortuguese ? 'Precisão'   : 'Accuracy'}     score={assessmentResult.accuracyScore     ?? 0} />
+                      <ScoreBar label={isPortuguese ? 'Fluência'   : 'Fluency'}      score={assessmentResult.fluencyScore       ?? 0} />
+                      <ScoreBar label={isPortuguese ? 'Completude' : 'Completeness'} score={assessmentResult.completenessScore  ?? 0} />
                     </View>
                   )}
                   {/* Listen & Write result */}
@@ -853,14 +855,14 @@ export default function LearnSessionScreen() {
                     }}>
                       {listenWriteCorrect ? <CheckCircle size={20} color={C.green} weight="fill" /> : <XCircle size={20} color={C.red} weight="fill" />}
                       <AppText style={{ fontSize: 15, fontWeight: '700', color: listenWriteCorrect ? C.green : C.red }}>
-                        {listenWriteCorrect ? 'Correto!' : 'Quase lá — ouça novamente.'}
+                        {listenWriteCorrect ? (isPortuguese ? 'Correto!' : 'Correct!') : (isPortuguese ? 'Quase lá — ouça novamente.' : 'Almost there — listen again.')}
                       </AppText>
                     </View>
                   )}
                   {/* Error fallback */}
                   {pronStatus === 'error' && (
                     <AppText style={{ color: C.red, fontSize: 13, textAlign: 'center', marginBottom: 12 }}>
-                      Não foi possível avaliar. Toque em Próximo para continuar.
+                      {isPortuguese ? 'Não foi possível avaliar. Toque em Próximo para continuar.' : 'Could not assess. Tap Next to continue.'}
                     </AppText>
                   )}
                 </Animated.View>
@@ -879,13 +881,13 @@ export default function LearnSessionScreen() {
           {currentStep.kind === 'grammar' && gStatus === 'answering' && (
             <TouchableOpacity onPress={handleGrammarSubmit} disabled={!userAnswer.trim()}
               style={{ backgroundColor: userAnswer.trim() ? C.navy : C.ghost, borderRadius: 16, paddingVertical: 15, alignItems: 'center' }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: userAnswer.trim() ? '#FFF' : C.navyLight }}>Verificar</AppText>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: userAnswer.trim() ? '#FFF' : C.navyLight }}>{isPortuguese ? 'Verificar' : 'Check'}</AppText>
             </TouchableOpacity>
           )}
           {currentStep.kind === 'grammar' && gStatus === 'submitted' && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? 'Concluir' : 'Próximo'}</AppText>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
               {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
             </TouchableOpacity>
           )}
@@ -895,7 +897,7 @@ export default function LearnSessionScreen() {
             pronStatus === 'result' ? (
               <TouchableOpacity onPress={handleNext}
                 style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? 'Concluir' : 'Próximo'}</AppText>
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
                 {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
               </TouchableOpacity>
             ) : pronStatus === 'loading_audio' ? (
@@ -905,7 +907,7 @@ export default function LearnSessionScreen() {
             ) : pronStatus === 'assessing' ? (
               <View style={{ alignItems: 'center', paddingVertical: 12 }}>
                 <ActivityIndicator color={accent} />
-                <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 6 }}>Analisando…</AppText>
+                <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 6 }}>{isPortuguese ? 'Analisando…' : 'Assessing…'}</AppText>
               </View>
             ) : (
               <TouchableOpacity
@@ -920,7 +922,7 @@ export default function LearnSessionScreen() {
               >
                 <Microphone size={22} color="#FFF" weight="fill" />
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
-                  {pronStatus === 'recording' ? 'Gravando… solte para parar' : 'Segure para falar'}
+                  {pronStatus === 'recording' ? (isPortuguese ? 'Gravando… solte para parar' : 'Recording… release to stop') : (isPortuguese ? 'Segure para falar' : 'Hold to speak')}
                 </AppText>
               </TouchableOpacity>
             )
@@ -930,7 +932,7 @@ export default function LearnSessionScreen() {
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'listen_write' && pronStatus === 'result' && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? 'Concluir' : 'Próximo'}</AppText>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
               {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
             </TouchableOpacity>
           )}
