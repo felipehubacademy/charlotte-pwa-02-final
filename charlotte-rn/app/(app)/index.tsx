@@ -380,7 +380,7 @@ export default function HomeScreen() {
       streakDays:    prog.data?.streak_days ?? 0,
       totalXP:       userTotalXP,
       todayXP,
-      rank:          computedRank,
+      rank:          userTotalXP > 0 ? computedRank : null,
       todayMessages: practices.filter(p => ['text_message','audio_message'].includes(p.practice_type)).length,
       todayAudios:   practices.filter(p => p.practice_type === 'audio_message').length,
     };
