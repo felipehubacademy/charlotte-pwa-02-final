@@ -52,6 +52,7 @@ export default function GrammarScreen() {
             isProcessingMessage={isProcessing}
             isProcessingAudio={isProcessingAudio}
             userLevel={userLevel}
+            mode="grammar"
             onPlayAudio={toggle}
             playingMessageId={playingMessageId}
           />

@@ -119,6 +119,7 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
   // ── Save single exercise result ──────────────────────────────────────────
   const saveExercise = useCallback(async (params: SaveExerciseParams) => {
     if (!userId) return;
+    // Save to learn_history (trail progress detail)
     const { error } = await supabase.from('learn_history').insert({
       user_id:       userId,
       level:         params.level,
@@ -129,6 +130,14 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
       xp_earned:     params.xpEarned,
     });
     if (error) console.error('[useLearnProgress] history insert error', error);
+
+    // Also save to user_practices so XP flows to Home screen & user_progress
+    const { error: practiceError } = await supabase.from('user_practices').insert({
+      user_id:       userId,
+      practice_type: 'learn_exercise',
+      xp_earned:     params.xpEarned,
+    });
+    if (practiceError) console.error('[useLearnProgress] practice insert error', practiceError);
   }, [userId]);
 
   // ── Derived helpers ──────────────────────────────────────────────────────

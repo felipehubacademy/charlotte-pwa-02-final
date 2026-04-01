@@ -42,6 +42,7 @@ interface ChatBoxProps {
   isProcessingMessage: boolean;
   isProcessingAudio?: boolean;
   userLevel: string;
+  mode?: 'grammar' | 'pronunciation' | 'chat';
   onPlayAudio?: (messageId: string, uri: string) => void;
   playingMessageId?: string | null;
 }
@@ -110,9 +111,10 @@ const AudioRecordingIndicator = () => (
 const MessageBubble: React.FC<{
   message: Message;
   userLevel: string;
+  mode?: 'grammar' | 'pronunciation' | 'chat';
   isPlaying: boolean;
   onTogglePlay: () => void;
-}> = ({ message, userLevel, isPlaying, onTogglePlay }) => {
+}> = ({ message, userLevel, mode, isPlaying, onTogglePlay }) => {
   const [showTranslation, setShowTranslation] = React.useState(false);
   const [showTranscription, setShowTranscription] = React.useState(false);
   const [showTechnicalFeedback, setShowTechnicalFeedback] = React.useState(false);
@@ -297,7 +299,7 @@ const MessageBubble: React.FC<{
         {/* Action buttons below assistant messages */}
         {!isUser && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6, paddingHorizontal: 2 }}>
-            {isNovice && (
+            {isNovice && mode !== 'grammar' && (
               <TouchableOpacity
                 onPress={handleTranslation}
                 disabled={isTranslating}
@@ -408,6 +410,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   isProcessingMessage,
   isProcessingAudio = false,
   userLevel,
+  mode,
   onPlayAudio,
   playingMessageId,
 }) => {
@@ -441,6 +444,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
       <MessageBubble
         message={item}
         userLevel={userLevel}
+        mode={mode}
         isPlaying={playingMessageId === item.id}
         onTogglePlay={() => {
           const uri = item.audioUri ?? item.audioUrl ?? '';
