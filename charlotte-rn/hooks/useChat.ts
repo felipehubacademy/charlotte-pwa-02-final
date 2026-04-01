@@ -11,6 +11,7 @@ import { checkXPMilestone, sendXPMilestoneNotification } from '@/hooks/usePushNo
 import { supabase } from '@/lib/supabase';
 import { ChatMode } from '@/lib/levelConfig';
 import { PronunciationData } from '@/components/chat/PronunciationScoreCard';
+import { useAchievementsContext } from '@/components/achievements/AchievementsProvider';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
@@ -123,6 +124,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
   const historyLoadedRef = useRef(false);
+  const { checkForNewAchievements } = useAchievementsContext();
 
   // Load real totalXP from rn_user_progress on mount
   React.useEffect(() => {
@@ -320,7 +322,11 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           if (milestone) sendXPMilestoneNotification(milestone);
           return prev + xpAwarded;
         });
-        if (userId) savePractice(userId, 'text_message', xpAwarded);
+        if (userId) {
+          await savePractice(userId, 'text_message', xpAwarded);
+          // Poll for new achievements after DB trigger has time to run
+          setTimeout(() => checkForNewAchievements(), 1500);
+        }
       } catch (error) {
         console.error('❌ sendTextMessage error:', error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -534,7 +540,10 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           if (milestone) sendXPMilestoneNotification(milestone);
           return prev + xpAwarded;
         });
-        if (userId) savePractice(userId, 'audio_message', xpAwarded);
+        if (userId) {
+          await savePractice(userId, 'audio_message', xpAwarded);
+          setTimeout(() => checkForNewAchievements(), 1500);
+        }
 
       } catch (error) {
         console.error('❌ pronunciation flow error:', error);
@@ -642,7 +651,10 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           if (milestone) sendXPMilestoneNotification(milestone);
           return prev + xpAwarded;
         });
-        if (userId) savePractice(userId, 'audio_message', xpAwarded);
+        if (userId) {
+          await savePractice(userId, 'audio_message', xpAwarded);
+          setTimeout(() => checkForNewAchievements(), 1500);
+        }
       } catch (error) {
         console.error('❌ sendAudioMessage error:', error);
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
