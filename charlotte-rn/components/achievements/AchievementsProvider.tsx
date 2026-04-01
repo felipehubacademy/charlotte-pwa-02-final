@@ -32,6 +32,7 @@ interface AchievementsProviderProps {
 export function AchievementsProvider({ children }: AchievementsProviderProps) {
   const { profile } = useAuth();
   const userId = profile?.id;
+  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
   const { pendingAchievements, dismissAchievement, checkForNewAchievements } = useAchievements(userId);
 
   return (
@@ -40,6 +41,7 @@ export function AchievementsProvider({ children }: AchievementsProviderProps) {
       <AchievementNotification
         achievements={pendingAchievements}
         onDismiss={dismissAchievement}
+        isPt={isPt}
       />
     </AchievementsContext.Provider>
   );

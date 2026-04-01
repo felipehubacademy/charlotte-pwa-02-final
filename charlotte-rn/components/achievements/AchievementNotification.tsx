@@ -113,9 +113,10 @@ function RarityIcon({ rarity, size = 44 }: { rarity: Achievement['rarity']; size
 interface Props {
   achievements: Achievement[];
   onDismiss: (id: string) => void;
+  isPt?: boolean;
 }
 
-export default function AchievementNotification({ achievements, onDismiss }: Props) {
+export default function AchievementNotification({ achievements, onDismiss, isPt = true }: Props) {
   // Show one at a time — pop from front
   const current = achievements[0];
 
@@ -204,10 +205,10 @@ export default function AchievementNotification({ achievements, onDismiss }: Pro
                 }),
               }}
             >
-              {/* "Conquista Desbloqueada" label */}
+              {/* "Achievement Unlocked" label */}
               <View style={{ backgroundColor: rarityBg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, marginBottom: 24 }}>
                 <AppText style={{ color: rarityColor, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
-                  Conquista Desbloqueada
+                  {isPt ? 'Conquista Desbloqueada' : 'Achievement Unlocked'}
                 </AppText>
               </View>
 
@@ -283,7 +284,7 @@ export default function AchievementNotification({ achievements, onDismiss }: Pro
                 }}
               >
                 <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800' }}>
-                  Incrível! 🎉
+                  {isPt ? 'Incrível! 🎉' : 'Awesome! 🎉'}
                 </AppText>
               </TouchableOpacity>
             </View>

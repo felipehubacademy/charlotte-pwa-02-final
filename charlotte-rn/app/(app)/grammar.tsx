@@ -81,6 +81,7 @@ export default function GrammarScreen() {
       <AchievementNotification
         achievements={achievements}
         onDismiss={id => setAchievements(prev => prev.filter(a => a.id !== id))}
+        isPt={userLevel === 'Novice'}
       />
       <EnhancedStatsModal
         isOpen={showStats}
