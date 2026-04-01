@@ -32,7 +32,7 @@ export default function ChangePasswordScreen() {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
   const confirmRef                      = useRef<TextInput>(null);
-  const { session }                     = useAuth();
+  const { session, refreshProfile }     = useAuth();
 
   const handleSave = async () => {
     if (password.length < 8) {
@@ -68,8 +68,12 @@ export default function ChangePasswordScreen() {
         }
         throw authError;
       }
-      // Navigation is handled by AuthGuard: when mustChangePassword becomes false
-      // (triggered by USER_UPDATED → profile refresh), AuthGuard navigates to /(app)/index.
+
+      // USER_UPDATED event does NOT trigger fetchProfile (deadlock prevention).
+      // Manually refresh so mustChangePassword becomes false, then AuthGuard navigates.
+      console.log('[CP] 5 — refreshProfile...');
+      await refreshProfile();
+      console.log('[CP] 6 — refreshProfile done, AuthGuard should navigate');
     } catch (e: any) {
       console.log('[CP] ERRO:', e);
       const msg = (e?.message ?? '') as string;

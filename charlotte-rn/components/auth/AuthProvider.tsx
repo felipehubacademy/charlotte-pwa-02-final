@@ -13,6 +13,7 @@ export interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,11 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (event, session) => {
         try {
           setSession(session);
-          if (session?.user) {
+          if (!session?.user) {
+            setProfile(null);
+          } else if (event !== 'USER_UPDATED') {
+            // Skip fetchProfile on USER_UPDATED: calling a DB query inside this
+            // handler while updateUser() is in-flight causes a Supabase JS deadlock.
+            // first-access.tsx calls refreshProfile() explicitly after updateUser resolves.
             const userProfile = await fetchProfile(session.user.id);
             setProfile(userProfile);
-          } else {
-            setProfile(null);
           }
         } catch (error) {
           console.error('[AuthProvider] onAuthStateChange error:', error);
@@ -84,6 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
     // onAuthStateChange fires with session=null and clears profile — no need to setProfile here
+  };
+
+  const refreshProfile = async () => {
+    if (!session?.user) return;
+    const updated = await fetchProfile(session.user.id);
+    if (updated) setProfile(updated);
   };
 
   const resetPassword = async (email: string) => {
@@ -122,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signIn,
       signOut,
       resetPassword,
+      refreshProfile,
     }}>
       {children}
     </AuthContext.Provider>
