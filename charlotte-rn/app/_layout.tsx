@@ -32,6 +32,8 @@ function AuthGuard() {
       // first-access lives inside (app) Stack so navigation to index is within-Stack
       target = '/(app)/first-access';
     } else {
+      // User is authenticated and active — reset so logout always triggers login redirect
+      lastRoute.current = null;
       return;
     }
 
