@@ -1,151 +1,283 @@
 import React from 'react';
-import { View, Animated } from 'react-native';
+import {
+  View,
+  Modal,
+  TouchableOpacity,
+  Animated,
+  Platform,
+} from 'react-native';
+import {
+  Lightning, Star, Trophy, Fire, Medal,
+} from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { Achievement } from '@/lib/types/achievement';
 
-interface AchievementNotificationProps {
-  achievements: Achievement[];
-  onDismiss: (achievementId: string) => void;
-}
+// ── Palette (matches app light theme) ────────────────────────────────────────
+const C = {
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  navyLight: '#9896B8',
+  green:     '#A3FF3C',
+  greenDark: '#3D8800',
+  greenBg:   '#F0FFD9',
+  sheet:     '#FFFFFF',
+  border:    'rgba(22,21,58,0.08)',
+};
 
 const RARITY_COLORS: Record<Achievement['rarity'], string> = {
-  common: '#4ade80',    // green-400
-  rare: '#60a5fa',      // blue-400
-  epic: '#a855f7',      // purple-500
-  legendary: '#facc15', // yellow-400
+  common:    '#22C55E',
+  rare:      '#3B82F6',
+  epic:      '#A855F7',
+  legendary: '#EAB308',
 };
 
-const SingleAchievement: React.FC<{
-  achievement: Achievement;
-  delay: number;
-  onDismiss: (id: string) => void;
-}> = ({ achievement, delay, onDismiss }) => {
-  const translateX = React.useRef(new Animated.Value(350)).current;
-  const opacity = React.useRef(new Animated.Value(0)).current;
+const RARITY_BG: Record<Achievement['rarity'], string> = {
+  common:    '#F0FFF4',
+  rare:      '#EFF6FF',
+  epic:      '#FAF5FF',
+  legendary: '#FFFBEB',
+};
 
-  React.useEffect(() => {
-    const showTimer = setTimeout(() => {
-      Animated.parallel([
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: true,
-          stiffness: 200,
-          damping: 25,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }, delay);
+// ── Sparkle particle ─────────────────────────────────────────────────────────
+const SPARKLES = [
+  { angle: 0,    dist: 80 },
+  { angle: 45,   dist: 90 },
+  { angle: 90,   dist: 80 },
+  { angle: 135,  dist: 90 },
+  { angle: 180,  dist: 80 },
+  { angle: 225,  dist: 90 },
+  { angle: 270,  dist: 80 },
+  { angle: 315,  dist: 90 },
+];
 
-    const hideTimer = setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(translateX, {
-          toValue: 350,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setTimeout(() => onDismiss(achievement.id), 50);
-      });
-    }, delay + 4000);
-
-    return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
-    };
-  }, []);
-
-  const color = RARITY_COLORS[achievement.rarity];
-
+function SparkleRing({ color, anim }: { color: string; anim: Animated.Value }) {
   return (
-    <Animated.View
-      style={{
-        transform: [{ translateX }],
-        opacity,
-        marginBottom: 12,
-      }}
-    >
-      <View
-        style={{ borderLeftWidth: 3, borderLeftColor: color }}
-        className="bg-surface rounded-2xl p-4 shadow-lg border border-white/20 max-w-xs"
-      >
-        <View className="flex-row items-start space-x-3">
-          <AppText className="text-2xl">{achievement.icon}</AppText>
-          <View className="flex-1">
-            <AppText className="text-white font-bold text-sm leading-tight">
-              {achievement.title}
-            </AppText>
-            <AppText className="text-white/80 text-xs mt-1 leading-tight">
-              {achievement.description}
-            </AppText>
-            {achievement.xpBonus > 0 && (
-              <View className="flex-row items-center mt-2 space-x-2">
-                <AppText className="text-white/80 text-xs font-medium">
-                  +{achievement.xpBonus} XP
-                </AppText>
-                <View className="px-2 py-0.5 bg-white/20 rounded-full">
-                  <AppText className="text-white text-xs font-bold capitalize">
-                    {achievement.rarity}
-                  </AppText>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-    </Animated.View>
+    <>
+      {SPARKLES.map((s, i) => {
+        const rad = (s.angle * Math.PI) / 180;
+        const x = Math.cos(rad) * s.dist;
+        const y = Math.sin(rad) * s.dist;
+        return (
+          <Animated.View
+            key={i}
+            style={{
+              position: 'absolute',
+              width: 8,
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: color,
+              transform: [
+                {
+                  translateX: anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, x],
+                  }),
+                },
+                {
+                  translateY: anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, y],
+                  }),
+                },
+                {
+                  scale: anim.interpolate({
+                    inputRange: [0, 0.3, 1],
+                    outputRange: [0, 1.4, 0],
+                  }),
+                },
+              ],
+              opacity: anim.interpolate({
+                inputRange: [0, 0.2, 0.8, 1],
+                outputRange: [0, 1, 1, 0],
+              }),
+            }}
+          />
+        );
+      })}
+    </>
   );
-};
+}
 
-const AchievementNotification: React.FC<AchievementNotificationProps> = ({
-  achievements,
-  onDismiss,
-}) => {
-  const [processed, setProcessed] = React.useState<Achievement[]>([]);
+// ── Rarity icon ───────────────────────────────────────────────────────────────
+function RarityIcon({ rarity, size = 44 }: { rarity: Achievement['rarity']; size?: number }) {
+  const color = RARITY_COLORS[rarity];
+  switch (rarity) {
+    case 'legendary': return <Trophy    size={size} color={color} weight="fill" />;
+    case 'epic':      return <Fire      size={size} color={color} weight="fill" />;
+    case 'rare':      return <Medal     size={size} color={color} weight="fill" />;
+    default:          return <Lightning size={size} color={color} weight="fill" />;
+  }
+}
+
+// ── Main celebration modal ────────────────────────────────────────────────────
+interface Props {
+  achievements: Achievement[];
+  onDismiss: (id: string) => void;
+}
+
+export default function AchievementNotification({ achievements, onDismiss }: Props) {
+  // Show one at a time — pop from front
+  const current = achievements[0];
+
+  const scaleAnim   = React.useRef(new Animated.Value(0)).current;
+  const opacityAnim = React.useRef(new Animated.Value(0)).current;
+  const sparkAnim   = React.useRef(new Animated.Value(0)).current;
+  const ringAnim    = React.useRef(new Animated.Value(0)).current;
+  const glowAnim    = React.useRef(new Animated.Value(1)).current;
 
   React.useEffect(() => {
-    const existingIds = new Set(processed.map(a => a.id));
-    const newOnes = achievements.filter(a => !existingIds.has(a.id));
-    if (newOnes.length > 0) {
-      setProcessed(prev => [...prev, ...newOnes]);
-    }
-  }, [achievements]);
+    if (!current) return;
 
-  const handleDismiss = (id: string) => {
-    setProcessed(prev => prev.filter(a => a.id !== id));
-    onDismiss(id);
+    // Reset
+    scaleAnim.setValue(0);
+    opacityAnim.setValue(0);
+    sparkAnim.setValue(0);
+    ringAnim.setValue(0);
+    glowAnim.setValue(1);
+
+    // Entrance
+    Animated.parallel([
+      Animated.timing(opacityAnim, { toValue: 1, duration: 250, useNativeDriver: true }),
+      Animated.spring(scaleAnim,   { toValue: 1, stiffness: 220, damping: 18, useNativeDriver: true }),
+    ]).start(() => {
+      // Sparkles burst
+      Animated.timing(sparkAnim, { toValue: 1, duration: 700, useNativeDriver: true }).start();
+      // Pulsing glow on the icon
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, { toValue: 1.12, duration: 600, useNativeDriver: true }),
+          Animated.timing(glowAnim, { toValue: 1,    duration: 600, useNativeDriver: true }),
+        ])
+      ).start();
+    });
+  }, [current?.id]);
+
+  if (!current) return null;
+
+  const rarityColor = RARITY_COLORS[current.rarity];
+  const rarityBg    = RARITY_BG[current.rarity];
+
+  const handleDismiss = () => {
+    Animated.parallel([
+      Animated.timing(opacityAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+      Animated.timing(scaleAnim,   { toValue: 0.85, duration: 200, useNativeDriver: true }),
+    ]).start(() => onDismiss(current.id));
   };
 
-  if (processed.length === 0) return null;
-
   return (
-    <View
-      style={{
-        position: 'absolute',
-        right: 16,
-        top: 80,
-        zIndex: 70,
-      }}
-      pointerEvents="none"
-    >
-      {processed.map((achievement, index) => (
-        <SingleAchievement
-          key={`${achievement.id}-${achievement.title}`}
-          achievement={achievement}
-          delay={800 + index * 1000}
-          onDismiss={handleDismiss}
-        />
-      ))}
-    </View>
-  );
-};
+    <Modal visible transparent animationType="none" statusBarTranslucent onRequestClose={handleDismiss}>
+      <Animated.View
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(22,21,58,0.75)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: opacityAnim,
+        }}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={handleDismiss}
+          style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Animated.View
+            style={{
+              transform: [{ scale: scaleAnim }],
+              alignItems: 'center',
+            }}
+          >
+            {/* Card */}
+            <View
+              style={{
+                backgroundColor: C.sheet,
+                borderRadius: 28,
+                paddingHorizontal: 32,
+                paddingTop: 40,
+                paddingBottom: 36,
+                alignItems: 'center',
+                width: 300,
+                borderWidth: 1,
+                borderColor: C.border,
+                ...Platform.select({
+                  ios:     { shadowColor: rarityColor, shadowOpacity: 0.25, shadowRadius: 24, shadowOffset: { width: 0, height: 8 } },
+                  android: { elevation: 12 },
+                }),
+              }}
+            >
+              {/* "Conquista Desbloqueada" label */}
+              <View style={{ backgroundColor: rarityBg, paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20, marginBottom: 24 }}>
+                <AppText style={{ color: rarityColor, fontSize: 11, fontWeight: '800', letterSpacing: 1, textTransform: 'uppercase' }}>
+                  Conquista Desbloqueada
+                </AppText>
+              </View>
 
-export default AchievementNotification;
+              {/* Icon with sparkles */}
+              <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+                <SparkleRing color={rarityColor} anim={sparkAnim} />
+                <Animated.View
+                  style={{
+                    width: 88,
+                    height: 88,
+                    borderRadius: 24,
+                    backgroundColor: rarityBg,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 2,
+                    borderColor: `${rarityColor}40`,
+                    transform: [{ scale: glowAnim }],
+                  }}
+                >
+                  <RarityIcon rarity={current.rarity} size={44} />
+                </Animated.View>
+              </View>
+
+              {/* Title */}
+              <AppText style={{ color: C.navy, fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 8 }}>
+                {current.title}
+              </AppText>
+
+              {/* Description */}
+              <AppText style={{ color: C.navyMid, fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 20 }}>
+                {current.description}
+              </AppText>
+
+              {/* Rarity pill */}
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                paddingHorizontal: 14, paddingVertical: 6,
+                borderRadius: 20,
+                backgroundColor: rarityBg,
+                borderWidth: 1,
+                borderColor: `${rarityColor}30`,
+                marginBottom: 28,
+              }}>
+                <Star size={12} color={rarityColor} weight="fill" />
+                <AppText style={{ color: rarityColor, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                  {current.rarity}
+                </AppText>
+              </View>
+
+              {/* Dismiss button */}
+              <TouchableOpacity
+                onPress={handleDismiss}
+                activeOpacity={0.85}
+                style={{
+                  backgroundColor: C.green,
+                  paddingHorizontal: 36,
+                  paddingVertical: 14,
+                  borderRadius: 16,
+                  width: '100%',
+                  alignItems: 'center',
+                }}
+              >
+                <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800' }}>
+                  Incrível! 🎉
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
+    </Modal>
+  );
+}

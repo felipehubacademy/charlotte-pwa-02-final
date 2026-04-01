@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CURRICULUM, TrailLevel } from '@/data/curriculum';
+import { useAchievementsContext } from '@/components/achievements/AchievementsProvider';
 
 export interface CompletedKey { m: number; t: number }
 
@@ -32,6 +33,7 @@ interface SaveExerciseParams {
 export function useLearnProgress(userId: string | undefined, level: TrailLevel): UseLearnProgressReturn {
   const [progress, setProgress]   = useState<LearnProgressData | null>(null);
   const [loading,  setLoading]    = useState(true);
+  const { checkForNewAchievements } = useAchievementsContext();
 
   // ── Fetch or initialise progress ────────────────────────────────────────
   useEffect(() => {
@@ -138,7 +140,10 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
       xp_earned:     params.xpEarned,
     });
     if (practiceError) console.error('[useLearnProgress] rn_practice insert error', practiceError);
-  }, [userId]);
+
+    // Check for new achievements 1500ms after XP is saved (gives trigger time to run)
+    setTimeout(() => { checkForNewAchievements(); }, 1500);
+  }, [userId, checkForNewAchievements]);
 
   // ── Derived helpers ──────────────────────────────────────────────────────
   const isTopicComplete = useCallback((moduleIndex: number, topicIndex: number) => {
