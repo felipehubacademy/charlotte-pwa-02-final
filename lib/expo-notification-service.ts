@@ -31,15 +31,16 @@ async function generateReminderMessage(
         : `Heads up: they have a ${streakDays}-day streak at risk today!`)
     : '';
 
-  const prompt = `You are Charlotte, a warm and encouraging English AI teacher.
-Write a short push notification (title + body) to invite a student to practice English today — they haven't practiced yet.
+  const prompt = `You are Charlotte, an AI English teacher. Write a push notification IN FIRST PERSON inviting a student to practice today — they haven't practiced yet.
 - Student first name: ${firstName}
 - Level: ${level}
 ${streakNote ? `- Extra context: ${streakNote}` : ''}
 - Language: Write in ${lang}
-- Tone: warm, personal, gently motivating — like a teacher checking in, NOT pushy or guilt-tripping
+- Tone: warm, personal, gently motivating — like a friend checking in, NOT pushy or guilt-tripping
+- Write in FIRST PERSON as Charlotte ("I", "me", "my") — never refer to yourself in third person
 - Title: 4-6 words max, use 1 relevant emoji
-- Body: 1 sentence max (under 90 chars), mention their name, make it feel personal and inviting
+- Body: 1 sentence max (under 90 chars), mention their name, first person
+- Example body: "I saved a spot for you today, Felipe — come chat with me!"
 Return ONLY valid JSON: {"title": "...", "body": "..."}`;
 
   try {
@@ -95,9 +96,11 @@ Write a short push notification (title + body) celebrating a student who just pr
 - Today's XP earned: ${todayXP}
 ${streakNote ? `- Extra context: ${streakNote}` : ''}
 - Language: Write in ${lang}
-- Tone: warm, personal, motivating — like a real teacher proud of their student
+- Tone: warm, personal, genuinely proud — like a teacher celebrating their student's effort
+- Write in FIRST PERSON as Charlotte ("I", "me", "my") — never refer to yourself in third person
 - Title: 4-6 words max, use 1 relevant emoji
-- Body: 1 sentence max (under 90 chars), mention their name, be specific and encouraging
+- Body: 1 sentence max (under 90 chars), mention their name, first person, be specific
+- Example body: "I loved our session today, ${firstName} — ${todayXP} XP and counting!"
 Return ONLY valid JSON: {"title": "...", "body": "..."}`;
 
   try {
@@ -199,17 +202,18 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
 }
 
 // ── 2. Daily reminder ────────────────────────────────────────────────────────
-export async function sendDailyReminders(supabase: any): Promise<void> {
-  console.log('⏰ [Expo] Sending personalized daily reminders...');
+export async function sendDailyReminders(supabase: any, currentHour: number): Promise<void> {
+  console.log(`⏰ [Expo] Sending personalized daily reminders for preferred hour ${currentHour}h UTC...`);
   try {
     const today = new Date().toISOString().split('T')[0];
+    const hourStr = `${String(currentHour).padStart(2, '0')}:00:00`;
 
-    // Users with expo token who haven't practiced today in EITHER app (PWA or RN)
-    // Join with rn_user_progress to get streak (for streak-at-risk context)
+    // Users whose preferred reminder time matches this hour AND haven't practiced today
     const { data: users } = await supabase
       .from('users')
       .select('id, name, expo_push_token, user_level, rn_user_progress(streak_days)')
       .not('expo_push_token', 'is', null)
+      .eq('preferred_reminder_time', hourStr)
       .not('id', 'in',
         `(SELECT DISTINCT user_id FROM rn_user_practices WHERE created_at::date = '${today}' UNION SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
       );
@@ -245,16 +249,18 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
 }
 
 // ── 3. Charlotte message (motivational) ─────────────────────────────────────
-export async function sendCharlotteMessages(supabase: any): Promise<void> {
-  console.log('💬 [Expo] Sending Charlotte praise messages to users who practiced today...');
+export async function sendCharlotteMessages(supabase: any, currentHour: number): Promise<void> {
+  console.log(`💬 [Expo] Sending Charlotte praise for preferred hour ${currentHour}h UTC...`);
   try {
     const today = new Date().toISOString().split('T')[0];
+    const hourStr = `${String(currentHour).padStart(2, '0')}:00:00`;
 
-    // Users who DID practice today (positive reinforcement, not a reminder)
+    // Users whose preferred reminder time matches this hour AND practiced today
     const { data: progressRows } = await supabase
       .from('rn_user_progress')
-      .select('user_id, streak_days, users!inner(name, expo_push_token, user_level)')
+      .select('user_id, streak_days, users!inner(name, expo_push_token, user_level, preferred_reminder_time)')
       .not('users.expo_push_token', 'is', null)
+      .eq('users.preferred_reminder_time', hourStr)
       .gt('updated_at', `${today}T00:00:00Z`); // updated today = practiced today
 
     if (!progressRows?.length) {
@@ -332,16 +338,17 @@ export async function sendXPMilestoneNotification(
   }
 }
 
-// ── runAll: called by scheduler ──────────────────────────────────────────────
+// ── runAll: called by scheduler every hour ───────────────────────────────────
+// Cron fires every hour (UTC). We send to each user at THEIR preferred hour.
+// preferred_reminder_time is stored as UTC time string "HH:00:00" in Supabase.
 export async function runExpoNotifications(supabase: any, hour: number): Promise<void> {
-  // 8pm (20h UTC-3 = 23h UTC): streak reminders
+  // Streak reminders always at 23h UTC (20h BRT) — not user-configurable
   if (hour === 23) {
     await sendStreakReminders(supabase);
   }
 
-  // 11am (11h UTC-3 = 14h UTC): daily reminder + Charlotte message
-  if (hour === 14) {
-    await sendDailyReminders(supabase);
-    await sendCharlotteMessages(supabase);
-  }
+  // Daily reminder + praise: respect each user's preferred_reminder_time
+  // Pass the current UTC hour so functions filter by matching users
+  await sendDailyReminders(supabase, hour);
+  await sendCharlotteMessages(supabase, hour);
 }
