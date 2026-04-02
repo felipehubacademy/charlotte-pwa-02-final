@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function NotFoundScreen() {
   const { profile } = useAuth();
-  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
+  const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
 
   return (
     <>

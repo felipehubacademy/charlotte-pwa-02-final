@@ -14,7 +14,7 @@ import { Achievement } from '@/lib/types/achievement';
 
 export default function PronunciationScreen() {
   const { profile, signOut } = useAuth();
-  const userLevel = (profile?.user_level ?? 'Novice') as 'Novice' | 'Inter' | 'Advanced';
+  const userLevel = (profile?.charlotte_level ?? 'Novice') as 'Novice' | 'Inter' | 'Advanced';
   const userName  = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const userId    = profile?.id ?? '';
 

@@ -7,7 +7,7 @@ const WHATSAPP_URL = 'https://wa.me/5500000000000?text=Olá! Quero continuar usa
 
 export function TrialExpiredModal() {
   const { profile, hasAccess, signOut } = useAuth();
-  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
+  const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
 
   // Mostra se logado mas sem acesso (trial expirado, inativo, ou sem assinatura)
   const visible = !!profile && !hasAccess;

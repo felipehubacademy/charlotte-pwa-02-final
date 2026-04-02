@@ -125,14 +125,14 @@ export default function EnhancedStatsModal({
     try {
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const [statsRes, historyRes, todayPracticesRes, achievementsRes, todayAchievementsRes] = await Promise.all([
-        supabase.from('rn_user_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
+        supabase.from('charlotte_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
         // Last 10 RN practices (excluding achievement/mission rewards — shown separately)
-        supabase.from('rn_user_practices').select('practice_type,xp_earned,created_at')
+        supabase.from('charlotte_practices').select('practice_type,xp_earned,created_at')
           .eq('user_id', userId)
           .not('practice_type', 'like', 'achievement_reward_%')
           .order('created_at', { ascending: false }).limit(10),
         // Today's XP from practices
-        supabase.from('rn_user_practices').select('xp_earned')
+        supabase.from('charlotte_practices').select('xp_earned')
           .eq('user_id', userId).gte('created_at', todayStart.toISOString()),
         // All achievements for Conquistas tab
         supabase.from('user_achievements').select('*').eq('user_id', userId)

@@ -110,7 +110,7 @@ function SectionTitle({ label }: { label: string }) {
 
 export default function ConfiguracoesScreen() {
   const { profile, signOut } = useAuth();
-  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
+  const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
   const handleSignOut = () => {
     Alert.alert(
       isPt ? 'Sair da conta' : 'Sign out',
@@ -125,10 +125,10 @@ export default function ConfiguracoesScreen() {
     );
   };
 
-  const userLevel          = profile?.user_level ?? '—';
+  const userLevel          = profile?.charlotte_level ?? '—';
   const subscriptionStatus = profile?.subscription_status ?? 'none';
   const isActive           = profile?.is_active;
-  const isInstitutional    = !!profile?.lms_role;
+  const isInstitutional    = !!profile?.is_institutional;
 
   const accessLabel = (() => {
     if (!isActive)                             return { text: isPt ? 'Inativa'       : 'Inactive',      color: C.error };

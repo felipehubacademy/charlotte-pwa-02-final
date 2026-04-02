@@ -536,7 +536,7 @@ export default function HomeScreen() {
   const { profile } = useAuth();
   const insets = useSafeAreaInsets();
   const userId = profile?.id ?? '';
-  const level  = (profile?.user_level ?? 'Novice') as UserLevel;
+  const level  = (profile?.charlotte_level ?? 'Novice') as UserLevel;
   const name   = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const config = LEVEL_CONFIG[level];
 
@@ -547,7 +547,7 @@ export default function HomeScreen() {
   const [showLiveVoice, setShowLiveVoice] = useState(false);
   const [showStats, setShowStats]         = useState(false);
 
-  // Track which mission rewards were already granted today (persisted in rn_user_practices)
+  // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
   const rewardSeedLoadedRef = React.useRef(false);
 
@@ -555,9 +555,9 @@ export default function HomeScreen() {
     if (!userId) return;
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const [prog, prac, achToday] = await Promise.all([
-      supabase.from('rn_user_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
-      supabase.from('rn_user_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', today.toISOString()),
-      // Achievement bonuses earned today (go via direct UPDATE, not in rn_user_practices)
+      supabase.from('charlotte_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
+      supabase.from('charlotte_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', today.toISOString()),
+      // Achievement bonuses earned today (go via direct UPDATE, not in charlotte_practices)
       supabase.from('user_achievements').select('xp_bonus').eq('user_id', userId).gte('earned_at', today.toISOString()),
     ]);
     const practices         = prac.data ?? [];
@@ -574,9 +574,9 @@ export default function HomeScreen() {
         .forEach(p => rewardedMissionsRef.current.add(p.practice_type));
     }
 
-    // Dynamic rank: count rn_leaderboard_cache entries in same level with strictly higher total_xp
+    // Dynamic rank: count charlotte_leaderboard_cache entries in same level with strictly higher total_xp
     const { count: higherCount } = await supabase
-      .from('rn_leaderboard_cache')
+      .from('charlotte_leaderboard_cache')
       .select('*', { count: 'exact', head: true })
       .eq('user_level', level)
       .gt('total_xp', userTotalXP);
@@ -598,7 +598,7 @@ export default function HomeScreen() {
       const rewardKey = `mission_reward_${m.id}`;
       if (m.completed && !rewardedMissionsRef.current.has(rewardKey)) {
         rewardedMissionsRef.current.add(rewardKey);
-        const { error } = await supabase.from('rn_user_practices').insert({
+        const { error } = await supabase.from('charlotte_practices').insert({
           user_id:       userId,
           practice_type: rewardKey,
           xp_earned:     m.xpReward,

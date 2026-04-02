@@ -173,7 +173,7 @@ export default function LearnSessionScreen() {
 
   const { profile } = useAuth();
   const userId      = profile?.id;
-  const userLevel   = (profile?.user_level ?? 'Inter') as string;
+  const userLevel   = (profile?.charlotte_level ?? 'Inter') as string;
   const isPortuguese = userLevel === 'Novice';
   const baseTotalXP = useTotalXP(userId);
   const [showStats, setShowStats] = useState(false);

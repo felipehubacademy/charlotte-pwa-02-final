@@ -33,7 +33,7 @@ const C = {
 
 export default function ChangePasswordScreen() {
   const { profile } = useAuth();
-  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
+  const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
 
   const [current,    setCurrent]    = useState('');
   const [newPass,    setNewPass]    = useState('');

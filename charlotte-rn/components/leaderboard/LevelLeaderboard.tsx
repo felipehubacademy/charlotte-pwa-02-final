@@ -83,7 +83,7 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({ userLevel, userId, 
     setLoading(true); setError(null);
     try {
       const { data: rows, error: err } = await supabase
-        .from('rn_leaderboard_cache')
+        .from('charlotte_leaderboard_cache')
         .select('user_id,display_name,total_xp')
         .eq('user_level', userLevel)
         .order('total_xp', { ascending: false })
@@ -96,13 +96,13 @@ const LevelLeaderboard: React.FC<LevelLeaderboardProps> = ({ userLevel, userId, 
       // If current user is missing from cache, fetch their progress and inject them
       if (userId && !allRows.find((r: any) => r.user_id === userId)) {
         const { data: myProg } = await supabase
-          .from('rn_user_progress')
+          .from('charlotte_progress')
           .select('total_xp')
           .eq('user_id', userId)
           .maybeSingle();
 
         if (myProg != null) {
-          const myDisplayName = userName ? toDisplayName(userName) : 'Você';
+          const myDisplayName = userName ? toDisplayName(userName) : (isPortuguese ? 'Você' : 'You');
           allRows = [
             ...allRows,
             { user_id: userId, display_name: myDisplayName, total_xp: myProg.total_xp ?? 0 },

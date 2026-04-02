@@ -163,36 +163,51 @@ async function sendExpoPush(messages: ExpoMessage[]): Promise<{ sent: number; er
   return { sent, errors };
 }
 
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+/** Fetch charlotte_users rows for a list of user_ids (token + name + level). */
+async function fetchCharlotteUsers(supabase: any, userIds: string[]) {
+  if (!userIds.length) return [];
+  const { data } = await supabase
+    .from('charlotte_users')
+    .select('id, name, expo_push_token, charlotte_level')
+    .in('id', userIds)
+    .not('expo_push_token', 'is', null);
+  return (data ?? []).filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken['));
+}
+
 // ── 1. Streak reminders ──────────────────────────────────────────────────────
 export async function sendStreakReminders(supabase: any): Promise<void> {
   console.log('🔥 [Expo] Checking streak reminders...');
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // Users with streak > 0 who haven't practiced today in EITHER app (PWA or RN)
-    const { data: usersAtRisk } = await supabase
-      .from('rn_user_progress')
-      .select('user_id, streak_days, users!inner(expo_push_token, user_level, name)')
+    // Users with streak > 0 who haven't practiced today
+    const { data: atRisk } = await supabase
+      .from('charlotte_progress')
+      .select('user_id, streak_days')
       .gt('streak_days', 0)
       .not('user_id', 'in',
-        `(SELECT DISTINCT user_id FROM rn_user_practices WHERE created_at::date = '${today}' UNION SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
+        `(SELECT DISTINCT user_id FROM charlotte_practices WHERE created_at::date = '${today}')`
       );
 
-    if (!usersAtRisk?.length) {
-      console.log('✅ [Expo] No streak risks today');
-      return;
-    }
+    if (!atRisk?.length) { console.log('✅ [Expo] No streak risks today'); return; }
 
-    const messages: ExpoMessage[] = usersAtRisk
-      .filter((u: any) => u.users?.expo_push_token?.startsWith('ExponentPushToken['))
-      .map((u: any) => ({
-        to: u.users.expo_push_token,
+    const userIds = atRisk.map((r: any) => r.user_id);
+    const cuUsers = await fetchCharlotteUsers(supabase, userIds);
+    const streakMap = Object.fromEntries(atRisk.map((r: any) => [r.user_id, r.streak_days]));
+
+    const messages: ExpoMessage[] = cuUsers.map((u: any) => {
+      const days = streakMap[u.id] ?? 1;
+      return {
+        to: u.expo_push_token,
         title: '🔥 Streak em risco!',
-        body: `Sua sequência de ${u.streak_days} ${u.streak_days === 1 ? 'dia' : 'dias'} está em risco. Pratique agora com a Charlotte!`,
+        body: `Sua sequência de ${days} ${days === 1 ? 'dia' : 'dias'} está em risco. Pratique agora com a Charlotte!`,
         data: { screen: 'chat', type: 'streak_reminder' },
         sound: 'default',
         priority: 'high',
-      }));
+      };
+    });
 
     const { sent, errors } = await sendExpoPush(messages);
     console.log(`✅ [Expo] Streak reminders: ${sent} sent, ${errors} errors`);
@@ -207,28 +222,36 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // All users with expo token who haven't practiced today
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, name, expo_push_token, user_level, rn_user_progress(streak_days)')
+    // charlotte_users who have a token and haven't practiced today
+    const { data: cuUsers } = await supabase
+      .from('charlotte_users')
+      .select('id, name, expo_push_token, charlotte_level')
       .not('expo_push_token', 'is', null)
       .not('id', 'in',
-        `(SELECT DISTINCT user_id FROM rn_user_practices WHERE created_at::date = '${today}' UNION SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
+        `(SELECT DISTINCT user_id FROM charlotte_practices WHERE created_at::date = '${today}')`
       );
 
-    if (!users?.length) {
-      console.log('✅ [Expo] All users practiced today');
-      return;
-    }
+    const eligible = (cuUsers ?? []).filter((u: any) =>
+      u.expo_push_token?.startsWith('ExponentPushToken[')
+    );
 
-    const eligible = users.filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken['));
-    console.log(`⏰ [Expo] Generating reminders for ${eligible.length} users who haven't practiced...`);
+    if (!eligible.length) { console.log('✅ [Expo] All users practiced today'); return; }
+
+    // Fetch streaks for eligible users
+    const userIds = eligible.map((u: any) => u.id);
+    const { data: progRows } = await supabase
+      .from('charlotte_progress')
+      .select('user_id, streak_days')
+      .in('user_id', userIds);
+    const streakMap = Object.fromEntries((progRows ?? []).map((r: any) => [r.user_id, r.streak_days]));
+
+    console.log(`⏰ [Expo] Generating reminders for ${eligible.length} users...`);
 
     const messages: ExpoMessage[] = [];
     for (const u of eligible) {
       const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
-      const streakDays = u.rn_user_progress?.[0]?.streak_days ?? 0;
-      const msg = await generateReminderMessage(firstName, u.user_level ?? 'Inter', streakDays);
+      const streakDays = streakMap[u.id] ?? 0;
+      const msg = await generateReminderMessage(firstName, u.charlotte_level ?? 'Inter', streakDays);
       messages.push({
         to: u.expo_push_token,
         title: msg.title,
@@ -252,40 +275,46 @@ export async function sendCharlotteMessages(supabase: any): Promise<void> {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // All users who practiced today (positive reinforcement)
-    const { data: progressRows } = await supabase
-      .from('rn_user_progress')
-      .select('user_id, streak_days, users!inner(name, expo_push_token, user_level)')
-      .not('users.expo_push_token', 'is', null)
-      .gt('updated_at', `${today}T00:00:00Z`); // updated today = practiced today
+    // Users who practiced today via charlotte_practices
+    const { data: practicedRows } = await supabase
+      .from('charlotte_practices')
+      .select('user_id')
+      .gte('created_at', `${today}T00:00:00Z`);
 
-    if (!progressRows?.length) {
-      console.log('✅ [Expo] No users practiced today yet');
-      return;
+    const practicedIds = [...new Set((practicedRows ?? []).map((r: any) => r.user_id))] as string[];
+    if (!practicedIds.length) { console.log('✅ [Expo] No users practiced today yet'); return; }
+
+    const cuUsers = await fetchCharlotteUsers(supabase, practicedIds);
+    if (!cuUsers.length) return;
+
+    // Fetch streaks + today XP for these users
+    const { data: progRows } = await supabase
+      .from('charlotte_progress')
+      .select('user_id, streak_days')
+      .in('user_id', practicedIds);
+    const streakMap = Object.fromEntries((progRows ?? []).map((r: any) => [r.user_id, r.streak_days]));
+
+    const { data: xpRows } = await supabase
+      .from('charlotte_practices')
+      .select('user_id, xp_earned')
+      .in('user_id', practicedIds)
+      .gte('created_at', `${today}T00:00:00Z`);
+    const xpMap: Record<string, number> = {};
+    for (const r of (xpRows ?? [])) {
+      xpMap[r.user_id] = (xpMap[r.user_id] ?? 0) + (r.xp_earned ?? 0);
     }
 
-    const eligible = progressRows.filter(
-      (r: any) => r.users?.expo_push_token?.startsWith('ExponentPushToken[')
-    );
+    console.log(`💬 [Expo] Generating personalized messages for ${cuUsers.length} users...`);
 
-    console.log(`💬 [Expo] Generating personalized messages for ${eligible.length} users...`);
-
-    // Generate personalized GPT message per user (sequential to avoid rate limits)
     const messages: ExpoMessage[] = [];
-    for (const row of eligible) {
-      const u = row.users;
+    for (const u of cuUsers) {
       const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
-
-      // Fetch today's XP for this user
-      const { data: practices } = await supabase
-        .from('rn_user_practices')
-        .select('xp_earned')
-        .eq('user_id', row.user_id)
-        .gte('created_at', `${today}T00:00:00Z`);
-      const todayXP = (practices ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
-
-      const msg = await generateCharlotteMessage(firstName, u.user_level ?? 'Inter', row.streak_days ?? 0, todayXP);
-
+      const msg = await generateCharlotteMessage(
+        firstName,
+        u.charlotte_level ?? 'Inter',
+        streakMap[u.id] ?? 0,
+        xpMap[u.id] ?? 0
+      );
       messages.push({
         to: u.expo_push_token,
         title: msg.title,

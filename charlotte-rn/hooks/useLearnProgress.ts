@@ -133,8 +133,8 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     });
     if (error) console.error('[useLearnProgress] history insert error', error);
 
-    // Save to rn_user_practices so XP flows to rn_user_progress & rn_leaderboard_cache via trigger
-    const { error: practiceError } = await supabase.from('rn_user_practices').insert({
+    // Save to charlotte_practices so XP flows to charlotte_progress & charlotte_leaderboard_cache via trigger
+    const { error: practiceError } = await supabase.from('charlotte_practices').insert({
       user_id:       userId,
       practice_type: 'learn_exercise',
       xp_earned:     params.xpEarned,

@@ -155,7 +155,7 @@ async function registerForPushNotifications(): Promise<string | null> {
 // ── Save token to Supabase ───────────────────────────────────────────────────
 async function saveTokenToSupabase(userId: string, token: string) {
   const { error } = await supabase
-    .from('users')
+    .from('charlotte_users')
     .update({ expo_push_token: token })
     .eq('id', userId);
 

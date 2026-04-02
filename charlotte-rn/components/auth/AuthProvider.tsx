@@ -8,8 +8,8 @@ export interface AuthContextType {
   profile: UserProfile | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  hasAccess: boolean;           // lms_role válido OU subscription ativa/trial
-  mustChangePassword: boolean;  // aluno institucional no primeiro acesso
+  hasAccess: boolean;           // is_institutional OR active/trial subscription
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -23,13 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Register push notifications after login
   usePushNotifications(session?.user?.id);
 
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     const { data, error } = await supabase
-      .from('users')
-      .select('id, email, name, user_level, is_active, lms_role, subscription_status, trial_ends_at, must_change_password')
+      .from('charlotte_users')
+      .select('id, email, name, charlotte_level, placement_test_done, is_institutional, is_active, subscription_status, trial_ends_at, must_change_password')
       .eq('id', userId)
       .single();
 
@@ -52,7 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch((error) => {
         console.error('[AuthProvider] getSession error:', error);
-        setIsLoading(false); // never leave the app stuck on loading
+        setIsLoading(false);
       });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -62,9 +61,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!session?.user) {
             setProfile(null);
           } else if (event !== 'USER_UPDATED') {
-            // Skip fetchProfile on USER_UPDATED: calling a DB query inside this
-            // handler while updateUser() is in-flight causes a Supabase JS deadlock.
-            // first-access.tsx calls refreshProfile() explicitly after updateUser resolves.
             const userProfile = await fetchProfile(session.user.id);
             setProfile(userProfile);
           }
@@ -87,7 +83,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
-    // onAuthStateChange fires with session=null and clears profile — no need to setProfile here
   };
 
   const refreshProfile = async () => {
@@ -98,19 +93,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      // Deep link opens the app directly on iOS/Android.
-      // On web (PWA) it falls back to the Supabase project URL.
       redirectTo: 'charlotte://auth/callback',
     });
     if (error) throw error;
   };
 
-  // Acesso liberado se:
-  //   (a) usuário institucional: lms_role preenchido + is_active
-  //   (b) assinante app: subscription_status active ou trial (+ trial não expirado)
+  // Access granted if:
+  //   (a) institutional user (admin-managed, bypasses paywall)
+  //   (b) app subscriber: active or non-expired trial
   const hasAccess = (() => {
     if (!profile || !profile.is_active) return false;
-    if (profile.lms_role) return true;  // institucional — bypass paywall
+    if (profile.is_institutional) return true;
     if (profile.subscription_status === 'active') return true;
     if (profile.subscription_status === 'trial') {
       if (!profile.trial_ends_at) return true;

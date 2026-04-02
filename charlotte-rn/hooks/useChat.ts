@@ -53,13 +53,13 @@ function delay(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
-/** Persist a practice event to rn_user_practices (fires DB trigger → rn_user_progress + rn_leaderboard_cache). */
+/** Persist a practice event to charlotte_practices (fires DB trigger → charlotte_progress + charlotte_leaderboard_cache). */
 async function savePractice(
   userId: string,
   practiceType: 'text_message' | 'audio_message',
   xpEarned: number,
 ): Promise<void> {
-  const { error } = await supabase.from('rn_user_practices').insert({
+  const { error } = await supabase.from('charlotte_practices').insert({
     user_id:       userId,
     practice_type: practiceType,
     xp_earned:     xpEarned,
@@ -126,11 +126,11 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
   const historyLoadedRef = useRef(false);
   const { checkForNewAchievements } = useAchievementsContext();
 
-  // Load real totalXP from rn_user_progress on mount
+  // Load real totalXP from charlotte_progress on mount
   React.useEffect(() => {
     if (!userId) return;
     supabase
-      .from('rn_user_progress')
+      .from('charlotte_progress')
       .select('total_xp')
       .eq('user_id', userId)
       .maybeSingle()

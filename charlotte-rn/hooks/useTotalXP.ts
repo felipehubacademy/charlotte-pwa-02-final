@@ -14,7 +14,7 @@ export function useTotalXP(userId: string | undefined): number {
   useEffect(() => {
     if (!userId) return;
     supabase
-      .from('rn_user_progress')
+      .from('charlotte_progress')
       .select('total_xp')
       .eq('user_id', userId)
       .maybeSingle()

@@ -32,7 +32,7 @@ interface AchievementsProviderProps {
 export function AchievementsProvider({ children }: AchievementsProviderProps) {
   const { profile } = useAuth();
   const userId = profile?.id;
-  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
+  const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
   const { pendingAchievements, dismissAchievement, checkForNewAchievements } = useAchievements(userId);
 
   return (

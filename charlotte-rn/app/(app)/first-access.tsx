@@ -33,7 +33,7 @@ export default function FirstAccessScreen() {
   const confirmRef                      = useRef<TextInput>(null);
   const { session, refreshProfile, profile } = useAuth();
   const userEmail                            = session?.user?.email ?? '';
-  const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
+  const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
 
   const handleSave = async () => {
     if (password.length < 8) {
@@ -49,7 +49,7 @@ export default function FirstAccessScreen() {
     try {
       if (session?.user?.id) {
         const { error: dbErr } = await supabase
-          .from('users')
+          .from('charlotte_users')
           .update({ must_change_password: false })
           .eq('id', session.user.id);
         if (dbErr) throw dbErr;
@@ -59,7 +59,7 @@ export default function FirstAccessScreen() {
 
       if (authError) {
         if (session?.user?.id) {
-          await supabase.from('users').update({ must_change_password: true }).eq('id', session.user.id);
+          await supabase.from('charlotte_users').update({ must_change_password: true }).eq('id', session.user.id);
         }
         throw authError;
       }
