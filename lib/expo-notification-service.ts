@@ -202,18 +202,16 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
 }
 
 // ── 2. Daily reminder ────────────────────────────────────────────────────────
-export async function sendDailyReminders(supabase: any, currentHour: number): Promise<void> {
-  console.log(`⏰ [Expo] Sending personalized daily reminders for preferred hour ${currentHour}h UTC...`);
+export async function sendDailyReminders(supabase: any): Promise<void> {
+  console.log('⏰ [Expo] Sending personalized daily reminders...');
   try {
     const today = new Date().toISOString().split('T')[0];
-    const hourStr = `${String(currentHour).padStart(2, '0')}:00:00`;
 
-    // Users whose preferred reminder time matches this hour AND haven't practiced today
+    // All users with expo token who haven't practiced today
     const { data: users } = await supabase
       .from('users')
       .select('id, name, expo_push_token, user_level, rn_user_progress(streak_days)')
       .not('expo_push_token', 'is', null)
-      .eq('preferred_reminder_time', hourStr)
       .not('id', 'in',
         `(SELECT DISTINCT user_id FROM rn_user_practices WHERE created_at::date = '${today}' UNION SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
       );
@@ -249,18 +247,16 @@ export async function sendDailyReminders(supabase: any, currentHour: number): Pr
 }
 
 // ── 3. Charlotte message (motivational) ─────────────────────────────────────
-export async function sendCharlotteMessages(supabase: any, currentHour: number): Promise<void> {
-  console.log(`💬 [Expo] Sending Charlotte praise for preferred hour ${currentHour}h UTC...`);
+export async function sendCharlotteMessages(supabase: any): Promise<void> {
+  console.log('💬 [Expo] Sending Charlotte praise messages to users who practiced today...');
   try {
     const today = new Date().toISOString().split('T')[0];
-    const hourStr = `${String(currentHour).padStart(2, '0')}:00:00`;
 
-    // Users whose preferred reminder time matches this hour AND practiced today
+    // All users who practiced today (positive reinforcement)
     const { data: progressRows } = await supabase
       .from('rn_user_progress')
-      .select('user_id, streak_days, users!inner(name, expo_push_token, user_level, preferred_reminder_time)')
+      .select('user_id, streak_days, users!inner(name, expo_push_token, user_level)')
       .not('users.expo_push_token', 'is', null)
-      .eq('users.preferred_reminder_time', hourStr)
       .gt('updated_at', `${today}T00:00:00Z`); // updated today = practiced today
 
     if (!progressRows?.length) {
@@ -338,17 +334,20 @@ export async function sendXPMilestoneNotification(
   }
 }
 
-// ── runAll: called by scheduler every hour ───────────────────────────────────
-// Cron fires every hour (UTC). We send to each user at THEIR preferred hour.
-// preferred_reminder_time is stored as UTC time string "HH:00:00" in Supabase.
+// ── runAll: called by scheduler ──────────────────────────────────────────────
+// Fixed schedule — optimise with analytics once we have data on when users study.
+// Current times (UTC):
+//   14h UTC = 11h BRT  → daily reminder (morning, before lunch)
+//   21h UTC = 18h BRT  → praise for who practiced + streak reminder (end of day)
 export async function runExpoNotifications(supabase: any, hour: number): Promise<void> {
-  // Streak reminders always at 23h UTC (20h BRT) — not user-configurable
-  if (hour === 23) {
-    await sendStreakReminders(supabase);
+  if (hour === 14) {
+    // Morning: remind everyone who hasn't practiced yet
+    await sendDailyReminders(supabase);
   }
 
-  // Daily reminder + praise: respect each user's preferred_reminder_time
-  // Pass the current UTC hour so functions filter by matching users
-  await sendDailyReminders(supabase, hour);
-  await sendCharlotteMessages(supabase, hour);
+  if (hour === 21) {
+    // Evening: celebrate who practiced today + warn streak at risk
+    await sendCharlotteMessages(supabase);
+    await sendStreakReminders(supabase);
+  }
 }
