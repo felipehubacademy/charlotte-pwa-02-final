@@ -38,7 +38,7 @@ export default function AnimatedXPBadge({
 
   const prevXP          = useRef(xp);
   const isInitialLoad   = useRef(true);   // true until DB value has been received
-  const initTimerRef    = useRef<ReturnType<typeof setTimeout>>();
+  const initTimerRef    = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [displayXP, setDisplayXP] = useState(xp);
   const animValue       = useRef(new Animated.Value(xp)).current;
   const scaleAnim       = useRef(new Animated.Value(1)).current;

@@ -42,8 +42,8 @@ export async function sendXPMilestoneNotification(milestone: number) {
 
 // ── Main hook ────────────────────────────────────────────────────────────────
 export function usePushNotifications(userId?: string) {
-  const notificationListener = React.useRef<Notifications.Subscription>();
-  const responseListener = React.useRef<Notifications.Subscription>();
+  const notificationListener = React.useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = React.useRef<Notifications.Subscription | undefined>(undefined);
 
   React.useEffect(() => {
     // Configure how notifications appear while the app is open.
@@ -53,6 +53,8 @@ export function usePushNotifications(userId?: string) {
       Notifications.setNotificationHandler({
         handleNotification: async () => ({
           shouldShowAlert: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
           shouldPlaySound: true,
           shouldSetBadge: false,
         }),

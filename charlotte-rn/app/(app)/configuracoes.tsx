@@ -2,22 +2,16 @@ import React from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as SecureStore from 'expo-secure-store';
-import * as Notifications from 'expo-notifications';
-import { supabase } from '@/lib/supabase';
 import {
   CaretLeft,
   CaretRight,
   User,
-  Lock,
   Key,
   DeviceMobile,
   GraduationCap,
   SignOut,
   ShieldCheck,
   CheckCircle,
-  Bell,
-  Clock,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,25 +38,6 @@ const C = {
   }),
 };
 
-const REMINDER_KEY = 'push_reminder_hour';
-const REMINDER_OPTIONS = [6, 7, 8, 9, 10, 11, 12, 17, 18, 19, 20, 21, 22];
-
-async function scheduleOrCancelDailyReminder(hour: number | null, isPt = true) {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  if (hour === null) return;
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: isPt ? 'Hora de praticar!' : 'Time to practise!',
-      body:  isPt ? 'Que tal conversar com a Charlotte hoje?' : 'How about a session with Charlotte today?',
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute: 0,
-    },
-  });
-}
 
 interface SettingRowProps {
   icon: React.ReactNode;
@@ -135,16 +110,7 @@ function SectionTitle({ label }: { label: string }) {
 
 export default function ConfiguracoesScreen() {
   const { profile, signOut } = useAuth();
-  const userId = profile?.id;
   const isPt = (profile?.user_level ?? 'Novice') === 'Novice';
-  const [reminderHour, setReminderHour] = React.useState<number | null>(null);
-
-  React.useEffect(() => {
-    SecureStore.getItemAsync(REMINDER_KEY)
-      .then(val => { if (val !== null) setReminderHour(parseInt(val, 10)); })
-      .catch(() => {});
-  }, []);
-
   const handleSignOut = () => {
     Alert.alert(
       isPt ? 'Sair da conta' : 'Sign out',
@@ -156,43 +122,6 @@ export default function ConfiguracoesScreen() {
           onPress: () => { signOut().catch(console.error); },
         },
       ]
-    );
-  };
-
-  const handleReminderPress = () => {
-    const buttons = [
-      ...REMINDER_OPTIONS.map(h => ({
-        text: `${h.toString().padStart(2, '0')}:00`,
-        onPress: async () => {
-          setReminderHour(h);
-          await SecureStore.setItemAsync(REMINDER_KEY, String(h));
-          await scheduleOrCancelDailyReminder(h, isPt);
-          if (userId) {
-            supabase.from('users')
-              .update({ preferred_reminder_time: `${String(h).padStart(2, '0')}:00:00` })
-              .eq('id', userId).then(() => {}).catch(() => {});
-          }
-        },
-      })),
-      {
-        text: isPt ? 'Desativar' : 'Disable', style: 'destructive' as const,
-        onPress: async () => {
-          setReminderHour(null);
-          await SecureStore.deleteItemAsync(REMINDER_KEY).catch(() => {});
-          await scheduleOrCancelDailyReminder(null, isPt);
-          if (userId) {
-            supabase.from('users')
-              .update({ preferred_reminder_time: null })
-              .eq('id', userId).then(() => {}).catch(() => {});
-          }
-        },
-      },
-      { text: isPt ? 'Cancelar' : 'Cancel', style: 'cancel' as const },
-    ];
-    Alert.alert(
-      isPt ? 'Lembrete diário' : 'Daily reminder',
-      isPt ? 'Escolha o horário do seu lembrete:' : 'Choose your reminder time:',
-      buttons
     );
   };
 
@@ -209,10 +138,6 @@ export default function ConfiguracoesScreen() {
     if (subscriptionStatus === 'expired')      return { text: isPt ? 'Expirada'      : 'Expired',       color: C.error };
     return                                            { text: isPt ? 'Sem acesso'    : 'No access',     color: C.error };
   })();
-
-  const reminderLabel = reminderHour !== null
-    ? `${reminderHour.toString().padStart(2, '0')}:00`
-    : isPt ? 'Desativado' : 'Disabled';
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
@@ -291,16 +216,6 @@ export default function ConfiguracoesScreen() {
           icon={<Key size={18} color={C.navyMid} weight="duotone" />}
           label={isPt ? 'Alterar senha' : 'Change password'}
           onPress={() => router.push('/(app)/change-password')}
-          chevron
-        />
-
-        {/* Notifications */}
-        <SectionTitle label={isPt ? 'Notificações' : 'Notifications'} />
-        <SettingRow
-          icon={<Clock size={18} color={C.navyMid} weight="duotone" />}
-          label={isPt ? 'Lembrete diário' : 'Daily reminder'}
-          value={reminderLabel}
-          onPress={handleReminderPress}
           chevron
         />
 

@@ -9,6 +9,23 @@ import {
 } from 'expo-audio';
 import Constants from 'expo-constants';
 
+// ── WAV/PCM preset for Azure Speech SDK ─────────────────────────
+// Azure Pronunciation Assessment requires PCM audio (16kHz, 16-bit, mono).
+// On iOS, LinearPCM output satisfies this directly without any server-side
+// conversion. On Android we keep M4A since Azure support there is secondary.
+export const PRONUNCIATION_RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  ios: {
+    extension: '.wav',
+    outputFormat: 'lpcm' as any,  // IOSOutputFormat.LINEARPCM
+    audioQuality: 127,            // IOSAudioQuality.MAX
+    sampleRate: 16000,
+    linearPCMBitDepth: 16,
+    linearPCMIsBigEndian: false,
+    linearPCMIsFloat: false,
+  },
+} as typeof RecordingPresets.HIGH_QUALITY;
+
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
 
@@ -28,13 +45,15 @@ interface AudioRecorderResult {
   hasPermission: boolean | null;
 }
 
-export function useAudioRecorder(): AudioRecorderResult {
+export function useAudioRecorder(
+  options: typeof RecordingPresets.HIGH_QUALITY = RecordingPresets.HIGH_QUALITY
+): AudioRecorderResult {
   const [state, setState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 
   // expo-audio recorder instance (lifecycle managed by the hook)
-  const recorder = useExpoAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder = useExpoAudioRecorder(options);
 
   const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
   const durationRef = useRef(0);
@@ -129,11 +148,12 @@ export function useAudioRecorder(): AudioRecorderResult {
  */
 export async function transcribeAudio(audioUri: string): Promise<string | null> {
   try {
+    const isWav = audioUri.toLowerCase().endsWith('.wav');
     const formData = new FormData();
     formData.append('audio', {
       uri: audioUri,
-      name: 'recording.m4a',
-      type: 'audio/m4a',
+      name: isWav ? 'recording.wav' : 'recording.m4a',
+      type: isWav ? 'audio/wav' : 'audio/m4a',
     } as any);
 
     const response = await fetch(`${API_BASE_URL}/api/transcribe`, {

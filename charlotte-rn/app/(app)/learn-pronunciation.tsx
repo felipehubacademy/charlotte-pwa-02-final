@@ -8,11 +8,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
   ArrowLeft, ArrowRight, Play, Pause, Microphone,
-  CheckCircle, XCircle, Lightning, SpeakerHigh, Headphones,
+  CheckCircle, XCircle, SpeakerHigh, Headphones,
 } from 'phosphor-react-native';
+import AnimatedXPBadge from '@/components/ui/AnimatedXPBadge';
+import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '@/hooks/useAuth';
+import { useTotalXP } from '@/hooks/useTotalXP';
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import Constants from 'expo-constants';
@@ -159,7 +162,10 @@ const TYPE_LABELS: Record<ExerciseType, string> = {
 
 export default function LearnPronunciationScreen() {
   const { profile } = useAuth();
+  const userId    = profile?.id;
   const userLevel = (profile?.user_level ?? 'Inter') as string;
+  const baseTotalXP = useTotalXP(userId);
+  const [showStats, setShowStats] = useState(false);
 
   const [stepIndex, setStepIndex]       = useState(0);
   const [isComplete, setIsComplete]     = useState(false);
@@ -374,16 +380,9 @@ export default function LearnPronunciationScreen() {
             Pronunciation
           </AppText>
         </View>
-        <View style={{
-          flexDirection: 'row', alignItems: 'center', gap: 4,
-          backgroundColor: sessionXP > 0 ? 'rgba(61,136,0,0.10)' : C.ghost,
-          borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
-        }}>
-          <Lightning size={13} color={sessionXP > 0 ? C.greenDark : C.navyLight} weight="fill" />
-          <AppText style={{ fontSize: 13, fontWeight: '800', color: sessionXP > 0 ? C.greenDark : C.navyLight }}>
-            {sessionXP}
-          </AppText>
-        </View>
+        <TouchableOpacity onPress={() => setShowStats(true)} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <AnimatedXPBadge xp={baseTotalXP + sessionXP} iconSize={13} fontSize={13} padH={10} padV={5} />
+        </TouchableOpacity>
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -447,7 +446,7 @@ export default function LearnPronunciationScreen() {
                 Something went wrong. Try again.
               </AppText>
               <TouchableOpacity
-                onPress={() => loadPhrase(exerciseType, usedPhrases)}
+                onPress={() => loadStep(stepIndex)}
                 style={{ backgroundColor: C.navy, borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12 }}
               >
                 <AppText style={{ fontSize: 14, fontWeight: '700', color: '#FFF' }}>Try again</AppText>
@@ -726,6 +725,15 @@ export default function LearnPronunciationScreen() {
           </View>
         )}
       </KeyboardAvoidingView>
+
+      <EnhancedStatsModal
+        isOpen={showStats}
+        onClose={() => setShowStats(false)}
+        sessionXP={sessionXP}
+        totalXP={baseTotalXP + sessionXP}
+        userId={userId}
+        userLevel={userLevel as 'Novice' | 'Inter' | 'Advanced' | undefined}
+      />
     </SafeAreaView>
   );
 }

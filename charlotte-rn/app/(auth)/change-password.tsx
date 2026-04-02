@@ -69,7 +69,7 @@ export default function ChangePasswordScreen() {
       }
 
       console.log('[CP] 5 — navegando para /(app)/index...');
-      router.replace('/(app)/index');
+      router.replace('/(app)');
       console.log('[CP] 6 — navegação chamada');
     } catch (e: any) {
       console.log('[CP] ERRO:', e);

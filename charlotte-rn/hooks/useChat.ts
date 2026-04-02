@@ -137,7 +137,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       .then(({ data }) => {
         if (data) setTotalXP(data.total_xp ?? 0);
       })
-      .catch(() => {});
+      .then(undefined, () => {});
   }, [userId]);
 
   const contextManagerRef = useRef(

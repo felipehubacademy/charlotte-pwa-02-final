@@ -16,7 +16,7 @@ import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useAudioRecorder, setAudioModeAsync } from 'expo-audio';
+import { useAudioRecorder, setAudioModeAsync, RecordingPresets } from 'expo-audio';
 import Constants from 'expo-constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useTotalXP } from '@/hooks/useTotalXP';
@@ -249,13 +249,16 @@ export default function LearnSessionScreen() {
 
   // WAV/PCM 16kHz mono — required by Azure Speech SDK (M4A causes NoMatch)
   const recorder = useAudioRecorder({
-    extension: '.wav',
-    sampleRate: 16000,
-    numberOfChannels: 1,
-    bitRate: 256000,
-    linearPCMBitDepth: 16,
-    linearPCMIsBigEndian: false,
-    linearPCMIsFloat: false,
+    ...RecordingPresets.HIGH_QUALITY,
+    ios: {
+      extension: '.wav',
+      outputFormat: 'lpcm' as any,
+      audioQuality: 127,
+      sampleRate: 16000,
+      linearPCMBitDepth: 16,
+      linearPCMIsBigEndian: false,
+      linearPCMIsFloat: false,
+    },
   });
   const recordingRef      = useRef(false);
   const recordingStartRef = useRef(0);
@@ -925,13 +928,14 @@ export default function LearnSessionScreen() {
                       </AppText>
                     </View>
                   )}
-                  {/* Error fallback */}
-                  {pronStatus === 'error' && (
-                    <AppText style={{ color: C.red, fontSize: 13, textAlign: 'center', marginBottom: 12 }}>
-                      {isPortuguese ? 'Não foi possível avaliar. Toque em Próximo para continuar.' : 'Could not assess. Tap Next to continue.'}
-                    </AppText>
-                  )}
                 </Animated.View>
+              )}
+
+              {/* Error fallback — shown when assessment failed */}
+              {pronStatus === 'error' && (
+                <AppText style={{ color: C.red, fontSize: 13, textAlign: 'center', marginBottom: 12, marginTop: 8 }}>
+                  {isPortuguese ? 'Não foi possível avaliar. Toque em Próximo para continuar.' : 'Could not assess. Tap Next to continue.'}
+                </AppText>
               )}
 
               {/* Retry prompt — shown when assessment returned all-zero scores */}
@@ -1037,7 +1041,7 @@ export default function LearnSessionScreen() {
         sessionXP={sessionXP}
         totalXP={baseTotalXP + sessionXP}
         userId={userId}
-        userLevel={userLevel}
+        userLevel={userLevel as 'Novice' | 'Inter' | 'Advanced' | undefined}
       />
     </SafeAreaView>
   );
