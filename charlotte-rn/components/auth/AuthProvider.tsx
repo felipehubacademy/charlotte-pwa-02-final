@@ -40,39 +40,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    supabase.auth.getSession()
-      .then(async ({ data: { session } }) => {
-        setSession(session);
-        if (session?.user) {
-          const userProfile = await fetchProfile(session.user.id);
-          setProfile(userProfile);
-        }
-        setIsLoading(false);
-      })
-      .catch((error) => {
-        console.error('[AuthProvider] getSession error:', error);
-        setIsLoading(false);
-      });
+    let mounted = true;
+    let resolved = false;
 
+    const markResolved = () => {
+      if (mounted && !resolved) {
+        resolved = true;
+        setIsLoading(false);
+      }
+    };
+
+    // Hard-timeout safety net: if onAuthStateChange never fires (e.g. network issue),
+    // unblock the UI after 12 s instead of hanging forever.
+    const hardTimeout = setTimeout(() => {
+      if (!resolved) {
+        console.warn('[AuthProvider] auth hard timeout — proceeding unauthenticated');
+        markResolved();
+      }
+    }, 12_000);
+
+    // onAuthStateChange fires INITIAL_SESSION on mount (even with no session),
+    // so it is the primary mechanism to resolve auth state.
+    // Avoids the race condition where getSession() hangs in SecureStore on cold boot
+    // (Expo Go / iOS) and the app briefly flashes the login screen before redirecting back.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mounted) return;
         try {
           setSession(session);
           if (!session?.user) {
             setProfile(null);
           } else if (event !== 'USER_UPDATED') {
             const userProfile = await fetchProfile(session.user.id);
-            setProfile(userProfile);
+            if (mounted) setProfile(userProfile);
           }
         } catch (error) {
           console.error('[AuthProvider] onAuthStateChange error:', error);
         } finally {
-          setIsLoading(false);
+          clearTimeout(hardTimeout);
+          markResolved();
         }
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      clearTimeout(hardTimeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {

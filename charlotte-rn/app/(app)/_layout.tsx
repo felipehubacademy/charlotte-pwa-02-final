@@ -31,6 +31,7 @@ export default function AppLayout() {
         <Stack.Screen name="learn-trail" />
         <Stack.Screen name="learn-session" />
         <Stack.Screen name="change-password" />
+        <Stack.Screen name="placement-test" options={{ animation: 'none' }} />
       </Stack>
       </AchievementsProvider>
     </XPToastProvider>
