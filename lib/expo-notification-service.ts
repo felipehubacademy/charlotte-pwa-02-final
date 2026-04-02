@@ -12,24 +12,64 @@ interface ExpoMessage {
   priority: 'high';
 }
 
-// ── Charlotte motivational messages ─────────────────────────────────────────
-const CHARLOTTE_MESSAGES = {
-  Novice: [
-    { title: '👋 Oi! Sou a Charlotte', body: 'Pronta para praticar inglês hoje? Vamos bater um papo!' },
-    { title: '🌟 Você está indo bem!', body: 'Cada prática conta. Vamos conversar um pouco hoje?' },
-    { title: '💬 Charlotte está aqui!', body: 'Que tal uma conversa rápida em inglês hoje?' },
-  ],
-  Inter: [
-    { title: '🔥 Keep the momentum!', body: "Let's practice English together today. I'm ready when you are!" },
-    { title: '📈 Your English is improving!', body: 'A quick chat with Charlotte today will keep you sharp.' },
-    { title: "💡 Charlotte's tip", body: "The more you practice, the more natural it feels. Let's talk!" },
-  ],
-  Advanced: [
-    { title: '🎯 Challenge yourself today', body: "Let's have a real conversation. I'll push you to go further." },
-    { title: '🧠 Stay sharp', body: "Advanced learners never stop. Ready for today's session?" },
-    { title: '⚡ Your English, elevated', body: "Let's talk about something interesting today. I'm ready." },
-  ],
-};
+// ── GPT-generated Charlotte message ─────────────────────────────────────────
+async function generateCharlotteMessage(
+  firstName: string,
+  level: string,
+  streakDays: number,
+  todayXP: number,
+): Promise<{ title: string; body: string }> {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) {
+    // Fallback if key missing
+    return { title: '🌟 Great work today!', body: `${firstName}, you practiced today! Keep it up.` };
+  }
+
+  const isNovice = level === 'Novice';
+  const lang = isNovice ? 'Portuguese (Brazil)' : 'English';
+  const streakNote = streakDays > 1
+    ? (isNovice ? `Ela está em uma sequência de ${streakDays} dias!` : `They're on a ${streakDays}-day streak!`)
+    : '';
+
+  const prompt = `You are Charlotte, a warm and encouraging English AI teacher.
+Write a short push notification (title + body) celebrating a student who just practiced English today.
+- Student first name: ${firstName}
+- Level: ${level}
+- Today's XP earned: ${todayXP}
+${streakNote ? `- Extra context: ${streakNote}` : ''}
+- Language: Write in ${lang}
+- Tone: warm, personal, motivating — like a real teacher proud of their student
+- Title: 4-6 words max, use 1 relevant emoji
+- Body: 1 sentence max (under 90 chars), mention their name, be specific and encouraging
+Return ONLY valid JSON: {"title": "...", "body": "..."}`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.9,
+        max_tokens: 80,
+        response_format: { type: 'json_object' },
+      }),
+    });
+    const json = await res.json();
+    const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? '{}');
+    if (parsed.title && parsed.body) return parsed;
+  } catch (e) {
+    console.warn('⚠️ [Expo] GPT message generation failed, using fallback:', e);
+  }
+
+  // Fallback
+  return isNovice
+    ? { title: '🌟 Ótimo trabalho hoje!', body: `${firstName}, você praticou hoje! Continue assim.` }
+    : { title: '🌟 Great work today!', body: `${firstName}, you practiced today! Keep it up.` };
+}
 
 // ── Core send function ───────────────────────────────────────────────────────
 async function sendExpoPush(messages: ExpoMessage[]): Promise<{ sent: number; errors: number }> {
@@ -144,39 +184,56 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
 
 // ── 3. Charlotte message (motivational) ─────────────────────────────────────
 export async function sendCharlotteMessages(supabase: any): Promise<void> {
-  console.log('💬 [Expo] Sending Charlotte messages...');
+  console.log('💬 [Expo] Sending Charlotte praise messages to users who practiced today...');
   try {
-    // Only send to ~30% of users per day to avoid fatigue
-    const { data: users } = await supabase
-      .from('users')
-      .select('id, expo_push_token, user_level')
-      .eq('is_active', true)
-      .not('expo_push_token', 'is', null);
+    const today = new Date().toISOString().split('T')[0];
 
-    if (!users?.length) return;
+    // Users who DID practice today (positive reinforcement, not a reminder)
+    const { data: progressRows } = await supabase
+      .from('rn_user_progress')
+      .select('user_id, streak_days, users!inner(name, expo_push_token, user_level)')
+      .not('users.expo_push_token', 'is', null)
+      .gt('updated_at', `${today}T00:00:00Z`); // updated today = practiced today
 
-    // Random subset (30%)
-    const subset = users
-      .filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken['))
-      .filter(() => Math.random() < 0.3);
+    if (!progressRows?.length) {
+      console.log('✅ [Expo] No users practiced today yet');
+      return;
+    }
 
-    const messages: ExpoMessage[] = subset.map((u: any) => {
-      const level = u.user_level ?? 'Inter';
-      const pool = CHARLOTTE_MESSAGES[level as keyof typeof CHARLOTTE_MESSAGES]
-        ?? CHARLOTTE_MESSAGES.Inter;
-      const msg = pool[Math.floor(Math.random() * pool.length)];
-      return {
+    const eligible = progressRows.filter(
+      (r: any) => r.users?.expo_push_token?.startsWith('ExponentPushToken[')
+    );
+
+    console.log(`💬 [Expo] Generating personalized messages for ${eligible.length} users...`);
+
+    // Generate personalized GPT message per user (sequential to avoid rate limits)
+    const messages: ExpoMessage[] = [];
+    for (const row of eligible) {
+      const u = row.users;
+      const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
+
+      // Fetch today's XP for this user
+      const { data: practices } = await supabase
+        .from('rn_user_practices')
+        .select('xp_earned')
+        .eq('user_id', row.user_id)
+        .gte('created_at', `${today}T00:00:00Z`);
+      const todayXP = (practices ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
+
+      const msg = await generateCharlotteMessage(firstName, u.user_level ?? 'Inter', row.streak_days ?? 0, todayXP);
+
+      messages.push({
         to: u.expo_push_token,
         title: msg.title,
         body: msg.body,
         data: { screen: 'chat', type: 'charlotte_message' },
         sound: 'default',
         priority: 'high',
-      };
-    });
+      });
+    }
 
     const { sent, errors } = await sendExpoPush(messages);
-    console.log(`✅ [Expo] Charlotte messages: ${sent} sent, ${errors} errors`);
+    console.log(`✅ [Expo] Charlotte praise: ${sent} sent, ${errors} errors`);
   } catch (e) {
     console.error('❌ [Expo] Charlotte message error:', e);
   }
