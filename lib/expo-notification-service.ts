@@ -12,6 +12,63 @@ interface ExpoMessage {
   priority: 'high';
 }
 
+// ── GPT-generated daily reminder (hasn't practiced yet) ─────────────────────
+async function generateReminderMessage(
+  firstName: string,
+  level: string,
+  streakDays: number,
+): Promise<{ title: string; body: string }> {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) {
+    return { title: '📚 Hora de praticar!', body: `${firstName}, a Charlotte está esperando por você hoje!` };
+  }
+
+  const isNovice = level === 'Novice';
+  const lang = isNovice ? 'Portuguese (Brazil)' : 'English';
+  const streakNote = streakDays > 1
+    ? (isNovice
+        ? `Atenção: eles têm uma sequência de ${streakDays} dias que pode ser perdida hoje!`
+        : `Heads up: they have a ${streakDays}-day streak at risk today!`)
+    : '';
+
+  const prompt = `You are Charlotte, a warm and encouraging English AI teacher.
+Write a short push notification (title + body) to invite a student to practice English today — they haven't practiced yet.
+- Student first name: ${firstName}
+- Level: ${level}
+${streakNote ? `- Extra context: ${streakNote}` : ''}
+- Language: Write in ${lang}
+- Tone: warm, personal, gently motivating — like a teacher checking in, NOT pushy or guilt-tripping
+- Title: 4-6 words max, use 1 relevant emoji
+- Body: 1 sentence max (under 90 chars), mention their name, make it feel personal and inviting
+Return ONLY valid JSON: {"title": "...", "body": "..."}`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.9,
+        max_tokens: 80,
+        response_format: { type: 'json_object' },
+      }),
+    });
+    const json = await res.json();
+    const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? '{}');
+    if (parsed.title && parsed.body) return parsed;
+  } catch (e) {
+    console.warn('⚠️ [Expo] GPT reminder generation failed, using fallback:', e);
+  }
+
+  return isNovice
+    ? { title: '📚 Hora de praticar!', body: `${firstName}, a Charlotte está esperando por você hoje!` }
+    : { title: '📚 Time to practice!', body: `${firstName}, Charlotte is ready for you today!` };
+}
+
 // ── GPT-generated Charlotte message ─────────────────────────────────────────
 async function generateCharlotteMessage(
   firstName: string,
@@ -143,14 +200,15 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
 
 // ── 2. Daily reminder ────────────────────────────────────────────────────────
 export async function sendDailyReminders(supabase: any): Promise<void> {
-  console.log('⏰ [Expo] Sending daily reminders...');
+  console.log('⏰ [Expo] Sending personalized daily reminders...');
   try {
     const today = new Date().toISOString().split('T')[0];
 
     // Users with expo token who haven't practiced today in EITHER app (PWA or RN)
+    // Join with rn_user_progress to get streak (for streak-at-risk context)
     const { data: users } = await supabase
       .from('users')
-      .select('id, name, expo_push_token, user_level')
+      .select('id, name, expo_push_token, user_level, rn_user_progress(streak_days)')
       .not('expo_push_token', 'is', null)
       .not('id', 'in',
         `(SELECT DISTINCT user_id FROM rn_user_practices WHERE created_at::date = '${today}' UNION SELECT DISTINCT user_id FROM user_practices WHERE created_at::date = '${today}')`
@@ -161,19 +219,23 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
       return;
     }
 
-    const messages: ExpoMessage[] = users
-      .filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken['))
-      .map((u: any) => {
-        const firstName = u.name?.split(' ')[0] ?? 'você';
-        return {
-          to: u.expo_push_token,
-          title: '📚 Hora de praticar!',
-          body: `${firstName}, a Charlotte está esperando por você. Pratique inglês hoje!`,
-          data: { screen: 'chat', type: 'daily_reminder' },
-          sound: 'default',
-          priority: 'high',
-        };
+    const eligible = users.filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken['));
+    console.log(`⏰ [Expo] Generating reminders for ${eligible.length} users who haven't practiced...`);
+
+    const messages: ExpoMessage[] = [];
+    for (const u of eligible) {
+      const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
+      const streakDays = u.rn_user_progress?.[0]?.streak_days ?? 0;
+      const msg = await generateReminderMessage(firstName, u.user_level ?? 'Inter', streakDays);
+      messages.push({
+        to: u.expo_push_token,
+        title: msg.title,
+        body: msg.body,
+        data: { screen: 'chat', type: 'daily_reminder' },
+        sound: 'default',
+        priority: 'high',
       });
+    }
 
     const { sent, errors } = await sendExpoPush(messages);
     console.log(`✅ [Expo] Daily reminders: ${sent} sent, ${errors} errors`);
