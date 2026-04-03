@@ -30,6 +30,42 @@ type LevelIntros = Record<number, ModuleIntro>;
 type AllIntros = Partial<Record<TrailLevel, LevelIntros>>;
 
 export const MODULE_INTROS: AllIntros = {
+  Novice: {
+    // ── Module 1 — Survival & Identity ───────────────────────────
+    0: {
+      title: 'Survival & Identity',
+      slides: [
+        {
+          label: 'Bem-vinda!',
+          text: 'Olá! Eu sou a Charlotte, sua professora de inglês. Neste módulo você vai dar os primeiros passos no idioma. Coisas simples, essenciais, do dia a dia. Vamos com calma!',
+        },
+        {
+          label: 'Saudações',
+          text: 'Começa pelo básico: saudações. No inglês você vai usar muito: Good morning, How are you, Nice to meet you e See you later. São as frases que abrem qualquer conversa.',
+          highlight: 'Good morning! · How are you? · Nice to meet you!',
+        },
+        {
+          label: 'Verbo To Be',
+          text: 'O verbo mais importante do inglês é o To Be — significa ser ou estar. Cada pronome tem a sua forma: I am, you are, he is, she is, we are, they are.',
+          highlight: 'I am Brazilian. · She is my teacher. · We are friends.',
+        },
+        {
+          label: 'Dizer que não',
+          text: 'Para negar, é simples: coloca not depois do verbo. No dia a dia, usamos as formas curtas: I\'m not, she isn\'t, they aren\'t. Rápido e natural.',
+          highlight: "I'm not tired. · She isn't home. · They aren't ready.",
+        },
+        {
+          label: 'Fazer perguntas',
+          text: 'Para perguntar, é só inverter a ordem — o verbo vem primeiro. Are you hungry? Is she a doctor? Am I late? O inglês gosta dessa inversão nas perguntas.',
+          highlight: 'Are you ready? · Is she a teacher? · Am I late?',
+        },
+        {
+          label: 'Bora praticar!',
+          text: 'Pronto! Você já tem uma visão geral do módulo. Agora é hora de praticar. Vai com calma, leia cada exercício com atenção, e confie no processo. Você consegue!',
+        },
+      ],
+    },
+  },
   Inter: {
     // ── Module 1 — Present Perfect ────────────────────────────
     0: {
