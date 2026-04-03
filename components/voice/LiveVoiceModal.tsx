@@ -85,6 +85,9 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   // 📝 NOVO: Refs para auto-scroll
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
   const charlotteMessageRef = useRef<HTMLDivElement>(null);
+  // 📞 Ref para som de chamando
+  const callingAudioContextRef = useRef<AudioContext | null>(null);
+  const callingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Usar dados VAD quando disponíveis, senão fallback para mock
   const effectiveAudioLevels = vadAudioLevels.length > 0 ? vadAudioLevels : audioLevels;
@@ -249,11 +252,21 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
 
   // 🧹 Limpeza de recursos
   const cleanup = useCallback(() => {
+    // 📞 Parar som de chamando se ainda estiver tocando
+    if (callingIntervalRef.current) {
+      clearInterval(callingIntervalRef.current);
+      callingIntervalRef.current = null;
+    }
+    if (callingAudioContextRef.current) {
+      try { callingAudioContextRef.current.close(); } catch (e) {}
+      callingAudioContextRef.current = null;
+    }
+
     // 🎤 Parar tracking e calcular XP final antes da limpeza (apenas se ainda não foi feito)
     if (conversationStartTime && user?.entra_id && !xpAlreadyAwarded) {
       stopConversationTracking();
     }
-    
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
@@ -595,6 +608,65 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
     }
   };
 
+  // 📞 Função para parar som de chamando
+  const stopCallingSound = useCallback(() => {
+    if (callingIntervalRef.current) {
+      clearInterval(callingIntervalRef.current);
+      callingIntervalRef.current = null;
+    }
+    if (callingAudioContextRef.current) {
+      try {
+        callingAudioContextRef.current.close();
+      } catch (e) {
+        // ignorar
+      }
+      callingAudioContextRef.current = null;
+    }
+  }, []);
+
+  // 📞 Função para tocar som de chamando (ringtone) durante a conexão
+  const playCallingSound = useCallback(() => {
+    try {
+      stopCallingSound();
+
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      callingAudioContextRef.current = audioContext;
+
+      const playRing = () => {
+        if (!callingAudioContextRef.current) return;
+        const ctx = callingAudioContextRef.current;
+
+        // Dois pulsos rápidos (estilo chamada telefônica)
+        [0, 0.4].forEach((offset) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.type = 'sine';
+          osc.frequency.value = 480; // tom padrão de chamada
+
+          const t = ctx.currentTime + offset;
+          gain.gain.setValueAtTime(0, t);
+          gain.gain.linearRampToValueAtTime(0.15, t + 0.02);
+          gain.gain.setValueAtTime(0.15, t + 0.3);
+          gain.gain.linearRampToValueAtTime(0, t + 0.35);
+
+          osc.start(t);
+          osc.stop(t + 0.35);
+        });
+      };
+
+      playRing();
+      // Repetir a cada 2 segundos
+      callingIntervalRef.current = setInterval(playRing, 2000);
+
+      console.log('📞 Calling sound started');
+    } catch (error) {
+      console.warn('⚠️ Could not play calling sound:', error);
+    }
+  }, [stopCallingSound]);
+
   // 🔊 Função para tocar som de conexão
   const playConnectionSound = useCallback(() => {
     try {
@@ -644,6 +716,7 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
   const initializeRealtimeAPI = useCallback(async () => {
     try {
       setConnectionStatus('connecting');
+      playCallingSound(); // 📞 Tocar som de chamando enquanto conecta
       
       const config: RealtimeConfig = {
         apiKey: '', // Será obtida via API route segura
@@ -815,6 +888,7 @@ After this greeting, wait for the user's response and continue naturally.`;
       // Event listeners
       service.on('session_created', () => {
         console.log('✅ Realtime session created');
+        stopCallingSound(); // 📞 Parar som de chamando
         setConnectionStatus('connected');
         setIsListening(true);
         // 🎤 Iniciar tracking de conversa quando conectar
@@ -1227,7 +1301,7 @@ After this greeting, wait for the user's response and continue naturally.`;
         }, 2000);
       }
     }
-  }, [userLevel, userName, startConversationTracking, stopConversationTracking, playConnectionSound]); // 🔧 FIXO: Dependências estáveis
+  }, [userLevel, userName, startConversationTracking, stopConversationTracking, playConnectionSound, playCallingSound, stopCallingSound]); // 🔧 FIXO: Dependências estáveis
 
   // 📊 Análise de áudio para visualização
   const startAudioAnalysis = useCallback(() => {
