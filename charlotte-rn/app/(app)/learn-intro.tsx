@@ -1,8 +1,8 @@
 /**
  * learn-intro.tsx
  *
- * Animated slide-based module intro with Charlotte narration (TTS).
- * Shown before the first topic of a module that has an entry in MODULE_INTROS.
+ * Mini-lesson intro with karaoke-style word highlighting.
+ * All words shown on screen dimmed; each word lights up as Rachel speaks it.
  *
  * Flow: learn-trail → learn-intro → learn-session
  */
@@ -27,39 +27,50 @@ import { TrailLevel } from '@/data/curriculum';
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
 
+// ── Types ──────────────────────────────────────────────────────
+interface WordTiming {
+  word: string;
+  start: number;
+  end: number;
+}
+
 // ── Palette ────────────────────────────────────────────────────
 const C = {
-  bg:              '#16153A',
-  white:           '#FFFFFF',
-  whiteAlpha:      'rgba(255,255,255,0.55)',
-  violet:          '#7C3AED',
-  violetLight:     '#A78BFA',
-  violetHighlight: 'rgba(124,58,237,0.22)',
-  violetBorder:    'rgba(124,58,237,0.45)',
-  dotInactive:     'rgba(255,255,255,0.22)',
+  bg:           '#16153A',
+  white:        '#FFFFFF',
+  wordDim:      'rgba(255,255,255,0.28)',
+  wordSpoken:   '#FFFFFF',
+  wordActive:   '#A78BFA',   // violet — current word being spoken
+  whiteAlpha:   'rgba(255,255,255,0.50)',
+  violet:       '#7C3AED',
+  violetLight:  '#A78BFA',
+  violetHl:     'rgba(124,58,237,0.22)',
+  violetBorder: 'rgba(124,58,237,0.45)',
+  dotInactive:  'rgba(255,255,255,0.22)',
 };
 
 // ── Main screen ────────────────────────────────────────────────
 export default function LearnIntroScreen() {
   const { level, moduleIndex, topicIndex } = useLocalSearchParams<{
-    level: string;
-    moduleIndex: string;
-    topicIndex: string;
+    level: string; moduleIndex: string; topicIndex: string;
   }>();
 
-  const mIdx  = parseInt(moduleIndex ?? '0', 10);
-  const intro = MODULE_INTROS[level as TrailLevel]?.[mIdx];
+  const mIdx   = parseInt(moduleIndex ?? '0', 10);
+  const intro  = MODULE_INTROS[level as TrailLevel]?.[mIdx];
   const slides = intro?.slides ?? [];
 
-  const [slideIdx,    setSlideIdx]    = useState(0);
+  const [slideIdx,     setSlideIdx]     = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
+  const [wordTimings,  setWordTimings]  = useState<WordTiming[]>([]);
+  const [currentTime,  setCurrentTime]  = useState(0);
 
-  const fadeAnim     = useRef(new Animated.Value(1)).current;
+  const fadeAnim      = useRef(new Animated.Value(1)).current;
   const playerRef     = useRef<AudioPlayer | null>(null);
   const subRef        = useRef<ReturnType<AudioPlayer['addListener']> | null>(null);
-  const redirectedRef = useRef(false);
-  const pendingPlay    = useRef(false);
+  const pendingPlay   = useRef(false);
   const slideIdxRef   = useRef(0);
+  const redirectedRef = useRef(false);
+  const pollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── Audio player lifecycle ───────────────────────────────────
   useEffect(() => {
@@ -67,29 +78,59 @@ export default function LearnIntroScreen() {
     playerRef.current = player;
     return () => {
       subRef.current?.remove();
+      if (pollRef.current) clearInterval(pollRef.current);
       try { player.pause(); player.remove(); } catch {}
     };
   }, []);
 
-  // ── TTS fetch (same pattern as learn-session) ────────────────
-  const fetchTTS = useCallback(async (text: string): Promise<string | null> => {
+  // ── Poll currentTime while playing ──────────────────────────
+  useEffect(() => {
+    pollRef.current = setInterval(() => {
+      if (playerRef.current?.playing) {
+        setCurrentTime(playerRef.current.currentTime ?? 0);
+      }
+    }, 50);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  // ── Fetch word timings JSON ──────────────────────────────────
+  const fetchTimings = useCallback(async (text: string): Promise<WordTiming[]> => {
+    try {
+      const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
+      await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => {});
+      const fileKey  = text.slice(0, 80).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const localUri = `${cacheDir}intro_${fileKey}.json`;
+
+      const info = await FileSystem.getInfoAsync(localUri);
+      if (info.exists) {
+        return JSON.parse(await FileSystem.readAsStringAsync(localUri));
+      }
+
+      const res = await fetch(`${API_BASE_URL}/tts/${fileKey}.json`);
+      if (res.ok) {
+        const timings: WordTiming[] = await res.json();
+        await FileSystem.writeAsStringAsync(localUri, JSON.stringify(timings));
+        return timings;
+      }
+    } catch {}
+    return [];
+  }, []);
+
+  // ── Fetch audio MP3 ─────────────────────────────────────────
+  const fetchAudio = useCallback(async (text: string): Promise<string | null> => {
     try {
       const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
       await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => {});
       const fileKey  = text.slice(0, 80).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
       const localUri = `${cacheDir}intro_${fileKey}.mp3`;
 
-      // 1. Local cache
       const info = await FileSystem.getInfoAsync(localUri);
       if (info.exists) return localUri;
 
-      // 2. Pre-generated CDN file
-      const fileUrl = `${API_BASE_URL}/tts/${fileKey}.mp3`;
-      const dl = await FileSystem.downloadAsync(fileUrl, localUri);
+      const dl = await FileSystem.downloadAsync(`${API_BASE_URL}/tts/${fileKey}.mp3`, localUri);
       if (dl.status === 200) return localUri;
       await FileSystem.deleteAsync(localUri, { idempotent: true });
 
-      // 3. ElevenLabs API fallback
       const res = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -103,39 +144,41 @@ export default function LearnIntroScreen() {
     } catch { return null; }
   }, []);
 
-  // ── Play audio for a slide ───────────────────────────────────
-  const playSlideAudio = useCallback(async (idx: number) => {
+  // ── Load and play slide ──────────────────────────────────────
+  const loadSlide = useCallback(async (idx: number) => {
     const slide = slides[idx];
     if (!slide || !playerRef.current) return;
 
     subRef.current?.remove();
     subRef.current = null;
-
-    // Reset pending flag before each new slide audio
     pendingPlay.current = false;
+    setWordTimings([]);
+    setCurrentTime(0);
 
     setAudioLoading(true);
-    const uri = await fetchTTS(slide.audio);
+    const [uri, timings] = await Promise.all([
+      fetchAudio(slide.text),
+      fetchTimings(slide.text),
+    ]);
     setAudioLoading(false);
+
+    setWordTimings(timings);
 
     if (!uri || !playerRef.current) return;
 
     try {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
       playerRef.current.replace({ uri });
-
       pendingPlay.current = true;
       const capturedIdx = idx;
 
       subRef.current = playerRef.current.addListener(
         'playbackStatusUpdate',
         (status: AudioStatus) => {
-          // Start playback once loaded (guard with pendingPlay to fire only once)
           if (pendingPlay.current && status.isLoaded && !status.playing) {
             pendingPlay.current = false;
             try { playerRef.current?.play(); } catch {}
           }
-          // Auto-advance when audio finishes — only if still on this slide
           if (status.didJustFinish
               && capturedIdx === slideIdxRef.current
               && capturedIdx < slides.length - 1) {
@@ -143,12 +186,11 @@ export default function LearnIntroScreen() {
             subRef.current = null;
             setTimeout(() => {
               if (capturedIdx === slideIdxRef.current) goToSlide(capturedIdx + 1);
-            }, 800);
+            }, 900);
           }
         },
       );
 
-      // Fallback: play if isLoaded event is slow (expo-audio race on some devices)
       setTimeout(() => {
         if (pendingPlay.current && capturedIdx === slideIdxRef.current) {
           pendingPlay.current = false;
@@ -156,7 +198,7 @@ export default function LearnIntroScreen() {
         }
       }, 1500);
     } catch {}
-  }, [slides, fetchTTS]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [slides, fetchAudio, fetchTimings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Slide transition ─────────────────────────────────────────
   const goToSlide = useCallback((idx: number) => {
@@ -166,13 +208,12 @@ export default function LearnIntroScreen() {
     });
   }, [fadeAnim]);
 
-  // Play audio whenever slideIdx changes
   useEffect(() => {
     slideIdxRef.current = slideIdx;
-    playSlideAudio(slideIdx);
+    loadSlide(slideIdx);
   }, [slideIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Navigation helpers ───────────────────────────────────────
+  // ── Navigation ───────────────────────────────────────────────
   const goToSession = useCallback(() => {
     if (redirectedRef.current) return;
     redirectedRef.current = true;
@@ -196,7 +237,6 @@ export default function LearnIntroScreen() {
     }
   }, [slideIdx, slides.length, goToSlide, goToSession]);
 
-  // ── Safety: if no intro defined, go straight to session ─────
   useEffect(() => {
     if (!intro || slides.length === 0) goToSession();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -206,99 +246,104 @@ export default function LearnIntroScreen() {
   const slide  = slides[slideIdx];
   const isLast = slideIdx === slides.length - 1;
 
+  // ── Karaoke word rendering ───────────────────────────────────
+  const renderKaraokeText = () => {
+    if (!wordTimings.length) {
+      // Timings not loaded yet — show full text dimmed
+      return (
+        <AppText style={{ fontSize: 22, fontWeight: '600', color: C.wordDim, lineHeight: 34, textAlign: 'center' }}>
+          {slide.text}
+        </AppText>
+      );
+    }
+
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {wordTimings.map((w, i) => {
+          const isActive  = w.start <= currentTime && currentTime < w.end;
+          const isSpoken  = w.end <= currentTime;
+          const color     = isActive ? C.wordActive : isSpoken ? C.wordSpoken : C.wordDim;
+          const weight    = isActive ? '800' : '600';
+          const scale     = isActive ? 1.05 : 1;
+
+          return (
+            <AppText
+              key={i}
+              style={{
+                fontSize: 22,
+                fontWeight: weight,
+                color,
+                lineHeight: 34,
+                transform: [{ scale }],
+              }}
+            >
+              {w.word}{' '}
+            </AppText>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
 
-      {/* ── Top bar: Skip ── */}
-      <View style={{
-        flexDirection: 'row', justifyContent: 'flex-end',
-        paddingHorizontal: 20, paddingTop: 12,
-      }}>
-        <TouchableOpacity
-          onPress={goToSession}
-          hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}
-        >
-          <AppText style={{ color: C.whiteAlpha, fontSize: 14, fontWeight: '600' }}>
-            Skip
-          </AppText>
+      {/* ── Skip ── */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 12 }}>
+        <TouchableOpacity onPress={goToSession} hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}>
+          <AppText style={{ color: C.whiteAlpha, fontSize: 14, fontWeight: '600' }}>Skip</AppText>
         </TouchableOpacity>
       </View>
 
       {/* ── Progress dots ── */}
-      <View style={{
-        flexDirection: 'row', justifyContent: 'center',
-        alignItems: 'center', gap: 8, marginTop: 16,
-      }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 16 }}>
         {slides.map((_, i) => (
-          <Animated.View
-            key={i}
-            style={{
-              height: 7,
-              width: i === slideIdx ? 28 : 7,
-              borderRadius: 4,
-              backgroundColor: i === slideIdx ? C.violet : C.dotInactive,
-            }}
-          />
+          <View key={i} style={{
+            height: 7, width: i === slideIdx ? 28 : 7,
+            borderRadius: 4,
+            backgroundColor: i === slideIdx ? C.violet : C.dotInactive,
+          }} />
         ))}
       </View>
 
-      {/* ── Slide content (tap to advance) ── */}
-      <TouchableOpacity
-        activeOpacity={1}
-        onPress={handleNext}
-        style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 32 }}
-      >
+      {/* ── Slide content ── */}
+      <TouchableOpacity activeOpacity={1} onPress={handleNext} style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
         <Animated.View style={{ opacity: fadeAnim, alignItems: 'center' }}>
 
           {/* Charlotte avatar */}
           <View style={{
-            width: 80, height: 80, borderRadius: 40,
+            width: 72, height: 72, borderRadius: 36,
             backgroundColor: 'rgba(124,58,237,0.18)',
             alignItems: 'center', justifyContent: 'center',
-            borderWidth: 2, borderColor: C.violetBorder,
-            marginBottom: 8,
+            borderWidth: 2, borderColor: C.violetBorder, marginBottom: 8,
           }}>
-            <AppText style={{ fontSize: 36 }}>👩🏻‍🏫</AppText>
+            <AppText style={{ fontSize: 32 }}>👩🏻‍🏫</AppText>
           </View>
-
-          <AppText style={{
-            color: C.whiteAlpha, fontSize: 12, fontWeight: '700',
-            marginBottom: 32,
-          }}>
+          <AppText style={{ color: C.whiteAlpha, fontSize: 12, fontWeight: '700', marginBottom: 28 }}>
             Charlotte
           </AppText>
 
-          {/* Slide label */}
+          {/* Label */}
           <AppText style={{
             fontSize: 11, fontWeight: '800', color: C.violet,
             textTransform: 'uppercase', letterSpacing: 1.8,
-            marginBottom: 14, textAlign: 'center',
+            marginBottom: 18, textAlign: 'center',
           }}>
             {slide.label}
           </AppText>
 
-          {/* Body */}
-          <AppText style={{
-            fontSize: 21, fontWeight: '700', color: C.white,
-            lineHeight: 31, textAlign: 'center', marginBottom: 28,
-          }}>
-            {slide.body}
-          </AppText>
+          {/* Karaoke text */}
+          {renderKaraokeText()}
 
-          {/* Highlighted phrase */}
+          {/* Highlight box */}
           {slide.highlight && (
             <View style={{
-              backgroundColor: C.violetHighlight,
-              borderRadius: 14,
+              backgroundColor: C.violetHl, borderRadius: 14,
               borderWidth: 1, borderColor: C.violetBorder,
               paddingHorizontal: 22, paddingVertical: 14,
-              alignItems: 'center',
+              alignItems: 'center', marginTop: 28,
             }}>
-              <AppText style={{
-                fontSize: 16, fontWeight: '700',
-                color: C.violetLight, textAlign: 'center',
-                lineHeight: 24,
-              }}>
+              <AppText style={{ fontSize: 15, fontWeight: '700', color: C.violetLight, textAlign: 'center', lineHeight: 24 }}>
                 {slide.highlight}
               </AppText>
             </View>
@@ -306,22 +351,15 @@ export default function LearnIntroScreen() {
         </Animated.View>
       </TouchableOpacity>
 
-      {/* ── Bottom: loading + Next/Start button ── */}
+      {/* ── Bottom ── */}
       <View style={{ paddingHorizontal: 28, paddingBottom: 40, gap: 10 }}>
-        {audioLoading && (
-          <ActivityIndicator color={C.violet} style={{ marginBottom: 4 }} />
-        )}
+        {audioLoading && <ActivityIndicator color={C.violet} style={{ marginBottom: 4 }} />}
 
         <TouchableOpacity
           onPress={handleNext}
           style={{
-            backgroundColor: C.violet,
-            borderRadius: 18,
-            paddingVertical: 17,
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 8,
+            backgroundColor: C.violet, borderRadius: 18, paddingVertical: 17,
+            flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
             ...Platform.select({
               ios:     { shadowColor: C.violet, shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
               android: { elevation: 6 },
