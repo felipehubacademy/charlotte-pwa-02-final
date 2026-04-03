@@ -825,7 +825,6 @@ function ResultScreen({
             </TouchableOpacity>
           </View>
 
-          </ScrollView>
         </View>
 
       </Animated.View>
