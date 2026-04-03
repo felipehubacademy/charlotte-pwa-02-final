@@ -84,7 +84,7 @@ function LoadingScreen() {
         {/* Spinner */}
         <ActivityIndicator
           size="small"
-          color="#A3FF3C"
+          color="#16153A"
           style={{ marginTop: 32 }}
         />
       </Animated.View>
