@@ -12,11 +12,11 @@ import {
   ActivityIndicator, Animated, Platform, Dimensions,
 } from 'react-native';
 import { router } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import {
-  Headphones, Play, Pause, ArrowRight,
+  Headphones, Play, Pause, ArrowRight, CheckCircle, XCircle,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
@@ -246,12 +246,15 @@ export default function PlacementTestScreen() {
 
   const firstName = (profile?.name ?? '').split(' ')[0] || 'você';
 
+  const insets = useSafeAreaInsets();
+
   const [phase, setPhase]         = useState<Phase>('intro');
   const [queue, setQueue]         = useState<AnyQuestion[]>([]);
   const [qIndex, setQIndex]       = useState(0);
   const [answers, setAnswers]     = useState<number[]>([]);
   const [selected, setSelected]   = useState<number | null>(null);
   const [locked, setLocked]       = useState(false);
+  const [verified, setVerified]   = useState(false);
   const [level, setLevel]         = useState<Level>('Novice');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -260,7 +263,8 @@ export default function PlacementTestScreen() {
   const LISTEN_ID = 'placement-listen';
   const isPlaying  = playingMessageId === LISTEN_ID;
 
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim   = useRef(new Animated.Value(0)).current;
+  const feedbackAnim = useRef(new Animated.Value(0)).current;
 
   const slideIn = useCallback((fromRight = true) => {
     slideAnim.setValue(fromRight ? SCREEN_W : -SCREEN_W);
@@ -301,13 +305,31 @@ export default function PlacementTestScreen() {
     return () => { cancelled = true; };
   }, [phase, qIndex, queue]);
 
+  // Select only — no auto-advance (Duolingo style)
   const handleSelect = (idx: number) => {
     if (locked) return;
     setSelected(idx);
+  };
+
+  // Verificar — lock selection and show feedback panel
+  const handleVerify = () => {
+    if (selected === null) return;
     setLocked(true);
-    setTimeout(() => {
-      const newAnswers = [...answers, idx];
-      const isLastGrammar = qIndex === GRAMMAR.length - 1;
+    setVerified(true);
+    Animated.spring(feedbackAnim, { toValue: 1, friction: 8, tension: 60, useNativeDriver: true }).start();
+  };
+
+  // Próxima — advance after feedback
+  const handleNext = () => {
+    const idx = selected!;
+    const newAnswers = [...answers, idx];
+    const isLastGrammar = qIndex === GRAMMAR.length - 1;
+
+    // Dismiss feedback panel first
+    Animated.timing(feedbackAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      setVerified(false);
+      setLocked(false);
+
       if (isLastGrammar) {
         const grammarScore = newAnswers
           .slice(0, GRAMMAR.length)
@@ -326,14 +348,13 @@ export default function PlacementTestScreen() {
       const isLastQuestion = qIndex === queue.length - 1;
       if (isLastQuestion) finalize(newAnswers, queue);
       else advance(newAnswers, queue, qIndex + 1);
-    }, 520);
+    });
   };
 
   const advance = (newAnswers: number[], newQueue: AnyQuestion[], nextIndex: number) => {
     Animated.timing(slideAnim, { toValue: -SCREEN_W, duration: 200, useNativeDriver: true }).start(() => {
       setAnswers(newAnswers);
       setSelected(null);
-      setLocked(false);
       setQIndex(nextIndex);
       slideIn(true);
     });
@@ -393,11 +414,14 @@ export default function PlacementTestScreen() {
   const displayCurrent = qIndex + 1;
   const progress       = displayCurrent / displayTotal;
 
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
+  const currentIsCorrect = selected !== null && selected === currentQ.correctIndex;
+  const feedbackTranslateY = feedbackAnim.interpolate({ inputRange: [0, 1], outputRange: [300, 0] });
 
-      {/* Progress header — same pattern as learn-session */}
-      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top']}>
+
+      {/* Progress header */}
+      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <AppText style={{ fontSize: 12, color: C.navyMid, fontWeight: '700', minWidth: 36 }}>
             {displayCurrent} / {displayTotal}
@@ -408,86 +432,135 @@ export default function PlacementTestScreen() {
         </View>
       </View>
 
-      {/* Main card — white, same as learn-session */}
-      <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }], paddingHorizontal: 20, paddingBottom: 20 }}>
-        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border }}>
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 24, paddingBottom: 16 }}
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Charlotte instruction bubble — xs avatar + colored bubble */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 0, marginBottom: 24 }}>
-              <CharlotteAvatar size="xs" />
-              {/* Triangle tail */}
-              <View style={{
-                width: 0, height: 0,
-                borderTopWidth: 5, borderTopColor: 'transparent',
-                borderBottomWidth: 5, borderBottomColor: 'transparent',
-                borderRightWidth: 7, borderRightColor: 'rgba(22,21,58,0.08)',
-                marginTop: 10, marginLeft: 2,
-              }} />
-              <View style={{
-                flex: 1, backgroundColor: 'rgba(22,21,58,0.06)',
-                borderRadius: 14, borderTopLeftRadius: 4,
-                paddingHorizontal: 14, paddingVertical: 12,
-              }}>
-                <AppText style={{ fontSize: 14, color: C.navy, fontWeight: '700', lineHeight: 20 }}>
-                  {currentQ.kind === 'listening'
-                    ? 'Listen to the audio and choose the best answer.'
-                    : 'Escolha a opção correta para completar a frase.'}
-                </AppText>
-              </View>
-            </View>
-
-            {/* Listening audio player */}
-            {currentQ.kind === 'listening' && (
-              <View style={{
-                flexDirection: 'row', alignItems: 'center',
-                backgroundColor: C.navy, borderRadius: 14,
-                paddingHorizontal: 16, paddingVertical: 12,
-                marginBottom: 20, gap: 12,
-              }}>
-                <Headphones size={16} color={C.green} weight="duotone" />
-                <AppText style={{ flex: 1, fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' }}>
-                  {isPlaying ? 'Playing…' : 'Tap to listen'}
-                </AppText>
-                {audioLoading ? (
-                  <ActivityIndicator size="small" color={C.green} />
-                ) : (
-                  <TouchableOpacity
-                    onPress={() => audioUri && toggleAudio(LISTEN_ID, audioUri)}
-                    activeOpacity={0.8}
-                    disabled={!audioUri}
-                    style={{
-                      width: 36, height: 36, borderRadius: 18,
-                      backgroundColor: C.green,
-                      alignItems: 'center', justifyContent: 'center',
-                      opacity: audioUri ? 1 : 0.4,
-                    }}
-                  >
-                    {isPlaying
-                      ? <Pause size={16} color={C.navy} weight="fill" />
-                      : <Play  size={16} color={C.navy} weight="fill" />}
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-
-            {/* Question text — large, prominent */}
-            <AppText style={{
-              fontSize: 22, fontWeight: '500', color: C.navy,
-              lineHeight: 34, marginBottom: 28,
+      {/* Scrollable content — no nested card */}
+      <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Charlotte instruction */}
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 0, marginBottom: 28 }}>
+            <CharlotteAvatar size="xs" />
+            <View style={{
+              width: 0, height: 0,
+              borderTopWidth: 5, borderTopColor: 'transparent',
+              borderBottomWidth: 5, borderBottomColor: 'transparent',
+              borderRightWidth: 7, borderRightColor: 'rgba(22,21,58,0.08)',
+              marginTop: 10, marginLeft: 2,
+            }} />
+            <View style={{
+              flex: 1, backgroundColor: 'rgba(22,21,58,0.06)',
+              borderRadius: 14, borderTopLeftRadius: 4,
+              paddingHorizontal: 14, paddingVertical: 12,
             }}>
-              {currentQ.kind === 'grammar' ? currentQ.question : currentQ.prompt}
-            </AppText>
+              <AppText style={{ fontSize: 14, color: C.navy, fontWeight: '700', lineHeight: 20 }}>
+                {currentQ.kind === 'listening'
+                  ? 'Listen to the audio and choose the best answer.'
+                  : 'Escolha a opção correta para completar a frase.'}
+              </AppText>
+            </View>
+          </View>
 
-            {/* Options */}
-            <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
+          {/* Listening audio player */}
+          {currentQ.kind === 'listening' && (
+            <View style={{
+              flexDirection: 'row', alignItems: 'center',
+              backgroundColor: C.navy, borderRadius: 14,
+              paddingHorizontal: 16, paddingVertical: 12,
+              marginBottom: 20, gap: 12,
+            }}>
+              <Headphones size={16} color={C.green} weight="duotone" />
+              <AppText style={{ flex: 1, fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' }}>
+                {isPlaying ? 'Playing…' : 'Tap to listen'}
+              </AppText>
+              {audioLoading ? (
+                <ActivityIndicator size="small" color={C.green} />
+              ) : (
+                <TouchableOpacity
+                  onPress={() => audioUri && toggleAudio(LISTEN_ID, audioUri)}
+                  activeOpacity={0.8}
+                  disabled={!audioUri}
+                  style={{
+                    width: 36, height: 36, borderRadius: 18,
+                    backgroundColor: C.green,
+                    alignItems: 'center', justifyContent: 'center',
+                    opacity: audioUri ? 1 : 0.4,
+                  }}
+                >
+                  {isPlaying
+                    ? <Pause size={16} color={C.navy} weight="fill" />
+                    : <Play  size={16} color={C.navy} weight="fill" />}
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
-          </ScrollView>
-        </View>
+          {/* Question — large and prominent */}
+          <AppText style={{ fontSize: 22, fontWeight: '700', color: C.navy, lineHeight: 34, marginBottom: 32 }}>
+            {currentQ.kind === 'grammar' ? currentQ.question : currentQ.prompt}
+          </AppText>
+
+          {/* Options */}
+          <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
+
+        </ScrollView>
       </Animated.View>
+
+      {/* Verificar button — fixed above bottom safe area */}
+      {!verified && (
+        <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 16, paddingTop: 12, backgroundColor: C.card }}>
+          <TouchableOpacity
+            onPress={handleVerify}
+            disabled={selected === null}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: selected !== null ? C.navy : 'rgba(22,21,58,0.08)',
+              borderRadius: 16, paddingVertical: 16,
+              alignItems: 'center',
+            }}
+          >
+            <AppText style={{ fontSize: 15, fontWeight: '800', color: selected !== null ? '#FFFFFF' : C.navyLight }}>
+              Verificar
+            </AppText>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Feedback panel — slides up from bottom */}
+      {verified && (
+        <Animated.View style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          backgroundColor: currentIsCorrect ? 'rgba(163,255,60,0.15)' : 'rgba(220,38,38,0.07)',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          paddingHorizontal: 24, paddingTop: 24,
+          paddingBottom: insets.bottom + 20,
+          transform: [{ translateY: feedbackTranslateY }],
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            {currentIsCorrect
+              ? <CheckCircle size={24} color={C.greenDark} weight="fill" />
+              : <XCircle    size={24} color="#DC2626"     weight="fill" />}
+            <AppText style={{
+              fontSize: 17, fontWeight: '800',
+              color: currentIsCorrect ? C.greenDark : '#DC2626',
+            }}>
+              {currentIsCorrect ? 'Correto!' : 'Não foi dessa vez'}
+            </AppText>
+          </View>
+          <TouchableOpacity
+            onPress={handleNext}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: currentIsCorrect ? C.greenDark : C.navy,
+              borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+            }}
+          >
+            <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
+              Próxima →
+            </AppText>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
     </SafeAreaView>
   );
@@ -514,23 +587,14 @@ function OptionList({
             onPress={() => onSelect(idx)}
             activeOpacity={locked ? 1 : 0.75}
             style={{
-              flexDirection: 'row', alignItems: 'center', gap: 14,
               borderRadius: 14, borderWidth: 2,
-              borderColor: isSelected ? C.navy : C.border,
-              backgroundColor: isSelected ? 'rgba(22,21,58,0.06)' : C.card,
+              borderColor: isSelected ? C.green : C.border,
+              backgroundColor: isSelected ? 'rgba(163,255,60,0.10)' : C.card,
               paddingHorizontal: 16, paddingVertical: 16,
+              alignItems: 'center',
             }}
           >
-            <View style={{
-              width: 30, height: 30, borderRadius: 15,
-              backgroundColor: isSelected ? C.navy : 'rgba(22,21,58,0.06)',
-              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-            }}>
-              <AppText style={{ fontSize: 13, fontWeight: '800', color: isSelected ? C.green : C.navyMid }}>
-                {String.fromCharCode(65 + idx)}
-              </AppText>
-            </View>
-            <AppText style={{ fontSize: 15, fontWeight: '600', color: C.navy, flex: 1, lineHeight: 22 }}>
+            <AppText style={{ fontSize: 16, fontWeight: '600', color: C.navy, textAlign: 'center', lineHeight: 22 }}>
               {option}
             </AppText>
           </TouchableOpacity>
