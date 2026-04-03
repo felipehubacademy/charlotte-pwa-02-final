@@ -396,50 +396,63 @@ export default function PlacementTestScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
 
-      {/* Progress header */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyLight, marginRight: 12 }}>
+      {/* Progress header — same pattern as learn-session */}
+      <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <View style={{
+            flexDirection: 'row', alignItems: 'center', gap: 5,
+            backgroundColor: 'rgba(22,21,58,0.07)', borderRadius: 10,
+            paddingHorizontal: 10, paddingVertical: 4,
+            borderWidth: 1, borderColor: 'rgba(22,21,58,0.12)',
+          }}>
+            <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyMid }}>
+              {currentQ.kind === 'listening' ? 'Listening' : 'Escolha a Resposta'}
+            </AppText>
+          </View>
+          <AppText style={{ fontSize: 12, color: C.navyLight, fontWeight: '600' }}>
             {displayCurrent} / {displayTotal}
           </AppText>
-          <View style={{ flex: 1, height: 5, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-            <View style={{
-              height: '100%', width: `${progress * 100}%`,
-              backgroundColor: currentQ.kind === 'listening' ? '#0369A1' : C.green,
-              borderRadius: 3,
-            }} />
-          </View>
+        </View>
+        <View style={{ height: 4, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 2, overflow: 'hidden' }}>
+          <View style={{ height: 4, width: `${progress * 100}%` as any, backgroundColor: C.green, borderRadius: 2 }} />
         </View>
       </View>
 
-      {/* Sliding question area */}
-      <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }], paddingHorizontal: 24 }}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 32 }}>
+      {/* Main card — white, same as learn-session */}
+      <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }], paddingHorizontal: 20, paddingBottom: 20 }}>
+        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 20, borderWidth: 1, borderColor: C.border }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 24, paddingBottom: 16 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Charlotte instruction bubble — xs avatar + colored bubble */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 24 }}>
+              <CharlotteAvatar size="xs" />
+              <View style={{
+                flex: 1, backgroundColor: 'rgba(22,21,58,0.06)',
+                borderRadius: 14, borderBottomLeftRadius: 4,
+                paddingHorizontal: 14, paddingVertical: 12,
+              }}>
+                <AppText style={{ fontSize: 14, color: C.navy, fontWeight: '700', lineHeight: 20 }}>
+                  {currentQ.kind === 'listening'
+                    ? 'Listen to the audio and choose the best answer.'
+                    : 'Escolha a opção correta para completar a frase.'}
+                </AppText>
+              </View>
+            </View>
 
-          {currentQ.kind === 'grammar' ? (
-            <>
-              {/* Charlotte asking the question */}
-              <CharlotteBubble text={currentQ.question} style={{ marginBottom: 20 }} />
-              <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
-            </>
-          ) : (
-            <>
-              {/* Compact audio player row — navy, matches app palette */}
+            {/* Listening audio player */}
+            {currentQ.kind === 'listening' && (
               <View style={{
                 flexDirection: 'row', alignItems: 'center',
-                backgroundColor: C.navy, borderRadius: 18,
-                paddingHorizontal: 18, paddingVertical: 14,
-                marginBottom: 20, gap: 14,
+                backgroundColor: C.navy, borderRadius: 14,
+                paddingHorizontal: 16, paddingVertical: 12,
+                marginBottom: 20, gap: 12,
               }}>
-                <View style={{
-                  width: 38, height: 38, borderRadius: 19,
-                  backgroundColor: 'rgba(163,255,60,0.12)',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Headphones size={18} color={C.green} weight="duotone" />
-                </View>
-                <AppText style={{ flex: 1, fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)' }}>
-                  {isPlaying ? 'Playing…' : 'Listen, then answer'}
+                <Headphones size={16} color={C.green} weight="duotone" />
+                <AppText style={{ flex: 1, fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' }}>
+                  {isPlaying ? 'Playing…' : 'Tap to listen'}
                 </AppText>
                 {audioLoading ? (
                   <ActivityIndicator size="small" color={C.green} />
@@ -449,58 +462,39 @@ export default function PlacementTestScreen() {
                     activeOpacity={0.8}
                     disabled={!audioUri}
                     style={{
-                      width: 42, height: 42, borderRadius: 21,
+                      width: 36, height: 36, borderRadius: 18,
                       backgroundColor: C.green,
                       alignItems: 'center', justifyContent: 'center',
                       opacity: audioUri ? 1 : 0.4,
                     }}
                   >
                     {isPlaying
-                      ? <Pause size={18} color={C.navy} weight="fill" />
-                      : <Play  size={18} color={C.navy} weight="fill" />}
+                      ? <Pause size={16} color={C.navy} weight="fill" />
+                      : <Play  size={16} color={C.navy} weight="fill" />}
                   </TouchableOpacity>
                 )}
               </View>
+            )}
 
-              {/* Charlotte asking the comprehension question */}
-              <CharlotteBubble text={currentQ.prompt} style={{ marginBottom: 16 }} />
-              <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
-            </>
-          )}
+            {/* Question text — large, prominent */}
+            <AppText style={{
+              fontSize: 22, fontWeight: '500', color: C.navy,
+              lineHeight: 34, marginBottom: 28,
+            }}>
+              {currentQ.kind === 'grammar' ? currentQ.question : currentQ.prompt}
+            </AppText>
 
-        </ScrollView>
+            {/* Options */}
+            <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
+
+          </ScrollView>
+        </View>
       </Animated.View>
+
     </SafeAreaView>
   );
 }
 
-// ── Charlotte speech bubble ───────────────────────────────────────────────────
-
-function CharlotteBubble({ text, style }: { text: string; style?: object }) {
-  return (
-    <View style={[{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, style]}>
-      <CharlotteAvatar size="md" />
-      <View style={{ flex: 1 }}>
-        {/* Bubble tail */}
-        <View style={{
-          position: 'absolute', left: -6, top: 14,
-          width: 0, height: 0,
-          borderTopWidth: 6, borderTopColor: 'transparent',
-          borderBottomWidth: 6, borderBottomColor: 'transparent',
-          borderRightWidth: 8, borderRightColor: C.navy,
-        }} />
-        <View style={{
-          backgroundColor: C.navy, borderRadius: 18, borderTopLeftRadius: 4,
-          paddingHorizontal: 18, paddingVertical: 14,
-        }}>
-          <AppText style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', lineHeight: 24 }}>
-            {text}
-          </AppText>
-        </View>
-      </View>
-    </View>
-  );
-}
 
 // ── Option list ───────────────────────────────────────────────────────────────
 
@@ -522,24 +516,23 @@ function OptionList({
             onPress={() => onSelect(idx)}
             activeOpacity={locked ? 1 : 0.75}
             style={{
-              flexDirection: 'row', alignItems: 'center',
-              backgroundColor: isSelected ? C.navy : C.card,
-              borderRadius: 16,
-              borderWidth: 1,
+              flexDirection: 'row', alignItems: 'center', gap: 14,
+              borderRadius: 14, borderWidth: 2,
               borderColor: isSelected ? C.navy : C.border,
-              paddingHorizontal: 18, paddingVertical: 17, gap: 14,
+              backgroundColor: isSelected ? 'rgba(22,21,58,0.06)' : C.card,
+              paddingHorizontal: 16, paddingVertical: 16,
             }}
           >
             <View style={{
-              width: 32, height: 32, borderRadius: 16,
-              backgroundColor: isSelected ? C.green : 'rgba(22,21,58,0.06)',
-              alignItems: 'center', justifyContent: 'center',
+              width: 30, height: 30, borderRadius: 15,
+              backgroundColor: isSelected ? C.navy : 'rgba(22,21,58,0.06)',
+              alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
-              <AppText style={{ fontSize: 13, fontWeight: '800', color: isSelected ? C.navy : C.navyMid }}>
+              <AppText style={{ fontSize: 13, fontWeight: '800', color: isSelected ? C.green : C.navyMid }}>
                 {String.fromCharCode(65 + idx)}
               </AppText>
             </View>
-            <AppText style={{ flex: 1, fontSize: 15, fontWeight: '500', color: isSelected ? '#FFFFFF' : C.navy, lineHeight: 22 }}>
+            <AppText style={{ fontSize: 15, fontWeight: '600', color: C.navy, flex: 1, lineHeight: 22 }}>
               {option}
             </AppText>
           </TouchableOpacity>
@@ -690,78 +683,85 @@ function ResultScreen({
   const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <Animated.View style={{ alignItems: 'center', opacity: anim, transform: [{ translateY }] }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.navy }} edges={['top']}>
+      <Animated.View style={{ flex: 1, opacity: anim, transform: [{ translateY }] }}>
 
-          {/* Single avatar — no icon overlay */}
+        {/* Navy hero — avatar + level */}
+        <View style={{ alignItems: 'center', paddingTop: 40, paddingBottom: 36, paddingHorizontal: 28 }}>
           <CharlotteAvatar size="xxl" />
-
-          {/* Level pill */}
           <View style={{
-            backgroundColor: C.navy, borderRadius: 100,
-            paddingHorizontal: 20, paddingVertical: 7,
-            marginTop: 20, marginBottom: 14,
+            marginTop: 20, backgroundColor: 'rgba(163,255,60,0.15)',
+            borderRadius: 100, paddingHorizontal: 20, paddingVertical: 7,
+            borderWidth: 1, borderColor: 'rgba(163,255,60,0.3)',
           }}>
             <AppText style={{ fontSize: 11, fontWeight: '900', color: C.green, letterSpacing: 2 }}>
               {LEVEL_TAG[level]}
             </AppText>
           </View>
-
-          {/* Tagline */}
-          <AppText style={{ fontSize: 20, fontWeight: '800', color: C.navy, textAlign: 'center', lineHeight: 28, marginBottom: 24 }}>
+          <AppText style={{ fontSize: 22, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 30, marginTop: 14 }}>
             {meta.tagline}
           </AppText>
+        </View>
 
-          {/* Description */}
-          <AppText style={{ fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 24, marginBottom: 28 }}>
-            {meta.description}
-          </AppText>
+        {/* White card — slides up from bottom */}
+        <View style={{
+          flex: 1, backgroundColor: C.bg,
+          borderTopLeftRadius: 28, borderTopRightRadius: 28,
+          paddingHorizontal: 28, paddingTop: 32, paddingBottom: 32,
+        }}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
 
-          {/* Charlotte quote — green left border, no avatar */}
-          <View style={{
-            width: '100%', alignSelf: 'flex-start',
-            borderLeftWidth: 3, borderLeftColor: C.green,
-            paddingLeft: 16, marginBottom: 36,
-          }}>
-            <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 24 }}>
-              "{meta.charlotteMessage}"
+            <AppText style={{ fontSize: 15, color: C.navyMid, lineHeight: 24, marginBottom: 24 }}>
+              {meta.description}
             </AppText>
-            <AppText style={{ fontSize: 10, fontWeight: '800', color: C.green, letterSpacing: 1.2, marginTop: 8 }}>
-              CHARLOTTE
-            </AppText>
-          </View>
 
-          {saveError && (
+            {/* Charlotte quote */}
             <View style={{
-              backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 12,
-              borderWidth: 1, borderColor: 'rgba(220,38,38,0.2)',
-              padding: 12, marginBottom: 16, width: '100%',
+              flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 32,
             }}>
-              <AppText style={{ fontSize: 13, color: '#DC2626', textAlign: 'center', lineHeight: 20 }}>
-                {saveError}
-              </AppText>
+              <CharlotteAvatar size="xs" />
+              <View style={{
+                flex: 1, backgroundColor: 'rgba(22,21,58,0.06)',
+                borderRadius: 14, borderBottomLeftRadius: 4,
+                paddingHorizontal: 14, paddingVertical: 12,
+              }}>
+                <AppText style={{ fontSize: 14, color: C.navy, fontStyle: 'italic', lineHeight: 22 }}>
+                  "{meta.charlotteMessage}"
+                </AppText>
+              </View>
             </View>
-          )}
 
-          {/* CTA */}
-          <TouchableOpacity
-            onPress={onFinish}
-            activeOpacity={0.85}
-            style={{
-              width: '100%', backgroundColor: C.green, borderRadius: 16, paddingVertical: 17,
-              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-            }}
-          >
-            <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
-            <ArrowRight size={18} color={C.navy} weight="bold" />
-          </TouchableOpacity>
+            {saveError && (
+              <View style={{
+                backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 12,
+                borderWidth: 1, borderColor: 'rgba(220,38,38,0.2)',
+                padding: 12, marginBottom: 20,
+              }}>
+                <AppText style={{ fontSize: 13, color: '#DC2626', textAlign: 'center', lineHeight: 20 }}>
+                  {saveError}
+                </AppText>
+              </View>
+            )}
 
-        </Animated.View>
-      </ScrollView>
+            <View style={{ flex: 1 }} />
+
+            {/* CTA */}
+            <TouchableOpacity
+              onPress={onFinish}
+              activeOpacity={0.85}
+              style={{
+                backgroundColor: C.green, borderRadius: 16, paddingVertical: 17,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+              }}
+            >
+              <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
+              <ArrowRight size={18} color={C.navy} weight="bold" />
+            </TouchableOpacity>
+
+          </ScrollView>
+        </View>
+
+      </Animated.View>
     </SafeAreaView>
   );
 }
