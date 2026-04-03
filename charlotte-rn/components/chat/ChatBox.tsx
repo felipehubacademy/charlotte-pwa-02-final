@@ -82,7 +82,7 @@ const TypingIndicator = ({ isAudio = false }: { isAudio?: boolean }) => {
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F0EFFA', borderRadius: 18, borderBottomLeftRadius: 5, paddingHorizontal: 14, paddingVertical: 12 }}>
         {isAudio ? (
           <Animated.View style={{ opacity: pulse }}>
-            <Microphone size={16} color="#A3FF3C" weight="fill" />
+            <Microphone size={16} color="#3D8800" weight="fill" />
           </Animated.View>
         ) : (
           dots.map((dot, i) => (
@@ -102,8 +102,8 @@ const AudioRecordingIndicator = () => (
   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, backgroundColor: '#F0EFFA', borderRadius: 18, borderBottomLeftRadius: 5, alignSelf: 'flex-start', marginBottom: 16 }}>
     <CharlotteAvatar size="xs" />
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-      <Microphone size={14} color="#A3FF3C" weight="fill" />
-      <AppText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 14 }}>Recording...</AppText>
+      <Microphone size={14} color="#3D8800" weight="fill" />
+      <AppText style={{ color: 'rgba(22,21,58,0.65)', fontSize: 14 }}>Recording...</AppText>
     </View>
   </View>
 );
@@ -126,7 +126,6 @@ const MessageBubble: React.FC<{
   const isUser = message.role === 'user';
   const isNovice = userLevel === 'Novice';
   const hasAudio = !!(message.audioUrl || message.audioUri);
-  const isAudioResponse = !isUser && !!message.technicalFeedback;
   // Charlotte's audio response — text hidden by default, revealed via "Ver texto"
   const isCharlotteAudio  = !isUser && message.messageType === 'audio' && !!message.audioUrl;
   const isDemonstration   = !!message.isDemonstration;
@@ -281,15 +280,15 @@ const MessageBubble: React.FC<{
           )}
         </View>
 
-        {/* Feedback button below user's own bubble (grammar / pronunciation) */}
-        {isUser && !!message.technicalFeedback && !isNovice && (
+        {/* Feedback button below user's own bubble (texto apenas — áudio usa aba Pronúncia) */}
+        {isUser && !!message.technicalFeedback && !isNovice && !hasAudio && (
           <View style={{ flexDirection: 'row', marginTop: 6, paddingHorizontal: 4, justifyContent: 'flex-end' }}>
             <TouchableOpacity
               onPress={() => setShowTechnicalFeedback(v => !v)}
               style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
             >
-              <SpeakerHigh size={12} color="#A3FF3C" weight="regular" />
-              <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>
+              <SpeakerHigh size={12} color="rgba(0,0,0,0.5)" weight="regular" />
+              <AppText style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', fontWeight: '600' }}>
                 {showTechnicalFeedback ? 'Hide feedback' : 'Feedback'}
               </AppText>
             </TouchableOpacity>
@@ -312,16 +311,6 @@ const MessageBubble: React.FC<{
                 <AppText style={{ fontSize: 12, color: isTranslating ? '#9896B8' : '#4B4A72' }}>
                   {isTranslating ? 'Traduzindo...' : 'Traduzir'}
                 </AppText>
-              </TouchableOpacity>
-            )}
-
-            {isAudioResponse && userLevel !== 'Novice' && (
-              <TouchableOpacity
-                onPress={() => setShowTechnicalFeedback(v => !v)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-              >
-                <SpeakerHigh size={12} color="#A3FF3C" weight="regular" />
-                <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>Feedback</AppText>
               </TouchableOpacity>
             )}
 
@@ -380,8 +369,8 @@ const MessageBubble: React.FC<{
           </View>
         )}
 
-        {/* Technical Feedback panel */}
-        {showTechnicalFeedback && !!message.technicalFeedback && (
+        {/* Technical Feedback panel (texto apenas) */}
+        {showTechnicalFeedback && !!message.technicalFeedback && !hasAudio && (
           <View style={{ marginTop: 8, padding: 14, backgroundColor: '#F0FFD9', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(61,136,0,0.2)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
               <SpeakerHigh size={13} color="#3D8800" weight="regular" />
@@ -483,8 +472,8 @@ const ChatBox: React.FC<ChatBoxProps> = ({
             {!!(transcript || finalTranscript) && (
               <View className="bg-primary/10 rounded-xl p-3 mb-4 border border-primary/20">
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                  <Microphone size={12} color="#A3FF3C" weight="fill" />
-                  <AppText className="text-xs text-primary font-medium">Listening...</AppText>
+                  <Microphone size={12} color="#3D8800" weight="fill" />
+                  <AppText className="text-xs font-medium" style={{ color: '#3D8800' }}>Listening...</AppText>
                 </View>
                 <AppText className="text-sm text-white">
                   <AppText className="text-white/50">{transcript}</AppText>
