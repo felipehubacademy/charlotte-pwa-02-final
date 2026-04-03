@@ -736,7 +736,8 @@ function ResultScreen({
 }: {
   level: Level; firstName: string; saveError: string | null; onFinish: () => void;
 }) {
-  const meta = LEVEL_META[level];
+  const meta   = LEVEL_META[level];
+  const insets = useSafeAreaInsets();
 
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -748,41 +749,36 @@ function ResultScreen({
     <SafeAreaView style={{ flex: 1, backgroundColor: C.navy }} edges={['top']}>
       <Animated.View style={{ flex: 1, opacity: anim, transform: [{ translateY }] }}>
 
-        {/* Navy hero — avatar + level */}
-        <View style={{ alignItems: 'center', paddingTop: 40, paddingBottom: 36, paddingHorizontal: 28 }}>
-          <CharlotteAvatar size="xxl" />
+        {/* Navy hero — compact, avatar + level + tagline */}
+        <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 28, paddingHorizontal: 28 }}>
+          <CharlotteAvatar size="xl" />
           <View style={{
-            marginTop: 20, backgroundColor: 'rgba(163,255,60,0.15)',
-            borderRadius: 100, paddingHorizontal: 20, paddingVertical: 7,
+            marginTop: 16, backgroundColor: 'rgba(163,255,60,0.15)',
+            borderRadius: 100, paddingHorizontal: 18, paddingVertical: 6,
             borderWidth: 1, borderColor: 'rgba(163,255,60,0.3)',
           }}>
-            <AppText style={{ fontSize: 11, fontWeight: '900', color: C.green, letterSpacing: 2 }}>
+            <AppText style={{ fontSize: 10, fontWeight: '900', color: C.green, letterSpacing: 2 }}>
               {LEVEL_TAG[level]}
             </AppText>
           </View>
-          <AppText style={{ fontSize: 22, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 30, marginTop: 14 }}>
+          <AppText style={{ fontSize: 20, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 28, marginTop: 12 }}>
             {meta.tagline}
           </AppText>
         </View>
 
-        {/* White card — slides up from bottom */}
-        <View style={{
-          flex: 1, backgroundColor: C.bg,
-          borderTopLeftRadius: 28, borderTopRightRadius: 28,
-          paddingHorizontal: 28, paddingTop: 32, paddingBottom: 32,
-        }}>
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
-
+        {/* White sheet — scroll content only, no CTA inside */}
+        <View style={{ flex: 1, backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 28, paddingBottom: 16 }}
+          >
             <AppText style={{ fontSize: 15, color: C.navyMid, lineHeight: 24, marginBottom: 24 }}>
               {meta.description}
             </AppText>
 
-            {/* Charlotte quote */}
-            <View style={{
-              flexDirection: 'row', alignItems: 'flex-start', gap: 0, marginBottom: 32,
-            }}>
+            {/* Charlotte quote — same style as question screen */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 0 }}>
               <CharlotteAvatar size="xs" />
-              {/* Triangle tail */}
               <View style={{
                 width: 0, height: 0,
                 borderTopWidth: 5, borderTopColor: 'transparent',
@@ -805,17 +801,17 @@ function ResultScreen({
               <View style={{
                 backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 12,
                 borderWidth: 1, borderColor: 'rgba(220,38,38,0.2)',
-                padding: 12, marginBottom: 20,
+                padding: 12, marginTop: 20,
               }}>
                 <AppText style={{ fontSize: 13, color: '#DC2626', textAlign: 'center', lineHeight: 20 }}>
                   {saveError}
                 </AppText>
               </View>
             )}
+          </ScrollView>
 
-            <View style={{ flex: 1 }} />
-
-            {/* CTA */}
+          {/* CTA fixed at bottom — same pattern as Verificar */}
+          <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 16, paddingTop: 12 }}>
             <TouchableOpacity
               onPress={onFinish}
               activeOpacity={0.85}
@@ -827,6 +823,7 @@ function ResultScreen({
               <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
               <ArrowRight size={18} color={C.navy} weight="bold" />
             </TouchableOpacity>
+          </View>
 
           </ScrollView>
         </View>
