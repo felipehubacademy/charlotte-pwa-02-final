@@ -16,8 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import {
-  Headphones, Play, Pause,
-  Crown, Leaf, Lightning, ArrowRight,
+  Headphones, Play, Pause, ArrowRight,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
@@ -49,18 +48,10 @@ const C = {
   }),
 };
 
-const LEVEL_ACCENT = {
-  Novice:   { bg: '#EFF6FF', text: '#1D4ED8', border: '#BFDBFE' },
-  Inter:    { bg: '#FFF7ED', text: '#C2410C', border: '#FED7AA' },
-  Advanced: { bg: 'rgba(163,255,60,0.12)', text: '#3D8800', border: 'rgba(163,255,60,0.4)' },
-};
-
-const DIFFICULTY_COLOR: Record<string, string> = {
-  Basic:        '#1D4ED8',
-  Intermediate: '#C2410C',
-  Advanced:     '#7C3AED',
-  Expert:       '#3D8800',
-  Listening:    '#0369A1',
+const LEVEL_TAG: Record<string, string> = {
+  Novice:   'NOVICE',
+  Inter:    'INTERMEDIATE',
+  Advanced: 'ADVANCED',
 };
 
 // ── Question types ────────────────────────────────────────────────────────────
@@ -245,11 +236,6 @@ const LEVEL_META: Record<Level, {
   },
 };
 
-const LEVEL_ICON: Record<Level, React.ReactElement> = {
-  Novice:   <Leaf     size={44} color="#1D4ED8" weight="duotone" />,
-  Inter:    <Lightning size={44} color="#C2410C" weight="duotone" />,
-  Advanced: <Crown    size={44} color="#3D8800" weight="duotone" />,
-};
 
 // ── Main component ────────────────────────────────────────────────────────────
 type Phase = 'intro' | 'test' | 'saving' | 'result';
@@ -438,57 +424,40 @@ export default function PlacementTestScreen() {
             </>
           ) : (
             <>
-              {/* Listening context */}
+              {/* Compact audio player row — navy, matches app palette */}
               <View style={{
-                backgroundColor: '#EFF6FF', borderRadius: 22, padding: 18,
-                borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 16,
-                flexDirection: 'row', alignItems: 'center', gap: 14, ...C.shadow,
+                flexDirection: 'row', alignItems: 'center',
+                backgroundColor: C.navy, borderRadius: 18,
+                paddingHorizontal: 18, paddingVertical: 14,
+                marginBottom: 20, gap: 14,
               }}>
                 <View style={{
-                  width: 44, height: 44, borderRadius: 22,
-                  backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center',
+                  width: 38, height: 38, borderRadius: 19,
+                  backgroundColor: 'rgba(163,255,60,0.12)',
+                  alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <Headphones size={22} color="#1D4ED8" weight="duotone" />
+                  <Headphones size={18} color={C.green} weight="duotone" />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <AppText style={{ fontSize: 13, fontWeight: '800', color: '#1D4ED8', marginBottom: 2 }}>
-                    LISTENING COMPREHENSION
-                  </AppText>
-                  <AppText style={{ fontSize: 13, color: '#3B82F6', lineHeight: 19 }}>
-                    Listen to the audio, then choose the best answer.
-                  </AppText>
-                </View>
-              </View>
-
-              {/* Audio player */}
-              <View style={{
-                backgroundColor: C.card, borderRadius: 22, padding: 20,
-                borderWidth: 1, borderColor: C.border, marginBottom: 16,
-                alignItems: 'center', ...C.shadow,
-              }}>
+                <AppText style={{ flex: 1, fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)' }}>
+                  {isPlaying ? 'Playing…' : 'Listen, then answer'}
+                </AppText>
                 {audioLoading ? (
-                  <View style={{ paddingVertical: 12, alignItems: 'center', gap: 10 }}>
-                    <ActivityIndicator size="small" color={C.navyMid} />
-                    <AppText style={{ fontSize: 12, color: C.navyLight }}>Preparing audio…</AppText>
-                  </View>
+                  <ActivityIndicator size="small" color={C.green} />
                 ) : (
                   <TouchableOpacity
                     onPress={() => audioUri && toggleAudio(LISTEN_ID, audioUri)}
                     activeOpacity={0.8}
                     disabled={!audioUri}
                     style={{
-                      flexDirection: 'row', alignItems: 'center', gap: 12,
-                      backgroundColor: isPlaying ? C.navy : 'rgba(22,21,58,0.05)',
-                      borderRadius: 16, paddingHorizontal: 24, paddingVertical: 14,
-                      opacity: audioUri ? 1 : 0.45,
+                      width: 42, height: 42, borderRadius: 21,
+                      backgroundColor: C.green,
+                      alignItems: 'center', justifyContent: 'center',
+                      opacity: audioUri ? 1 : 0.4,
                     }}
                   >
                     {isPlaying
-                      ? <Pause size={20} color={C.green} weight="fill" />
-                      : <Play  size={20} color={C.navy}  weight="fill" />}
-                    <AppText style={{ fontSize: 14, fontWeight: '700', color: isPlaying ? '#FFFFFF' : C.navy }}>
-                      {isPlaying ? 'Playing…' : 'Play audio'}
-                    </AppText>
+                      ? <Pause size={18} color={C.navy} weight="fill" />
+                      : <Play  size={18} color={C.navy} weight="fill" />}
                   </TouchableOpacity>
                 )}
               </View>
@@ -712,118 +681,86 @@ function ResultScreen({
 }: {
   level: Level; firstName: string; saveError: string | null; onFinish: () => void;
 }) {
-  const meta   = LEVEL_META[level];
-  const accent = LEVEL_ACCENT[level];
+  const meta = LEVEL_META[level];
 
-  const badgeAnim = useRef(new Animated.Value(0)).current;
-  const cardAnim  = useRef(new Animated.Value(0)).current;
-  const ctaAnim   = useRef(new Animated.Value(0)).current;
-
+  const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.sequence([
-      Animated.spring(badgeAnim, { toValue: 1, friction: 6, tension: 50, useNativeDriver: true }),
-      Animated.timing(cardAnim,  { toValue: 1, duration: 300, useNativeDriver: true }),
-      Animated.timing(ctaAnim,   { toValue: 1, duration: 250, useNativeDriver: true }),
-    ]).start();
+    Animated.timing(anim, { toValue: 1, duration: 480, delay: 80, useNativeDriver: true }).start();
   }, []);
+  const translateY = anim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Charlotte + level badge */}
-        <Animated.View style={{ alignItems: 'center', marginBottom: 28, opacity: badgeAnim, transform: [{ scale: badgeAnim }] }}>
-          {/* Level icon badge floating above avatar */}
-          <View style={{
-            width: 58, height: 58, borderRadius: 29,
-            backgroundColor: accent.bg,
-            borderWidth: 2, borderColor: accent.border,
-            alignItems: 'center', justifyContent: 'center',
-            marginBottom: -20, zIndex: 1,
-            ...C.shadow,
-          }}>
-            {LEVEL_ICON[level]}
-          </View>
+        <Animated.View style={{ alignItems: 'center', opacity: anim, transform: [{ translateY }] }}>
+
+          {/* Single avatar — no icon overlay */}
           <CharlotteAvatar size="xxl" />
 
-          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyLight, letterSpacing: 1.4, textTransform: 'uppercase', marginTop: 16, marginBottom: 8 }}>
-            Seu nível
-          </AppText>
+          {/* Level pill */}
           <View style={{
-            backgroundColor: accent.bg, borderRadius: 14,
-            borderWidth: 1, borderColor: accent.border,
-            paddingHorizontal: 22, paddingVertical: 9, marginBottom: 10,
+            backgroundColor: C.navy, borderRadius: 100,
+            paddingHorizontal: 20, paddingVertical: 7,
+            marginTop: 20, marginBottom: 14,
           }}>
-            <AppText style={{ fontSize: 22, fontWeight: '800', color: accent.text }}>{meta.label}</AppText>
+            <AppText style={{ fontSize: 11, fontWeight: '900', color: C.green, letterSpacing: 2 }}>
+              {LEVEL_TAG[level]}
+            </AppText>
           </View>
-          <AppText style={{ fontSize: 17, fontWeight: '700', color: C.navy, textAlign: 'center' }}>
+
+          {/* Tagline */}
+          <AppText style={{ fontSize: 20, fontWeight: '800', color: C.navy, textAlign: 'center', lineHeight: 28, marginBottom: 24 }}>
             {meta.tagline}
           </AppText>
-        </Animated.View>
 
-        {/* Charlotte message bubble */}
-        <Animated.View style={{ opacity: cardAnim, marginBottom: 14 }}>
-          <View style={{ backgroundColor: C.card, borderRadius: 22, padding: 22, borderWidth: 1, borderColor: C.border, ...C.shadow }}>
-            <AppText style={{ fontSize: 14, color: C.navyMid, lineHeight: 22, marginBottom: 20 }}>
-              {meta.description}
-            </AppText>
+          {/* Description */}
+          <AppText style={{ fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 24, marginBottom: 28 }}>
+            {meta.description}
+          </AppText>
 
-            {/* Charlotte speech */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-              <CharlotteAvatar size="sm" />
-              <View style={{ flex: 1 }}>
-                <View style={{
-                  position: 'absolute', left: -6, top: 10,
-                  width: 0, height: 0,
-                  borderTopWidth: 5, borderTopColor: 'transparent',
-                  borderBottomWidth: 5, borderBottomColor: 'transparent',
-                  borderRightWidth: 7, borderRightColor: C.navy,
-                }} />
-                <View style={{
-                  backgroundColor: C.navy, borderRadius: 16, borderTopLeftRadius: 4,
-                  paddingHorizontal: 16, paddingVertical: 12,
-                }}>
-                  <AppText style={{ fontSize: 11, fontWeight: '800', color: C.green, letterSpacing: 0.5, marginBottom: 5 }}>
-                    CHARLOTTE
-                  </AppText>
-                  <AppText style={{ fontSize: 14, color: '#FFFFFF', lineHeight: 21, fontStyle: 'italic' }}>
-                    "{meta.charlotteMessage}"
-                  </AppText>
-                </View>
-              </View>
-            </View>
-          </View>
-        </Animated.View>
-
-        {saveError && (
+          {/* Charlotte quote — green left border, no avatar */}
           <View style={{
-            backgroundColor: '#FEF2F2', borderRadius: 12,
-            borderWidth: 1, borderColor: '#FECACA',
-            padding: 12, marginBottom: 14,
+            width: '100%', alignSelf: 'flex-start',
+            borderLeftWidth: 3, borderLeftColor: C.green,
+            paddingLeft: 16, marginBottom: 36,
           }}>
-            <AppText style={{ fontSize: 13, color: '#DC2626', textAlign: 'center', lineHeight: 20 }}>
-              {saveError}
+            <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 24 }}>
+              "{meta.charlotteMessage}"
+            </AppText>
+            <AppText style={{ fontSize: 10, fontWeight: '800', color: C.green, letterSpacing: 1.2, marginTop: 8 }}>
+              CHARLOTTE
             </AppText>
           </View>
-        )}
 
-        {/* CTA */}
-        <Animated.View style={{ opacity: ctaAnim }}>
+          {saveError && (
+            <View style={{
+              backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 12,
+              borderWidth: 1, borderColor: 'rgba(220,38,38,0.2)',
+              padding: 12, marginBottom: 16, width: '100%',
+            }}>
+              <AppText style={{ fontSize: 13, color: '#DC2626', textAlign: 'center', lineHeight: 20 }}>
+                {saveError}
+              </AppText>
+            </View>
+          )}
+
+          {/* CTA */}
           <TouchableOpacity
             onPress={onFinish}
             activeOpacity={0.85}
             style={{
-              backgroundColor: C.green, borderRadius: 16, paddingVertical: 17,
+              width: '100%', backgroundColor: C.green, borderRadius: 16, paddingVertical: 17,
               flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
             }}
           >
             <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
             <ArrowRight size={18} color={C.navy} weight="bold" />
           </TouchableOpacity>
-        </Animated.View>
 
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
