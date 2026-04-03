@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, ScrollView, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
@@ -8,6 +8,7 @@ import {
   ArrowLeft, BookOpen, Microphone, CheckCircle,
   Lock, Play, CaretRight,
 } from 'phosphor-react-native';
+import * as SecureStore from 'expo-secure-store';
 import { useAuth } from '@/hooks/useAuth';
 import { AppText } from '@/components/ui/Text';
 import { CURRICULUM, TrailLevel, topicHasContent, totalTopics } from '@/data/curriculum';
@@ -66,11 +67,24 @@ export default function LearnTrailScreen() {
   const total     = totalTopics(level);
   const pct       = total > 0 ? Math.round((completed / total) * 100) : 0;
 
+  // ── Intro completion tracking ────────────────────────────────
+  const [introDone, setIntroDone] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    const levelIntros = MODULE_INTROS[level];
+    if (!levelIntros) return;
+    Promise.all(
+      Object.keys(levelIntros).map(async (k) => {
+        const mIdx = parseInt(k, 10);
+        const val = await SecureStore.getItemAsync(`intro_done_${level}_${mIdx}`);
+        return [mIdx, val === '1'] as [number, boolean];
+      })
+    ).then(results => setIntroDone(Object.fromEntries(results)));
+  }, [level]);
+
   const handleStart = (moduleIdx: number, topicIdx: number) => {
-    // Show module intro before the first topic if one is defined
-    const hasIntro = topicIdx === 0 && !!MODULE_INTROS[level]?.[moduleIdx];
     router.push({
-      pathname: hasIntro ? '/(app)/learn-intro' : '/(app)/learn-session',
+      pathname: '/(app)/learn-session',
       params: { level, moduleIndex: String(moduleIdx), topicIndex: String(topicIdx) },
     });
   };
@@ -165,6 +179,75 @@ export default function LearnTrailScreen() {
 
               {/* Topics */}
               <View style={{ gap: 8 }}>
+
+                {/* ── Module intro row (mini-lesson) ── */}
+                {(() => {
+                  const intro = MODULE_INTROS[level]?.[mIdx];
+                  if (!intro) return null;
+                  const done = introDone[mIdx] ?? false;
+                  return (
+                    <TouchableOpacity
+                      onPress={() => router.push({
+                        pathname: '/(app)/learn-intro',
+                        params: { level, moduleIndex: String(mIdx), topicIndex: '0' },
+                      })}
+                      activeOpacity={0.75}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 14,
+                        backgroundColor: done ? C.card : C.violetBg,
+                        borderRadius: 14, padding: 14,
+                        borderWidth: 1.5,
+                        borderColor: done ? C.border : C.violet + '35',
+                        ...shadow,
+                      }}
+                    >
+                      {/* Icon */}
+                      <View style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        backgroundColor: done ? C.greenBg : C.violet + '20',
+                        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>
+                        {done
+                          ? <CheckCircle size={20} color={C.green} weight="fill" />
+                          : <BookOpen size={18} color={C.violet} weight="fill" />
+                        }
+                      </View>
+
+                      {/* Title + tag */}
+                      <View style={{ flex: 1 }}>
+                        <AppText style={{ fontSize: 13, fontWeight: '700', color: C.navy, lineHeight: 18 }}>
+                          {intro.title}
+                        </AppText>
+                        <View style={{ flexDirection: 'row', gap: 6, marginTop: 5 }}>
+                          <View style={{
+                            backgroundColor: C.violet + '15', borderRadius: 6,
+                            paddingHorizontal: 7, paddingVertical: 3,
+                            flexDirection: 'row', alignItems: 'center', gap: 3,
+                          }}>
+                            <BookOpen size={11} color={C.violet} weight="fill" />
+                            <AppText style={{ fontSize: 10, fontWeight: '700', color: C.violet }}>
+                              Mini-lesson · {intro.slides.length} slides
+                            </AppText>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* CTA */}
+                      <View style={{
+                        backgroundColor: done ? 'transparent' : C.violet,
+                        borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+                        borderWidth: done ? 1 : 0, borderColor: C.violet + '40',
+                        flexDirection: 'row', alignItems: 'center', gap: 4,
+                      }}>
+                        <AppText style={{ fontSize: 12, fontWeight: '800', color: done ? C.violet : '#FFF' }}>
+                          {done ? 'Review' : 'Start'}
+                        </AppText>
+                        <CaretRight size={12} color={done ? C.violet : '#FFF'} weight="bold" />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })()}
+
                 {mod.topics.map((topic, tIdx) => {
                   const complete = isTopicComplete(mIdx, tIdx);
                   const current  = isCurrent(mIdx, tIdx);
