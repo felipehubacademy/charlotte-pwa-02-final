@@ -9,12 +9,14 @@ import {
   Key,
   DeviceMobile,
   GraduationCap,
+  Buildings,
   SignOut,
   ShieldCheck,
   CheckCircle,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 // Light theme palette
 const C = {
@@ -109,8 +111,32 @@ function SectionTitle({ label }: { label: string }) {
 }
 
 export default function ConfiguracoesScreen() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, refreshProfile } = useAuth();
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
+
+  const handleRetakePlacementTest = () => {
+    Alert.alert(
+      isPt ? 'Refazer teste de nível' : 'Retake placement test',
+      isPt
+        ? 'Isso vai sobrescrever seu nível atual. Deseja continuar?'
+        : 'This will override your current level. Continue?',
+      [
+        { text: isPt ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: isPt ? 'Refazer' : 'Retake',
+          onPress: async () => {
+            if (!profile?.id) return;
+            await supabase
+              .from('charlotte_users')
+              .update({ placement_test_done: false })
+              .eq('id', profile.id);
+            await refreshProfile();
+            router.push('/(app)/placement-test');
+          },
+        },
+      ]
+    );
+  };
   const handleSignOut = () => {
     Alert.alert(
       isPt ? 'Sair da conta' : 'Sign out',
@@ -140,7 +166,7 @@ export default function ConfiguracoesScreen() {
   })();
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'bottom']}>
 
       {/* Header */}
       <View style={{
@@ -218,6 +244,12 @@ export default function ConfiguracoesScreen() {
           onPress={() => router.push('/(app)/change-password')}
           chevron
         />
+        <SettingRow
+          icon={<GraduationCap size={18} color={C.greenDark} weight="duotone" />}
+          label={isPt ? 'Refazer teste de nível' : 'Retake placement test'}
+          onPress={handleRetakePlacementTest}
+          chevron
+        />
 
         {/* About */}
         <SectionTitle label={isPt ? 'Sobre' : 'About'} />
@@ -227,7 +259,7 @@ export default function ConfiguracoesScreen() {
           value="v1.0.0"
         />
         <SettingRow
-          icon={<GraduationCap size={18} color={C.navyMid} weight="duotone" />}
+          icon={<Buildings size={18} color={C.navyMid} weight="duotone" />}
           label="Hub Academy"
         />
 
