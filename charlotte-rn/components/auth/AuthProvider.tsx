@@ -72,7 +72,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setProfile(null);
           } else if (event !== 'USER_UPDATED') {
             const userProfile = await fetchProfile(session.user.id);
-            if (mounted) setProfile(userProfile);
+            // Only update profile if fetch succeeded — never null-out an existing
+            // valid profile due to a failed re-fetch (e.g. TOKEN_REFRESHED race).
+            if (mounted && userProfile) setProfile(userProfile);
           }
         } catch (error) {
           console.error('[AuthProvider] onAuthStateChange error:', error);
