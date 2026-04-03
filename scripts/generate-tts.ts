@@ -15,6 +15,8 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { CURRICULUM } = require('../charlotte-rn/data/curriculum') as typeof import('../charlotte-rn/data/curriculum');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { MODULE_INTROS } = require('../charlotte-rn/data/moduleIntros') as typeof import('../charlotte-rn/data/moduleIntros');
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 // Rachel — clear American English, excellent for language teaching
@@ -66,6 +68,7 @@ async function main() {
   // Collect all unique phrase texts
   const phrases = new Map<string, string>(); // key → text
 
+  // ── Curriculum pronunciation phrases ──────────────────────────
   for (const level of Object.keys(CURRICULUM) as Array<keyof typeof CURRICULUM>) {
     for (const mod of CURRICULUM[level]) {
       for (const topic of mod.topics) {
@@ -77,7 +80,18 @@ async function main() {
     }
   }
 
-  console.log(`Found ${phrases.size} unique pronunciation phrases.\n`);
+  // ── Module intro slide narrations ─────────────────────────────
+  for (const levelIntros of Object.values(MODULE_INTROS)) {
+    if (!levelIntros) continue;
+    for (const intro of Object.values(levelIntros)) {
+      for (const slide of intro.slides) {
+        const key = ttsKey(slide.audio);
+        if (!phrases.has(key)) phrases.set(key, slide.audio);
+      }
+    }
+  }
+
+  console.log(`Found ${phrases.size} unique phrases (pronunciation + intro slides).\n`);
 
   let generated = 0;
   let skipped   = 0;
