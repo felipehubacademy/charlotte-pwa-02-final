@@ -117,7 +117,6 @@ const MessageBubble: React.FC<{
 }> = ({ message, userLevel, mode, isPlaying, onTogglePlay }) => {
   const [showTranslation, setShowTranslation] = React.useState(false);
   const [showTranscription, setShowTranscription] = React.useState(false);
-  const [showTechnicalFeedback, setShowTechnicalFeedback] = React.useState(false);
   const [translation, setTranslation] = React.useState('');
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [translationError, setTranslationError] = React.useState(false);
@@ -280,20 +279,6 @@ const MessageBubble: React.FC<{
           )}
         </View>
 
-        {/* Feedback button below user's own bubble (texto apenas — áudio usa aba Pronúncia) */}
-        {isUser && !!message.technicalFeedback && !isNovice && !hasAudio && (
-          <View style={{ flexDirection: 'row', marginTop: 6, paddingHorizontal: 4, justifyContent: 'flex-end' }}>
-            <TouchableOpacity
-              onPress={() => setShowTechnicalFeedback(v => !v)}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-            >
-              <SpeakerHigh size={12} color="rgba(0,0,0,0.5)" weight="regular" />
-              <AppText style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', fontWeight: '600' }}>
-                {showTechnicalFeedback ? 'Hide feedback' : 'Feedback'}
-              </AppText>
-            </TouchableOpacity>
-          </View>
-        )}
 
         {/* Action buttons below assistant messages */}
         {!isUser && (
@@ -369,18 +354,6 @@ const MessageBubble: React.FC<{
           </View>
         )}
 
-        {/* Technical Feedback panel (texto apenas) */}
-        {showTechnicalFeedback && !!message.technicalFeedback && !hasAudio && (
-          <View style={{ marginTop: 8, padding: 14, backgroundColor: '#F0FFD9', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(61,136,0,0.2)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 }}>
-              <SpeakerHigh size={13} color="#3D8800" weight="regular" />
-              <AppText style={{ fontSize: 13, color: '#3D8800', fontWeight: '600' }}>Pronunciation Analysis</AppText>
-            </View>
-            <AppText style={{ fontSize: 14, color: '#16153A', lineHeight: 20 }}>
-              {message.technicalFeedback}
-            </AppText>
-          </View>
-        )}
 
         {/* Timestamp */}
         <AppText style={{ fontSize: 10, color: 'rgba(22,21,58,0.35)', marginTop: 4, paddingHorizontal: 4, textAlign: isUser ? 'right' : 'left' }}>
