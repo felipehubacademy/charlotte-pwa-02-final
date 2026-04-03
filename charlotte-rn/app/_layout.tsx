@@ -20,8 +20,9 @@ SplashScreen.preventAutoHideAsync();
  * nested layouts which cause "not found" errors.
  */
 function AuthGuard() {
-  const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword, profile, refreshProfile } = useAuth();
   const lastRoute = useRef<string | null>(null);
+  const retryCount = useRef(0);
   const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
 
   // Check onboarding flag once on mount
@@ -30,6 +31,14 @@ function AuthGuard() {
       .then((val: string | null) => setOnboardingDone(val === 'done'))
       .catch(() => setOnboardingDone(false));
   }, []);
+
+  // If auth resolved but profile fetch failed, retry up to 3 times.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && profile === null && retryCount.current < 3) {
+      retryCount.current += 1;
+      refreshProfile();
+    }
+  }, [isLoading, isAuthenticated, profile]);
 
   useEffect(() => {
     if (isLoading) return;
@@ -43,6 +52,8 @@ function AuthGuard() {
       target = '/(auth)/login';
     } else if (mustChangePassword) {
       target = '/(app)/first-access';
+    } else if (profile && !profile.placement_test_done) {
+      target = '/(app)/placement-test';
     } else {
       lastRoute.current = null;
       return;
@@ -51,7 +62,7 @@ function AuthGuard() {
     if (lastRoute.current === target) return;
     lastRoute.current = target;
     router.replace(target as any);
-  }, [isLoading, isAuthenticated, mustChangePassword, profile, onboardingDone]);
+  }, [isLoading, isAuthenticated, mustChangePassword, profile, profile?.placement_test_done, onboardingDone]);
 
   return null;
 }

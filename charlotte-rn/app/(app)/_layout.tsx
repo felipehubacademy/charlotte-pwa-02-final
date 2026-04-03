@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { View, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { TrialExpiredModal } from '@/components/auth/TrialExpiredModal';
 import { XPToastProvider } from '@/components/ui/XPToastProvider';
@@ -8,12 +9,18 @@ export default function AppLayout() {
   const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
 
   // AuthGuard in app/_layout.tsx handles all redirects at root level.
-  // Return null while auth state is still resolving to avoid flash.
-  // Return null while loading or unauthenticated.
-  // first-access is registered in this Stack so that navigation from
-  // first-access → index happens within the same Stack (no cross-group issues).
-  // mustChangePassword users land on /(app)/first-access via AuthGuard.
-  if (isLoading || !isAuthenticated || (profile === null)) return null;
+  // If not authenticated, render nothing — AuthGuard will redirect.
+  if (!isAuthenticated) return null;
+
+  // While loading or profile still being fetched, show spinner instead of
+  // blank screen (prevents white-screen hang when fetchProfile is slow/retrying).
+  if (isLoading || profile === null) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F3FA' }}>
+        <ActivityIndicator size="large" color="#A3FF3C" />
+      </View>
+    );
+  }
 
   return (
     <XPToastProvider>
