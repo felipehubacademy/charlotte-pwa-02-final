@@ -11,6 +11,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { AppText } from '@/components/ui/Text';
 import { CURRICULUM, TrailLevel, topicHasContent, totalTopics } from '@/data/curriculum';
+import { MODULE_INTROS } from '@/data/moduleIntros';
 import { useLearnProgress } from '@/hooks/useLearnProgress';
 
 // ── Palette ────────────────────────────────────────────────────
@@ -66,8 +67,10 @@ export default function LearnTrailScreen() {
   const pct       = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const handleStart = (moduleIdx: number, topicIdx: number) => {
+    // Show module intro before the first topic if one is defined
+    const hasIntro = topicIdx === 0 && !!MODULE_INTROS[level]?.[moduleIdx];
     router.push({
-      pathname: '/(app)/learn-session',
+      pathname: hasIntro ? '/(app)/learn-intro' : '/(app)/learn-session',
       params: { level, moduleIndex: String(moduleIdx), topicIndex: String(topicIdx) },
     });
   };
