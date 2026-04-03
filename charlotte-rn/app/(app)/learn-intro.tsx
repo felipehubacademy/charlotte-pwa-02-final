@@ -57,9 +57,10 @@ export default function LearnIntroScreen() {
     level: string; moduleIndex: string; topicIndex: string;
   }>();
 
-  const mIdx   = parseInt(moduleIndex ?? '0', 10);
-  const intro  = MODULE_INTROS[level as TrailLevel]?.[mIdx];
-  const slides = intro?.slides ?? [];
+  const mIdx        = parseInt(moduleIndex ?? '0', 10);
+  const intro       = MODULE_INTROS[level as TrailLevel]?.[mIdx];
+  const slides      = intro?.slides ?? [];
+  const isPortuguese = level === 'Novice';
 
   const [slideIdx,     setSlideIdx]     = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
@@ -290,7 +291,7 @@ export default function LearnIntroScreen() {
       {/* ── Skip ── */}
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 12 }}>
         <TouchableOpacity onPress={goToSession} hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}>
-          <AppText style={{ color: C.whiteAlpha, fontSize: 14, fontWeight: '600' }}>Skip</AppText>
+          <AppText style={{ color: C.whiteAlpha, fontSize: 14, fontWeight: '600' }}>{isPortuguese ? 'Pular' : 'Skip'}</AppText>
         </TouchableOpacity>
       </View>
 
@@ -361,7 +362,7 @@ export default function LearnIntroScreen() {
           }}
         >
           <AppText style={{ fontSize: 16, fontWeight: '800', color: '#FFF' }}>
-            {isLast ? "Let's Start!" : 'Next'}
+            {isLast ? (isPortuguese ? 'Vamos lá!' : "Let's Start!") : (isPortuguese ? 'Próximo' : 'Next')}
           </AppText>
           <ArrowRight size={18} color="#FFF" weight="bold" />
         </TouchableOpacity>
