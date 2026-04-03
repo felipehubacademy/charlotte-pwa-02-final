@@ -417,11 +417,19 @@ export default function PlacementTestScreen() {
             showsVerticalScrollIndicator={false}
           >
             {/* Charlotte instruction bubble — xs avatar + colored bubble */}
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 0, marginBottom: 24 }}>
               <CharlotteAvatar size="xs" />
+              {/* Triangle tail */}
+              <View style={{
+                width: 0, height: 0,
+                borderTopWidth: 5, borderTopColor: 'transparent',
+                borderBottomWidth: 5, borderBottomColor: 'transparent',
+                borderRightWidth: 7, borderRightColor: 'rgba(22,21,58,0.08)',
+                marginTop: 10, marginLeft: 2,
+              }} />
               <View style={{
                 flex: 1, backgroundColor: 'rgba(22,21,58,0.06)',
-                borderRadius: 14, borderBottomLeftRadius: 4,
+                borderRadius: 14, borderTopLeftRadius: 4,
                 paddingHorizontal: 14, paddingVertical: 12,
               }}>
                 <AppText style={{ fontSize: 14, color: C.navy, fontWeight: '700', lineHeight: 20 }}>
@@ -707,12 +715,20 @@ function ResultScreen({
 
             {/* Charlotte quote */}
             <View style={{
-              flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 32,
+              flexDirection: 'row', alignItems: 'flex-start', gap: 0, marginBottom: 32,
             }}>
               <CharlotteAvatar size="xs" />
+              {/* Triangle tail */}
+              <View style={{
+                width: 0, height: 0,
+                borderTopWidth: 5, borderTopColor: 'transparent',
+                borderBottomWidth: 5, borderBottomColor: 'transparent',
+                borderRightWidth: 7, borderRightColor: 'rgba(22,21,58,0.08)',
+                marginTop: 10, marginLeft: 2,
+              }} />
               <View style={{
                 flex: 1, backgroundColor: 'rgba(22,21,58,0.06)',
-                borderRadius: 14, borderBottomLeftRadius: 4,
+                borderRadius: 14, borderTopLeftRadius: 4,
                 paddingHorizontal: 14, paddingVertical: 12,
               }}>
                 <AppText style={{ fontSize: 14, color: C.navy, fontStyle: 'italic', lineHeight: 22 }}>
