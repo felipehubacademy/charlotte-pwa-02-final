@@ -613,7 +613,7 @@ export default function LiveVoiceModal({
               {charlotteSpeaking
                 ? (userLevel === 'Novice' ? 'Charlotte falando…' : 'Charlotte speaking…')
                 : userSpeaking
-                  ? (userLevel === 'Novice' ? 'Você está falando…' : 'You're speaking…')
+                  ? (userLevel === 'Novice' ? 'Você está falando…' : "You're speaking…")
                   : ''}
             </AppText>
           </View>
