@@ -1,7 +1,14 @@
 // components/voice/LiveVoiceModal.tsx
-// Live voice — UI estilo chamada WhatsApp
-// Canal 1: Charlotte → iPhone  (response.audio.delta → WAV → AudioPlayer)
-// Canal 2: iPhone → Charlotte  (mic chunks PCM16 → input_audio_buffer.append)
+// Live voice — WebRTC transport → OpenAI Realtime API
+//
+// Antes (WebSocket manual):
+//   expo-audio grava 400ms chunks → strip WAV header → base64 → input_audio_buffer.append
+//   response.audio.delta chunks → buildWav() → createAudioPlayer
+//
+// Agora (WebRTC):
+//   RTCPeerConnection gerencia mic input e speaker output nativamente
+//   RTCDataChannel 'oai-events' substitui o WebSocket para eventos JSON
+//   InCallManager controla roteamento do speaker no iOS/Android
 
 import React from 'react';
 import {
@@ -9,18 +16,12 @@ import {
   View,
   TouchableOpacity,
   Animated,
-  Image,
-  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  requestRecordingPermissionsAsync,
-  setAudioModeAsync,
-  createAudioPlayer,
-  AudioModule,
-  type AudioPlayer,
-} from 'expo-audio';
+import { requestRecordingPermissionsAsync, createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import { RTCPeerConnection, mediaDevices } from 'react-native-webrtc';
+import InCallManager from 'react-native-incall-manager';
 import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
@@ -31,107 +32,54 @@ import Constants from 'expo-constants';
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
 
-// ── Opções de gravação: Linear PCM 24 kHz mono (formato que OpenAI espera) ───
-const MIC_OPTIONS = {
-  extension: Platform.OS === 'ios' ? '.wav' : '.m4a',
-  sampleRate: 24000,
-  numberOfChannels: 1,
-  bitRate: 384000,
-  ios: {
-    outputFormat: 'lpcm' as any,
-    audioQuality: 'max' as any,
-    sampleRate: 24000,
-    numberOfChannels: 1,
-    bitRate: 384000,
-    linearPCMBitDepth: 16,
-    linearPCMIsBigEndian: false,
-    linearPCMIsFloat: false,
-  },
-  android: {
-    outputFormat: 'MPEG_4' as any,
-    audioEncoder: 'AAC' as any,
-    sampleRate: 24000,
-    numberOfChannels: 1,
-    bitRate: 128000,
-  },
-};
+const MODEL = 'gpt-4o-realtime-preview-2024-12-17';
 
-// ── Helpers de áudio ──────────────────────────────────────────────────────────
-
-function base64ToUint8Array(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
+// ── Helpers para ring tone (PCM16 gerado em JS, tocado via expo-audio) ─────────
 
 function uint8ArrayToBase64(arr: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < arr.length; i++) binary += String.fromCharCode(arr[i]);
-  return btoa(binary);
+  const CHUNK = 0x8000;
+  let bin = '';
+  for (let i = 0; i < arr.length; i += CHUNK)
+    bin += String.fromCharCode.apply(null, arr.subarray(i, i + CHUNK) as any);
+  return btoa(bin);
 }
 
-/** Monta chunks PCM16 base64 num WAV base64 pronto para tocar */
-function buildWav(base64Chunks: string[]): string {
-  const arrays = base64Chunks.map(base64ToUint8Array);
-  const pcmLen = arrays.reduce((s, a) => s + a.length, 0);
-  const pcm = new Uint8Array(pcmLen);
-  let off = 0;
-  for (const a of arrays) { pcm.set(a, off); off += a.length; }
-
+function buildWav(pcm: Uint8Array): string {
   const header = new ArrayBuffer(44);
   const v = new DataView(header);
   const sr = 24000, ch = 1, bps = 16;
-  // RIFF
   [0x52,0x49,0x46,0x46].forEach((b,i) => v.setUint8(i, b));
-  v.setUint32(4, 36 + pcmLen, true);
+  v.setUint32(4, 36 + pcm.length, true);
   [0x57,0x41,0x56,0x45].forEach((b,i) => v.setUint8(8+i, b));
-  // fmt
   [0x66,0x6D,0x74,0x20].forEach((b,i) => v.setUint8(12+i, b));
   v.setUint32(16, 16, true); v.setUint16(20, 1, true);
   v.setUint16(22, ch, true); v.setUint32(24, sr, true);
   v.setUint32(28, sr * ch * (bps/8), true); v.setUint16(32, ch * (bps/8), true);
   v.setUint16(34, bps, true);
-  // data
   [0x64,0x61,0x74,0x61].forEach((b,i) => v.setUint8(36+i, b));
-  v.setUint32(40, pcmLen, true);
-
-  const wav = new Uint8Array(44 + pcmLen);
+  v.setUint32(40, pcm.length, true);
+  const wav = new Uint8Array(44 + pcm.length);
   wav.set(new Uint8Array(header)); wav.set(pcm, 44);
   return uint8ArrayToBase64(wav);
 }
 
-const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
-
-// ── Gera PCM16 base64 para tom de chamada (440 Hz + 480 Hz mixed) ────────────
-// Retorna raw PCM sem header (passa direto para buildWav)
-function generateRingPcm(): string {
-  const sampleRate  = 24000;
-  const toneSamples = Math.floor(sampleRate * 1.0);    // 1 s de tom
-  const silSamples  = Math.floor(sampleRate * 1.5);    // 1.5 s de silêncio
-  const total       = toneSamples + silSamples;
-  const pcm = new Uint8Array(total * 2);                // Int16LE
-
-  for (let i = 0; i < toneSamples; i++) {
-    const t   = i / sampleRate;
+function generateRingPcm(): Uint8Array {
+  const sr = 24000;
+  const tone = Math.floor(sr * 1.0);
+  const sil  = Math.floor(sr * 1.5);
+  const pcm  = new Uint8Array((tone + sil) * 2);
+  for (let i = 0; i < tone; i++) {
+    const t   = i / sr;
     const amp = 0.30 * 32767;
     const s   = amp * (Math.sin(2 * Math.PI * 440 * t) + Math.sin(2 * Math.PI * 480 * t)) / 2;
-    const v   = Math.max(-32768, Math.min(32767, Math.round(s)));
-    pcm[i * 2]     = v & 0xFF;
-    pcm[i * 2 + 1] = (v >> 8) & 0xFF;
+    const val = Math.max(-32768, Math.min(32767, Math.round(s)));
+    pcm[i * 2]     = val & 0xFF;
+    pcm[i * 2 + 1] = (val >> 8) & 0xFF;
   }
-  // silêncio: bytes já são 0
-
-  // base64 em chunks para evitar stack overflow em strings longas
-  const CHUNK = 0x8000;
-  let bin = '';
-  for (let i = 0; i < pcm.length; i += CHUNK) {
-    bin += String.fromCharCode.apply(null, pcm.subarray(i, i + CHUNK) as any);
-  }
-  return btoa(bin);
+  return pcm;
 }
 
-// ── Frases de saudação por nível ────────────────────────────────────────────
+// ── Frases de saudação por nível ────────────────────────────────────────────────
 const GREETINGS: Record<'Novice' | 'Inter' | 'Advanced', string[]> = {
   Novice: [
     'Oi! Que bom te ver! Vamos praticar English hoje?',
@@ -153,7 +101,7 @@ const GREETINGS: Record<'Novice' | 'Inter' | 'Advanced', string[]> = {
   ],
 };
 
-// ── System prompts por nível — naturais, sem formalidade desnecessária ────────
+// ── System prompts por nível ─────────────────────────────────────────────────────
 const SYSTEM_PROMPTS: Record<'Novice' | 'Inter' | 'Advanced', string> = {
   Novice: `You are Charlotte, a friendly and encouraging English tutor having a real voice conversation with a student named {NAME}. This student is a beginner — they understand some English but feel more comfortable mixing English and Portuguese.
 
@@ -200,9 +148,7 @@ Start with: "{GREETING}"`,
 };
 
 function getSystemPrompt(level: 'Novice' | 'Inter' | 'Advanced', name: string, greeting: string): string {
-  return SYSTEM_PROMPTS[level]
-    .replace('{NAME}', name)
-    .replace('{GREETING}', greeting);
+  return SYSTEM_PROMPTS[level].replace('{NAME}', name).replace('{GREETING}', greeting);
 }
 
 function getRandomGreeting(level: 'Novice' | 'Inter' | 'Advanced'): string {
@@ -230,22 +176,25 @@ export default function LiveVoiceModal({
   const insets = useSafeAreaInsets();
   const [status, setStatus] = React.useState<ConnectionStatus>('disconnected');
   const [isMuted, setIsMuted] = React.useState(false);
-  const [isSpeaker, setIsSpeaker] = React.useState(true); // viva-voz ativo por padrão
+  const [isSpeaker, setIsSpeaker] = React.useState(true);
   const [errorMsg, setErrorMsg] = React.useState('');
   const [charlotteSpeaking, setCharlotteSpeaking] = React.useState(false);
   const [userSpeaking, setUserSpeaking] = React.useState(false);
 
-  const wsRef             = React.useRef<WebSocket | null>(null);
-  const playerRef         = React.useRef<AudioPlayer | null>(null);
-  const ringingPlayerRef  = React.useRef<AudioPlayer | null>(null);
-  const audioChunksRef    = React.useRef<string[]>([]);
-  const micActiveRef           = React.useRef(false);
-  const isMutedRef             = React.useRef(false);
-  const isSpeakerRef           = React.useRef(true); // sincronizado com isSpeaker inicial
-  const charlotteSpeakingRef   = React.useRef(false);
-  const lastCharlotteDoneRef   = React.useRef(0);
-  const responseActiveRef      = React.useRef(false); // servidor gerando resposta agora
-  const currentRecRef          = React.useRef<InstanceType<typeof AudioModule.AudioRecorder> | null>(null);
+  // ── WebRTC refs ────────────────────────────────────────────────────────────
+  const pcRef             = React.useRef<InstanceType<typeof RTCPeerConnection> | null>(null);
+  const dcRef             = React.useRef<any>(null); // RTCDataChannel
+  const localStreamRef    = React.useRef<any>(null); // MediaStream
+
+  // ── Ring tone ref (expo-audio — só usado durante connecting) ──────────────
+  const ringPlayerRef     = React.useRef<AudioPlayer | null>(null);
+
+  // ── State refs (síncronos — evitam stale closure nos handlers) ────────────
+  const isMutedRef              = React.useRef(false);
+  const isSpeakerRef            = React.useRef(true);
+  const charlotteSpeakingRef    = React.useRef(false);
+  const responseActiveRef       = React.useRef(false);
+  const lastCharlotteDoneRef    = React.useRef(0);
 
   const callTime = useCallTimer(status === 'connected');
 
@@ -253,166 +202,44 @@ export default function LiveVoiceModal({
     status === 'connecting'  ? 'connecting' :
     charlotteSpeaking        ? 'speaking'   : 'idle';
 
-  // ── Audio mode ───────────────────────────────────────────────────────────
-  const applyAudioMode = React.useCallback(async (speakerOn?: boolean) => {
-    try {
-      const useSpeaker = speakerOn !== undefined ? speakerOn : isSpeakerRef.current;
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-        interruptionMode: 'doNotMix',
-        shouldRouteThroughEarpiece: !useSpeaker, // false = speaker, true = earpiece
-      });
-    } catch (e) { console.warn('Audio mode:', e); }
-  }, []);
-
-  // ── Ring tone: toca enquanto conecta ────────────────────────────────────
+  // ── Ring tone ──────────────────────────────────────────────────────────────
   const startRingTone = React.useCallback(async () => {
     try {
-      await applyAudioMode();
-      const wavBase64 = buildWav([generateRingPcm()]);
+      const wavBase64 = buildWav(generateRingPcm());
       const path = `${FileSystem.cacheDirectory}ring.wav`;
       await FileSystem.writeAsStringAsync(path, wavBase64, {
         encoding: FileSystem.EncodingType.Base64,
       });
-      ringingPlayerRef.current?.pause();
-      ringingPlayerRef.current?.remove();
-      ringingPlayerRef.current = createAudioPlayer({ uri: path });
-      ringingPlayerRef.current.loop = true;
-      ringingPlayerRef.current.play();
-    } catch (e) { console.warn('startRingTone error:', e); }
-  }, [applyAudioMode]);
+      ringPlayerRef.current?.pause();
+      ringPlayerRef.current?.remove();
+      ringPlayerRef.current = createAudioPlayer({ uri: path });
+      ringPlayerRef.current.loop = true;
+      ringPlayerRef.current.play();
+    } catch (e) { console.warn('startRingTone:', e); }
+  }, []);
 
   const stopRingTone = React.useCallback(() => {
-    ringingPlayerRef.current?.pause();
-    ringingPlayerRef.current?.remove();
-    ringingPlayerRef.current = null;
+    ringPlayerRef.current?.pause();
+    ringPlayerRef.current?.remove();
+    ringPlayerRef.current = null;
   }, []);
 
-  // ── Canal 1: Tocar áudio da Charlotte ────────────────────────────────────
-  const playCharlotteAudio = React.useCallback(async () => {
-    if (audioChunksRef.current.length === 0) return;
-    try {
-      const wavBase64 = buildWav(audioChunksRef.current);
-      audioChunksRef.current = [];
-
-      const path = `${FileSystem.cacheDirectory}ch_${Date.now()}.wav`;
-      await FileSystem.writeAsStringAsync(path, wavBase64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      playerRef.current?.pause();
-      playerRef.current?.remove();
-      playerRef.current = createAudioPlayer({ uri: path });
-      // Re-apply speaker mode: iOS reseta a sessão de áudio quando o mic começa a gravar
-      await applyAudioMode();
-      playerRef.current.play();
-
-      setCharlotteSpeaking(true);
-
-      // Detecta fim da reprodução via flag hasStarted
-      // (player.isLoaded não é confiável em expo-audio 1.1.1 — pode ser undefined)
-      let hasStarted = false;
-      const checkDone = setInterval(() => {
-        if (!playerRef.current) { clearInterval(checkDone); return; }
-        if (playerRef.current.playing) hasStarted = true;
-        if (hasStarted && !playerRef.current.playing) {
-          clearInterval(checkDone);
-          console.log('🔊 Charlotte done — liberando mic');
-          FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
-          // Cooldown: aguarda 800ms antes de liberar mic (deixa eco dissipar)
-          setTimeout(() => {
-            charlotteSpeakingRef.current = false; // síncrono
-            setCharlotteSpeaking(false);
-            lastCharlotteDoneRef.current = Date.now();
-          }, 800);
-        }
-      }, 150);
-
-      // Segurança: libera o lock em até 12s mesmo se o player travar
-      setTimeout(() => {
-        clearInterval(checkDone);
-        if (charlotteSpeakingRef.current) {
-          charlotteSpeakingRef.current = false;
-          setCharlotteSpeaking(false);
-          lastCharlotteDoneRef.current = Date.now();
-        }
-      }, 12000);
-    } catch (e) {
-      console.warn('playCharlotteAudio error:', e);
-      charlotteSpeakingRef.current = false;
-      setCharlotteSpeaking(false);
-    }
-  }, [applyAudioMode]);
-
-  // ── Canal 2: Stream mic → OpenAI em chunks de 400 ms ────────────────────
-  // Sem noise gate local — o servidor VAD (threshold 0.75, neural) filtra ruído ambiente.
-  // 400ms reduz a latência de tail (último chunk antes do silêncio) vs 750ms anterior.
-  const startMicStream = React.useCallback(async () => {
-    micActiveRef.current = true;
-
-    while (micActiveRef.current && wsRef.current?.readyState === WebSocket.OPEN) {
-      if (isMutedRef.current) {
-        await sleep(300);
-        continue;
-      }
-
-      let recorderUri: string | null = null;
-      try {
-        const rec = new AudioModule.AudioRecorder(MIC_OPTIONS);
-        currentRecRef.current = rec;
-        await rec.prepareToRecordAsync();
-        rec.record();
-
-        await sleep(400);
-
-        if (!micActiveRef.current) {
-          await rec.stop().catch(() => {});
-          currentRecRef.current = null;
-          break;
-        }
-
-        await rec.stop();
-        currentRecRef.current = null;
-        recorderUri = rec.uri;
-
-        if (recorderUri && wsRef.current?.readyState === WebSocket.OPEN) {
-          const fullBase64 = await FileSystem.readAsStringAsync(recorderUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          let pcmBytes: Uint8Array;
-          if (Platform.OS === 'ios') {
-            const fullBytes = base64ToUint8Array(fullBase64);
-            pcmBytes = fullBytes.slice(44); // strip WAV header (iOS LPCM)
-          } else {
-            pcmBytes = base64ToUint8Array(fullBase64);
-          }
-
-          // Envia direto — servidor VAD decide se é fala ou silêncio
-          const CHUNK = 0x8000;
-          let bin = '';
-          for (let i = 0; i < pcmBytes.length; i += CHUNK) {
-            bin += String.fromCharCode.apply(null, pcmBytes.subarray(i, i + CHUNK) as any);
-          }
-          wsRef.current.send(JSON.stringify({
-            type: 'input_audio_buffer.append',
-            audio: btoa(bin),
-          }));
-
-          FileSystem.deleteAsync(recorderUri, { idempotent: true }).catch(() => {});
-        }
-      } catch (e) {
-        currentRecRef.current = null;
-        if (recorderUri) FileSystem.deleteAsync(recorderUri, { idempotent: true }).catch(() => {});
-        await sleep(300);
-      }
-    }
-
-    micActiveRef.current = false;
+  // ── Mute: desabilita o mic track local ────────────────────────────────────
+  const applyMute = React.useCallback((muted: boolean) => {
+    if (!localStreamRef.current) return;
+    localStreamRef.current.getAudioTracks().forEach((track: any) => {
+      track.enabled = !muted;
+    });
   }, []);
 
-  // ── Avatar ring animations ────────────────────────────────────────────────
+  // ── Enviar evento via data channel ─────────────────────────────────────────
+  const sendEvent = React.useCallback((event: object) => {
+    if (dcRef.current?.readyState === 'open') {
+      dcRef.current.send(JSON.stringify(event));
+    }
+  }, []);
+
+  // ── Avatar ring animations ──────────────────────────────────────────────────
   const ringScale   = React.useRef(new Animated.Value(1)).current;
   const ringOpacity = React.useRef(new Animated.Value(0.5)).current;
   const loopRef     = React.useRef<Animated.CompositeAnimation | null>(null);
@@ -463,13 +290,13 @@ export default function LiveVoiceModal({
 
   const ringColor = status === 'connecting' ? '#F97316' : '#A3FF3C';
 
-  // ── Connect ──────────────────────────────────────────────────────────────
+  // ── Connect via WebRTC ─────────────────────────────────────────────────────
   const connect = React.useCallback(async () => {
     setStatus('connecting');
     setErrorMsg('');
-    audioChunksRef.current = [];
 
     try {
+      // 1. Permissão de microfone
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
         setErrorMsg(userLevel === 'Novice' ? 'Permissão de microfone negada' : 'Microphone permission denied');
@@ -477,31 +304,50 @@ export default function LiveVoiceModal({
         return;
       }
 
-      await applyAudioMode();
+      // 2. Ring tone enquanto busca o token (antes de getUserMedia para não conflitar com AVAudioSession)
+      await startRingTone();
 
-      // Toca ringing enquanto conecta
-      startRingTone();
-
+      // 3. Ephemeral session token (servidor — API key nunca sai do backend)
       const tokenRes = await fetch(`${API_BASE_URL}/api/realtime-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userLevel, userName }),
       });
       if (!tokenRes.ok) throw new Error('Failed to get session token');
-      const { apiKey } = await tokenRes.json();
-      if (!apiKey) throw new Error('No API key returned');
+      const { clientSecret } = await tokenRes.json();
+      if (!clientSecret) throw new Error('No client secret returned');
 
-      const ws = new WebSocket(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
-        ['realtime', `openai-insecure-api-key.${apiKey}`, 'openai-beta.realtime-v1']
-      );
-      wsRef.current = ws;
+      // 4. Para ring tone antes de getUserMedia (evita conflito AVAudioSession)
+      stopRingTone();
 
-      ws.onopen = () => {
+      // 5. Stream de microfone local (WebRTC toma conta do AVAudioSession a partir daqui)
+      const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+      localStreamRef.current = stream;
+
+      // 6. RTCPeerConnection
+      const pc = new RTCPeerConnection();
+      pcRef.current = pc;
+
+      // Adiciona track de áudio local (mic → OpenAI)
+      stream.getTracks().forEach((track: any) => pc.addTrack(track, stream));
+
+      // Áudio remoto (Charlotte → speaker) é roteado automaticamente pelo WebRTC
+      pc.ontrack = () => {
+        // WebRTC toca o áudio remoto automaticamente no speaker
+        // O InCallManager já configurou o roteamento correto
+      };
+
+      // 7. Data channel para eventos JSON (substitui WebSocket)
+      const dc = pc.createDataChannel('oai-events');
+      dcRef.current = dc;
+
+      dc.onopen = () => {
         stopRingTone();
         setStatus('connected');
+
+        // Configura sessão: VAD, voz, instruções
         const greeting = getRandomGreeting(userLevel);
-        ws.send(JSON.stringify({
+        dc.send(JSON.stringify({
           type: 'session.update',
           session: {
             modalities: ['text', 'audio'],
@@ -519,46 +365,43 @@ export default function LiveVoiceModal({
           },
         }));
 
-        // Dispara saudação após session.update ser processado pelo servidor
+        // Dispara saudação inicial
         setTimeout(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'response.create' }));
+          if (dcRef.current?.readyState === 'open') {
+            dc.send(JSON.stringify({ type: 'response.create' }));
           }
         }, 500);
 
-        // Inicia stream do mic imediatamente
-        startMicStream();
+        // InCallManager: configura speaker e modo de chamada
+        InCallManager.start({ media: 'audio' });
+        InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
       };
 
-      ws.onmessage = async (event) => {
+      dc.onmessage = (event: any) => {
         try {
           const msg = JSON.parse(event.data);
 
           switch (msg.type) {
             case 'response.audio.delta':
               responseActiveRef.current = true;
-              if (msg.delta) audioChunksRef.current.push(msg.delta);
-
-              // Marca Charlotte falando no primeiro chunk (síncrono — sem delay de render)
+              // Bloqueia mic assim que o primeiro chunk chega
               if (!charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = true;
                 setCharlotteSpeaking(true);
                 setUserSpeaking(false);
-                // Limpa buffer de mic para suprimir o echo que já entrou
-                if (ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'input_audio_buffer.clear' }));
-                }
+                // Limpa buffer de mic para suprimir eco
+                sendEvent({ type: 'input_audio_buffer.clear' });
               }
               break;
 
             case 'response.audio.done':
               responseActiveRef.current = false;
-              // Resposta completa — toca tudo de uma vez (sem race condition de early playback)
-              if (audioChunksRef.current.length > 0 && charlotteSpeakingRef.current) {
-                await playCharlotteAudio();
-              } else {
-                audioChunksRef.current = []; // descarta resíduo de resposta cancelada
-              }
+              // Cooldown: aguarda o buffer de áudio remoto esvaziar (~800ms)
+              setTimeout(() => {
+                charlotteSpeakingRef.current = false;
+                setCharlotteSpeaking(false);
+                lastCharlotteDoneRef.current = Date.now();
+              }, 800);
               break;
 
             case 'response.done':
@@ -567,89 +410,101 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_started':
               setUserSpeaking(true);
-
-              // Interrupção: Charlotte tocando E servidor ainda gerando
-              if (charlotteSpeakingRef.current && playerRef.current?.playing) {
+              // Interrupção: Charlotte ainda falando → cancela resposta
+              if (charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
-
-                playerRef.current.pause();
-                playerRef.current.remove();
-                playerRef.current = null;
-                audioChunksRef.current = [];
-
-                // Só cancela no servidor se a geração ainda está em andamento
-                if (responseActiveRef.current && ws.readyState === WebSocket.OPEN) {
+                if (responseActiveRef.current) {
                   responseActiveRef.current = false;
-                  ws.send(JSON.stringify({ type: 'response.cancel' }));
+                  sendEvent({ type: 'response.cancel' });
                 }
-              } else if (charlotteSpeakingRef.current && !playerRef.current?.playing) {
-                // Ref presa em true mas áudio já terminou — limpa sem cancelar
-                charlotteSpeakingRef.current = false;
-                setCharlotteSpeaking(false);
               }
-              break;
-
-            case 'response.cancelled':
-              responseActiveRef.current = false;
-              playerRef.current?.pause();
-              playerRef.current?.remove();
-              playerRef.current = null;
-              audioChunksRef.current = [];
-              charlotteSpeakingRef.current = false;
-              setCharlotteSpeaking(false);
               break;
 
             case 'input_audio_buffer.speech_stopped':
               setUserSpeaking(false);
               break;
 
+            case 'response.cancelled':
+              responseActiveRef.current = false;
+              charlotteSpeakingRef.current = false;
+              setCharlotteSpeaking(false);
+              break;
+
             case 'error':
-              console.error('WS error event:', msg.error);
+              console.error('[LiveVoice] server error:', msg.error);
               break;
           }
-        } catch { /* ignore parse errors */ }
+        } catch { /* ignora erros de parse */ }
       };
 
-      ws.onerror = () => {
-        stopRingTone();
-        setStatus('error');
-        setErrorMsg(userLevel === 'Novice' ? 'Falha na conexão. Tente novamente.' : 'Connection failed. Please try again.');
+      dc.onerror = (e: any) => console.warn('[LiveVoice] data channel error:', e);
+
+      pc.oniceconnectionstatechange = () => {
+        if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+          console.warn('[LiveVoice] ICE', pc.iceConnectionState);
+        }
       };
 
-      ws.onclose = () => {
-        micActiveRef.current = false;
-        setStatus('disconnected');
-        setCharlotteSpeaking(false);
-        setUserSpeaking(false);
-      };
+      // 8. SDP offer → OpenAI → SDP answer
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      const sdpRes = await fetch(
+        `https://api.openai.com/v1/realtime?model=${MODEL}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${clientSecret}`,
+            'Content-Type': 'application/sdp',
+          },
+          body: offer.sdp,
+        }
+      );
+
+      if (!sdpRes.ok) {
+        const err = await sdpRes.text();
+        throw new Error(`SDP exchange failed: ${err}`);
+      }
+
+      const answerSdp = await sdpRes.text();
+      await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp } as any);
+
+      // Conexão estabelecida — data channel onopen dispara em seguida
+
     } catch (error: any) {
+      stopRingTone();
+      console.error('[LiveVoice] connect error:', error);
       setStatus('error');
-      setErrorMsg(error.message || (userLevel === 'Novice' ? 'Não foi possível conectar' : 'Could not connect'));
+      setErrorMsg(
+        userLevel === 'Novice'
+          ? 'Não foi possível conectar. Tente novamente.'
+          : 'Could not connect. Please try again.'
+      );
     }
-  }, [userLevel, userName, isSpeaker, applyAudioMode, startRingTone, stopRingTone, startMicStream, playCharlotteAudio]);
+  }, [userLevel, userName, startRingTone, stopRingTone, sendEvent]);
 
-  // ── Disconnect ───────────────────────────────────────────────────────────
+  // ── Disconnect ─────────────────────────────────────────────────────────────
   const disconnect = React.useCallback(() => {
-    micActiveRef.current = false;
-    responseActiveRef.current = false;
-    // Immediately stop any active recorder so iOS releases the mic indicator at once
-    if (currentRecRef.current) {
-      currentRecRef.current.stop().catch(() => {});
-      currentRecRef.current = null;
-    }
-    wsRef.current?.close();
-    wsRef.current = null;
+    // Para mic local
+    localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
+    localStreamRef.current = null;
+
+    // Fecha data channel e peer connection
+    dcRef.current?.close();
+    dcRef.current = null;
+    pcRef.current?.close();
+    pcRef.current = null;
+
+    // Para ring tone e InCallManager
     stopRingTone();
-    playerRef.current?.pause();
-    playerRef.current?.remove();
-    playerRef.current = null;
-    audioChunksRef.current = [];
+    InCallManager.stop();
+
+    charlotteSpeakingRef.current = false;
+    responseActiveRef.current    = false;
     setStatus('disconnected');
     setCharlotteSpeaking(false);
     setUserSpeaking(false);
-    // Reset to speaker/playback mode so chat audio after call uses speaker
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
   }, [stopRingTone]);
 
   const handleEndCall = React.useCallback(() => {
@@ -662,20 +517,21 @@ export default function LiveVoiceModal({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsMuted(v => {
       const next = !v;
-      isMutedRef.current = next; // síncrono — sem delay de render
+      isMutedRef.current = next;
+      applyMute(next);
       return next;
     });
-  }, []);
+  }, [applyMute]);
 
   const handleSpeakerToggle = React.useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setIsSpeaker(v => {
       const next = !v;
       isSpeakerRef.current = next;
-      applyAudioMode(next);
+      InCallManager.setForceSpeakerphoneOn(next);
       return next;
     });
-  }, [applyAudioMode]);
+  }, []);
 
   React.useEffect(() => {
     if (isOpen) {
@@ -685,40 +541,10 @@ export default function LiveVoiceModal({
     }
   }, [isOpen]);
 
-  // ── RENDER ────────────────────────────────────────────────────────────────
+  // ── RENDER ─────────────────────────────────────────────────────────────────
 
-  // Android: Live Voice requer PCM16 raw. expo-audio grava AAC no Android
-  // (formato comprimido incompatível com OpenAI Realtime API sem decode).
-  // Suporte completo disponível após EAS build com solução de áudio nativa.
-  if (Platform.OS === 'android') {
-    return (
-      <Modal visible={isOpen} animationType="slide" transparent={false} hardwareAccelerated statusBarTranslucent>
-        <SafeAreaView style={{ flex: 1, backgroundColor: '#07071C' }} edges={['top', 'bottom']}>
-          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 24 }}>
-            <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(163,255,60,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-              <Microphone size={36} color="#A3FF3C" weight="duotone" />
-            </View>
-            <AppText style={{ fontSize: 22, fontWeight: '700', color: '#fff', textAlign: 'center' }}>
-              Live Voice
-            </AppText>
-            <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.45)', textAlign: 'center', lineHeight: 22 }}>
-              {userLevel === 'Novice'
-                ? `Live Voice está disponível no iOS.\nSuporte Android chegando em breve.`
-                : `Live Voice is available on iOS.\nAndroid support coming soon.`}
-            </AppText>
-            <TouchableOpacity
-              onPress={onClose}
-              style={{ marginTop: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 32, paddingVertical: 14 }}
-            >
-              <AppText style={{ color: 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: '600' }}>
-                {userLevel === 'Novice' ? 'Fechar' : 'Close'}
-              </AppText>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </Modal>
-    );
-  }
+  // Android agora suportado via WebRTC (PCM nativo — sem problema de AAC)
+  // UI idêntica em iOS e Android
 
   return (
     <Modal
@@ -737,106 +563,122 @@ export default function LiveVoiceModal({
               Charlotte
             </AppText>
             {status === 'connected' && (
-              <AppText style={{ color: 'rgba(255,255,255,0.85)', fontSize: 15, letterSpacing: 2,
-                ...(Platform.OS === 'ios'
-                  ? { fontVariant: ['tabular-nums'] }
-                  : { fontFamily: 'monospace' }) }}>
+              <AppText style={{ color: '#A3FF3C', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 }}>
                 {callTime}
               </AppText>
             )}
             {status === 'connecting' && (
-              <AppText style={{ color: '#F97316', fontSize: 13 }}>{userLevel === 'Novice' ? 'Chamando...' : 'Calling...'}</AppText>
+              <AppText style={{ color: '#F97316', fontSize: 13, fontWeight: '600' }}>
+                {userLevel === 'Novice' ? 'Conectando…' : 'Connecting…'}
+              </AppText>
             )}
             {status === 'error' && (
-              <AppText style={{ color: '#ef4444', fontSize: 13 }}>{errorMsg}</AppText>
+              <AppText style={{ color: '#EF4444', fontSize: 13, fontWeight: '600', textAlign: 'center', maxWidth: 260 }}>
+                {errorMsg}
+              </AppText>
             )}
           </View>
 
-          {/* ── CENTER: Avatar + Wave ─────────────────────────────── */}
+          {/* ── CENTRO: Avatar + onda ─────────────────────────────── */}
           <View style={{ alignItems: 'center', gap: 32 }}>
-            {/* Avatar com anel */}
+            {/* Ring de animação */}
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <Animated.View style={{
                 position: 'absolute',
-                width: 148, height: 148, borderRadius: 74,
-                borderWidth: 2, borderColor: ringColor,
-                transform: [{ scale: ringScale }],
+                width: 160, height: 160, borderRadius: 80,
+                backgroundColor: ringColor,
                 opacity: ringOpacity,
+                transform: [{ scale: ringScale }],
               }} />
+              {/* Avatar */}
               <View style={{
-                position: 'absolute',
-                width: 132, height: 132, borderRadius: 66,
-                borderWidth: 1.5,
-                borderColor: status === 'connected' ? 'rgba(163,255,60,0.3)' : 'rgba(249,115,22,0.25)',
-              }} />
-              <Image
-                source={require('../../assets/charlotte-avatar.png')}
-                style={{
-                  width: 120, height: 120, borderRadius: 60,
-                  borderWidth: 3,
-                  borderColor: status === 'connected' ? '#A3FF3C' : '#F97316',
-                }}
-                resizeMode="cover"
-              />
+                width: 100, height: 100, borderRadius: 50,
+                backgroundColor: '#1E1D3A',
+                alignItems: 'center', justifyContent: 'center',
+                overflow: 'hidden',
+              }}>
+                <AppText style={{ fontSize: 48 }}>🎓</AppText>
+              </View>
             </View>
 
-            {/* Wave — responde à voz da Charlotte */}
+            {/* Onda de voz */}
             <CallWave state={waveState} />
+
+            {/* Indicador de quem está falando */}
+            <AppText style={{
+              color: charlotteSpeaking ? '#A3FF3C' : userSpeaking ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)',
+              fontSize: 13, fontWeight: '600', letterSpacing: 0.5,
+              minHeight: 18,
+            }}>
+              {charlotteSpeaking
+                ? (userLevel === 'Novice' ? 'Charlotte falando…' : 'Charlotte speaking…')
+                : userSpeaking
+                  ? (userLevel === 'Novice' ? 'Você está falando…' : 'You're speaking…')
+                  : ''}
+            </AppText>
           </View>
 
-          {/* ── BOTTOM: Mute / End / Speaker ─────────────────────── */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 48 }}>
-            {/* Mute */}
-            <TouchableOpacity
-              onPress={handleMute}
-              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              style={{
-                width: 56, height: 56, borderRadius: 28,
-                backgroundColor: isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
-                borderWidth: 1,
-                borderColor: isMuted ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.12)',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {isMuted
-                ? <MicrophoneSlash size={22} color="#ef4444" weight="regular" />
-                : <Microphone     size={22} color="rgba(255,255,255,0.7)" weight="regular" />
-              }
-            </TouchableOpacity>
+          {/* ── BOTTOM: Controles ─────────────────────────────────── */}
+          <View style={{ width: '100%', gap: 24 }}>
 
-            {/* End call */}
+            {/* Botões secundários: Mudo + Speaker */}
+            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 32 }}>
+
+              {/* Mudo */}
+              <TouchableOpacity
+                onPress={handleMute}
+                disabled={status !== 'connected'}
+                style={{
+                  width: 56, height: 56, borderRadius: 28,
+                  backgroundColor: isMuted ? '#EF4444' : 'rgba(255,255,255,0.08)',
+                  alignItems: 'center', justifyContent: 'center',
+                  opacity: status !== 'connected' ? 0.4 : 1,
+                }}
+              >
+                {isMuted
+                  ? <MicrophoneSlash size={22} color="#fff" weight="fill" />
+                  : <Microphone      size={22} color="rgba(255,255,255,0.7)" weight="fill" />
+                }
+              </TouchableOpacity>
+
+              {/* Speaker */}
+              <TouchableOpacity
+                onPress={handleSpeakerToggle}
+                disabled={status !== 'connected'}
+                style={{
+                  width: 56, height: 56, borderRadius: 28,
+                  backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
+                  alignItems: 'center', justifyContent: 'center',
+                  opacity: status !== 'connected' ? 0.4 : 1,
+                }}
+              >
+                {isSpeaker
+                  ? <SpeakerHigh size={22} color="#A3FF3C" weight="fill" />
+                  : <Ear         size={22} color="rgba(255,255,255,0.7)" weight="fill" />
+                }
+              </TouchableOpacity>
+
+            </View>
+
+            {/* Botão desligar */}
             <TouchableOpacity
               onPress={handleEndCall}
-              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              activeOpacity={0.85}
               style={{
-                width: 68, height: 68, borderRadius: 34,
-                backgroundColor: '#ef4444',
+                width: 72, height: 72, borderRadius: 36,
+                backgroundColor: '#EF4444',
                 alignItems: 'center', justifyContent: 'center',
-                shadowColor: '#ef4444',
+                alignSelf: 'center',
+                shadowColor: '#EF4444',
+                shadowOpacity: 0.5,
+                shadowRadius: 16,
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.5, shadowRadius: 12, elevation: 8,
+                elevation: 8,
               }}
             >
               <PhoneSlash size={28} color="#fff" weight="fill" />
             </TouchableOpacity>
 
-            {/* Speaker / Ouvido */}
-            <TouchableOpacity
-              onPress={handleSpeakerToggle}
-              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              style={{
-                width: 56, height: 56, borderRadius: 28,
-                backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
-                borderWidth: 1,
-                borderColor: isSpeaker ? 'rgba(163,255,60,0.4)' : 'rgba(255,255,255,0.12)',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {isSpeaker
-                ? <SpeakerHigh size={22} color="#A3FF3C" weight="regular" />
-                : <Ear        size={22} color="rgba(255,255,255,0.7)" weight="regular" />
-              }
-            </TouchableOpacity>
           </View>
 
         </View>

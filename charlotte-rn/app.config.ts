@@ -9,11 +9,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // Fallback: o repositório atual só inclui `charlotte-avatar.png` em `assets/`.
   // Se você adicionar `icon.png`, trocamos de volta.
   icon: './assets/charlotte-avatar.png',
-  userInterfaceStyle: 'dark',
+  userInterfaceStyle: 'light',
   splash: {
     image: './assets/charlotte-avatar.png',
     resizeMode: 'contain',
-    backgroundColor: '#16153A',
+    backgroundColor: '#F4F3FA',
   },
   scheme: 'charlotte',
   assetBundlePatterns: ['**/*'],
@@ -26,13 +26,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSCameraUsageDescription:
         'Charlotte usa a câmera para criar flashcards de vocabulário com fotos.',
       ITSAppUsesNonExemptEncryption: false,
+      // Status bar: dark icons (time, wifi, battery) on light backgrounds
+      UIViewControllerBasedStatusBarAppearance: false,
+      UIStatusBarStyle: 'UIStatusBarStyleDarkContent',
     },
   },
   android: {
     package: 'com.hubacademy.charlotte',
     adaptiveIcon: {
       foregroundImage: './assets/charlotte-avatar.png',
-      backgroundColor: '#16153A',
+      backgroundColor: '#F4F3FA',
     },
     permissions: [
       'RECORD_AUDIO',
@@ -49,10 +52,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-secure-store',
+    'react-native-webrtc',
+    'expo-config-plugin-incall-manager',
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#16153A',
+        backgroundColor: '#F4F3FA',
         image: './assets/charlotte-avatar.png',
         resizeMode: 'contain',
       },
