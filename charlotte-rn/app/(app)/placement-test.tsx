@@ -412,45 +412,23 @@ export default function PlacementTestScreen() {
 
       {/* Progress header */}
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-          {/* Tiny Charlotte avatar */}
-          <CharlotteAvatar size="xs" />
-          <View style={{ flex: 1 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyLight }}>
-                {displayCurrent} / {displayTotal}
-              </AppText>
-              <View style={{
-                backgroundColor: currentQ.kind === 'listening'
-                  ? 'rgba(3,105,161,0.10)'
-                  : 'rgba(163,255,60,0.12)',
-                borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
-              }}>
-                <AppText style={{
-                  fontSize: 10, fontWeight: '800',
-                  color: DIFFICULTY_COLOR[currentQ.kind === 'listening' ? 'Listening' : currentQ.difficulty] ?? C.navyMid,
-                  letterSpacing: 0.6,
-                }}>
-                  {currentQ.kind === 'listening'
-                    ? `LISTENING · ${currentQ.forLevel.toUpperCase()}`
-                    : currentQ.difficulty.toUpperCase()}
-                </AppText>
-              </View>
-            </View>
-            <View style={{ height: 5, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-              <View style={{
-                height: '100%', width: `${progress * 100}%`,
-                backgroundColor: currentQ.kind === 'listening' ? '#0369A1' : C.green,
-                borderRadius: 3,
-              }} />
-            </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyLight, marginRight: 12 }}>
+            {displayCurrent} / {displayTotal}
+          </AppText>
+          <View style={{ flex: 1, height: 5, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+            <View style={{
+              height: '100%', width: `${progress * 100}%`,
+              backgroundColor: currentQ.kind === 'listening' ? '#0369A1' : C.green,
+              borderRadius: 3,
+            }} />
           </View>
         </View>
       </View>
 
       {/* Sliding question area */}
       <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }], paddingHorizontal: 24 }}>
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingBottom: 32 }}>
 
           {currentQ.kind === 'grammar' ? (
             <>
@@ -544,7 +522,7 @@ function CharlotteBubble({ text, style }: { text: string; style?: object }) {
         }} />
         <View style={{
           backgroundColor: C.navy, borderRadius: 18, borderTopLeftRadius: 4,
-          paddingHorizontal: 18, paddingVertical: 14, ...C.shadow,
+          paddingHorizontal: 18, paddingVertical: 14,
         }}>
           <AppText style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', lineHeight: 24 }}>
             {text}
@@ -578,10 +556,9 @@ function OptionList({
               flexDirection: 'row', alignItems: 'center',
               backgroundColor: isSelected ? C.navy : C.card,
               borderRadius: 16,
-              borderWidth: isSelected ? 0 : 1,
-              borderColor: C.border,
+              borderWidth: 1,
+              borderColor: isSelected ? C.navy : C.border,
               paddingHorizontal: 18, paddingVertical: 17, gap: 14,
-              ...C.shadow,
             }}
           >
             <View style={{
