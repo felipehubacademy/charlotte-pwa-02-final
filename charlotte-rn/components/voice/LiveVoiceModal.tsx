@@ -27,7 +27,6 @@ import InCallManager from 'react-native-incall-manager';
 import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
-import CallWave, { WaveState } from '@/components/voice/CallWave';
 import { useCallTimer } from '@/hooks/useCallTimer';
 import Constants from 'expo-constants';
 
@@ -200,10 +199,6 @@ export default function LiveVoiceModal({
 
   const callTime = useCallTimer(status === 'connected');
 
-  const waveState: WaveState =
-    status === 'connecting'  ? 'connecting' :
-    charlotteSpeaking        ? 'speaking'   : 'idle';
-
   // ── Audio mode (ringtone phase only — WebRTC não usa isso) ───────────────
   const applyAudioMode = React.useCallback(async (speakerOn?: boolean) => {
     try {
@@ -256,7 +251,7 @@ export default function LiveVoiceModal({
     }
   }, []);
 
-  // ── Avatar ring animations ──────────────────────────────────────────────────
+  // ── Avatar ring animations — driven pela Charlotte (não pelo usuário) ────────
   const ringScale   = React.useRef(new Animated.Value(1)).current;
   const ringOpacity = React.useRef(new Animated.Value(0.5)).current;
   const loopRef     = React.useRef<Animated.CompositeAnimation | null>(null);
@@ -265,6 +260,7 @@ export default function LiveVoiceModal({
     loopRef.current?.stop();
 
     if (status === 'connecting') {
+      // Pulso laranja suave — aguardando conexão
       loopRef.current = Animated.loop(
         Animated.sequence([
           Animated.parallel([
@@ -278,32 +274,43 @@ export default function LiveVoiceModal({
         ])
       );
       loopRef.current.start();
-    } else if (status === 'connected' && userSpeaking) {
+    } else if (status === 'connected' && charlotteSpeaking) {
+      // Pulso verde vivo — Charlotte está falando
       loopRef.current = Animated.loop(
         Animated.sequence([
           Animated.parallel([
-            Animated.timing(ringScale,   { toValue: 1.22, duration: 300, useNativeDriver: true }),
-            Animated.timing(ringOpacity, { toValue: 0.15, duration: 300, useNativeDriver: true }),
+            Animated.timing(ringScale,   { toValue: 1.20, duration: 350, useNativeDriver: true }),
+            Animated.timing(ringOpacity, { toValue: 0.6,  duration: 350, useNativeDriver: true }),
           ]),
           Animated.parallel([
-            Animated.timing(ringScale,   { toValue: 1.08, duration: 300, useNativeDriver: true }),
-            Animated.timing(ringOpacity, { toValue: 0.65, duration: 300, useNativeDriver: true }),
+            Animated.timing(ringScale,   { toValue: 1.06, duration: 350, useNativeDriver: true }),
+            Animated.timing(ringOpacity, { toValue: 0.25, duration: 350, useNativeDriver: true }),
           ]),
         ])
       );
       loopRef.current.start();
     } else if (status === 'connected') {
-      Animated.parallel([
-        Animated.timing(ringScale,   { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(ringOpacity, { toValue: 0.18, duration: 400, useNativeDriver: true }),
-      ]).start();
+      // Respiração suave — idle, aguardando usuário
+      loopRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.parallel([
+            Animated.timing(ringScale,   { toValue: 1.05, duration: 1800, useNativeDriver: true }),
+            Animated.timing(ringOpacity, { toValue: 0.22, duration: 1800, useNativeDriver: true }),
+          ]),
+          Animated.parallel([
+            Animated.timing(ringScale,   { toValue: 1, duration: 1800, useNativeDriver: true }),
+            Animated.timing(ringOpacity, { toValue: 0.10, duration: 1800, useNativeDriver: true }),
+          ]),
+        ])
+      );
+      loopRef.current.start();
     } else {
       ringScale.setValue(1);
       ringOpacity.setValue(0);
     }
 
     return () => loopRef.current?.stop();
-  }, [status, userSpeaking]);
+  }, [status, charlotteSpeaking]);
 
   const ringColor = status === 'connecting' ? '#F97316' : '#A3FF3C';
 
@@ -375,9 +382,9 @@ export default function LiveVoiceModal({
             max_response_output_tokens: 150,
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.90,
-              prefix_padding_ms: 400,
-              silence_duration_ms: 700,
+              threshold: 0.95,
+              prefix_padding_ms: 600,
+              silence_duration_ms: 800,
             },
           },
         }));
@@ -399,11 +406,24 @@ export default function LiveVoiceModal({
           const msg = JSON.parse(event.data);
 
           switch (msg.type) {
-            case 'response.audio.delta':
+            // Em WebRTC o áudio vai pela track — response.created é o sinal confiável
+            // de que Charlotte começou a responder
+            case 'response.created':
               responseActiveRef.current = true;
-              // Muta mic assim que o primeiro chunk chega — previne echo com speaker ativo.
-              // O WebRTC AEC (AVAudioSession .voiceChat) é insuficiente com speakerphone;
-              // mute manual garante que a voz da Charlotte não re-ative o VAD do servidor.
+              if (!charlotteSpeakingRef.current) {
+                charlotteSpeakingRef.current = true;
+                setCharlotteSpeaking(true);
+                setUserSpeaking(false);
+                // Muta mic para evitar echo com speakerphone
+                localStreamRef.current?.getAudioTracks()
+                  .forEach((t: any) => { t.enabled = false; });
+                sendEvent({ type: 'input_audio_buffer.clear' });
+              }
+              break;
+
+            case 'response.audio.delta':
+              // Fallback: caso o servidor envie este evento no modo WebRTC
+              responseActiveRef.current = true;
               if (!charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = true;
                 setCharlotteSpeaking(true);
@@ -414,21 +434,19 @@ export default function LiveVoiceModal({
               }
               break;
 
-            case 'response.audio.done':
+            case 'response.done':
               responseActiveRef.current = false;
-              // Cooldown 900ms antes de reativar mic — deixa o áudio buffered esvaziar
-              // e o eco dissipar antes de ouvir o usuário novamente.
+              // Cooldown 900ms antes de reativar mic — deixa o eco dissipar
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
                 lastCharlotteDoneRef.current = Date.now();
-                // Reativa mic (respeitando mute manual do usuário)
                 localStreamRef.current?.getAudioTracks()
                   .forEach((t: any) => { t.enabled = !isMutedRef.current; });
               }, 900);
               break;
 
-            case 'response.done':
+            case 'response.audio.done':
               responseActiveRef.current = false;
               break;
 
@@ -638,8 +656,6 @@ export default function LiveVoiceModal({
               />
             </View>
 
-            {/* Wave — responde à voz da Charlotte */}
-            <CallWave state={waveState} />
           </View>
 
           {/* ── BOTTOM: Mute / End / Speaker ─────────────────────── */}
