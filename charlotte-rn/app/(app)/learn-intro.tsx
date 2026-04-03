@@ -9,7 +9,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  View, TouchableOpacity, Animated, ActivityIndicator, Platform,
+  View, TouchableOpacity, Animated, ActivityIndicator, Platform, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -22,6 +22,8 @@ import { AudioStatus } from 'expo-audio/build/Audio.types';
 import { AppText } from '@/components/ui/Text';
 import { MODULE_INTROS } from '@/data/moduleIntros';
 import { TrailLevel } from '@/data/curriculum';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 
 // ── Config ─────────────────────────────────────────────────────
 const API_BASE_URL =
@@ -54,6 +56,7 @@ export default function LearnIntroScreen() {
   const { level, moduleIndex, topicIndex } = useLocalSearchParams<{
     level: string; moduleIndex: string; topicIndex: string;
   }>();
+  const { profile } = useAuth();
 
   const mIdx   = parseInt(moduleIndex ?? '0', 10);
   const intro  = MODULE_INTROS[level as TrailLevel]?.[mIdx];
@@ -179,15 +182,7 @@ export default function LearnIntroScreen() {
             pendingPlay.current = false;
             try { playerRef.current?.play(); } catch {}
           }
-          if (status.didJustFinish
-              && capturedIdx === slideIdxRef.current
-              && capturedIdx < slides.length - 1) {
-            subRef.current?.remove();
-            subRef.current = null;
-            setTimeout(() => {
-              if (capturedIdx === slideIdxRef.current) goToSlide(capturedIdx + 1);
-            }, 900);
-          }
+          // auto-advance removed: user advances manually via button
         },
       );
 
@@ -214,16 +209,33 @@ export default function LearnIntroScreen() {
   }, [slideIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Navigation ───────────────────────────────────────────────
-  const goToSession = useCallback(() => {
+  const goToTrail = useCallback(() => {
     if (redirectedRef.current) return;
     redirectedRef.current = true;
     subRef.current?.remove();
     try { playerRef.current?.pause(); } catch {}
-    router.replace({
-      pathname: '/(app)/learn-session',
-      params: { level, moduleIndex, topicIndex },
-    });
-  }, [level, moduleIndex, topicIndex]);
+
+    // Save intro completion (fire-and-forget)
+    const userId = profile?.id;
+    if (userId) {
+      supabase.from('learn_progress')
+        .select('completed')
+        .eq('user_id', userId)
+        .eq('level', level as string)
+        .maybeSingle()
+        .then(({ data }) => {
+          const existing = (data?.completed as { m: number; t: number }[]) ?? [];
+          if (!existing.some(k => k.m === mIdx && k.t === -1)) {
+            supabase.from('learn_progress').update({
+              completed: [...existing, { m: mIdx, t: -1 }],
+              updated_at: new Date().toISOString(),
+            }).eq('user_id', userId).eq('level', level as string);
+          }
+        });
+    }
+
+    router.back();
+  }, [profile, level, mIdx]);
 
   const handleNext = useCallback(() => {
     if (slideIdx < slides.length - 1) {
@@ -233,12 +245,12 @@ export default function LearnIntroScreen() {
       try { playerRef.current?.pause(); } catch {}
       goToSlide(slideIdx + 1);
     } else {
-      goToSession();
+      goToTrail();
     }
-  }, [slideIdx, slides.length, goToSlide, goToSession]);
+  }, [slideIdx, slides.length, goToSlide, goToTrail]);
 
   useEffect(() => {
-    if (!intro || slides.length === 0) goToSession();
+    if (!intro || slides.length === 0) goToTrail();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!intro || slides.length === 0) return null;
@@ -290,7 +302,7 @@ export default function LearnIntroScreen() {
 
       {/* ── Skip ── */}
       <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 20, paddingTop: 12 }}>
-        <TouchableOpacity onPress={goToSession} hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}>
+        <TouchableOpacity onPress={goToTrail} hitSlop={{ top: 12, bottom: 12, left: 16, right: 16 }}>
           <AppText style={{ color: C.whiteAlpha, fontSize: 14, fontWeight: '600' }}>Skip</AppText>
         </TouchableOpacity>
       </View>
@@ -307,17 +319,20 @@ export default function LearnIntroScreen() {
       </View>
 
       {/* ── Slide content ── */}
-      <TouchableOpacity activeOpacity={1} onPress={handleNext} style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
+      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
         <Animated.View style={{ opacity: fadeAnim, alignItems: 'center' }}>
 
           {/* Charlotte avatar */}
           <View style={{
             width: 72, height: 72, borderRadius: 36,
-            backgroundColor: 'rgba(124,58,237,0.18)',
-            alignItems: 'center', justifyContent: 'center',
             borderWidth: 2, borderColor: C.violetBorder, marginBottom: 8,
+            overflow: 'hidden',
           }}>
-            <AppText style={{ fontSize: 32 }}>👩🏻‍🏫</AppText>
+            <Image
+              source={require('@/assets/charlotte-avatar.png')}
+              style={{ width: 72, height: 72 }}
+              resizeMode="cover"
+            />
           </View>
           <AppText style={{ color: C.whiteAlpha, fontSize: 12, fontWeight: '700', marginBottom: 28 }}>
             Charlotte
@@ -349,7 +364,7 @@ export default function LearnIntroScreen() {
             </View>
           )}
         </Animated.View>
-      </TouchableOpacity>
+      </View>
 
       {/* ── Bottom ── */}
       <View style={{ paddingHorizontal: 28, paddingBottom: 40, gap: 10 }}>
@@ -367,7 +382,7 @@ export default function LearnIntroScreen() {
           }}
         >
           <AppText style={{ fontSize: 16, fontWeight: '800', color: '#FFF' }}>
-            {isLast ? "Let's Start!" : 'Next'}
+            {isLast ? 'Finish' : 'Next'}
           </AppText>
           <ArrowRight size={18} color="#FFF" weight="bold" />
         </TouchableOpacity>

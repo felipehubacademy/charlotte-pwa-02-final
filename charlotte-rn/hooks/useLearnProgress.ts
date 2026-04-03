@@ -12,13 +12,15 @@ export interface LearnProgressData {
 }
 
 interface UseLearnProgressReturn {
-  progress:         LearnProgressData | null;
-  loading:          boolean;
+  progress:          LearnProgressData | null;
+  loading:           boolean;
+  refetch:           () => Promise<void>;
   saveTopicComplete: (level: TrailLevel, moduleIndex: number, topicIndex: number) => Promise<void>;
-  saveExercise:     (params: SaveExerciseParams) => Promise<void>;
-  isTopicComplete:  (moduleIndex: number, topicIndex: number) => boolean;
-  isCurrent:        (moduleIndex: number, topicIndex: number) => boolean;
-  isLocked:         (moduleIndex: number, topicIndex: number) => boolean;
+  saveIntroComplete: (moduleIndex: number) => Promise<void>;
+  saveExercise:      (params: SaveExerciseParams) => Promise<void>;
+  isTopicComplete:   (moduleIndex: number, topicIndex: number) => boolean;
+  isCurrent:         (moduleIndex: number, topicIndex: number) => boolean;
+  isLocked:          (moduleIndex: number, topicIndex: number) => boolean;
 }
 
 interface SaveExerciseParams {
@@ -36,43 +38,43 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
   const { checkForNewAchievements } = useAchievementsContext();
 
   // ── Fetch or initialise progress ────────────────────────────────────────
-  useEffect(() => {
+  const fetchProgress = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
 
-    const fetch = async () => {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('learn_progress')
-        .select('module_index, topic_index, completed')
-        .eq('user_id', userId)
-        .eq('level', level)
-        .maybeSingle();
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('learn_progress')
+      .select('module_index, topic_index, completed')
+      .eq('user_id', userId)
+      .eq('level', level)
+      .maybeSingle();
 
-      if (error) {
-        console.error('[useLearnProgress] fetch error', error);
-        setProgress({ moduleIndex: 0, topicIndex: 0, completed: [] });
-      } else if (!data) {
-        // First time on this level — create row
-        await supabase.from('learn_progress').insert({
-          user_id:      userId,
-          level,
-          module_index: 0,
-          topic_index:  0,
-          completed:    [],
-        });
-        setProgress({ moduleIndex: 0, topicIndex: 0, completed: [] });
-      } else {
-        setProgress({
-          moduleIndex: data.module_index,
-          topicIndex:  data.topic_index,
-          completed:   (data.completed as CompletedKey[]) ?? [],
-        });
-      }
-      setLoading(false);
-    };
-
-    fetch();
+    if (error) {
+      console.error('[useLearnProgress] fetch error', error);
+      setProgress({ moduleIndex: 0, topicIndex: 0, completed: [] });
+    } else if (!data) {
+      // First time on this level — create row
+      await supabase.from('learn_progress').insert({
+        user_id:      userId,
+        level,
+        module_index: 0,
+        topic_index:  0,
+        completed:    [],
+      });
+      setProgress({ moduleIndex: 0, topicIndex: 0, completed: [] });
+    } else {
+      setProgress({
+        moduleIndex: data.module_index,
+        topicIndex:  data.topic_index,
+        completed:   (data.completed as CompletedKey[]) ?? [],
+      });
+    }
+    setLoading(false);
   }, [userId, level]);
+
+  useEffect(() => {
+    fetchProgress();
+  }, [fetchProgress]);
 
   // ── Mark topic complete & advance pointer ────────────────────────────────
   const saveTopicComplete = useCallback(async (
@@ -145,6 +147,21 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     setTimeout(() => { checkForNewAchievements(); }, 1500);
   }, [userId, checkForNewAchievements]);
 
+  // ── Mark intro (mini-lesson) as viewed ──────────────────────────────────
+  const saveIntroComplete = useCallback(async (moduleIndex: number) => {
+    if (!userId) return;
+    const key: CompletedKey = { m: moduleIndex, t: -1 };
+    const existing = progress?.completed ?? [];
+    if (existing.some(k => k.m === moduleIndex && k.t === -1)) return;
+    const newCompleted = [...existing, key];
+    const { error } = await supabase
+      .from('learn_progress')
+      .update({ completed: newCompleted, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('level', level);
+    if (!error) setProgress(prev => prev ? { ...prev, completed: newCompleted } : prev);
+  }, [userId, progress, level]);
+
   // ── Derived helpers ──────────────────────────────────────────────────────
   const isTopicComplete = useCallback((moduleIndex: number, topicIndex: number) => {
     return (progress?.completed ?? []).some(k => k.m === moduleIndex && k.t === topicIndex);
@@ -160,5 +177,5 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     return true;
   }, [isTopicComplete, isCurrent]);
 
-  return { progress, loading, saveTopicComplete, saveExercise, isTopicComplete, isCurrent, isLocked };
+  return { progress, loading, refetch: fetchProgress, saveTopicComplete, saveIntroComplete, saveExercise, isTopicComplete, isCurrent, isLocked };
 }

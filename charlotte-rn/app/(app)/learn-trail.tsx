@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, ScrollView, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   ArrowLeft, BookOpen, Microphone, CheckCircle,
-  Lock, Play, CaretRight,
+  Lock, Play, CaretRight, PlayCircle,
 } from 'phosphor-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { AppText } from '@/components/ui/Text';
@@ -58,19 +58,31 @@ export default function LearnTrailScreen() {
   const userId = profile?.id;
   const isPortuguese = level === 'Novice';
 
-  const { progress, loading, isTopicComplete, isCurrent, isLocked } = useLearnProgress(userId, level);
+  const { progress, loading, refetch, isTopicComplete, isCurrent, isLocked } = useLearnProgress(userId, level);
+
+  // Re-fetch when returning from mini-lesson or session
+  useFocusEffect(useCallback(() => {
+    refetch();
+  }, [refetch]));
 
   const modules   = CURRICULUM[level];
   const accent    = LEVEL_COLOR[level];
-  const completed = progress?.completed.length ?? 0;
+  // Exclude intro entries (t === -1) from topic completion count
+  const completed = (progress?.completed ?? []).filter(k => k.t >= 0).length;
   const total     = totalTopics(level);
   const pct       = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const handleStart = (moduleIdx: number, topicIdx: number) => {
-    // Show module intro before the first topic if one is defined
-    const hasIntro = topicIdx === 0 && !!MODULE_INTROS[level]?.[moduleIdx];
+    if (topicIdx === -1) {
+      // Mini-lesson tópico
+      router.push({
+        pathname: '/(app)/learn-intro',
+        params: { level, moduleIndex: String(moduleIdx), topicIndex: '0' },
+      });
+      return;
+    }
     router.push({
-      pathname: hasIntro ? '/(app)/learn-intro' : '/(app)/learn-session',
+      pathname: '/(app)/learn-session',
       params: { level, moduleIndex: String(moduleIdx), topicIndex: String(topicIdx) },
     });
   };
@@ -165,6 +177,80 @@ export default function LearnTrailScreen() {
 
               {/* Topics */}
               <View style={{ gap: 8 }}>
+                {/* Mini-lesson row */}
+                {MODULE_INTROS[level]?.[mIdx] && (() => {
+                  const intro = MODULE_INTROS[level]![mIdx];
+                  const introComplete = isTopicComplete(mIdx, -1);
+                  return (
+                    <TouchableOpacity
+                      key="intro"
+                      onPress={() => handleStart(mIdx, -1)}
+                      activeOpacity={0.75}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 14,
+                        backgroundColor: introComplete ? C.card : accent + '0E',
+                        borderRadius: 14, padding: 14,
+                        borderWidth: introComplete ? 1 : 1.5,
+                        borderColor: introComplete ? C.border : accent + '50',
+                        ...shadow,
+                      }}
+                    >
+                      {/* Status icon */}
+                      <View style={{
+                        width: 36, height: 36, borderRadius: 10,
+                        backgroundColor: introComplete ? C.greenBg : accent + '18',
+                        alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      }}>
+                        {introComplete
+                          ? <CheckCircle size={20} color={C.green} weight="fill" />
+                          : <PlayCircle size={20} color={accent} weight="fill" />
+                        }
+                      </View>
+
+                      {/* Title */}
+                      <View style={{ flex: 1 }}>
+                        <AppText style={{
+                          fontSize: 13, fontWeight: introComplete ? '600' : '700',
+                          color: introComplete ? C.navyMid : C.navy,
+                          lineHeight: 18,
+                        }}>
+                          {intro.title}
+                        </AppText>
+                        <View style={{ flexDirection: 'row', gap: 6, marginTop: 5 }}>
+                          <View style={{
+                            flexDirection: 'row', alignItems: 'center', gap: 3,
+                            backgroundColor: C.violetBg, borderRadius: 6,
+                            paddingHorizontal: 7, paddingVertical: 3,
+                          }}>
+                            <PlayCircle size={11} color={C.violet} weight="fill" />
+                            <AppText style={{ fontSize: 10, fontWeight: '700', color: C.violet }}>
+                              {isPortuguese ? 'Mini-aula' : 'Mini-lesson'}
+                            </AppText>
+                          </View>
+                        </View>
+                      </View>
+
+                      {/* CTA */}
+                      {introComplete ? (
+                        <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green }}>
+                          {isPortuguese ? 'Feito' : 'Done'}
+                        </AppText>
+                      ) : (
+                        <View style={{
+                          backgroundColor: accent, borderRadius: 10,
+                          paddingHorizontal: 12, paddingVertical: 8,
+                          flexDirection: 'row', alignItems: 'center', gap: 4,
+                        }}>
+                          <AppText style={{ fontSize: 12, fontWeight: '800', color: '#FFF' }}>
+                            {isPortuguese ? 'Iniciar' : 'Start'}
+                          </AppText>
+                          <CaretRight size={12} color="#FFF" weight="bold" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })()}
+
                 {mod.topics.map((topic, tIdx) => {
                   const complete = isTopicComplete(mIdx, tIdx);
                   const current  = isCurrent(mIdx, tIdx);
