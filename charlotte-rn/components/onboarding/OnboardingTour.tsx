@@ -1,11 +1,15 @@
 import React from 'react';
 import { Modal, View, TouchableOpacity, Animated } from 'react-native';
+import {
+  Hand, ChatTeardropText, Microphone, Phone,
+  Camera, Lightning, RocketLaunch,
+} from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
 
 interface OnboardingStep {
   id: string;
-  icon: string;
+  icon: React.ReactNode;
   title: string;
   description: string;
 }
@@ -17,11 +21,15 @@ interface OnboardingTourProps {
   userLevel: 'Novice' | 'Inter' | 'Advanced';
 }
 
+const ICON_SIZE = 48;
+const ICON_BG   = 'rgba(163,255,60,0.12)';
+const ICON_COLOR = '#A3FF3C';
+
 function buildSteps(isNovice: boolean): OnboardingStep[] {
   return [
     {
       id: 'welcome',
-      icon: '👋',
+      icon: <Hand size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
       title: isNovice ? 'Bem-vindo à Charlotte!' : 'Welcome to Charlotte!',
       description: isNovice
         ? 'Sua professora de inglês com IA. Vamos explorar como usar o app!'
@@ -29,7 +37,7 @@ function buildSteps(isNovice: boolean): OnboardingStep[] {
     },
     {
       id: 'text',
-      icon: '💬',
+      icon: <ChatTeardropText size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
       title: isNovice ? 'Escreva Mensagens' : 'Write Messages',
       description: isNovice
         ? 'Digite suas mensagens em inglês. Charlotte vai corrigir sua gramática e te dar feedback!'
@@ -37,7 +45,7 @@ function buildSteps(isNovice: boolean): OnboardingStep[] {
     },
     {
       id: 'audio',
-      icon: '🎙',
+      icon: <Microphone size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
       title: isNovice ? 'Grave Áudio' : 'Record Audio',
       description: isNovice
         ? 'Pressione o botão de microfone e grave sua voz! Charlotte vai avaliar sua pronúncia.'
@@ -45,7 +53,7 @@ function buildSteps(isNovice: boolean): OnboardingStep[] {
     },
     {
       id: 'live',
-      icon: '🎧',
+      icon: <Phone size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
       title: isNovice ? 'Voz ao Vivo' : 'Live Voice',
       description: isNovice
         ? 'Use a conversa por voz em tempo real para praticar como se fosse uma ligação!'
@@ -53,7 +61,7 @@ function buildSteps(isNovice: boolean): OnboardingStep[] {
     },
     {
       id: 'photo',
-      icon: '📸',
+      icon: <Camera size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
       title: isNovice ? 'Mande Fotos' : 'Send Photos',
       description: isNovice
         ? 'Tire uma foto de qualquer objeto e Charlotte vai te ensinar o vocabulário em inglês!'
@@ -61,7 +69,7 @@ function buildSteps(isNovice: boolean): OnboardingStep[] {
     },
     {
       id: 'xp',
-      icon: '⭐',
+      icon: <Lightning size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
       title: isNovice ? 'Ganhe XP' : 'Earn XP',
       description: isNovice
         ? 'Cada mensagem e prática de áudio te dá pontos de experiência. Suba de nível!'
@@ -69,7 +77,7 @@ function buildSteps(isNovice: boolean): OnboardingStep[] {
     },
     {
       id: 'ready',
-      icon: '🚀',
+      icon: <RocketLaunch size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
       title: isNovice ? 'Tudo Pronto!' : "You're All Set!",
       description: isNovice
         ? 'Comece conversando com Charlotte agora. Boa prática!'
@@ -139,7 +147,13 @@ const OnboardingTour: React.FC<OnboardingTourProps> = ({
 
           {/* Step content */}
           <Animated.View style={{ opacity: fadeAnim }} className="items-center gap-4 mb-6">
-            <AppText className="text-5xl">{step.icon}</AppText>
+            <View style={{
+              width: 88, height: 88, borderRadius: 28,
+              backgroundColor: ICON_BG,
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              {step.icon}
+            </View>
             <AppText className="text-xl font-bold text-textPrimary text-center">
               {step.title}
             </AppText>

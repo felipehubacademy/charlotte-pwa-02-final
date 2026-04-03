@@ -43,8 +43,12 @@ export default function CharlotteAvatar({
   const avatar = (
     <View style={{ width: px, height: px }} className="relative">
       <View
-        style={{ width: px, height: px, borderRadius: px / 2 }}
-        className="overflow-hidden border border-white/20 bg-primary/10"
+        style={{
+          width: px, height: px, borderRadius: px / 2,
+          overflow: 'hidden',
+          borderWidth: 1.5,
+          borderColor: 'rgba(163,255,60,0.75)',
+        }}
       >
         {!imageError ? (
           <Image
@@ -77,7 +81,7 @@ export default function CharlotteAvatar({
             height: statusPx,
             borderRadius: statusPx / 2,
             borderWidth: 2,
-            borderColor: '#16153A',
+            borderColor: '#FFFFFF',
             backgroundColor: isOnline ? '#22C55E' : '#6B7280',
           }}
         />

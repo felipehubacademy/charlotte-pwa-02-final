@@ -114,12 +114,12 @@ export default function SimpleXPCounter({
             width: innerSize,
             height: innerSize,
             borderRadius: innerSize / 2,
-            backgroundColor: '#1E1D4A',
+            backgroundColor: '#FFFFFF',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <AppText className="text-white font-bold text-sm">{currentLevel}</AppText>
+          <AppText style={{ color: '#16153A', fontWeight: '700', fontSize: 13 }}>{currentLevel}</AppText>
         </View>
       </Animated.View>
     </TouchableOpacity>

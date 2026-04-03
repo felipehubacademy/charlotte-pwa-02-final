@@ -13,18 +13,21 @@ interface ButtonProps {
   className?: string;
 }
 
-const variantStyles: Record<Variant, { container: string; text: string }> = {
+const variantStyles: Record<Variant, { container: string; text: string; textColor: string }> = {
   primary: {
     container: 'bg-primary active:opacity-80',
-    text: 'text-[#16153A] font-bold',
+    text: 'font-bold',
+    textColor: '#16153A',   // dark navy — NativeWind arbitrary values unreliable in dev
   },
   secondary: {
     container: 'bg-surface border border-primary active:opacity-80',
-    text: 'text-primary font-semibold',
+    text: 'font-semibold',
+    textColor: '#A3FF3C',
   },
   ghost: {
     container: 'active:opacity-60',
-    text: 'text-textSecondary font-semibold',
+    text: 'font-semibold',
+    textColor: '#9CA3AF',
   },
 };
 
@@ -58,10 +61,15 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? '#16153A' : '#A3FF3C'}
+          color={styles.textColor}
         />
       ) : (
-        <AppText className={`text-base ${styles.text}`}>{label}</AppText>
+        <AppText
+          className={`text-base ${styles.text}`}
+          style={{ color: styles.textColor }}
+        >
+          {label}
+        </AppText>
       )}
     </TouchableOpacity>
   );
