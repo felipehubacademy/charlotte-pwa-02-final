@@ -16,13 +16,14 @@ import {
   View,
   TouchableOpacity,
   Animated,
+  Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { requestRecordingPermissionsAsync, createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { requestRecordingPermissionsAsync, setAudioModeAsync, createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import { RTCPeerConnection, mediaDevices } from 'react-native-webrtc';
 import InCallManager from 'react-native-incall-manager';
-import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
@@ -203,9 +204,24 @@ export default function LiveVoiceModal({
     status === 'connecting'  ? 'connecting' :
     charlotteSpeaking        ? 'speaking'   : 'idle';
 
+  // ── Audio mode (ringtone phase only — WebRTC não usa isso) ───────────────
+  const applyAudioMode = React.useCallback(async (speakerOn?: boolean) => {
+    try {
+      const useSpeaker = speakerOn !== undefined ? speakerOn : isSpeakerRef.current;
+      await setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+        interruptionMode: 'doNotMix',
+        shouldRouteThroughEarpiece: !useSpeaker,
+      });
+    } catch (e) { console.warn('applyAudioMode:', e); }
+  }, []);
+
   // ── Ring tone ──────────────────────────────────────────────────────────────
   const startRingTone = React.useCallback(async () => {
     try {
+      // Necessário para tocar no modo silencioso antes do WebRTC assumir o AVAudioSession
+      await applyAudioMode();
       const wavBase64 = buildWav(generateRingPcm());
       const path = `${FileSystem.cacheDirectory}ring.wav`;
       await FileSystem.writeAsStringAsync(path, wavBase64, {
@@ -217,7 +233,7 @@ export default function LiveVoiceModal({
       ringPlayerRef.current.loop = true;
       ringPlayerRef.current.play();
     } catch (e) { console.warn('startRingTone:', e); }
-  }, []);
+  }, [applyAudioMode]);
 
   const stopRingTone = React.useCallback(() => {
     ringPlayerRef.current?.pause();
@@ -493,7 +509,7 @@ export default function LiveVoiceModal({
           : 'Could not connect. Please try again.'
       );
     }
-  }, [userLevel, userName, startRingTone, stopRingTone, sendEvent]);
+  }, [userLevel, userName, startRingTone, stopRingTone, sendEvent, applyAudioMode]);
 
   // ── Disconnect ─────────────────────────────────────────────────────────────
   const disconnect = React.useCallback(() => {
@@ -510,6 +526,9 @@ export default function LiveVoiceModal({
     // Para ring tone e InCallManager
     stopRingTone();
     InCallManager.stop();
+
+    // Reseta audio mode para playback normal após a chamada
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
 
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
@@ -574,101 +593,108 @@ export default function LiveVoiceModal({
               Charlotte
             </AppText>
             {status === 'connected' && (
-              <AppText style={{ color: '#A3FF3C', fontSize: 15, fontWeight: '700', letterSpacing: 0.5 }}>
+              <AppText style={{ color: 'rgba(255,255,255,0.85)', fontSize: 15, letterSpacing: 2,
+                ...(Platform.OS === 'ios'
+                  ? { fontVariant: ['tabular-nums'] }
+                  : { fontFamily: 'monospace' }) }}>
                 {callTime}
               </AppText>
             )}
             {status === 'connecting' && (
-              <AppText style={{ color: '#F97316', fontSize: 13, fontWeight: '600' }}>
-                {userLevel === 'Novice' ? 'Conectando…' : 'Connecting…'}
+              <AppText style={{ color: '#F97316', fontSize: 13 }}>
+                {userLevel === 'Novice' ? 'Chamando...' : 'Calling...'}
               </AppText>
             )}
             {status === 'error' && (
-              <AppText style={{ color: '#EF4444', fontSize: 13, fontWeight: '600', textAlign: 'center', maxWidth: 260 }}>
-                {errorMsg}
-              </AppText>
+              <AppText style={{ color: '#ef4444', fontSize: 13 }}>{errorMsg}</AppText>
             )}
           </View>
 
-          {/* ── CENTRO: Avatar + onda ─────────────────────────────── */}
+          {/* ── CENTER: Avatar + Wave ─────────────────────────────── */}
           <View style={{ alignItems: 'center', gap: 32 }}>
-            {/* Avatar com aro animado */}
+            {/* Avatar com anel */}
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <Animated.View style={{
                 position: 'absolute',
                 width: 148, height: 148, borderRadius: 74,
-                backgroundColor: ringColor,
-                opacity: ringOpacity,
+                borderWidth: 2, borderColor: ringColor,
                 transform: [{ scale: ringScale }],
+                opacity: ringOpacity,
               }} />
-              <CharlotteAvatar size="xxl" />
+              <View style={{
+                position: 'absolute',
+                width: 132, height: 132, borderRadius: 66,
+                borderWidth: 1.5,
+                borderColor: status === 'connected' ? 'rgba(163,255,60,0.3)' : 'rgba(249,115,22,0.25)',
+              }} />
+              <Image
+                source={require('../../assets/charlotte-avatar.png')}
+                style={{
+                  width: 120, height: 120, borderRadius: 60,
+                  borderWidth: 3,
+                  borderColor: status === 'connected' ? '#A3FF3C' : '#F97316',
+                }}
+                resizeMode="cover"
+              />
             </View>
 
-            {/* Onda de voz */}
+            {/* Wave — responde à voz da Charlotte */}
             <CallWave state={waveState} />
           </View>
 
-          {/* ── BOTTOM: Controles ─────────────────────────────────── */}
-          <View style={{ width: '100%', gap: 24 }}>
+          {/* ── BOTTOM: Mute / End / Speaker ─────────────────────── */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 48 }}>
+            {/* Mute */}
+            <TouchableOpacity
+              onPress={handleMute}
+              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              style={{
+                width: 56, height: 56, borderRadius: 28,
+                backgroundColor: isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
+                borderWidth: 1,
+                borderColor: isMuted ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.12)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {isMuted
+                ? <MicrophoneSlash size={22} color="#ef4444" weight="regular" />
+                : <Microphone     size={22} color="rgba(255,255,255,0.7)" weight="regular" />
+              }
+            </TouchableOpacity>
 
-            {/* Botões secundários: Mudo + Speaker */}
-            <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 32 }}>
-
-              {/* Mudo */}
-              <TouchableOpacity
-                onPress={handleMute}
-                disabled={status !== 'connected'}
-                style={{
-                  width: 56, height: 56, borderRadius: 28,
-                  backgroundColor: isMuted ? '#EF4444' : 'rgba(255,255,255,0.08)',
-                  alignItems: 'center', justifyContent: 'center',
-                  opacity: status !== 'connected' ? 0.4 : 1,
-                }}
-              >
-                {isMuted
-                  ? <MicrophoneSlash size={22} color="#fff" weight="fill" />
-                  : <Microphone      size={22} color="rgba(255,255,255,0.7)" weight="fill" />
-                }
-              </TouchableOpacity>
-
-              {/* Speaker */}
-              <TouchableOpacity
-                onPress={handleSpeakerToggle}
-                disabled={status !== 'connected'}
-                style={{
-                  width: 56, height: 56, borderRadius: 28,
-                  backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
-                  alignItems: 'center', justifyContent: 'center',
-                  opacity: status !== 'connected' ? 0.4 : 1,
-                }}
-              >
-                {isSpeaker
-                  ? <SpeakerHigh size={22} color="#A3FF3C" weight="fill" />
-                  : <Ear         size={22} color="rgba(255,255,255,0.7)" weight="fill" />
-                }
-              </TouchableOpacity>
-
-            </View>
-
-            {/* Botão desligar */}
+            {/* End call */}
             <TouchableOpacity
               onPress={handleEndCall}
-              activeOpacity={0.85}
+              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
               style={{
-                width: 72, height: 72, borderRadius: 36,
-                backgroundColor: '#EF4444',
+                width: 68, height: 68, borderRadius: 34,
+                backgroundColor: '#ef4444',
                 alignItems: 'center', justifyContent: 'center',
-                alignSelf: 'center',
-                shadowColor: '#EF4444',
-                shadowOpacity: 0.5,
-                shadowRadius: 16,
+                shadowColor: '#ef4444',
                 shadowOffset: { width: 0, height: 4 },
-                elevation: 8,
+                shadowOpacity: 0.5, shadowRadius: 12, elevation: 8,
               }}
             >
               <PhoneSlash size={28} color="#fff" weight="fill" />
             </TouchableOpacity>
 
+            {/* Speaker / Ouvido */}
+            <TouchableOpacity
+              onPress={handleSpeakerToggle}
+              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              style={{
+                width: 56, height: 56, borderRadius: 28,
+                backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
+                borderWidth: 1,
+                borderColor: isSpeaker ? 'rgba(163,255,60,0.4)' : 'rgba(255,255,255,0.12)',
+                alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              {isSpeaker
+                ? <SpeakerHigh size={22} color="#A3FF3C" weight="regular" />
+                : <Ear        size={22} color="rgba(255,255,255,0.7)" weight="regular" />
+              }
+            </TouchableOpacity>
           </View>
 
         </View>

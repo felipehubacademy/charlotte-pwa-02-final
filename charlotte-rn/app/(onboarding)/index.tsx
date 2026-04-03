@@ -17,7 +17,7 @@ import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 
 const { width: W } = Dimensions.get('window');
-export const ONBOARDING_KEY = 'onboarding_v1';
+export const ONBOARDING_KEY = 'onboarding_v2';
 
 const C = {
   bg:        '#F4F3FA',
