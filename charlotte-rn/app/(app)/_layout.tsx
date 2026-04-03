@@ -1,26 +1,16 @@
 import { Stack } from 'expo-router';
-import { View, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { TrialExpiredModal } from '@/components/auth/TrialExpiredModal';
 import { XPToastProvider } from '@/components/ui/XPToastProvider';
 import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
 
 export default function AppLayout() {
-  const { isAuthenticated, isLoading, mustChangePassword, profile } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   // AuthGuard in app/_layout.tsx handles all redirects at root level.
-  // If not authenticated, render nothing — AuthGuard will redirect.
+  // app/index.tsx holds the branded LoadingScreen until session + profile are
+  // both ready, so by the time we render here profile is always non-null.
   if (!isAuthenticated) return null;
-
-  // While loading or profile still being fetched, show spinner instead of
-  // blank screen (prevents white-screen hang when fetchProfile is slow/retrying).
-  if (isLoading || profile === null) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F4F3FA' }}>
-        <ActivityIndicator size="large" color="#A3FF3C" />
-      </View>
-    );
-  }
 
   return (
     <XPToastProvider>

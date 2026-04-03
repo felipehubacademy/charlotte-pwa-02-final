@@ -95,9 +95,12 @@ function LoadingScreen() {
 // ── Root index ────────────────────────────────────────────────────────────────
 
 export default function Index() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, profile } = useAuth();
 
-  if (isLoading) return <LoadingScreen />;
+  // Hold on the branded loading screen while auth OR profile is still resolving.
+  // This prevents the intermediate (isAuthenticated=true, profile=null) state
+  // from ever reaching /(app)/_layout.tsx and triggering the dot-spinner loop.
+  if (isLoading || (isAuthenticated && profile === null)) return <LoadingScreen />;
   if (isAuthenticated) return <Redirect href="/(app)" />;
   return <Redirect href="/(auth)/login" />;
 }

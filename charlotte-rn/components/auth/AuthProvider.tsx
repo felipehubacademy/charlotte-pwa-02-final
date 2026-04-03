@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { unstable_batchedUpdates } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { supabase, UserProfile } from '@/lib/supabase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -26,16 +27,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   usePushNotifications(session?.user?.id);
 
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
-    const { data, error } = await supabase
+    console.log('[AuthProvider] fetchProfile start for:', userId);
+    const queryPromise = supabase
       .from('charlotte_users')
       .select('id, email, name, charlotte_level, placement_test_done, is_institutional, is_active, subscription_status, trial_ends_at, must_change_password')
       .eq('id', userId)
       .single();
 
+    // 8-second safety net — prevents indefinite hang on cold boot (e.g. Keychain
+    // contention or Supabase token-refresh delay blocking the HTTP request).
+    const timeoutPromise = new Promise<{ data: null; error: Error }>((resolve) =>
+      setTimeout(() => {
+        console.warn('[AuthProvider] fetchProfile TIMEOUT for user:', userId);
+        resolve({ data: null, error: new Error('fetchProfile timeout') });
+      }, 8_000)
+    );
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]);
+
     if (error) {
-      console.error('[AuthProvider] Erro ao buscar perfil:', error.message);
+      console.error('[AuthProvider] Erro ao buscar perfil:', (error as any).message ?? error);
       return null;
     }
+    console.log('[AuthProvider] fetchProfile success for:', userId);
     return data as UserProfile;
   };
 
@@ -61,23 +75,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // onAuthStateChange fires INITIAL_SESSION on mount (even with no session),
     // so it is the primary mechanism to resolve auth state.
-    // Avoids the race condition where getSession() hangs in SecureStore on cold boot
-    // (Expo Go / iOS) and the app briefly flashes the login screen before redirecting back.
+    //
+    // KEY INVARIANT: setSession is called AFTER fetchProfile completes so that
+    // React never renders the broken intermediate state (isAuthenticated=true,
+    // profile=null), which causes the dot-spinner loop on cold boot in TestFlight.
+    // Both setSession + setProfile are batched into a single React render via
+    // unstable_batchedUpdates, keeping UI consistent.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return;
+        console.log('[AuthProvider] event:', event, '| hasSession:', !!session?.user);
         try {
-          setSession(session);
           if (!session?.user) {
-            setProfile(null);
+            // No session — clear state immediately.
+            unstable_batchedUpdates(() => {
+              setSession(null);
+              setProfile(null);
+            });
           } else if (event !== 'USER_UPDATED') {
+            // Fetch profile BEFORE updating isAuthenticated so the app never
+            // renders with (isAuthenticated=true, profile=null).
             const userProfile = await fetchProfile(session.user.id);
-            // Only update profile if fetch succeeded — never null-out an existing
-            // valid profile due to a failed re-fetch (e.g. TOKEN_REFRESHED race).
-            if (mounted && userProfile) setProfile(userProfile);
+            if (!mounted) return;
+            unstable_batchedUpdates(() => {
+              setSession(session);
+              // Only set profile when fetch succeeded; on failure keep whatever
+              // was there before (null on first boot, stale-but-valid on re-auth).
+              if (userProfile) setProfile(userProfile);
+            });
           }
         } catch (error) {
           console.error('[AuthProvider] onAuthStateChange error:', error);
+          // Still set the session so the retry mechanism can kick in.
+          if (mounted) setSession(session);
         } finally {
           clearTimeout(hardTimeout);
           markResolved();
