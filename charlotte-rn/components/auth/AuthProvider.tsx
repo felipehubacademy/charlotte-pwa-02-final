@@ -82,36 +82,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Both setSession + setProfile are batched into a single React render via
     // unstable_batchedUpdates, keeping UI consistent.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         if (!mounted) return;
         console.log('[AuthProvider] event:', event, '| hasSession:', !!session?.user);
-        try {
-          if (!session?.user) {
-            // No session — clear state immediately.
-            unstable_batchedUpdates(() => {
-              setSession(null);
-              setProfile(null);
-            });
-          } else if (event !== 'USER_UPDATED') {
-            // Fetch profile BEFORE updating isAuthenticated so the app never
-            // renders with (isAuthenticated=true, profile=null).
-            const userProfile = await fetchProfile(session.user.id);
-            if (!mounted) return;
-            unstable_batchedUpdates(() => {
-              setSession(session);
-              // Only set profile when fetch succeeded; on failure keep whatever
-              // was there before (null on first boot, stale-but-valid on re-auth).
-              if (userProfile) setProfile(userProfile);
-            });
-          }
-        } catch (error) {
-          console.error('[AuthProvider] onAuthStateChange error:', error);
-          // Still set the session so the retry mechanism can kick in.
-          if (mounted) setSession(session);
-        } finally {
+
+        if (!session?.user) {
+          // No session — clear state and unblock loading immediately.
+          unstable_batchedUpdates(() => {
+            setSession(null);
+            setProfile(null);
+          });
           clearTimeout(hardTimeout);
           markResolved();
+          return;
         }
+
+        if (event === 'USER_UPDATED') {
+          // Password / email change — just refresh the session object, keep
+          // the existing profile so the UI doesn't flicker.
+          setSession(session);
+          clearTimeout(hardTimeout);
+          markResolved();
+          return;
+        }
+
+        // INITIAL_SESSION / SIGNED_IN / TOKEN_REFRESHED:
+        // Set the session synchronously (unblocks loading indicator via
+        // app/index.tsx profile check) and then fetch the profile in a
+        // microtask — OUTSIDE this handler — so the Supabase client can
+        // finish its internal storage work (SecureStore write, ~7-8 s on
+        // cold boot) before we issue the DB query. Without this deferral
+        // the query sits in the client's internal queue for the entire
+        // SecureStore flush time.
+        setSession(session);
+        clearTimeout(hardTimeout);
+        markResolved();
+
+        const userId = session.user.id;
+        // setTimeout(0) yields back to the JS event loop so the Supabase
+        // client completes its own async work before we hit the DB.
+        setTimeout(async () => {
+          if (!mounted) return;
+          console.log('[AuthProvider] fetchProfile deferred start for:', userId);
+          const userProfile = await fetchProfile(userId);
+          if (mounted && userProfile) setProfile(userProfile);
+        }, 0);
       }
     );
 
