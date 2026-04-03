@@ -174,17 +174,27 @@ export async function POST(request: NextRequest) {
       console.log('🔄 Trying hybrid approach: Whisper transcription + encouraging feedback...');
       const whisperResult = await tryWhisperFallback(audioFile);
       
-      if (whisperResult.success && whisperResult.text) {
+      if (whisperResult.success && isMeaningfulTranscription(whisperResult.text)) {
         console.log('✅ Whisper transcription successful, creating encouraging response...');
-        
+
         const encouragingResult = createEncouragingResultFromWhisper(
-          whisperResult.text, 
+          whisperResult.text!,
           whisperResult.confidence || 0.5
         );
-        
+
         return NextResponse.json({
           success: true,
           result: encouragingResult
+        });
+      }
+
+      if (whisperResult.success && !isMeaningfulTranscription(whisperResult.text)) {
+        console.log('⚠️ Whisper transcription empty/trivial — no speech detected');
+        return NextResponse.json({
+          success: false,
+          error: 'No speech detected. Please try again.',
+          shouldRetry: true,
+          retryReason: 'no_speech_detected'
         });
       }
       
@@ -207,9 +217,9 @@ export async function POST(request: NextRequest) {
     console.log('🔄 Speech SDK failed completely, trying Whisper fallback...');
     const whisperResult = await tryWhisperFallback(audioFile);
     
-    if (whisperResult.success && whisperResult.text) {
+    if (whisperResult.success && isMeaningfulTranscription(whisperResult.text)) {
       console.log('✅ Whisper fallback successful');
-      const fallbackResult = createFallbackResult(whisperResult.text, whisperResult.confidence || 0.5);
+      const fallbackResult = createFallbackResult(whisperResult.text!, whisperResult.confidence || 0.5);
       
       return NextResponse.json({
         success: true,
@@ -399,6 +409,13 @@ async function tryWhisperFallback(audioFile: File): Promise<{
     console.error('❌ Whisper fallback failed:', error);
     return { success: false };
   }
+}
+
+// 🔍 VERIFICAR SE TRANSCRIÇÃO TEM CONTEÚDO REAL
+function isMeaningfulTranscription(text?: string): boolean {
+  if (!text) return false;
+  const t = text.trim().replace(/[^a-zA-Z]/g, '');
+  return t.length >= 2;
 }
 
 // 🌟 CRIAR RESULTADO ENCORAJADOR A PARTIR DO WHISPER
