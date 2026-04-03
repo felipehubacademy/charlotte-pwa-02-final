@@ -37,19 +37,28 @@ interface WordTiming {
 }
 
 // ── Palette ────────────────────────────────────────────────────
-const C = {
-  bg:           '#16153A',
-  white:        '#FFFFFF',
-  wordDim:      'rgba(255,255,255,0.28)',
-  wordSpoken:   '#FFFFFF',
-  wordActive:   '#A78BFA',   // violet — current word being spoken
-  whiteAlpha:   'rgba(255,255,255,0.50)',
-  violet:       '#7C3AED',
-  violetLight:  '#A78BFA',
-  violetHl:     'rgba(124,58,237,0.22)',
-  violetBorder: 'rgba(124,58,237,0.45)',
-  dotInactive:  'rgba(255,255,255,0.22)',
+const LEVEL_ACCENT: Record<string, { main: string; light: string }> = {
+  Novice:   { main: '#D97706', light: '#FCD34D' },
+  Inter:    { main: '#7C3AED', light: '#A78BFA' },
+  Advanced: { main: '#0F766E', light: '#2DD4BF' },
 };
+
+function buildPalette(level: string) {
+  const { main, light } = LEVEL_ACCENT[level] ?? LEVEL_ACCENT.Inter;
+  return {
+    bg:           '#16153A',
+    white:        '#FFFFFF',
+    wordDim:      'rgba(255,255,255,0.28)',
+    wordSpoken:   '#FFFFFF',
+    wordActive:   light,
+    whiteAlpha:   'rgba(255,255,255,0.50)',
+    violet:       main,
+    violetLight:  light,
+    violetHl:     main + '38',
+    violetBorder: main + '73',
+    dotInactive:  'rgba(255,255,255,0.22)',
+  };
+}
 
 // ── Main screen ────────────────────────────────────────────────
 export default function LearnIntroScreen() {
@@ -61,6 +70,7 @@ export default function LearnIntroScreen() {
   const intro       = MODULE_INTROS[level as TrailLevel]?.[mIdx];
   const slides      = intro?.slides ?? [];
   const isPortuguese = level === 'Novice';
+  const C           = buildPalette(level);
 
   const [slideIdx,     setSlideIdx]     = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
