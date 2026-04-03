@@ -70,6 +70,12 @@
         "serviceAccountKeyPath": "./google-service-account.json",
         "track": "internal"
       }
+    },
+    "testflight": {
+      "ios": {
+        "appleId": "felipe.xavier1987@gmail.com",
+        "ascAppId": "6760943273"
+      }
     }
   }
 }
