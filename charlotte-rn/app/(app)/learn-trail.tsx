@@ -194,22 +194,22 @@ export default function LearnTrailScreen() {
                       activeOpacity={0.75}
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 14,
-                        backgroundColor: done ? C.card : C.violetBg,
+                        backgroundColor: done ? C.card : accent + '0E',
                         borderRadius: 14, padding: 14,
                         borderWidth: 1.5,
-                        borderColor: done ? C.border : C.violet + '35',
+                        borderColor: done ? C.border : accent + '35',
                         ...shadow,
                       }}
                     >
                       {/* Icon */}
                       <View style={{
                         width: 36, height: 36, borderRadius: 10,
-                        backgroundColor: done ? C.greenBg : C.violet + '20',
+                        backgroundColor: done ? C.greenBg : accent + '20',
                         alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
                         {done
                           ? <CheckCircle size={20} color={C.green} weight="fill" />
-                          : <BookOpen size={18} color={C.violet} weight="fill" />
+                          : <BookOpen size={18} color={accent} weight="fill" />
                         }
                       </View>
 
@@ -220,12 +220,12 @@ export default function LearnTrailScreen() {
                         </AppText>
                         <View style={{ flexDirection: 'row', gap: 6, marginTop: 5 }}>
                           <View style={{
-                            backgroundColor: C.violet + '15', borderRadius: 6,
+                            backgroundColor: accent + '15', borderRadius: 6,
                             paddingHorizontal: 7, paddingVertical: 3,
                             flexDirection: 'row', alignItems: 'center', gap: 3,
                           }}>
-                            <BookOpen size={11} color={C.violet} weight="fill" />
-                            <AppText style={{ fontSize: 10, fontWeight: '700', color: C.violet }}>
+                            <BookOpen size={11} color={accent} weight="fill" />
+                            <AppText style={{ fontSize: 10, fontWeight: '700', color: accent }}>
                               Mini-lesson · {intro.slides.length} slides
                             </AppText>
                           </View>
@@ -234,15 +234,15 @@ export default function LearnTrailScreen() {
 
                       {/* CTA */}
                       <View style={{
-                        backgroundColor: done ? 'transparent' : C.violet,
+                        backgroundColor: done ? 'transparent' : accent,
                         borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
-                        borderWidth: done ? 1 : 0, borderColor: C.violet + '40',
+                        borderWidth: done ? 1 : 0, borderColor: accent + '40',
                         flexDirection: 'row', alignItems: 'center', gap: 4,
                       }}>
-                        <AppText style={{ fontSize: 12, fontWeight: '800', color: done ? C.violet : '#FFF' }}>
-                          {done ? 'Review' : 'Start'}
+                        <AppText style={{ fontSize: 12, fontWeight: '800', color: done ? accent : '#FFF' }}>
+                          {done ? (isPortuguese ? 'Rever' : 'Review') : (isPortuguese ? 'Começar' : 'Start')}
                         </AppText>
-                        <CaretRight size={12} color={done ? C.violet : '#FFF'} weight="bold" />
+                        <CaretRight size={12} color={done ? accent : '#FFF'} weight="bold" />
                       </View>
                     </TouchableOpacity>
                   );
