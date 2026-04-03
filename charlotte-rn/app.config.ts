@@ -52,7 +52,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   plugins: [
     'expo-router',
     'expo-secure-store',
-    'react-native-webrtc',
     'expo-config-plugin-incall-manager',
     [
       'expo-splash-screen',
