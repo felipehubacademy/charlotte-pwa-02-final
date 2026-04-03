@@ -131,7 +131,7 @@ function Slide1() {
         ...C.shadow,
       }}>
         <AppText style={{ color: C.green, fontSize: 15, fontWeight: '700' }}>
-          Hi! I'm Charlotte.
+          Oi! Eu sou a Charlotte.
         </AppText>
       </Animated.View>
 
@@ -141,14 +141,14 @@ function Slide1() {
         textAlign: 'center', lineHeight: 40, letterSpacing: -0.5,
         marginBottom: 14,
       }}>
-        Your AI{'\n'}English teacher.
+        Sua professora{'\n'}de inglês com IA.
       </AppText>
 
       <AppText style={{
         fontSize: 15, color: C.navyMid, textAlign: 'center',
         lineHeight: 22, maxWidth: 280,
       }}>
-        Real conversations that actually teach you to speak English.
+        Conversas reais que te ensinam a falar inglês de verdade.
       </AppText>
 
     </View>
@@ -160,7 +160,7 @@ function Slide1() {
 const CHAT_ITEMS = [
   { from: 'charlotte', text: 'How was your weekend?' },
   { from: 'user',      text: 'It was great, I went to the beach' },
-  { from: 'score',     text: 'Score 94 · Great fluency!' },
+  { from: 'score',     text: 'Nota 94 · Fluência ótima!' },
 ];
 
 function Slide2({ active }: { active: boolean }) {
@@ -244,12 +244,12 @@ function Slide2({ active }: { active: boolean }) {
         fontSize: 32, fontWeight: '800', color: C.navy,
         textAlign: 'center', lineHeight: 38, letterSpacing: -0.5, marginBottom: 14,
       }}>
-        Practice by{'\n'}talking.
+        Pratique{'\n'}falando.
       </AppText>
       <AppText style={{
         fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, maxWidth: 280,
       }}>
-        Charlotte corrects your grammar, scores your pronunciation, and teaches as you speak.
+        A Charlotte corrige sua gramática, avalia sua pronúncia e ensina enquanto você fala.
       </AppText>
 
     </View>
@@ -276,8 +276,8 @@ function Slide3({ active }: { active: boolean }) {
   const xpWidth = xpAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '68%'] });
 
   const stats = [
-    { icon: <Flame      size={18} color="#F97316" weight="fill" />, value: '12', label: 'day streak'  },
-    { icon: <Lightning  size={18} color={C.greenDark} weight="fill" />, value: '340', label: 'XP today'    },
+    { icon: <Flame      size={18} color="#F97316" weight="fill" />, value: '12', label: 'dias seguidos' },
+    { icon: <Lightning  size={18} color={C.greenDark} weight="fill" />, value: '340', label: 'XP hoje'     },
     { icon: <MedalMilitary size={18} color="#7C3AED" weight="fill" />, value: '#3',  label: 'ranking'      },
   ];
 
@@ -315,7 +315,7 @@ function Slide3({ active }: { active: boolean }) {
         {/* XP bar */}
         <View>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-            <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight }}>Daily XP</AppText>
+            <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight }}>XP do dia</AppText>
             <AppText style={{ fontSize: 11, fontWeight: '700', color: C.greenDark }}>340 / 500</AppText>
           </View>
           <View style={{ height: 8, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 4, overflow: 'hidden' }}>
@@ -338,7 +338,7 @@ function Slide3({ active }: { active: boolean }) {
         <ChatCircle size={20} color={C.navyMid} weight="duotone" />
         <View style={{ flex: 1 }}>
           <AppText style={{ fontSize: 13, fontWeight: '700', color: C.navy }}>
-            Send 10 messages
+            Enviar 10 mensagens
           </AppText>
           <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 1 }}>
             7 / 10 · +50 XP
@@ -357,12 +357,12 @@ function Slide3({ active }: { active: boolean }) {
         fontSize: 32, fontWeight: '800', color: C.navy,
         textAlign: 'center', lineHeight: 38, letterSpacing: -0.5, marginBottom: 14,
       }}>
-        Stay{'\n'}consistent.
+        Seja{'\n'}consistente.
       </AppText>
       <AppText style={{
         fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, maxWidth: 280,
       }}>
-        Streaks, XP, and daily missions keep you on track. 5 minutes a day is enough.
+        Sequências, XP e missões diárias te mantêm no caminho. 5 minutos por dia já fazem diferença.
       </AppText>
 
     </View>
@@ -379,9 +379,9 @@ function Slide4() {
   }, []);
 
   const perks = [
-    'Full access from day 1',
-    'Grammar, pronunciation & live voice',
-    'Cancel anytime',
+    'Acesso completo desde o primeiro dia',
+    'Gramática, pronúncia e conversação ao vivo',
+    'Cancele quando quiser',
   ];
 
   return (
@@ -398,7 +398,7 @@ function Slide4() {
             ...C.shadow,
           }}>
             <AppText style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600', lineHeight: 20 }}>
-              I'll be here every day.{'\n'}Ready when you are.
+              Estarei aqui todos os dias.{'\n'}Pronta quando você estiver.
             </AppText>
           </View>
         </View>
@@ -408,7 +408,7 @@ function Slide4() {
           fontSize: 32, fontWeight: '800', color: C.navy,
           textAlign: 'center', lineHeight: 38, letterSpacing: -0.5, marginBottom: 8,
         }}>
-          Start your journey.
+          Comece sua jornada.
         </AppText>
         <AppText style={{
           fontSize: 14, color: C.navyLight, textAlign: 'center',
@@ -482,7 +482,7 @@ export default function OnboardingScreen() {
         <View style={{ height: 44, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 20 }}>
           {slide > 0 && !isLast && (
             <TouchableOpacity onPress={skip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>Skip</AppText>
+              <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>Pular</AppText>
             </TouchableOpacity>
           )}
         </View>
@@ -530,7 +530,7 @@ export default function OnboardingScreen() {
             }}
           >
             <AppText style={{ fontSize: 16, fontWeight: '800', color: C.green }}>
-              {isLast ? 'Get Started' : 'Next'}
+              {isLast ? 'Começar' : 'Próximo'}
             </AppText>
             <ArrowRight size={18} color={C.green} weight="bold" />
           </TouchableOpacity>
@@ -539,7 +539,7 @@ export default function OnboardingScreen() {
           {isLast && (
             <TouchableOpacity onPress={skip} style={{ alignItems: 'center', paddingVertical: 4 }}>
               <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>
-                I already have an account
+                Já tenho uma conta
               </AppText>
             </TouchableOpacity>
           )}
