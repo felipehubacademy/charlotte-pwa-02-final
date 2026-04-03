@@ -551,7 +551,7 @@ export default function PlacementTestScreen() {
             onPress={handleNext}
             activeOpacity={0.85}
             style={{
-              backgroundColor: currentIsCorrect ? C.greenDark : C.navy,
+              backgroundColor: currentIsCorrect ? C.greenDark : '#DC2626',
               borderRadius: 16, paddingVertical: 16, alignItems: 'center',
             }}
           >
