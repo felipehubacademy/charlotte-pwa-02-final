@@ -11,8 +11,9 @@ import { AudioStatus } from 'expo-audio/build/Audio.types';
 
 export function useMessageAudioPlayer() {
   const playerRef    = useRef<AudioPlayer | null>(null);
-  const currentIdRef = useRef<string | null>(null);
-  const pendingPlay  = useRef<string | null>(null); // id waiting for isLoaded
+  const currentIdRef  = useRef<string | null>(null);
+  const currentUriRef = useRef<string | null>(null);
+  const pendingPlay   = useRef<string | null>(null); // id waiting for isLoaded
   const subRef       = useRef<ReturnType<AudioPlayer['addListener']> | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
@@ -30,7 +31,10 @@ export function useMessageAudioPlayer() {
     const player = playerRef.current;
     if (!player) return;
 
-    const isSame = currentIdRef.current === id;
+    // Same ID *and* same URI → just toggle play/pause.
+    // Same ID but different URI (e.g. learn exercises reusing 'charlotte-learn-phrase')
+    // must replace the source, so treat as a new source.
+    const isSame = currentIdRef.current === id && currentUriRef.current === uri;
 
     // ── Same bubble ────────────────────────────────────────────
     if (isSame) {
@@ -54,8 +58,9 @@ export function useMessageAudioPlayer() {
 
     try { player.pause(); } catch {}
 
-    currentIdRef.current = id;
-    pendingPlay.current  = id;
+    currentIdRef.current  = id;
+    currentUriRef.current = uri;
+    pendingPlay.current   = id;
 
     // Replace source — native layer starts loading
     try { player.replace({ uri }); } catch {}
@@ -74,9 +79,19 @@ export function useMessageAudioPlayer() {
         subRef.current?.remove();
         subRef.current = null;
         currentIdRef.current = null;
+        currentUriRef.current = null;
         setPlayingId(null);
       }
     });
+
+    // Fallback: if isLoaded event never fires (expo-audio race on some devices),
+    // attempt play after 1.5s so the button doesn't stay stuck.
+    setTimeout(() => {
+      if (pendingPlay.current === id) {
+        pendingPlay.current = null;
+        try { player.play(); } catch {}
+      }
+    }, 1500);
 
     // Optimistically show as "playing" immediately for snappy UI
     setPlayingId(id);

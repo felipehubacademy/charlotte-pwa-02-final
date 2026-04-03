@@ -7,6 +7,7 @@ import {
   setAudioModeAsync,
   RecordingPresets,
 } from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 
 // ── WAV/PCM preset for Azure Speech SDK ─────────────────────────
@@ -112,7 +113,20 @@ export function useAudioRecorder(
       setDuration(0);
 
       if (!uri) return null;
-      return { uri, duration: recordedDuration };
+
+      // expo-audio's useAudioRecorder reuses a single native recorder instance,
+      // meaning recorder.uri always points to the same file path and gets
+      // overwritten on every new recording. Copy to a unique path so each
+      // message keeps its own audio file intact for later playback.
+      const ext = uri.split('.').pop() ?? 'm4a';
+      const uniqueUri = `${FileSystem.cacheDirectory}rec_${Date.now()}.${ext}`;
+      try {
+        await FileSystem.copyAsync({ from: uri, to: uniqueUri });
+        return { uri: uniqueUri, duration: recordedDuration };
+      } catch {
+        // Fallback to original URI if copy fails
+        return { uri, duration: recordedDuration };
+      }
     } catch (error) {
       console.error('❌ stopRecording error:', error);
       setState('idle');
