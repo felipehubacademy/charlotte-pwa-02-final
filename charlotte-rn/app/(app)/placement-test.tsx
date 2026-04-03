@@ -477,7 +477,7 @@ export default function PlacementTestScreen() {
             {/* Question text — large, prominent */}
             <AppText style={{
               fontSize: 22, fontWeight: '500', color: C.navy,
-              lineHeight: 34, marginBottom: 28, textAlign: 'justify',
+              lineHeight: 34, marginBottom: 28,
             }}>
               {currentQ.kind === 'grammar' ? currentQ.question : currentQ.prompt}
             </AppText>
