@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import {
@@ -742,6 +743,7 @@ function ResultScreen({
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.navy }} edges={['top']}>
+      <StatusBar style="light" />
       <Animated.View style={{ flex: 1, opacity: anim, transform: [{ translateY }] }}>
 
         {/* Navy hero — compact, avatar + level + tagline */}
