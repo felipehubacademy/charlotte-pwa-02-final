@@ -1,19 +1,10 @@
 // app/(app)/placement-test.tsx
 //
 // Placement test — assigns Charlotte level: Novice / Inter / Advanced
+// Charlotte guides the user in first-person throughout (like Duolingo's Duo).
 //
 // Flow:
-//   Q1–Q10  Grammar (A1 → C2, auto-advance on tap)
-//   Q11     Listening — Inter validation   (shown only if grammar score 4–6)
-//   Q12     Listening — Advanced validation (shown only if grammar score 7–10)
-//
-// Scoring:
-//   Grammar 0–3  → Novice  (no listening)
-//   Grammar 4–6  → Inter   + listening validation
-//   Grammar 7–10 → Advanced + listening validation
-//
-// Listening validation:
-//   Wrong answer drops level by one.  Correct answer confirms.
+//   Intro  → Q1–Q10 Grammar → (optional Listening) → Result
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -26,15 +17,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import {
   Headphones, Play, Pause,
-  GraduationCap, Lightning, Target, PencilSimple,
-  Crown, Leaf, ChatCircle, ArrowRight,
+  Crown, Leaf, Lightning, ArrowRight,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
+import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 
-const SCREEN_W    = Dimensions.get('window').width;
+const SCREEN_W     = Dimensions.get('window').width;
 const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
@@ -169,13 +160,8 @@ const GRAMMAR: GrammarQ[] = [
 ];
 
 // ── Listening questions ───────────────────────────────────────────────────────
-// Rachel (ElevenLabs) reads audioText aloud.  User answers a comprehension question.
-
 const LISTENING_INTER: ListeningQ = {
-  kind: 'listening',
-  id: 11,
-  forLevel: 'Inter',
-  // B1/B2 — natural monologue, moderate pace, everyday vocabulary
+  kind: 'listening', id: 11, forLevel: 'Inter',
   audioText:
     "Hi, my name is Sarah. I moved to London about a year ago for work. " +
     "At first, I found it quite difficult to understand different accents, " +
@@ -194,10 +180,7 @@ const LISTENING_INTER: ListeningQ = {
 };
 
 const LISTENING_ADVANCED: ListeningQ = {
-  kind: 'listening',
-  id: 12,
-  forLevel: 'Advanced',
-  // C1/C2 — formal register, abstract vocabulary, nuanced argument
+  kind: 'listening', id: 12, forLevel: 'Advanced',
   audioText:
     "The recent surge in artificial intelligence adoption has sparked considerable debate among economists. " +
     "While proponents argue that automation will ultimately create more jobs than it displaces — " +
@@ -225,7 +208,6 @@ function grammarLevel(score: number): Level {
   return 'Advanced';
 }
 
-// Listening validation: wrong answer drops one level
 function applyListening(level: Level, correct: boolean): Level {
   if (correct) return level;
   if (level === 'Advanced') return 'Inter';
@@ -241,7 +223,7 @@ const LEVEL_META: Record<Level, {
     label: 'Novice',
     tagline: 'Você está começando sua jornada!',
     description:
-      'Sem problema — todo expert já foi iniciante. A Charlotte vai te guiar passo a passo, ' +
+      'Sem problema — todo expert já foi iniciante. Vou te guiar passo a passo, ' +
       'com suporte em português, conversas simples e as bases que você precisa para evoluir com confiança.',
     charlotteMessage: 'Estou aqui para te apoiar em cada etapa. Vamos juntos!',
   },
@@ -249,7 +231,7 @@ const LEVEL_META: Record<Level, {
     label: 'Intermediate',
     tagline: 'You have a solid foundation!',
     description:
-      "Your English is functional — now let's take it further. Charlotte will challenge you " +
+      "Your English is functional — now let's take it further. I'll challenge you " +
       "with real conversations, complex grammar, and the nuances that separate good from fluent.",
     charlotteMessage: "I can't wait to push your English to the next level. Let's go!",
   },
@@ -257,35 +239,41 @@ const LEVEL_META: Record<Level, {
     label: 'Advanced',
     tagline: 'Your English is impressive!',
     description:
-      "You're operating at a high level. Charlotte will engage you in sophisticated discussions, " +
+      "You're operating at a high level. I'll engage you in sophisticated discussions, " +
       "sharpen your nuances, and help you reach that native-like fluency you're after.",
     charlotteMessage: "Let's have some real conversations — I'm excited to work with you.",
   },
+};
+
+const LEVEL_ICON: Record<Level, React.ReactElement> = {
+  Novice:   <Leaf     size={44} color="#1D4ED8" weight="duotone" />,
+  Inter:    <Lightning size={44} color="#C2410C" weight="duotone" />,
+  Advanced: <Crown    size={44} color="#3D8800" weight="duotone" />,
 };
 
 // ── Main component ────────────────────────────────────────────────────────────
 type Phase = 'intro' | 'test' | 'saving' | 'result';
 
 export default function PlacementTestScreen() {
-  const { session, refreshProfile }       = useAuth();
+  const { session, refreshProfile, profile } = useAuth();
   const { toggle: toggleAudio, playingMessageId, stop: stopAudio } = useMessageAudioPlayer();
+
+  const firstName = (profile?.name ?? '').split(' ')[0] || 'você';
 
   const [phase, setPhase]         = useState<Phase>('intro');
   const [queue, setQueue]         = useState<AnyQuestion[]>([]);
   const [qIndex, setQIndex]       = useState(0);
-  const [answers, setAnswers]     = useState<number[]>([]); // indexed to queue
+  const [answers, setAnswers]     = useState<number[]>([]);
   const [selected, setSelected]   = useState<number | null>(null);
   const [locked, setLocked]       = useState(false);
   const [level, setLevel]         = useState<Level>('Novice');
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Listening audio state
   const [audioUri, setAudioUri]         = useState<string | null>(null);
   const [audioLoading, setAudioLoading] = useState(false);
   const LISTEN_ID = 'placement-listen';
   const isPlaying  = playingMessageId === LISTEN_ID;
 
-  // Slide animation
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const slideIn = useCallback((fromRight = true) => {
@@ -293,23 +281,19 @@ export default function PlacementTestScreen() {
     Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 55, useNativeDriver: true }).start();
   }, [slideAnim]);
 
-  // ── Start test ────────────────────────────────────────────────────────────
   const handleStart = () => {
     setQueue(GRAMMAR);
     setPhase('test');
     slideIn();
   };
 
-  // ── Load audio for listening question ─────────────────────────────────────
   useEffect(() => {
     if (phase !== 'test') return;
     const q = queue[qIndex];
     if (!q || q.kind !== 'listening') return;
-
     setAudioUri(null);
     setAudioLoading(true);
     stopAudio();
-
     let cancelled = false;
     (async () => {
       try {
@@ -324,56 +308,38 @@ export default function PlacementTestScreen() {
         const uri = `${FileSystem.cacheDirectory}placement_tts_${q.id}.mp3`;
         await FileSystem.writeAsStringAsync(uri, data.audio, { encoding: 'base64' as any });
         if (!cancelled) setAudioUri(uri);
-      } catch {
-        // silently fail — user can still answer without hearing
-      } finally {
+      } catch { /* silently fail */ } finally {
         if (!cancelled) setAudioLoading(false);
       }
     })();
-
     return () => { cancelled = true; };
   }, [phase, qIndex, queue]);
 
-  // ── Answer selection ─────────────────────────────────────────────────────
   const handleSelect = (idx: number) => {
     if (locked) return;
     setSelected(idx);
     setLocked(true);
-
     setTimeout(() => {
       const newAnswers = [...answers, idx];
       const isLastGrammar = qIndex === GRAMMAR.length - 1;
-
       if (isLastGrammar) {
-        // After last grammar Q: compute preliminary level, append listening Q if needed
         const grammarScore = newAnswers
           .slice(0, GRAMMAR.length)
           .filter((ans, i) => ans === GRAMMAR[i].correctIndex).length;
         const prelim = grammarLevel(grammarScore);
-
         const extra: ListeningQ[] =
           prelim === 'Inter'    ? [LISTENING_INTER] :
           prelim === 'Advanced' ? [LISTENING_ADVANCED] : [];
-
         const newQueue = [...GRAMMAR, ...extra];
         setQueue(newQueue);
         setAnswers(newAnswers);
-
-        if (extra.length === 0) {
-          // Novice — go straight to result
-          finalize(newAnswers, newQueue);
-        } else {
-          advance(newAnswers, newQueue, qIndex + 1);
-        }
+        if (extra.length === 0) finalize(newAnswers, newQueue);
+        else advance(newAnswers, newQueue, qIndex + 1);
         return;
       }
-
       const isLastQuestion = qIndex === queue.length - 1;
-      if (isLastQuestion) {
-        finalize(newAnswers, queue);
-      } else {
-        advance(newAnswers, queue, qIndex + 1);
-      }
+      if (isLastQuestion) finalize(newAnswers, queue);
+      else advance(newAnswers, queue, qIndex + 1);
     }, 520);
   };
 
@@ -388,27 +354,22 @@ export default function PlacementTestScreen() {
   };
 
   const finalize = (finalAnswers: number[], finalQueue: AnyQuestion[]) => {
-    // Compute grammar score
-    const grammarAnswers = finalAnswers.slice(0, GRAMMAR.length);
-    const grammarScore   = grammarAnswers.filter((ans, i) => ans === GRAMMAR[i].correctIndex).length;
+    const grammarScore = finalAnswers
+      .slice(0, GRAMMAR.length)
+      .filter((ans, i) => ans === GRAMMAR[i].correctIndex).length;
     let finalLevel: Level = grammarLevel(grammarScore);
-
-    // Apply listening validation if present
     const listeningQ = finalQueue.find(q => q.kind === 'listening') as ListeningQ | undefined;
     if (listeningQ) {
       const listeningIdx    = finalQueue.indexOf(listeningQ);
       const listeningAnswer = finalAnswers[listeningIdx];
-      const correct         = listeningAnswer === listeningQ.correctIndex;
-      finalLevel = applyListening(finalLevel, correct);
+      finalLevel = applyListening(finalLevel, listeningAnswer === listeningQ.correctIndex);
     }
-
     setLevel(finalLevel);
     setAnswers(finalAnswers);
     setPhase('saving');
     saveResult(finalLevel);
   };
 
-  // ── Save ──────────────────────────────────────────────────────────────────
   const saveResult = async (assignedLevel: Level) => {
     setSaveError(null);
     try {
@@ -428,60 +389,62 @@ export default function PlacementTestScreen() {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────────
-  if (phase === 'intro')  return <IntroScreen onStart={handleStart} />;
+  if (phase === 'intro')  return <IntroScreen firstName={firstName} onStart={handleStart} />;
   if (phase === 'saving') return <SavingScreen />;
   if (phase === 'result') return (
-    <ResultScreen level={level} saveError={saveError} onFinish={() => router.replace('/(app)')} />
+    <ResultScreen
+      level={level}
+      firstName={firstName}
+      saveError={saveError}
+      onFinish={() => router.replace('/(app)')}
+    />
   );
 
   const currentQ = queue[qIndex];
   if (!currentQ) return null;
 
-  // Total shown to user: grammar only = 10, with listening = 11 or 12
-  // During grammar phase we don't know if listening will be added — show 10
-  const displayTotal    = qIndex < GRAMMAR.length ? GRAMMAR.length : queue.length;
-  const displayCurrent  = qIndex + 1;
-  const progress        = displayCurrent / displayTotal;
+  const displayTotal   = qIndex < GRAMMAR.length ? GRAMMAR.length : queue.length;
+  const displayCurrent = qIndex + 1;
+  const progress       = displayCurrent / displayTotal;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
 
-      {/* Fixed header */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-          <AppText style={{ fontSize: 13, fontWeight: '700', color: C.navyLight, letterSpacing: 0.4 }}>
-            {displayCurrent} / {displayTotal}
-          </AppText>
-          <View style={{
-            backgroundColor: currentQ.kind === 'listening'
-              ? 'rgba(3,105,161,0.10)'
-              : 'rgba(163,255,60,0.12)',
-            borderRadius: 8,
-            paddingHorizontal: 10,
-            paddingVertical: 3,
-          }}>
-            <AppText style={{
-              fontSize: 11,
-              fontWeight: '800',
-              color: DIFFICULTY_COLOR[currentQ.kind === 'listening' ? 'Listening' : currentQ.difficulty] ?? C.navyMid,
-              letterSpacing: 0.6,
-            }}>
-              {currentQ.kind === 'listening'
-                ? `LISTENING · ${currentQ.forLevel.toUpperCase()}`
-                : currentQ.difficulty.toUpperCase()}
-            </AppText>
+      {/* Progress header */}
+      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+          {/* Tiny Charlotte avatar */}
+          <CharlotteAvatar size="xs" />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyLight }}>
+                {displayCurrent} / {displayTotal}
+              </AppText>
+              <View style={{
+                backgroundColor: currentQ.kind === 'listening'
+                  ? 'rgba(3,105,161,0.10)'
+                  : 'rgba(163,255,60,0.12)',
+                borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+              }}>
+                <AppText style={{
+                  fontSize: 10, fontWeight: '800',
+                  color: DIFFICULTY_COLOR[currentQ.kind === 'listening' ? 'Listening' : currentQ.difficulty] ?? C.navyMid,
+                  letterSpacing: 0.6,
+                }}>
+                  {currentQ.kind === 'listening'
+                    ? `LISTENING · ${currentQ.forLevel.toUpperCase()}`
+                    : currentQ.difficulty.toUpperCase()}
+                </AppText>
+              </View>
+            </View>
+            <View style={{ height: 5, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{
+                height: '100%', width: `${progress * 100}%`,
+                backgroundColor: currentQ.kind === 'listening' ? '#0369A1' : C.green,
+                borderRadius: 3,
+              }} />
+            </View>
           </View>
-        </View>
-
-        {/* Progress bar */}
-        <View style={{ height: 5, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 3, overflow: 'hidden' }}>
-          <View style={{
-            height: '100%',
-            width: `${progress * 100}%`,
-            backgroundColor: currentQ.kind === 'listening' ? '#0369A1' : C.green,
-            borderRadius: 3,
-          }} />
         </View>
       </View>
 
@@ -490,51 +453,27 @@ export default function PlacementTestScreen() {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
           {currentQ.kind === 'grammar' ? (
-            // ── Grammar question ────────────────────────────────────────────
             <>
-              <View style={{
-                backgroundColor: C.card,
-                borderRadius: 22,
-                padding: 24,
-                borderWidth: 1,
-                borderColor: C.border,
-                marginBottom: 20,
-                ...C.shadow,
-              }}>
-                <AppText style={{ fontSize: 18, fontWeight: '700', color: C.navy, lineHeight: 28 }}>
-                  {currentQ.question}
-                </AppText>
-              </View>
+              {/* Charlotte asking the question */}
+              <CharlotteBubble text={currentQ.question} style={{ marginBottom: 20 }} />
               <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
             </>
           ) : (
-            // ── Listening question ──────────────────────────────────────────
             <>
-              {/* Context card */}
+              {/* Listening context */}
               <View style={{
-                backgroundColor: '#EFF6FF',
-                borderRadius: 22,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: '#BFDBFE',
-                marginBottom: 16,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 14,
-                ...C.shadow,
+                backgroundColor: '#EFF6FF', borderRadius: 22, padding: 18,
+                borderWidth: 1, borderColor: '#BFDBFE', marginBottom: 16,
+                flexDirection: 'row', alignItems: 'center', gap: 14, ...C.shadow,
               }}>
                 <View style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 22,
-                  backgroundColor: '#DBEAFE',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  width: 44, height: 44, borderRadius: 22,
+                  backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center',
                 }}>
                   <Headphones size={22} color="#1D4ED8" weight="duotone" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <AppText style={{ fontSize: 13, fontWeight: '800', color: '#1D4ED8', marginBottom: 3 }}>
+                  <AppText style={{ fontSize: 13, fontWeight: '800', color: '#1D4ED8', marginBottom: 2 }}>
                     LISTENING COMPREHENSION
                   </AppText>
                   <AppText style={{ fontSize: 13, color: '#3B82F6', lineHeight: 19 }}>
@@ -543,16 +482,11 @@ export default function PlacementTestScreen() {
                 </View>
               </View>
 
-              {/* Rachel audio player */}
+              {/* Audio player */}
               <View style={{
-                backgroundColor: C.card,
-                borderRadius: 22,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: C.border,
-                marginBottom: 16,
-                alignItems: 'center',
-                ...C.shadow,
+                backgroundColor: C.card, borderRadius: 22, padding: 20,
+                borderWidth: 1, borderColor: C.border, marginBottom: 16,
+                alignItems: 'center', ...C.shadow,
               }}>
                 {audioLoading ? (
                   <View style={{ paddingVertical: 12, alignItems: 'center', gap: 10 }}>
@@ -565,45 +499,24 @@ export default function PlacementTestScreen() {
                     activeOpacity={0.8}
                     disabled={!audioUri}
                     style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 12,
+                      flexDirection: 'row', alignItems: 'center', gap: 12,
                       backgroundColor: isPlaying ? C.navy : 'rgba(22,21,58,0.05)',
-                      borderRadius: 16,
-                      paddingHorizontal: 24,
-                      paddingVertical: 14,
+                      borderRadius: 16, paddingHorizontal: 24, paddingVertical: 14,
                       opacity: audioUri ? 1 : 0.45,
                     }}
                   >
                     {isPlaying
                       ? <Pause size={20} color={C.green} weight="fill" />
                       : <Play  size={20} color={C.navy}  weight="fill" />}
-                    <AppText style={{
-                      fontSize: 14,
-                      fontWeight: '700',
-                      color: isPlaying ? '#FFFFFF' : C.navy,
-                    }}>
+                    <AppText style={{ fontSize: 14, fontWeight: '700', color: isPlaying ? '#FFFFFF' : C.navy }}>
                       {isPlaying ? 'Playing…' : 'Play audio'}
                     </AppText>
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Comprehension question */}
-              <View style={{
-                backgroundColor: C.card,
-                borderRadius: 22,
-                padding: 20,
-                borderWidth: 1,
-                borderColor: C.border,
-                marginBottom: 16,
-                ...C.shadow,
-              }}>
-                <AppText style={{ fontSize: 16, fontWeight: '700', color: C.navy, lineHeight: 25 }}>
-                  {currentQ.prompt}
-                </AppText>
-              </View>
-
+              {/* Charlotte asking the comprehension question */}
+              <CharlotteBubble text={currentQ.prompt} style={{ marginBottom: 16 }} />
               <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
             </>
           )}
@@ -614,7 +527,35 @@ export default function PlacementTestScreen() {
   );
 }
 
-// ── Shared option list ────────────────────────────────────────────────────────
+// ── Charlotte speech bubble ───────────────────────────────────────────────────
+
+function CharlotteBubble({ text, style }: { text: string; style?: object }) {
+  return (
+    <View style={[{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }, style]}>
+      <CharlotteAvatar size="md" />
+      <View style={{ flex: 1 }}>
+        {/* Bubble tail */}
+        <View style={{
+          position: 'absolute', left: -6, top: 14,
+          width: 0, height: 0,
+          borderTopWidth: 6, borderTopColor: 'transparent',
+          borderBottomWidth: 6, borderBottomColor: 'transparent',
+          borderRightWidth: 8, borderRightColor: C.navy,
+        }} />
+        <View style={{
+          backgroundColor: C.navy, borderRadius: 18, borderTopLeftRadius: 4,
+          paddingHorizontal: 18, paddingVertical: 14, ...C.shadow,
+        }}>
+          <AppText style={{ fontSize: 16, fontWeight: '600', color: '#FFFFFF', lineHeight: 24 }}>
+            {text}
+          </AppText>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ── Option list ───────────────────────────────────────────────────────────────
 
 function OptionList({
   options, selected, locked, onSelect,
@@ -634,15 +575,12 @@ function OptionList({
             onPress={() => onSelect(idx)}
             activeOpacity={locked ? 1 : 0.75}
             style={{
-              flexDirection: 'row',
-              alignItems: 'center',
+              flexDirection: 'row', alignItems: 'center',
               backgroundColor: isSelected ? C.navy : C.card,
               borderRadius: 16,
               borderWidth: isSelected ? 0 : 1,
               borderColor: C.border,
-              paddingHorizontal: 18,
-              paddingVertical: 17,
-              gap: 14,
+              paddingHorizontal: 18, paddingVertical: 17, gap: 14,
               ...C.shadow,
             }}
           >
@@ -667,68 +605,111 @@ function OptionList({
 
 // ── Intro screen ──────────────────────────────────────────────────────────────
 
-function IntroScreen({ onStart }: { onStart: () => void }) {
+function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () => void }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const pulse1   = useRef(new Animated.Value(1)).current;
+  const pulse2   = useRef(new Animated.Value(1)).current;
+  const bubbleY  = useRef(new Animated.Value(12)).current;
+  const bubbleO  = useRef(new Animated.Value(0)).current;
+
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+    Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+
+    // Pulse rings around avatar
+    const ring = (anim: Animated.Value, delay: number) =>
+      Animated.loop(Animated.sequence([
+        Animated.delay(delay),
+        Animated.timing(anim, { toValue: 1.15, duration: 1000, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1,    duration: 1000, useNativeDriver: true }),
+      ]));
+    ring(pulse1, 0).start();
+    ring(pulse2, 500).start();
+
+    // Speech bubble entrance
+    Animated.parallel([
+      Animated.timing(bubbleO, { toValue: 1, duration: 380, delay: 350, useNativeDriver: true }),
+      Animated.timing(bubbleY, { toValue: 0, duration: 380, delay: 350, useNativeDriver: true }),
+    ]).start();
   }, []);
+
+  const isNovice = true; // intro is always in PT (user hasn't been tested yet)
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
-      <Animated.ScrollView
-        style={{ opacity: fadeAnim }}
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 40 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={{ alignItems: 'center', marginBottom: 36 }}>
+      <Animated.View style={{
+        flex: 1, opacity: fadeAnim,
+        justifyContent: 'center', alignItems: 'center',
+        paddingHorizontal: 32, paddingVertical: 40,
+      }}>
+
+        {/* Avatar with pulse rings */}
+        <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 32 }}>
+          <Animated.View style={{
+            position: 'absolute',
+            width: 152, height: 152, borderRadius: 76,
+            backgroundColor: 'rgba(163,255,60,0.08)',
+            transform: [{ scale: pulse1 }],
+          }} />
+          <Animated.View style={{
+            position: 'absolute',
+            width: 124, height: 124, borderRadius: 62,
+            backgroundColor: 'rgba(163,255,60,0.13)',
+            transform: [{ scale: pulse2 }],
+          }} />
+          <CharlotteAvatar size="xxl" />
+        </View>
+
+        {/* Charlotte speech bubble */}
+        <Animated.View style={{
+          opacity: bubbleO,
+          transform: [{ translateY: bubbleY }],
+          width: '100%', marginBottom: 36,
+        }}>
+          {/* Bubble tail pointing up to avatar */}
           <View style={{
-            width: 90, height: 90, borderRadius: 45,
-            backgroundColor: 'rgba(163,255,60,0.12)',
-            borderWidth: 2, borderColor: 'rgba(163,255,60,0.35)',
-            alignItems: 'center', justifyContent: 'center', marginBottom: 22,
+            alignSelf: 'center',
+            width: 0, height: 0,
+            borderLeftWidth: 10, borderLeftColor: 'transparent',
+            borderRightWidth: 10, borderRightColor: 'transparent',
+            borderBottomWidth: 12, borderBottomColor: C.navy,
+            marginBottom: -1,
+          }} />
+          <View style={{
+            backgroundColor: C.navy, borderRadius: 20,
+            paddingHorizontal: 22, paddingVertical: 20,
+            ...C.shadow,
           }}>
-            <GraduationCap size={44} color={C.greenDark} weight="duotone" />
-          </View>
-          <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, textAlign: 'center', marginBottom: 12, lineHeight: 33 }}>
-            Qual é o seu nível{'\n'}de inglês?
-          </AppText>
-          <AppText style={{ fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 23 }}>
-            Responda para a Charlotte adaptar o conteúdo ao seu nível.
-          </AppText>
-        </View>
-
-        <View style={{ gap: 10, marginBottom: 36 }}>
-          {([
-            { Icon: PencilSimple, text: '10 questões de gramática + até 1 de listening' },
-            { Icon: Lightning,    text: 'Um toque por questão — sem botão "Próxima"' },
-            { Icon: Headphones,   text: 'Questão de listening com áudio da Charlotte' },
-            { Icon: Target,       text: 'Sem dicas — confie no seu instinto' },
-          ] as const).map(({ Icon, text }, i) => (
-            <View key={i} style={{
-              flexDirection: 'row', alignItems: 'center',
-              backgroundColor: C.card, borderRadius: 14, padding: 14,
-              borderWidth: 1, borderColor: C.border, gap: 13, ...C.shadow,
+            <AppText style={{
+              fontSize: 11, fontWeight: '800', color: C.green,
+              letterSpacing: 0.8, marginBottom: 10,
             }}>
-              <View style={{
-                width: 36, height: 36, borderRadius: 18,
-                backgroundColor: 'rgba(163,255,60,0.12)',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <Icon size={20} color={C.greenDark} weight="duotone" />
-              </View>
-              <AppText style={{ flex: 1, fontSize: 14, color: C.navyMid, fontWeight: '500', lineHeight: 20 }}>{text}</AppText>
-            </View>
-          ))}
-        </View>
+              CHARLOTTE
+            </AppText>
+            <AppText style={{ fontSize: 17, color: '#FFFFFF', lineHeight: 26, fontWeight: '500' }}>
+              Olá, {firstName}! Qual é o seu nível de inglês?
+            </AppText>
+            <AppText style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 23, marginTop: 8 }}>
+              Me responde algumas questões rápidas e eu adapto as conversas e o conteúdo ao seu nível.
+            </AppText>
+          </View>
+        </Animated.View>
 
+        {/* CTA */}
         <TouchableOpacity
           onPress={onStart}
           activeOpacity={0.85}
-          style={{ backgroundColor: C.green, borderRadius: 16, paddingVertical: 17, alignItems: 'center' }}
+          style={{
+            backgroundColor: C.green, borderRadius: 16,
+            paddingVertical: 17, width: '100%',
+            flexDirection: 'row', alignItems: 'center',
+            justifyContent: 'center', gap: 8,
+          }}
         >
-          <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Iniciar teste</AppText>
+          <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar</AppText>
+          <ArrowRight size={18} color={C.navy} weight="bold" />
         </TouchableOpacity>
-      </Animated.ScrollView>
+
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -738,8 +719,9 @@ function IntroScreen({ onStart }: { onStart: () => void }) {
 function SavingScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}>
-      <ActivityIndicator size="large" color={C.navy} />
-      <AppText style={{ marginTop: 16, fontSize: 15, color: C.navyMid, fontWeight: '500' }}>
+      <CharlotteAvatar size="xl" />
+      <ActivityIndicator size="large" color={C.navy} style={{ marginTop: 24 }} />
+      <AppText style={{ marginTop: 14, fontSize: 15, color: C.navyMid, fontWeight: '500' }}>
         Calculando seu nível...
       </AppText>
     </SafeAreaView>
@@ -748,13 +730,11 @@ function SavingScreen() {
 
 // ── Result screen ──────────────────────────────────────────────────────────────
 
-const LEVEL_ICON: Record<Level, React.ReactElement> = {
-  Novice:   <Leaf   size={46} color="#1D4ED8" weight="duotone" />,
-  Inter:    <Lightning size={46} color="#C2410C" weight="duotone" />,
-  Advanced: <Crown  size={46} color="#3D8800" weight="duotone" />,
-};
-
-function ResultScreen({ level, saveError, onFinish }: { level: Level; saveError: string | null; onFinish: () => void }) {
+function ResultScreen({
+  level, firstName, saveError, onFinish,
+}: {
+  level: Level; firstName: string; saveError: string | null; onFinish: () => void;
+}) {
   const meta   = LEVEL_META[level];
   const accent = LEVEL_ACCENT[level];
 
@@ -776,16 +756,22 @@ function ResultScreen({ level, saveError, onFinish }: { level: Level; saveError:
         contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Badge */}
+        {/* Charlotte + level badge */}
         <Animated.View style={{ alignItems: 'center', marginBottom: 28, opacity: badgeAnim, transform: [{ scale: badgeAnim }] }}>
+          {/* Level icon badge floating above avatar */}
           <View style={{
-            width: 96, height: 96, borderRadius: 48,
-            backgroundColor: accent.bg, borderWidth: 2, borderColor: accent.border,
-            alignItems: 'center', justifyContent: 'center', marginBottom: 18,
+            width: 58, height: 58, borderRadius: 29,
+            backgroundColor: accent.bg,
+            borderWidth: 2, borderColor: accent.border,
+            alignItems: 'center', justifyContent: 'center',
+            marginBottom: -20, zIndex: 1,
+            ...C.shadow,
           }}>
             {LEVEL_ICON[level]}
           </View>
-          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyLight, letterSpacing: 1.4, textTransform: 'uppercase', marginBottom: 10 }}>
+          <CharlotteAvatar size="xxl" />
+
+          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyLight, letterSpacing: 1.4, textTransform: 'uppercase', marginTop: 16, marginBottom: 8 }}>
             Seu nível
           </AppText>
           <View style={{
@@ -800,31 +786,35 @@ function ResultScreen({ level, saveError, onFinish }: { level: Level; saveError:
           </AppText>
         </Animated.View>
 
-        {/* Description + Charlotte message */}
+        {/* Charlotte message bubble */}
         <Animated.View style={{ opacity: cardAnim, marginBottom: 14 }}>
           <View style={{ backgroundColor: C.card, borderRadius: 22, padding: 22, borderWidth: 1, borderColor: C.border, ...C.shadow }}>
-            <AppText style={{ fontSize: 14, color: C.navyMid, lineHeight: 22, marginBottom: 18 }}>
+            <AppText style={{ fontSize: 14, color: C.navyMid, lineHeight: 22, marginBottom: 20 }}>
               {meta.description}
             </AppText>
-            <View style={{
-              backgroundColor: 'rgba(163,255,60,0.08)',
-              borderRadius: 14, borderWidth: 1, borderColor: 'rgba(163,255,60,0.22)',
-              padding: 16, flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-            }}>
-              <View style={{
-                width: 34, height: 34, borderRadius: 17,
-                backgroundColor: 'rgba(163,255,60,0.2)',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <ChatCircle size={20} color={C.greenDark} weight="duotone" />
-              </View>
+
+            {/* Charlotte speech */}
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+              <CharlotteAvatar size="sm" />
               <View style={{ flex: 1 }}>
-                <AppText style={{ fontSize: 11, fontWeight: '800', color: C.greenDark, letterSpacing: 0.5, marginBottom: 5 }}>
-                  CHARLOTTE
-                </AppText>
-                <AppText style={{ fontSize: 14, color: C.navy, lineHeight: 21, fontStyle: 'italic' }}>
-                  "{meta.charlotteMessage}"
-                </AppText>
+                <View style={{
+                  position: 'absolute', left: -6, top: 10,
+                  width: 0, height: 0,
+                  borderTopWidth: 5, borderTopColor: 'transparent',
+                  borderBottomWidth: 5, borderBottomColor: 'transparent',
+                  borderRightWidth: 7, borderRightColor: C.navy,
+                }} />
+                <View style={{
+                  backgroundColor: C.navy, borderRadius: 16, borderTopLeftRadius: 4,
+                  paddingHorizontal: 16, paddingVertical: 12,
+                }}>
+                  <AppText style={{ fontSize: 11, fontWeight: '800', color: C.green, letterSpacing: 0.5, marginBottom: 5 }}>
+                    CHARLOTTE
+                  </AppText>
+                  <AppText style={{ fontSize: 14, color: '#FFFFFF', lineHeight: 21, fontStyle: 'italic' }}>
+                    "{meta.charlotteMessage}"
+                  </AppText>
+                </View>
               </View>
             </View>
           </View>
@@ -847,12 +837,13 @@ function ResultScreen({ level, saveError, onFinish }: { level: Level; saveError:
           <TouchableOpacity
             onPress={onFinish}
             activeOpacity={0.85}
-            style={{ backgroundColor: C.green, borderRadius: 16, paddingVertical: 17, alignItems: 'center' }}
+            style={{
+              backgroundColor: C.green, borderRadius: 16, paddingVertical: 17,
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
-              <ArrowRight size={18} color={C.navy} weight="bold" />
-            </View>
+            <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
+            <ArrowRight size={18} color={C.navy} weight="bold" />
           </TouchableOpacity>
         </Animated.View>
 
