@@ -414,7 +414,7 @@ function Slide4() {
           fontSize: 14, color: C.navyLight, textAlign: 'center',
           marginBottom: 28, fontWeight: '600',
         }}>
-          7 days free, then R$49/month.
+          7 dias grátis, depois R$ 19,90/mês.
         </AppText>
 
         {/* Perks */}
