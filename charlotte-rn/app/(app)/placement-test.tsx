@@ -398,17 +398,7 @@ export default function PlacementTestScreen() {
 
       {/* Progress header — same pattern as learn-session */}
       <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <View style={{
-            flexDirection: 'row', alignItems: 'center', gap: 5,
-            backgroundColor: 'rgba(22,21,58,0.07)', borderRadius: 10,
-            paddingHorizontal: 10, paddingVertical: 4,
-            borderWidth: 1, borderColor: 'rgba(22,21,58,0.12)',
-          }}>
-            <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyMid }}>
-              {currentQ.kind === 'listening' ? 'Listening' : 'Escolha a Resposta'}
-            </AppText>
-          </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 8 }}>
           <AppText style={{ fontSize: 12, color: C.navyLight, fontWeight: '600' }}>
             {displayCurrent} / {displayTotal}
           </AppText>
