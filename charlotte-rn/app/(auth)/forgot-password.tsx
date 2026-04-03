@@ -1,17 +1,33 @@
 import { useState } from 'react';
-import { View, TextInput } from 'react-native';
+import {
+  View, TextInput, TouchableOpacity,
+  KeyboardAvoidingView, Platform, ScrollView,
+} from 'react-native';
 import { router } from 'expo-router';
-import { Screen } from '@/components/ui/Screen';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Envelope, ArrowLeft, CheckCircle, WarningCircle } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
-import { Button } from '@/components/ui/Button';
 import { useAuth } from '@/hooks/useAuth';
 
+// ── Light theme ───────────────────────────────────────────────
+const C = {
+  bg:        '#F4F3FA',
+  card:      '#FFFFFF',
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  navyLight: '#9896B8',
+  border:    'rgba(22,21,58,0.10)',
+  green:     '#A3FF3C',
+  greenDark: '#3D8800',
+  red:       '#DC2626',
+};
+
 export default function ForgotPasswordScreen() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]     = useState('');
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { resetPassword } = useAuth();
+  const [sent, setSent]       = useState(false);
+  const [error, setError]     = useState<string | null>(null);
+  const { resetPassword }     = useAuth();
 
   const handleSubmit = async () => {
     if (!email.trim()) { setError('Digite seu e-mail.'); return; }
@@ -28,42 +44,123 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <Screen>
-      <View className="flex-1 justify-center px-6 gap-8">
-        <View className="gap-2">
-          <AppText className="text-2xl font-bold text-textPrimary">Recuperar senha</AppText>
-          <AppText className="text-textSecondary text-sm">
-            Enviaremos um link de redefinição para seu e-mail.
-          </AppText>
-        </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 32 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
 
-        {sent ? (
-          <View className="gap-6">
-            <AppText className="text-primary text-center text-base">
-              ✅ E-mail enviado! Verifique sua caixa de entrada.
+          {/* Back */}
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{ position: 'absolute', top: 0, left: 0, padding: 4 }}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <ArrowLeft size={22} color={C.navyMid} weight="bold" />
+          </TouchableOpacity>
+
+          {/* Icon + title */}
+          <View style={{ alignItems: 'center', marginBottom: 36 }}>
+            <View style={{
+              width: 72, height: 72, borderRadius: 36,
+              backgroundColor: 'rgba(163,255,60,0.12)',
+              alignItems: 'center', justifyContent: 'center', marginBottom: 20,
+            }}>
+              <Envelope size={32} color={C.navy} weight="duotone" />
+            </View>
+            <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, textAlign: 'center' }}>
+              Recuperar senha
             </AppText>
-            <Button label="Voltar ao login" onPress={() => router.back()} />
+            <AppText style={{ fontSize: 14, color: C.navyMid, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+              Enviaremos um link de redefinição{'\n'}para o seu e-mail.
+            </AppText>
           </View>
-        ) : (
-          <View className="gap-4">
-            <TextInput
-              className="bg-surface text-textPrimary rounded-xl px-4 py-4 text-base"
-              placeholder="E-mail"
-              placeholderTextColor="#9CA3AF"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={(t) => { setEmail(t); setError(null); }}
-              onSubmitEditing={handleSubmit}
-              returnKeyType="send"
-            />
-            {error && <AppText className="text-red-400 text-sm">{error}</AppText>}
-            <Button label={loading ? 'Enviando...' : 'Enviar link'} onPress={handleSubmit} disabled={loading} />
-            <Button label="Voltar" variant="ghost" onPress={() => router.back()} />
-          </View>
-        )}
-      </View>
-    </Screen>
+
+          {/* Sent state */}
+          {sent ? (
+            <View style={{ gap: 24 }}>
+              <View style={{
+                backgroundColor: C.card, borderRadius: 18, padding: 24,
+                alignItems: 'center', gap: 12,
+                borderWidth: 1, borderColor: 'rgba(163,255,60,0.3)',
+              }}>
+                <CheckCircle size={44} color={C.greenDark} weight="fill" />
+                <AppText style={{ fontSize: 15, color: C.navy, textAlign: 'center', lineHeight: 22 }}>
+                  E-mail enviado! Verifique sua caixa de entrada.
+                </AppText>
+              </View>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={{ backgroundColor: C.navy, borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+              >
+                <AppText style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 15 }}>Voltar ao login</AppText>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={{ gap: 12 }}>
+
+              {/* Email input */}
+              <View style={inputWrap}>
+                <Envelope size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
+                <TextInput
+                  value={email}
+                  onChangeText={t => { setEmail(t); setError(null); }}
+                  placeholder="E-mail"
+                  placeholderTextColor={C.navyLight}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  textContentType="emailAddress"
+                  returnKeyType="send"
+                  onSubmitEditing={handleSubmit}
+                  style={[inputStyle, { flex: 1 }]}
+                />
+              </View>
+
+              {!!error && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <WarningCircle size={15} color={C.red} weight="fill" />
+                  <AppText style={{ color: C.red, fontSize: 13 }}>{error}</AppText>
+                </View>
+              )}
+
+              {/* Submit */}
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={loading}
+                style={{
+                  backgroundColor: loading ? `${C.green}80` : C.green,
+                  borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 4,
+                }}
+              >
+                <AppText style={{ color: C.navy, fontWeight: '700', fontSize: 15 }}>
+                  {loading ? 'Enviando...' : 'Enviar link'}
+                </AppText>
+              </TouchableOpacity>
+
+            </View>
+          )}
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
+
+const inputWrap = {
+  flexDirection: 'row' as const,
+  alignItems: 'center' as const,
+  backgroundColor: '#FFFFFF',
+  borderRadius: 14,
+  borderWidth: 1,
+  borderColor: 'rgba(22,21,58,0.10)',
+  paddingHorizontal: 16,
+  paddingVertical: 15,
+};
+
+const inputStyle = {
+  color: '#16153A',
+  fontSize: 15,
+};

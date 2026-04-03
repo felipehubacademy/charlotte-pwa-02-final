@@ -21,14 +21,26 @@ import {
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
 
+// Light theme
+const C = {
+  bg:        '#F4F3FA',
+  card:      '#FFFFFF',
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  navyLight: '#9896B8',
+  border:    'rgba(22,21,58,0.10)',
+  green:     '#A3FF3C',
+  error:     '#DC2626',
+};
+
 export default function LoginScreen() {
-  const [email, setEmail]           = useState('');
-  const [password, setPassword]     = useState('');
+  const [email, setEmail]               = useState('');
+  const [password, setPassword]         = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState<string | null>(null);
-  const passwordRef                 = useRef<TextInput>(null);
-  const { signIn }                  = useAuth();
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState<string | null>(null);
+  const passwordRef                     = useRef<TextInput>(null);
+  const { signIn }                      = useAuth();
 
   const handleLogin = async () => {
     if (!email.trim() || !password) { setError('Preencha e-mail e senha.'); return; }
@@ -36,7 +48,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await signIn(email.trim().toLowerCase(), password);
-      router.replace('/(app)/(tabs)');
+      router.replace('/(app)');
     } catch (e: any) {
       const msg = e?.message ?? '';
       if (msg.includes('Invalid login credentials')) setError('E-mail ou senha incorretos.');
@@ -48,7 +60,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#16153A' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingVertical: 32 }}
@@ -57,12 +69,16 @@ export default function LoginScreen() {
         >
 
           {/* ── Branding ── */}
-          <View style={{ alignItems: 'center', marginBottom: 48 }}>
+          <View style={{ alignItems: 'center', marginBottom: 40 }}>
+
+            {/* Avatar */}
             <View style={{
-              width: 96, height: 96, borderRadius: 48,
-              borderWidth: 2.5, borderColor: '#A3FF3C',
-              overflow: 'hidden', marginBottom: 20,
-              backgroundColor: '#1E1D4A',
+              width: 100, height: 100, borderRadius: 50,
+              borderWidth: 3, borderColor: C.green,
+              overflow: 'hidden', marginBottom: 18,
+              backgroundColor: C.card,
+              shadowColor: C.navy, shadowOpacity: 0.12,
+              shadowRadius: 20, shadowOffset: { width: 0, height: 6 },
             }}>
               <Image
                 source={require('@/assets/charlotte-avatar.png')}
@@ -70,64 +86,81 @@ export default function LoginScreen() {
                 resizeMode="cover"
               />
             </View>
-            <AppText style={{ fontSize: 34, fontWeight: '800', color: '#A3FF3C', letterSpacing: -0.5 }}>
+
+            {/* Charlotte */}
+            <AppText style={{ fontSize: 34, fontWeight: '800', color: C.navy, letterSpacing: -0.5, marginBottom: 6 }}>
               Charlotte
             </AppText>
-            <AppText style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginTop: 6 }}>
-              Aprenda inglês com IA
+
+            {/* by Hub Academy — com linhas laterais */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <View style={{ width: 24, height: 1, backgroundColor: C.navyLight, opacity: 0.35 }} />
+              <AppText style={{ fontSize: 11, fontWeight: '600', color: C.navyLight, letterSpacing: 0.6 }}>
+                by Hub Academy
+              </AppText>
+              <View style={{ width: 24, height: 1, backgroundColor: C.navyLight, opacity: 0.35 }} />
+            </View>
+
+            {/* Tagline */}
+            <AppText style={{
+              fontSize: 14, color: C.navyMid, textAlign: 'center',
+              lineHeight: 22, maxWidth: 270,
+            }}>
+              Pratique inglês com conversas inteligentes e feedback em tempo real.
             </AppText>
+
           </View>
 
           {/* ── Campos ── */}
           <View style={{ gap: 12, marginBottom: 24 }}>
 
             {/* E-mail */}
-            <View style={inputWrap}>
-              <Envelope size={18} color="rgba(255,255,255,0.35)" weight="regular" style={{ marginRight: 10 }} />
+            <View style={[inputWrap, { borderColor: C.border }]}>
+              <Envelope size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
               <TextInput
                 value={email}
                 onChangeText={t => { setEmail(t); setError(null); }}
                 placeholder="E-mail"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholderTextColor={C.navyLight}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                autoComplete="email"
-                textContentType="emailAddress"
+                autoComplete="username"
+                textContentType="username"
                 returnKeyType="next"
                 onSubmitEditing={() => passwordRef.current?.focus()}
-                style={inputStyle}
+                style={[inputStyle, { color: C.navy }]}
               />
             </View>
 
             {/* Senha */}
-            <View style={inputWrap}>
-              <Lock size={18} color="rgba(255,255,255,0.35)" weight="regular" style={{ marginRight: 10 }} />
+            <View style={[inputWrap, { borderColor: C.border }]}>
+              <Lock size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
               <TextInput
                 ref={passwordRef}
                 value={password}
                 onChangeText={t => { setPassword(t); setError(null); }}
                 placeholder="Senha"
-                placeholderTextColor="rgba(255,255,255,0.3)"
+                placeholderTextColor={C.navyLight}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
-                textContentType="password"   // ← iOS Keychain / Face ID autofill
+                textContentType="password"
                 returnKeyType="done"
                 onSubmitEditing={handleLogin}
-                style={[inputStyle, { flex: 1 }]}
+                style={[inputStyle, { flex: 1, color: C.navy }]}
               />
               <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={{ padding: 6 }}>
                 {showPassword
-                  ? <EyeSlash size={18} color="rgba(255,255,255,0.35)" weight="regular" />
-                  : <Eye     size={18} color="rgba(255,255,255,0.35)" weight="regular" />
+                  ? <EyeSlash size={18} color={C.navyLight} weight="regular" />
+                  : <Eye     size={18} color={C.navyLight} weight="regular" />
                 }
               </TouchableOpacity>
             </View>
 
             {!!error && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <WarningCircle size={15} color="#f87171" weight="fill" />
-                <AppText style={{ color: '#f87171', fontSize: 13 }}>{error}</AppText>
+                <WarningCircle size={15} color={C.error} weight="fill" />
+                <AppText style={{ color: C.error, fontSize: 13 }}>{error}</AppText>
               </View>
             )}
           </View>
@@ -137,13 +170,14 @@ export default function LoginScreen() {
             onPress={handleLogin}
             disabled={loading}
             style={{
-              backgroundColor: loading ? 'rgba(163,255,60,0.5)' : '#A3FF3C',
+              backgroundColor: loading ? `${C.green}80` : C.green,
               borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 16,
+              shadowColor: C.green, shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <SignIn size={18} color="#16153A" weight="bold" />
-              <AppText style={{ color: '#16153A', fontWeight: '700', fontSize: 15 }}>
+              <SignIn size={18} color={C.navy} weight="bold" />
+              <AppText style={{ color: C.navy, fontWeight: '800', fontSize: 15 }}>
                 {loading ? 'Entrando...' : 'Entrar'}
               </AppText>
             </View>
@@ -154,13 +188,13 @@ export default function LoginScreen() {
             style={{ alignItems: 'center', paddingVertical: 10 }}
             onPress={() => router.push('/(auth)/forgot-password')}
           >
-            <AppText style={{ color: 'rgba(255,255,255,0.38)', fontSize: 13 }}>
+            <AppText style={{ color: C.navyMid, fontSize: 13 }}>
               Esqueceu sua senha?
             </AppText>
           </TouchableOpacity>
 
-          <AppText style={{ color: 'rgba(255,255,255,0.18)', fontSize: 11, textAlign: 'center', marginTop: 40 }}>
-            Hub Academy · Charlotte v1.0
+          <AppText style={{ color: C.navyLight, fontSize: 11, textAlign: 'center', marginTop: 32, opacity: 0.5 }}>
+            Charlotte v1.0 · All rights reserved
           </AppText>
 
         </ScrollView>
@@ -172,16 +206,18 @@ export default function LoginScreen() {
 const inputWrap = {
   flexDirection: 'row' as const,
   alignItems: 'center' as const,
-  backgroundColor: '#1A1939',
+  backgroundColor: '#FFFFFF',
   borderRadius: 14,
   borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.09)',
   paddingHorizontal: 16,
   paddingVertical: 15,
+  shadowColor: 'rgba(22,21,58,0.06)',
+  shadowOpacity: 1,
+  shadowRadius: 8,
+  shadowOffset: { width: 0, height: 2 },
 };
 
 const inputStyle = {
-  color: '#fff',
   fontSize: 15,
   flex: 1,
 };

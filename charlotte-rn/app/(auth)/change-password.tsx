@@ -49,7 +49,7 @@ export default function ChangePasswordScreen() {
       console.log('[CP] 1 — atualizando DB flag...');
       if (session?.user?.id) {
         const { error: dbErr } = await supabase
-          .from('users')
+          .from('charlotte_users')
           .update({ must_change_password: false })
           .eq('id', session.user.id);
         console.log('[CP] 2 — DB flag result:', dbErr ?? 'ok');
@@ -63,7 +63,7 @@ export default function ChangePasswordScreen() {
 
       if (authError) {
         if (session?.user?.id) {
-          await supabase.from('users').update({ must_change_password: true }).eq('id', session.user.id);
+          await supabase.from('charlotte_users').update({ must_change_password: true }).eq('id', session.user.id);
         }
         throw authError;
       }
