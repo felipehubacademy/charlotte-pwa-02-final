@@ -19,7 +19,9 @@ import Constants from 'expo-constants';
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { AudioStatus } from 'expo-audio/build/Audio.types';
 
+import * as SecureStore from 'expo-secure-store';
 import { AppText } from '@/components/ui/Text';
+import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { MODULE_INTROS } from '@/data/moduleIntros';
 import { TrailLevel } from '@/data/curriculum';
 
@@ -179,14 +181,9 @@ export default function LearnIntroScreen() {
             pendingPlay.current = false;
             try { playerRef.current?.play(); } catch {}
           }
-          if (status.didJustFinish
-              && capturedIdx === slideIdxRef.current
-              && capturedIdx < slides.length - 1) {
+          if (status.didJustFinish) {
             subRef.current?.remove();
             subRef.current = null;
-            setTimeout(() => {
-              if (capturedIdx === slideIdxRef.current) goToSlide(capturedIdx + 1);
-            }, 900);
           }
         },
       );
@@ -233,9 +230,11 @@ export default function LearnIntroScreen() {
       try { playerRef.current?.pause(); } catch {}
       goToSlide(slideIdx + 1);
     } else {
+      // Mark intro as done when finishing the last slide
+      SecureStore.setItemAsync(`intro_done_${level}_${mIdx}`, '1').catch(() => {});
       goToSession();
     }
-  }, [slideIdx, slides.length, goToSlide, goToSession]);
+  }, [slideIdx, slides.length, goToSlide, goToSession, level, mIdx]);
 
   useEffect(() => {
     if (!intro || slides.length === 0) goToSession();
@@ -311,13 +310,8 @@ export default function LearnIntroScreen() {
         <Animated.View style={{ opacity: fadeAnim, alignItems: 'center' }}>
 
           {/* Charlotte avatar */}
-          <View style={{
-            width: 72, height: 72, borderRadius: 36,
-            backgroundColor: 'rgba(124,58,237,0.18)',
-            alignItems: 'center', justifyContent: 'center',
-            borderWidth: 2, borderColor: C.violetBorder, marginBottom: 8,
-          }}>
-            <AppText style={{ fontSize: 32 }}>👩🏻‍🏫</AppText>
+          <View style={{ marginBottom: 8 }}>
+            <CharlotteAvatar size="xl" />
           </View>
           <AppText style={{ color: C.whiteAlpha, fontSize: 12, fontWeight: '700', marginBottom: 28 }}>
             Charlotte
