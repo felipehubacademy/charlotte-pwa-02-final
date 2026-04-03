@@ -22,6 +22,7 @@ import { requestRecordingPermissionsAsync, createAudioPlayer, type AudioPlayer }
 import * as FileSystem from 'expo-file-system/legacy';
 import { RTCPeerConnection, mediaDevices } from 'react-native-webrtc';
 import InCallManager from 'react-native-incall-manager';
+import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
@@ -358,9 +359,9 @@ export default function LiveVoiceModal({
             max_response_output_tokens: 150,
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.75,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 500,
+              threshold: 0.90,
+              prefix_padding_ms: 400,
+              silence_duration_ms: 700,
             },
           },
         }));
@@ -384,24 +385,31 @@ export default function LiveVoiceModal({
           switch (msg.type) {
             case 'response.audio.delta':
               responseActiveRef.current = true;
-              // Bloqueia mic assim que o primeiro chunk chega
+              // Muta mic assim que o primeiro chunk chega — previne echo com speaker ativo.
+              // O WebRTC AEC (AVAudioSession .voiceChat) é insuficiente com speakerphone;
+              // mute manual garante que a voz da Charlotte não re-ative o VAD do servidor.
               if (!charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = true;
                 setCharlotteSpeaking(true);
                 setUserSpeaking(false);
-                // Limpa buffer de mic para suprimir eco
+                localStreamRef.current?.getAudioTracks()
+                  .forEach((t: any) => { t.enabled = false; });
                 sendEvent({ type: 'input_audio_buffer.clear' });
               }
               break;
 
             case 'response.audio.done':
               responseActiveRef.current = false;
-              // Cooldown: aguarda o buffer de áudio remoto esvaziar (~800ms)
+              // Cooldown 900ms antes de reativar mic — deixa o áudio buffered esvaziar
+              // e o eco dissipar antes de ouvir o usuário novamente.
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
                 lastCharlotteDoneRef.current = Date.now();
-              }, 800);
+                // Reativa mic (respeitando mute manual do usuário)
+                localStreamRef.current?.getAudioTracks()
+                  .forEach((t: any) => { t.enabled = !isMutedRef.current; });
+              }, 900);
               break;
 
             case 'response.done':
@@ -410,6 +418,9 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_started':
               setUserSpeaking(true);
+              // Garante mic ativo (pode ter sido mutado pelo echo guard)
+              localStreamRef.current?.getAudioTracks()
+                .forEach((t: any) => { t.enabled = !isMutedRef.current; });
               // Interrupção: Charlotte ainda falando → cancela resposta
               if (charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = false;
@@ -581,41 +592,20 @@ export default function LiveVoiceModal({
 
           {/* ── CENTRO: Avatar + onda ─────────────────────────────── */}
           <View style={{ alignItems: 'center', gap: 32 }}>
-            {/* Ring de animação */}
+            {/* Avatar com aro animado */}
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <Animated.View style={{
                 position: 'absolute',
-                width: 160, height: 160, borderRadius: 80,
+                width: 148, height: 148, borderRadius: 74,
                 backgroundColor: ringColor,
                 opacity: ringOpacity,
                 transform: [{ scale: ringScale }],
               }} />
-              {/* Avatar */}
-              <View style={{
-                width: 100, height: 100, borderRadius: 50,
-                backgroundColor: '#1E1D3A',
-                alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden',
-              }}>
-                <AppText style={{ fontSize: 48 }}>🎓</AppText>
-              </View>
+              <CharlotteAvatar size="xxl" />
             </View>
 
             {/* Onda de voz */}
             <CallWave state={waveState} />
-
-            {/* Indicador de quem está falando */}
-            <AppText style={{
-              color: charlotteSpeaking ? '#A3FF3C' : userSpeaking ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.3)',
-              fontSize: 13, fontWeight: '600', letterSpacing: 0.5,
-              minHeight: 18,
-            }}>
-              {charlotteSpeaking
-                ? (userLevel === 'Novice' ? 'Charlotte falando…' : 'Charlotte speaking…')
-                : userSpeaking
-                  ? (userLevel === 'Novice' ? 'Você está falando…' : "You're speaking…")
-                  : ''}
-            </AppText>
           </View>
 
           {/* ── BOTTOM: Controles ─────────────────────────────────── */}
