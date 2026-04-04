@@ -21,6 +21,7 @@ import Constants from 'expo-constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useTotalXP } from '@/hooks/useTotalXP';
 import { AppText } from '@/components/ui/Text';
+import { TranslatableText } from '@/components/ui/TranslatableText';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 import { useLearnProgress } from '@/hooks/useLearnProgress';
@@ -622,20 +623,35 @@ export default function LearnSessionScreen() {
               {/* Passage */}
               {currentStep.exercise.type === 'read_answer' && currentStep.exercise.passage && (
                 <View style={{ backgroundColor: C.ghost, borderRadius: 14, padding: 18, marginBottom: 20, borderLeftWidth: 3, borderLeftColor: accent }}>
-                  <AppText style={{ fontSize: 15, color: C.navy, lineHeight: 24 }}>{currentStep.exercise.passage}</AppText>
+                  {isPortuguese
+                    ? <TranslatableText text={currentStep.exercise.passage} style={{ fontSize: 15, color: C.navy, lineHeight: 24 }} />
+                    : <AppText style={{ fontSize: 15, color: C.navy, lineHeight: 24 }}>{currentStep.exercise.passage}</AppText>
+                  }
                 </View>
               )}
 
               {/* Sentence / Question */}
-              <AppText style={{
-                fontSize: currentStep.exercise.type === 'read_answer' ? 16 : 22,
-                fontWeight: currentStep.exercise.type === 'read_answer' ? '700' : '500',
-                color: C.navy,
-                lineHeight: currentStep.exercise.type === 'read_answer' ? 26 : 34,
-                marginBottom: (currentStep.exercise.type === 'multiple_choice' || currentStep.exercise.type === 'word_bank') ? 28 : (gStatus === 'answering' ? 0 : 20),
-              }}>
-                {currentStep.exercise.type === 'read_answer' ? currentStep.exercise.question : currentStep.exercise.sentence}
-              </AppText>
+              {isPortuguese ? (
+                <TranslatableText
+                  text={currentStep.exercise.type === 'read_answer' ? (currentStep.exercise.question ?? '') : (currentStep.exercise.sentence ?? '')}
+                  style={{
+                    fontSize: currentStep.exercise.type === 'read_answer' ? 16 : 22,
+                    fontWeight: currentStep.exercise.type === 'read_answer' ? '700' : '500',
+                    color: C.navy,
+                    lineHeight: currentStep.exercise.type === 'read_answer' ? 26 : 34,
+                  }}
+                />
+              ) : (
+                <AppText style={{
+                  fontSize: currentStep.exercise.type === 'read_answer' ? 16 : 22,
+                  fontWeight: currentStep.exercise.type === 'read_answer' ? '700' : '500',
+                  color: C.navy,
+                  lineHeight: currentStep.exercise.type === 'read_answer' ? 26 : 34,
+                  marginBottom: (currentStep.exercise.type === 'multiple_choice' || currentStep.exercise.type === 'word_bank') ? 28 : (gStatus === 'answering' ? 0 : 20),
+                }}>
+                  {currentStep.exercise.type === 'read_answer' ? currentStep.exercise.question : currentStep.exercise.sentence}
+                </AppText>
+              )}
 
               {/* Multiple choice */}
               {currentStep.exercise.type === 'multiple_choice' && gStatus === 'answering' && (
@@ -663,7 +679,10 @@ export default function LearnSessionScreen() {
                             {['A', 'B', 'C'][i]}
                           </AppText>
                         </View>
-                        <AppText style={{ fontSize: 15, fontWeight: '600', color: C.navy, flex: 1 }}>{opt}</AppText>
+                        {isPortuguese
+                          ? <TranslatableText text={opt} style={{ fontSize: 15, fontWeight: '600', color: C.navy }} />
+                          : <AppText style={{ fontSize: 15, fontWeight: '600', color: C.navy, flex: 1 }}>{opt}</AppText>
+                        }
                         {selected && <CheckCircle size={18} color={accent} weight="fill" />}
                       </TouchableOpacity>
                     );
@@ -705,7 +724,10 @@ export default function LearnSessionScreen() {
                             opacity: used ? 0.45 : 1,
                           }}
                         >
-                          <AppText style={{ fontSize: 16, fontWeight: '700', color: used ? C.navyLight : C.navy }}>{chip}</AppText>
+                          {isPortuguese
+                            ? <TranslatableText text={chip} style={{ fontSize: 16, fontWeight: '700', color: used ? C.navyLight : C.navy }} />
+                            : <AppText style={{ fontSize: 16, fontWeight: '700', color: used ? C.navyLight : C.navy }}>{chip}</AppText>
+                          }
                         </TouchableOpacity>
                       );
                     })}
@@ -752,7 +774,10 @@ export default function LearnSessionScreen() {
                       </TouchableOpacity>
                       {showHint && (
                         <View style={{ marginTop: 10, padding: 14, backgroundColor: accentBg, borderRadius: 12 }}>
-                          <AppText style={{ fontSize: 14, color: accent }}>{currentStep.exercise.hint}</AppText>
+                          {isPortuguese
+                            ? <TranslatableText text={currentStep.exercise.hint ?? ''} style={{ fontSize: 14, color: accent }} />
+                            : <AppText style={{ fontSize: 14, color: accent }}>{currentStep.exercise.hint}</AppText>
+                          }
                         </View>
                       )}
                     </>
@@ -787,7 +812,10 @@ export default function LearnSessionScreen() {
                   {!isCorrect && (
                     <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12, marginBottom: 10 }}>
                       <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>{isPortuguese ? 'Resposta correta' : 'Correct answer'}</AppText>
-                      <AppText style={{ fontSize: 15, color: C.navy, fontWeight: '600' }}>{currentStep.exercise.answer}</AppText>
+                      {isPortuguese
+                        ? <TranslatableText text={currentStep.exercise.answer ?? ''} style={{ fontSize: 15, color: C.navy, fontWeight: '600' }} />
+                        : <AppText style={{ fontSize: 15, color: C.navy, fontWeight: '600' }}>{currentStep.exercise.answer}</AppText>
+                      }
                     </View>
                   )}
                   <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12 }}>

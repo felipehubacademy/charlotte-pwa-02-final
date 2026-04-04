@@ -98,11 +98,63 @@ interface ModeCard {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-function charlotteMessage(firstName: string, streak: number, todayXP: number): string {
+function charlotteMessage(firstName: string, streak: number, todayXP: number, isPortuguese = false): string {
   const now   = new Date();
   const h     = now.getHours();
   const seed  = Math.floor(now.getTime() / 86400000); // stable within the same day
   const hi    = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+
+  if (isPortuguese) {
+    const hiPt = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    if (todayXP >= DAILY_XP_GOAL) {
+      const opts = [
+        `Olá, ${firstName}! Você já bateu sua meta diária. Estou orgulhosa de você — continue assim!`,
+        `Que esforço incrível, ${firstName}! Meta diária atingida. Vamos ainda mais longe.`,
+        `${firstName}, você arrasou hoje. Meta cumprida. O ritmo agora é todo seu!`,
+      ];
+      return opts[seed % opts.length];
+    }
+    if (streak >= 14) {
+      return `${hiPt}, ${firstName}. ${streak} dias seguidos — você é imparável. Vamos adicionar mais um!`;
+    }
+    if (streak >= 7) {
+      return `${hiPt}, ${firstName}! Uma semana inteira de sequência. Você está construindo algo real aqui.`;
+    }
+    if (streak > 0 && todayXP === 0) {
+      const opts = [
+        `${hiPt}, ${firstName}. Sua sequência de ${streak} dias está em jogo — não deixe escapar hoje!`,
+        `Ei ${firstName}, ainda sem prática hoje. Sua sequência está te esperando!`,
+        `${hiPt}! Não deixe hoje quebrar sua sequência de ${streak} dias, ${firstName}. Você consegue!`,
+      ];
+      return opts[seed % opts.length];
+    }
+    if (todayXP > 0) {
+      return `${hiPt}, ${firstName}! Bom começo hoje — faltam apenas ${DAILY_XP_GOAL - todayXP} XP para atingir sua meta diária.`;
+    }
+    // No activity yet — time-based default PT
+    const poolsPt: Record<string, string[]> = {
+      morning: [
+        `Bom dia, ${firstName}! Pronta para começar o dia com um pouco de inglês?`,
+        `Bom dia, ${firstName}! Vamos fazer hoje valer a pena.`,
+        `Bom dia! O que vamos praticar hoje, ${firstName}?`,
+        `Levanta e brilha, ${firstName}! Estou aqui sempre que você estiver pronta.`,
+      ],
+      afternoon: [
+        `Boa tarde, ${firstName}! Que tal uma sessão de prática agora?`,
+        `Ei ${firstName}, hora perfeita para um pouco de inglês hoje!`,
+        `Boa tarde, ${firstName}. Vamos manter o ritmo!`,
+        `Boa tarde, ${firstName}! Estava esperando por você.`,
+      ],
+      evening: [
+        `Boa noite, ${firstName}! Uma última sessão antes de terminar o dia?`,
+        `Boa noite, ${firstName}. Termine o dia forte — vamos praticar juntos.`,
+        `Ei ${firstName}, que tal um pouco de inglês antes de dormir?`,
+        `Boa noite! Ainda dá tempo de praticar hoje, ${firstName}.`,
+      ],
+    };
+    const poolPt = h < 12 ? poolsPt.morning : h < 18 ? poolsPt.afternoon : poolsPt.evening;
+    return poolPt[seed % poolPt.length];
+  }
 
   if (todayXP >= DAILY_XP_GOAL) {
     const opts = [
@@ -164,30 +216,32 @@ interface Tip {
   term: string;
   meaning: string;
   example: string;
+  meaningPt?: string;
+  examplePt?: string;
 }
 
 const TIPS: Record<string, Tip[]> = {
   Novice: [
-    { type: 'word',       term: 'ambitious',     meaning: 'having a strong desire to succeed',                          example: 'She\'s very ambitious and wants to become a doctor.' },
-    { type: 'word',       term: 'grateful',       meaning: 'feeling thankful for something good',                        example: 'I\'m so grateful for your help today.' },
-    { type: 'word',       term: 'hesitate',       meaning: 'to pause before acting, often from doubt',                   example: 'Don\'t hesitate to ask if you have any questions.' },
-    { type: 'word',       term: 'fluent',         meaning: 'speaking a language smoothly and naturally',                 example: 'After two years of practice, she became fluent in English.' },
-    { type: 'word',       term: 'available',      meaning: 'free to use or accessible at a given time',                  example: 'Is this time slot available for a meeting?' },
-    { type: 'word',       term: 'improve',        meaning: 'to get better at something over time',                       example: 'You\'ll improve faster if you practise every day.' },
-    { type: 'expression', term: 'hang on',        meaning: 'wait a moment',                                              example: 'Hang on, I\'ll be right back.' },
-    { type: 'expression', term: 'go ahead',       meaning: 'you can proceed or do something',                            example: 'Go ahead — I\'m listening.' },
-    { type: 'expression', term: 'no wonder',      meaning: 'it\'s not surprising',                                       example: 'No wonder you\'re tired — you worked all day!' },
-    { type: 'expression', term: 'fair enough',    meaning: 'that\'s reasonable or acceptable',                           example: 'A: Can we meet at 3? B: Fair enough, see you then.' },
-    { type: 'expression', term: 'of course',      meaning: 'naturally — warmer and more natural than "obviously"',       example: 'Of course I\'ll help you with that.' },
-    { type: 'expression', term: 'never mind',     meaning: 'it doesn\'t matter, forget it',                              example: 'Never mind, I found it myself.' },
-    { type: 'grammar',    term: 'make vs. do',    meaning: '"make" creates something; "do" is for tasks & actions',      example: 'I made a mistake. Can you do me a favour?' },
-    { type: 'grammar',    term: 'say vs. tell',   meaning: '"tell" needs a person: "tell me"; "say" stands alone',       example: 'He said he was tired. She told me the truth.' },
-    { type: 'grammar',    term: 'much vs. many',  meaning: '"much" for uncountable nouns; "many" for countable ones',    example: 'How much time do we have? How many people are coming?' },
-    { type: 'grammar',    term: 'since vs. for',  meaning: '"since" marks a point in time; "for" marks a duration',      example: 'I\'ve lived here since 2020. I\'ve been waiting for an hour.' },
-    { type: 'grammar',    term: 'a vs. an',       meaning: '"an" before vowel sounds, not just vowel letters',           example: 'She wants to be an engineer. It takes an hour to get there.' },
-    { type: 'grammar',    term: 'suggest + -ing', meaning: '"I suggest going" is correct — not "I suggest to go"',       example: 'I suggest taking the bus — it\'s much faster.' },
-    { type: 'idiom',      term: 'break the ice',  meaning: 'start a conversation in a social situation',                 example: 'He told a joke to break the ice at the meeting.' },
-    { type: 'idiom',      term: 'piece of cake',  meaning: 'something very easy to do',                                  example: 'The test was a piece of cake — I finished in 10 minutes.' },
+    { type: 'word',       term: 'ambitious',     meaning: 'having a strong desire to succeed',                          example: 'She\'s very ambitious and wants to become a doctor.',        meaningPt: 'ter um forte desejo de ter sucesso',                                    examplePt: 'Ela é muito ambiciosa e quer se tornar médica.' },
+    { type: 'word',       term: 'grateful',       meaning: 'feeling thankful for something good',                        example: 'I\'m so grateful for your help today.',                      meaningPt: 'sentir-se grato por algo bom',                                          examplePt: 'Sou muito grato pela sua ajuda hoje.' },
+    { type: 'word',       term: 'hesitate',       meaning: 'to pause before acting, often from doubt',                   example: 'Don\'t hesitate to ask if you have any questions.',           meaningPt: 'pausar antes de agir, geralmente por dúvida',                           examplePt: 'Não hesite em perguntar se tiver dúvidas.' },
+    { type: 'word',       term: 'fluent',         meaning: 'speaking a language smoothly and naturally',                 example: 'After two years of practice, she became fluent in English.',  meaningPt: 'falar um idioma com fluidez e naturalidade',                            examplePt: 'Após dois anos de prática, ela ficou fluente em inglês.' },
+    { type: 'word',       term: 'available',      meaning: 'free to use or accessible at a given time',                  example: 'Is this time slot available for a meeting?',                 meaningPt: 'livre para usar ou acessível em determinado momento',                   examplePt: 'Este horário está disponível para uma reunião?' },
+    { type: 'word',       term: 'improve',        meaning: 'to get better at something over time',                       example: 'You\'ll improve faster if you practise every day.',           meaningPt: 'melhorar em algo ao longo do tempo',                                    examplePt: 'Você vai melhorar mais rápido se praticar todos os dias.' },
+    { type: 'expression', term: 'hang on',        meaning: 'wait a moment',                                              example: 'Hang on, I\'ll be right back.',                               meaningPt: 'espera um momento',                                                     examplePt: 'Espera, já volto.' },
+    { type: 'expression', term: 'go ahead',       meaning: 'you can proceed or do something',                            example: 'Go ahead — I\'m listening.',                                  meaningPt: 'você pode prosseguir ou fazer algo',                                    examplePt: 'Pode ir — estou ouvindo.' },
+    { type: 'expression', term: 'no wonder',      meaning: 'it\'s not surprising',                                       example: 'No wonder you\'re tired — you worked all day!',              meaningPt: 'não é surpresa',                                                        examplePt: 'Não é à toa que você está cansado — trabalhou o dia todo!' },
+    { type: 'expression', term: 'fair enough',    meaning: 'that\'s reasonable or acceptable',                           example: 'A: Can we meet at 3? B: Fair enough, see you then.',          meaningPt: 'isso é razoável ou aceitável',                                          examplePt: 'R: Podemos nos encontrar às 3? R: Tudo bem, então até lá.' },
+    { type: 'expression', term: 'of course',      meaning: 'naturally — warmer and more natural than "obviously"',       example: 'Of course I\'ll help you with that.',                         meaningPt: 'naturalmente — mais caloroso e natural do que "obviamente"',            examplePt: 'Claro que vou te ajudar com isso.' },
+    { type: 'expression', term: 'never mind',     meaning: 'it doesn\'t matter, forget it',                              example: 'Never mind, I found it myself.',                              meaningPt: 'não importa, esqueça',                                                  examplePt: 'Deixa pra lá, eu mesmo encontrei.' },
+    { type: 'grammar',    term: 'make vs. do',    meaning: '"make" creates something; "do" is for tasks & actions',      example: 'I made a mistake. Can you do me a favour?',                  meaningPt: '"make" cria algo; "do" é para tarefas e ações',                         examplePt: 'Cometi um erro. Pode me fazer um favor?' },
+    { type: 'grammar',    term: 'say vs. tell',   meaning: '"tell" needs a person: "tell me"; "say" stands alone',       example: 'He said he was tired. She told me the truth.',                meaningPt: '"tell" precisa de uma pessoa: "tell me"; "say" fica sozinho',           examplePt: 'Ele disse que estava cansado. Ela me contou a verdade.' },
+    { type: 'grammar',    term: 'much vs. many',  meaning: '"much" for uncountable nouns; "many" for countable ones',    example: 'How much time do we have? How many people are coming?',      meaningPt: '"much" para substantivos incontáveis; "many" para contáveis',           examplePt: 'Quanto tempo temos? Quantas pessoas estão vindo?' },
+    { type: 'grammar',    term: 'since vs. for',  meaning: '"since" marks a point in time; "for" marks a duration',      example: 'I\'ve lived here since 2020. I\'ve been waiting for an hour.', meaningPt: '"since" marca um ponto no tempo; "for" marca uma duração',            examplePt: 'Moro aqui desde 2020. Estou esperando há uma hora.' },
+    { type: 'grammar',    term: 'a vs. an',       meaning: '"an" before vowel sounds, not just vowel letters',           example: 'She wants to be an engineer. It takes an hour to get there.', meaningPt: '"an" antes de sons vogais, não apenas letras vogais',                  examplePt: 'Ela quer ser engenheira. Leva uma hora para chegar lá.' },
+    { type: 'grammar',    term: 'suggest + -ing', meaning: '"I suggest going" is correct — not "I suggest to go"',       example: 'I suggest taking the bus — it\'s much faster.',               meaningPt: '"I suggest going" está correto — não "I suggest to go"',               examplePt: 'Sugiro pegar o ônibus — é muito mais rápido.' },
+    { type: 'idiom',      term: 'break the ice',  meaning: 'start a conversation in a social situation',                 example: 'He told a joke to break the ice at the meeting.',             meaningPt: 'iniciar uma conversa em uma situação social',                           examplePt: 'Ele contou uma piada para quebrar o gelo na reunião.' },
+    { type: 'idiom',      term: 'piece of cake',  meaning: 'something very easy to do',                                  example: 'The test was a piece of cake — I finished in 10 minutes.',   meaningPt: 'algo muito fácil de fazer',                                             examplePt: 'A prova foi moleza — terminei em 10 minutos.' },
   ],
   Inter: [
     { type: 'phrasal verb', term: 'bring up',               meaning: 'to mention a topic in conversation',                        example: 'She brought up the salary issue during the meeting.' },
@@ -835,7 +889,7 @@ export default function HomeScreen() {
                     fontSize: 15, color: '#FFFFFF',
                     lineHeight: 23, fontWeight: '500',
                   }}>
-                    {charlotteMessage(firstName, streak, todayXP)}
+                    {charlotteMessage(firstName, streak, todayXP, isPortuguese)}
                   </AppText>
                 </View>
               </View>
@@ -1001,7 +1055,7 @@ export default function HomeScreen() {
             </AppText>
           </View>
           <AppText style={{ fontSize: 12, color: C.navyMid, lineHeight: 16 }} numberOfLines={1}>
-            {tip.meaning}
+            {isPortuguese && tip.meaningPt ? tip.meaningPt : tip.meaning}
           </AppText>
         </View>
         <CaretRight size={16} color={C.navyLight} weight="bold" />
@@ -1058,7 +1112,7 @@ export default function HomeScreen() {
 
               {/* Meaning */}
               <AppText style={{ fontSize: 15, color: C.navyMid, lineHeight: 23, marginBottom: 20 }}>
-                {tip.meaning}
+                {isPortuguese && tip.meaningPt ? tip.meaningPt : tip.meaning}
               </AppText>
 
               {/* Example */}
@@ -1067,7 +1121,7 @@ export default function HomeScreen() {
                   {isPortuguese ? 'Exemplo' : 'Example'}
                 </AppText>
                 <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 23 }}>
-                  "{tip.example}"
+                  "{isPortuguese && tip.examplePt ? tip.examplePt : tip.example}"
                 </AppText>
               </View>
 
