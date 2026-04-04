@@ -223,6 +223,24 @@ Três níveis: **Novice (A1/A2) → Inter (B1/B2) → Advanced (C1/C2)**
 
 ---
 
+### Pendência TTS — gerar áudios faltantes
+
+Ao gerar os áudios das mini-aulas, a quota do plano ElevenLabs foi esgotada.
+**33 slides ficaram sem áudio** (últimos slides do Advanced Módulo 3 e Módulo 4 — C2).
+
+O app não quebra — exibe o texto normalmente sem narração.
+
+**Quando fizer upgrade do plano ElevenLabs:**
+```bash
+cd charlotte-pwa-02-final
+npm run generate-tts   # pula os 1.004 já existentes, gera só os 33 restantes
+git add public/tts/
+git commit -m "feat(tts): fill remaining 33 Advanced C2 slides"
+git push
+```
+
+---
+
 ## Decisões técnicas
 
 | Decisão | Escolha | Motivo |
