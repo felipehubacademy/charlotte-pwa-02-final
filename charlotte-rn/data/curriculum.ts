@@ -143,11 +143,95 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Nouns, Articles & Pronouns',
     topics: [
-      { title: 'Nouns — singular & plural + spelling rules',      grammar: [], pronunciation: [] },
-      { title: 'Articles — a / an / the',                         grammar: [], pronunciation: [] },
-      { title: 'Demonstratives (this, that, these, those)',        grammar: [], pronunciation: [] },
-      { title: 'Possessives — my, your, his, her + possessive \'s', grammar: [], pronunciation: [] },
-      { title: 'Object pronouns (me, you, him, her, it, us, them)', grammar: [], pronunciation: [] },
+      // ── Topic 1 — Nouns: singular & plural ──────────────────────────────
+      {
+        title: 'Nouns — singular & plural + spelling rules',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I have two _____ at home.',                         answer: 'cats',      options: ['cats', 'cates', 'caties'],             explanation: 'A maioria dos substantivos forma o plural adicionando -s: cat → cats.' },
+          { type: 'multiple_choice', sentence: 'She put the books in three _____ .',                answer: 'boxes',     options: ['boxes', 'boxs', 'boxies'],             explanation: 'Substantivos terminados em -x formam o plural com -es: box → boxes.' },
+          { type: 'word_bank',       sentence: 'The _____ are playing in the park.',                answer: 'children',  choices: ['children', 'childs', 'childrens', 'peoples'], explanation: '"Children" é o plural irregular de "child" (criança).' },
+          { type: 'word_bank',       sentence: 'There are five _____ in our class.',                answer: 'women',     choices: ['women', 'womans', 'wifes', 'womens'],  explanation: '"Women" é o plural irregular de "woman". Não se usa "womans".' },
+          { type: 'fill_gap',        sentence: 'He has three _____ (brother).',                     answer: 'brothers',  hint: 'Plural regular — adicione -s',             explanation: 'Substantivos regulares formam o plural com -s: brother → brothers.' },
+          { type: 'fill_gap',        sentence: 'We saw two _____ (fox) in the garden.',             answer: 'foxes',     hint: 'Termina em -x → adicione -es',             explanation: 'Substantivos terminados em -x, -sh, -ch formam o plural com -es: fox → foxes.' },
+          { type: 'fill_gap',        sentence: 'There are many _____ (city) in Brazil.',            answer: 'cities',    hint: 'Consoante + y → troque y por i e adicione -es', explanation: 'Quando o substantivo termina em consoante + y, o plural é: -ies. city → cities.' },
+          { type: 'fix_error',       sentence: 'I bought three book at the store.',                 answer: 'I bought three books at the store.',    hint: 'Plural de "book"',           explanation: '"Three" indica plural — use "books", não "book".' },
+          { type: 'fix_error',       sentence: 'There are two mans in the office.',                 answer: 'There are two men in the office.',      hint: 'Plural irregular de "man"',  explanation: 'O plural de "man" é "men", não "mans".' },
+          { type: 'read_answer',     passage: 'Maria has a big family. She has two brothers and three sisters. Her mother is a doctor and her father is a teacher. They have a dog and two cats at home.', question: 'How many pets does Maria\'s family have?', answer: 'three', explanation: 'A família tem 1 cachorro e 2 gatos — três animais de estimação no total.' },
+        ],
+      },
+
+      // ── Topic 2 — Articles: a / an / the ────────────────────────────────
+      {
+        title: 'Articles — a / an / the',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She is _____ engineer.',                            answer: 'an',        options: ['an', 'a', 'the'],                      explanation: 'Use "an" antes de palavras que começam com som de vogal: an engineer.' },
+          { type: 'multiple_choice', sentence: 'I saw _____ film last night. _____ film was great!', answer: 'a / The',  options: ['a / The', 'the / A', 'a / A'],         explanation: 'Primeira menção: "a film". Segunda menção (já conhecido): "The film".' },
+          { type: 'word_bank',       sentence: 'Can you pass me _____ salt, please?',              answer: 'the',       choices: ['the', 'a', 'an', 'some'],              explanation: 'Usamos "the" quando o objeto é específico e conhecido pelos dois — há só um saleiro na mesa.' },
+          { type: 'word_bank',       sentence: 'He wants to be _____ doctor one day.',             answer: 'a',         choices: ['a', 'an', 'the', '—'],                 explanation: 'Use "a" antes de profissões que começam com som de consoante: a doctor.' },
+          { type: 'fill_gap',        sentence: 'I have _____ idea!',                               answer: 'an',        hint: '"Idea" começa com som de vogal',            explanation: '"Idea" começa com som de vogal /aɪ/, então usamos "an": an idea.' },
+          { type: 'fill_gap',        sentence: 'She lives on _____ second floor.',                 answer: 'the',       hint: 'Andar específico de um prédio',             explanation: 'Usamos "the" com posições específicas: the second floor, the first row.' },
+          { type: 'fill_gap',        sentence: 'I play _____ tennis every Saturday.',              answer: '',          hint: 'Esportes não usam artigo em inglês',       explanation: 'Em inglês, esportes não usam artigo: I play tennis (não "the tennis").' },
+          { type: 'fix_error',       sentence: 'She is a best student in the class.',              answer: 'She is the best student in the class.', hint: 'Superlativo usa "the"', explanation: 'Com superlativos (best, worst, tallest), sempre use "the".' },
+          { type: 'fix_error',       sentence: 'I had an breakfast this morning.',                 answer: 'I had breakfast this morning.',          hint: 'Refeições não usam artigo', explanation: 'Refeições (breakfast, lunch, dinner) não usam artigo em inglês.' },
+          { type: 'read_answer',     passage: 'Jake has a dog and a cat. The dog is called Rex and the cat is called Luna. He takes the dog for a walk every morning before breakfast.', question: 'What is the dog\'s name?', answer: 'Rex', explanation: 'O texto diz: "The dog is called Rex."' },
+        ],
+      },
+
+      // ── Topic 3 — Demonstratives ─────────────────────────────────────────
+      {
+        title: 'Demonstratives (this, that, these, those)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ book here is really interesting.',            answer: 'This',      options: ['This', 'That', 'These'],               explanation: '"This" refere-se a algo singular e próximo (aqui perto de você).' },
+          { type: 'multiple_choice', sentence: '_____ shoes over there are too expensive.',         answer: 'Those',     options: ['Those', 'These', 'That'],              explanation: '"Those" refere-se a algo plural e distante (longe de você).' },
+          { type: 'word_bank',       sentence: '_____ is my friend Ana.',                           answer: 'This',      choices: ['This', 'These', 'That', 'Those'],      explanation: '"This is..." é usado para apresentar alguém que está do seu lado.' },
+          { type: 'word_bank',       sentence: 'Look at _____ clouds! It\'s going to rain.',       answer: 'those',     choices: ['those', 'these', 'that', 'this'],      explanation: '"Those" é usado para coisas plurais e distantes — nuvens no céu, longe.' },
+          { type: 'fill_gap',        sentence: '_____ is my pen. Don\'t take it!',                 answer: 'This',      hint: 'Singular, próximo (na minha mão)',          explanation: '"This" = este/esta — singular e próximo de quem fala.' },
+          { type: 'fill_gap',        sentence: '_____ people over there are my colleagues.',       answer: 'Those',     hint: 'Plural, distante',                          explanation: '"Those" = aqueles/aquelas — plural e distante de quem fala.' },
+          { type: 'fill_gap',        sentence: 'A: What\'s _____? B: It\'s my new phone.',         answer: 'that',      hint: 'Singular, distante de quem pergunta',       explanation: '"That" = aquele/aquela/isso — singular e distante de quem fala.' },
+          { type: 'fix_error',       sentence: 'These is a great idea!',                           answer: 'This is a great idea!',                   hint: '"Idea" é singular', explanation: '"Idea" é singular — use "This", não "These" (que é plural).' },
+          { type: 'fix_error',       sentence: 'I love those song!',                               answer: 'I love that song!',                        hint: '"Song" é singular', explanation: '"Song" é singular — use "that" (singular distante), não "those" (plural).' },
+          { type: 'read_answer',     passage: 'Sarah is at a shoe store. She points to some red shoes near her and says: "I\'d like to try these." Then she points to some blue boots on a shelf far away and says: "And those too, please."', question: 'Which shoes are far from Sarah?', answer: 'the blue boots', explanation: 'Sarah usa "those" para os sapatos distantes — as botas azuis na prateleira.' },
+        ],
+      },
+
+      // ── Topic 4 — Possessives ─────────────────────────────────────────────
+      {
+        title: 'Possessives — my, your, his, her + possessive \'s',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'That is _____ car. It\'s new.',                    answer: 'his',       options: ['his', 'her', 'their'],                 explanation: '"His" indica posse masculina (dele). Use "his" quando o dono é um homem.' },
+          { type: 'multiple_choice', sentence: 'Anna loves _____ job.',                            answer: 'her',       options: ['her', 'his', 'its'],                   explanation: '"Her" indica posse feminina (dela). Anna é mulher, então usamos "her job".' },
+          { type: 'word_bank',       sentence: 'Is this _____ bag or mine?',                       answer: 'your',      choices: ['your', 'my', 'his', 'our'],            explanation: '"Your" significa "seu/sua" (de você). Usado para falar com a pessoa diretamente.' },
+          { type: 'word_bank',       sentence: 'The dog wags _____ tail when it\'s happy.',        answer: 'its',       choices: ['its', 'his', 'their', 'her'],          explanation: '"Its" indica posse de coisa/animal (sem gênero). Diferente de "it\'s" (it is).' },
+          { type: 'fill_gap',        sentence: 'We love _____ new apartment.',                     answer: 'our',       hint: 'Posse de "we" (nós)',                       explanation: '"Our" significa "nosso/nossa" — indica posse do grupo (we).' },
+          { type: 'fill_gap',        sentence: 'This is Tom\'s guitar. _____ guitar is beautiful.', answer: 'His',      hint: 'Tom é masculino',                          explanation: 'Tom é masculino — usamos "His guitar" para não repetir "Tom\'s guitar".' },
+          { type: 'fill_gap',        sentence: 'That\'s _____ house over there — the blue one.',   answer: 'their',     hint: 'Posse de "they" (eles/elas)',               explanation: '"Their" significa "deles/delas" — indica posse do grupo (they).' },
+          { type: 'fix_error',       sentence: 'She forgot her\'s keys at home.',                  answer: 'She forgot her keys at home.',             hint: '"Her" já indica posse — não precisa de apóstrofo', explanation: '"Her" é adjetivo possessivo — não existe "her\'s". Correto: her keys.' },
+          { type: 'fix_error',       sentence: 'That is the bag of Maria.',                        answer: 'That is Maria\'s bag.',                    hint: 'Use possessivo com apóstrofo -\'s',         explanation: 'Em inglês, posse é expressa com \'s: Maria\'s bag (não "the bag of Maria").' },
+          { type: 'read_answer',     passage: 'Pedro has a sister called Lucia. Lucia\'s husband is called Mark. Mark is a teacher and his school is near their house. Pedro visits his sister every weekend.', question: 'What is Mark\'s job?', answer: 'teacher', explanation: 'O texto diz: "Mark is a teacher."' },
+        ],
+      },
+
+      // ── Topic 5 — Object pronouns ─────────────────────────────────────────
+      {
+        title: 'Object pronouns (me, you, him, her, it, us, them)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'Can you help _____? I don\'t understand this.',    answer: 'me',        options: ['me', 'I', 'my'],                       explanation: '"Me" é o pronome objeto de "I". Após verbos, usamos "me", não "I".' },
+          { type: 'multiple_choice', sentence: 'I saw Ana yesterday. I called _____ after school.', answer: 'her',      options: ['her', 'she', 'hers'],                  explanation: '"Her" é o pronome objeto de "she". Após verbos, usamos "her", não "she".' },
+          { type: 'word_bank',       sentence: 'The teacher explained the lesson to _____ .',      answer: 'us',        choices: ['us', 'we', 'our', 'ours'],             explanation: '"Us" é o pronome objeto de "we". Após preposições e verbos, usamos "us".' },
+          { type: 'word_bank',       sentence: 'I don\'t know _____ . Who is he?',                 answer: 'him',       choices: ['him', 'he', 'his', 'himself'],          explanation: '"Him" é o pronome objeto de "he". Use "him" após verbos e preposições.' },
+          { type: 'fill_gap',        sentence: 'I love this song. I listen to _____ every day.',   answer: 'it',        hint: 'Pronome objeto de "it" (coisa)',            explanation: '"It" funciona tanto como sujeito quanto como objeto quando se refere a coisas.' },
+          { type: 'fill_gap',        sentence: 'Where are the kids? I can\'t find _____.',         answer: 'them',      hint: 'Pronome objeto de "they" (plural)',          explanation: '"Them" é o pronome objeto de "they". Use após verbos para plural.' },
+          { type: 'fill_gap',        sentence: 'My parents are great. I really love _____ .',      answer: 'them',      hint: 'Pronome para mais de uma pessoa',           explanation: '"Them" = eles/elas como objeto. I love them = Eu os amo.' },
+          { type: 'fix_error',       sentence: 'She gave the present to he.',                      answer: 'She gave the present to him.',             hint: 'Após preposição, use pronome objeto',  explanation: 'Após preposições (to, for, with…), use pronome objeto: "him", não "he".' },
+          { type: 'fix_error',       sentence: 'Can you call she tonight?',                        answer: 'Can you call her tonight?',                hint: 'Pronome objeto após verbo',            explanation: 'Após verbos, use pronome objeto: "her" (não "she"). Call her = ligue para ela.' },
+          { type: 'read_answer',     passage: 'Tom has a new neighbour called Lisa. He met her last week. She seems very friendly. Tom invited her to his birthday party and she said she would bring her boyfriend with her.', question: 'Who did Tom invite to his party?', answer: 'Lisa', explanation: 'O texto diz: "Tom invited her to his birthday party" — "her" refere-se à Lisa.' },
+        ],
+      },
     ],
   },
 
@@ -155,13 +239,131 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Present Simple',
     topics: [
-      { title: 'Verb To Be — full review + real-life expressions',    grammar: [], pronunciation: [] },
-      { title: 'Present Simple — affirmative (I/you/we/they)',        grammar: [], pronunciation: [] },
-      { title: 'Present Simple — third person singular (-s/-es/-ies)', grammar: [], pronunciation: [] },
-      { title: 'Present Simple — negative (don\'t / doesn\'t)',       grammar: [], pronunciation: [] },
-      { title: 'Present Simple — yes/no questions (Do/Does)',         grammar: [], pronunciation: [] },
-      { title: 'WH- questions — what, who, where, when, why, how',   grammar: [], pronunciation: [] },
-      { title: 'Frequency adverbs (always, usually, often…)',         grammar: [], pronunciation: [] },
+      // ── Topic 1 — Verb To Be: full review ────────────────────────────────
+      {
+        title: 'Verb To Be — full review + real-life expressions',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'What _____ your name?',                           answer: 'is',        options: ['is', 'are', 'am'],                  explanation: '"What is your name?" — use "is" em perguntas com sujeito singular (your name).' },
+          { type: 'multiple_choice', sentence: 'I _____ not ready yet.',                           answer: 'am',        options: ['am', 'is', 'are'],                  explanation: '"I am not" é a negativa de "I am". Contrações: I\'m not.' },
+          { type: 'word_bank',       sentence: 'Where _____ you from?',                            answer: 'are',       choices: ['are', 'is', 'am', 'be'],            explanation: '"Where are you from?" é a pergunta padrão para saber a origem de alguém.' },
+          { type: 'word_bank',       sentence: 'My parents _____ from São Paulo.',                 answer: 'are',       choices: ['are', 'is', 'am', 'be'],            explanation: '"My parents" é plural, então usamos "are".' },
+          { type: 'fill_gap',        sentence: 'A: _____ you a nurse? B: No, I\'m a teacher.',     answer: 'Are',       hint: 'Pergunta com "you"',                    explanation: 'Perguntas sim/não com "you" começam com "Are": "Are you a nurse?"' },
+          { type: 'fill_gap',        sentence: 'It _____ very cold today.',                        answer: 'is',        hint: '"It" usa "is"',                         explanation: '"It is" (ou "It\'s") descreve o clima, temperatura e situações gerais.' },
+          { type: 'fill_gap',        sentence: 'A: How _____ they? B: They\'re great!',            answer: 'are',       hint: '"They" usa "are"',                      explanation: '"How are they?" — use "are" com "they" (eles/elas).' },
+          { type: 'fix_error',       sentence: 'She are a good student.',                          answer: 'She is a good student.',              hint: '"She" usa "is"',       explanation: '"She" (ela) sempre usa "is", nunca "are".' },
+          { type: 'fix_error',       sentence: 'My brother and I is hungry.',                      answer: 'My brother and I are hungry.',         hint: 'Dois sujeitos = plural',  explanation: '"My brother and I" são dois sujeitos — use o verbo no plural: "are".' },
+          { type: 'read_answer',     passage: 'Hi! My name is Clara. I\'m 20 years old and I\'m a student. My parents are both doctors. We are a happy family.', question: 'What do Clara\'s parents do? (profissão em inglês)', answer: 'doctors', explanation: 'O texto diz: "My parents are both doctors."' },
+        ],
+      },
+
+      // ── Topic 2 — Present Simple affirmative ─────────────────────────────
+      {
+        title: 'Present Simple — affirmative (I/you/we/they)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I _____ coffee every morning.',                    answer: 'drink',     options: ['drink', 'drinks', 'drinking'],       explanation: 'Com "I", usamos a forma base do verbo no Present Simple: drink (sem -s).' },
+          { type: 'multiple_choice', sentence: 'We _____ English at school.',                       answer: 'study',     options: ['study', 'studies', 'studying'],      explanation: 'Com "we" (nós), o verbo fica na forma base: study (sem -s).' },
+          { type: 'word_bank',       sentence: 'They _____ in a big house.',                        answer: 'live',      choices: ['live', 'lives', 'living', 'lived'],  explanation: 'Com "they" (eles), use a forma base do verbo: live (sem -s).' },
+          { type: 'word_bank',       sentence: 'You _____ very well!',                              answer: 'cook',      choices: ['cook', 'cooks', 'cooking', 'cooked'], explanation: 'Com "you" (você/vocês), o verbo fica na forma base: cook (sem -s).' },
+          { type: 'fill_gap',        sentence: 'I _____ (work) at a hospital.',                     answer: 'work',      hint: 'Forma base com "I"',                    explanation: 'Present Simple com "I": use a forma base do verbo sem alterações.' },
+          { type: 'fill_gap',        sentence: 'We _____ (eat) dinner at 7 pm.',                    answer: 'eat',       hint: 'Forma base com "we"',                   explanation: 'Com "we", o verbo fica na forma base: eat.' },
+          { type: 'fill_gap',        sentence: 'They _____ (go) to the gym three times a week.',    answer: 'go',        hint: 'Forma base com "they"',                 explanation: 'Com "they", o verbo fica na forma base: go.' },
+          { type: 'fix_error',       sentence: 'I speaks English and Portuguese.',                   answer: 'I speak English and Portuguese.',          hint: '"I" não usa -s',       explanation: 'Com "I", o verbo não recebe -s no Present Simple: speak (não speaks).' },
+          { type: 'fix_error',       sentence: 'We lives near the beach.',                          answer: 'We live near the beach.',                 hint: '"We" não usa -s',      explanation: 'Com "we" (nós), o verbo não recebe -s: live (não lives).' },
+          { type: 'read_answer',     passage: 'Ana and her sister live in Rio. They work in the same company. Every day, they wake up at 7, eat breakfast together, and go to work by bus.', question: 'How do Ana and her sister get to work?', answer: 'by bus', explanation: 'O texto diz: "they go to work by bus."' },
+        ],
+      },
+
+      // ── Topic 3 — Third person singular ──────────────────────────────────
+      {
+        title: 'Present Simple — third person singular (-s / -es / -ies)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She _____ to school by bike.',                     answer: 'goes',      options: ['goes', 'go', 'gos'],                explanation: '"Go" na terceira pessoa (he/she/it) vira "goes" — verbos terminados em -o recebem -es.' },
+          { type: 'multiple_choice', sentence: 'He _____ the guitar really well.',                  answer: 'plays',     options: ['plays', 'playes', 'play'],           explanation: 'Verbos terminados em vogal + y recebem apenas -s: play → plays.' },
+          { type: 'word_bank',       sentence: 'She _____ her teeth twice a day.',                  answer: 'brushes',   choices: ['brushes', 'brush', 'brushs', 'brusies'], explanation: 'Verbos terminados em -sh recebem -es na terceira pessoa: brush → brushes.' },
+          { type: 'word_bank',       sentence: 'He _____ in Barcelona.',                            answer: 'lives',     choices: ['lives', 'live', 'livies', 'liveies'], explanation: 'Verbos terminados em -e recebem apenas -s: live → lives.' },
+          { type: 'fill_gap',        sentence: 'She _____ (study) English every evening.',          answer: 'studies',   hint: 'Consoante + y → troque y por i e adicione -es', explanation: 'Verbos terminados em consoante + y: troque y por i e adicione -es. study → studies.' },
+          { type: 'fill_gap',        sentence: 'He _____ (watch) TV after dinner.',                 answer: 'watches',   hint: 'Verbo terminado em -ch → adicione -es',   explanation: 'Verbos terminados em -ch recebem -es: watch → watches.' },
+          { type: 'fill_gap',        sentence: 'It _____ (rain) a lot in winter here.',             answer: 'rains',     hint: 'Verbo regular + s',                     explanation: 'A maioria dos verbos recebe apenas -s na terceira pessoa: rain → rains.' },
+          { type: 'fix_error',       sentence: 'He go to work by car.',                             answer: 'He goes to work by car.',                 hint: '"He" + go → terceira pessoa',  explanation: 'Com "he" (ele), o verbo "go" vira "goes" no Present Simple.' },
+          { type: 'fix_error',       sentence: 'She studys Spanish at university.',                  answer: 'She studies Spanish at university.',      hint: 'Consoante + y → troque y por i + es', explanation: '"Study" termina em consoante + y, então vira "studies" (não "studys").' },
+          { type: 'read_answer',     passage: 'Lucas works at a bakery. He wakes up at 5 am every day. He makes fresh bread and pastries in the morning. He finishes work at 2 pm and then goes to the gym.', question: 'What time does Lucas finish work?', answer: '2 pm', explanation: 'O texto diz: "He finishes work at 2 pm."' },
+        ],
+      },
+
+      // ── Topic 4 — Present Simple negative ────────────────────────────────
+      {
+        title: "Present Simple — negative (don't / doesn't)",
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I _____ like spicy food.',                         answer: "don't",     options: ["don't", "doesn't", "not"],          explanation: '"Don\'t" (do not) é o auxiliar negativo para I/you/we/they no Present Simple.' },
+          { type: 'multiple_choice', sentence: 'She _____ speak French.',                           answer: "doesn't",   options: ["doesn't", "don't", "isn't"],        explanation: '"Doesn\'t" (does not) é o auxiliar negativo para he/she/it no Present Simple.' },
+          { type: 'word_bank',       sentence: 'They _____ eat meat.',                              answer: "don't",     choices: ["don't", "doesn't", "isn't", "aren't"], explanation: 'Com "they" (eles), use "don\'t" na negativa do Present Simple.' },
+          { type: 'word_bank',       sentence: 'He _____ drive to work.',                           answer: "doesn't",   choices: ["doesn't", "don't", "isn't", "not"],  explanation: 'Com "he" (ele), use "doesn\'t" na negativa. O verbo principal fica na forma base.' },
+          { type: 'fill_gap',        sentence: 'I _____ (not) understand this question.',           answer: "don't",     hint: '"I" usa "don\'t"',                      explanation: '"Don\'t" é a forma negativa para "I" no Present Simple.' },
+          { type: 'fill_gap',        sentence: 'She _____ (not) live here anymore.',                answer: "doesn't",   hint: '"She" usa "doesn\'t"',                  explanation: '"Doesn\'t" é a forma negativa para "she". Note: o verbo volta à forma base (live, não lives).' },
+          { type: 'fill_gap',        sentence: 'We _____ (not) have class on Sundays.',             answer: "don't",     hint: '"We" usa "don\'t"',                     explanation: '"Don\'t" é a forma negativa para "we". Note: have (não has) depois de don\'t.' },
+          { type: 'fix_error',       sentence: 'She don\'t like cold weather.',                     answer: "She doesn't like cold weather.",          hint: '"She" usa "doesn\'t"',         explanation: '"She" (ela) exige "doesn\'t" na negativa, não "don\'t".' },
+          { type: 'fix_error',       sentence: 'He doesn\'t wants coffee.',                         answer: "He doesn't want coffee.",                 hint: 'Após "doesn\'t", verbo na forma base', explanation: 'Depois de "doesn\'t", o verbo fica na forma base: want (não wants).' },
+          { type: 'read_answer',     passage: 'Ben is vegetarian. He doesn\'t eat meat or fish. He doesn\'t drink alcohol either. His sister is different — she eats everything and drinks wine sometimes.', question: 'Does Ben drink alcohol? (yes/no)', answer: 'no', explanation: 'O texto diz: "He doesn\'t drink alcohol" — Ben não bebe álcool.' },
+        ],
+      },
+
+      // ── Topic 5 — Present Simple yes/no questions ─────────────────────────
+      {
+        title: 'Present Simple — yes/no questions (Do/Does)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ you like pizza?',                             answer: 'Do',        options: ['Do', 'Does', 'Are'],                explanation: '"Do" inicia perguntas sim/não com I/you/we/they no Present Simple.' },
+          { type: 'multiple_choice', sentence: '_____ she work on weekends?',                       answer: 'Does',      options: ['Does', 'Do', 'Is'],                 explanation: '"Does" inicia perguntas com he/she/it no Present Simple.' },
+          { type: 'word_bank',       sentence: '_____ they have a car?',                            answer: 'Do',        choices: ['Do', 'Does', 'Is', 'Are'],          explanation: '"Do" é usado em perguntas com "they" (eles).' },
+          { type: 'word_bank',       sentence: '_____ he play football?',                           answer: 'Does',      choices: ['Does', 'Do', 'Is', 'Has'],          explanation: '"Does" é usado em perguntas com "he" (ele). O verbo fica na forma base: play (não plays).' },
+          { type: 'fill_gap',        sentence: '_____ you speak English?',                          answer: 'Do',        hint: 'Pergunta com "you"',                    explanation: 'Perguntas sim/não com "you" começam com "Do": "Do you speak English?"' },
+          { type: 'fill_gap',        sentence: 'A: _____ she have a sister? B: Yes, she does.',     answer: 'Does',      hint: 'Pergunta com "she"',                    explanation: '"Does she have…?" é a pergunta correta. Note: "have" (não has) depois de Does.' },
+          { type: 'fill_gap',        sentence: 'A: Do they live here? B: No, they _____.',          answer: "don't",     hint: 'Resposta negativa curta com "they"',     explanation: 'Resposta negativa curta: "No, they don\'t."' },
+          { type: 'fix_error',       sentence: 'Does she goes to school by bus?',                   answer: 'Does she go to school by bus?',            hint: 'Após "Does", verbo na forma base', explanation: 'Depois de "Does", o verbo fica na forma base: go (não goes).' },
+          { type: 'fix_error',       sentence: 'Do he like this music?',                            answer: 'Does he like this music?',                 hint: '"He" usa "Does"',             explanation: '"He" (ele) exige "Does" em perguntas, não "Do".' },
+          { type: 'read_answer',     passage: 'Interviewer: Do you speak any other languages? Mia: Yes, I speak Spanish and a little Italian. Interviewer: Does your partner speak Spanish too? Mia: No, he doesn\'t. He speaks German.', question: 'Does Mia\'s partner speak Spanish? (yes/no)', answer: 'no', explanation: 'Mia diz: "No, he doesn\'t." Ele não fala espanhol.' },
+        ],
+      },
+
+      // ── Topic 6 — WH- questions ───────────────────────────────────────────
+      {
+        title: 'WH- questions — what, who, where, when, why, how',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ do you live?',                                answer: 'Where',     options: ['Where', 'When', 'What'],            explanation: '"Where" pergunta sobre lugar ou localização: "Where do you live? — In São Paulo."' },
+          { type: 'multiple_choice', sentence: '_____ does she study?',                             answer: 'What',      options: ['What', 'Who', 'How'],               explanation: '"What" pergunta sobre coisas ou matéria: "What does she study? — English."' },
+          { type: 'word_bank',       sentence: '_____ do you go to the gym?',                       answer: 'When',      choices: ['When', 'Why', 'Who', 'Where'],      explanation: '"When" pergunta sobre tempo/horário: "When do you go? — On Mondays."' },
+          { type: 'word_bank',       sentence: '_____ does that word mean?',                        answer: 'What',      choices: ['What', 'Who', 'Why', 'How'],        explanation: '"What does...mean?" é a pergunta padrão para saber o significado de uma palavra.' },
+          { type: 'fill_gap',        sentence: '_____ do you usually eat lunch?',                   answer: 'Where',     hint: 'Pergunta sobre lugar',                  explanation: '"Where" é usado para perguntar sobre locais: "Where do you eat lunch? — At home."' },
+          { type: 'fill_gap',        sentence: '_____ does she look so sad?',                       answer: 'Why',       hint: 'Pergunta sobre motivo/razão',           explanation: '"Why" pergunta a razão ou motivo: "Why does she look sad? — Because she\'s tired."' },
+          { type: 'fill_gap',        sentence: '_____ do you go to work? — By car.',                answer: 'How',       hint: 'Pergunta sobre maneira ou meio',        explanation: '"How" pergunta sobre como algo acontece. "How do you go? — By car."' },
+          { type: 'fix_error',       sentence: 'What she does for a living?',                       answer: 'What does she do for a living?',           hint: 'Auxiliar "does" antes do sujeito',    explanation: 'Perguntas com WH- + auxiliar: "What does she do?" (does vem antes do sujeito).' },
+          { type: 'fix_error',       sentence: 'Where does he lives?',                              answer: 'Where does he live?',                      hint: 'Após "does", verbo na forma base',    explanation: 'Depois de "does", o verbo fica na forma base: live (não lives).' },
+          { type: 'read_answer',     passage: 'A: What do you do? B: I\'m a nurse. A: Where do you work? B: At City Hospital. A: How do you get there? B: I take the subway. It takes about 30 minutes.', question: 'How long does the journey take?', answer: '30 minutes', explanation: 'O texto diz: "It takes about 30 minutes."' },
+        ],
+      },
+
+      // ── Topic 7 — Frequency adverbs ──────────────────────────────────────
+      {
+        title: 'Frequency adverbs (always, usually, often…)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I _____ brush my teeth before bed.',                answer: 'always',    options: ['always', 'never', 'sometimes'],      explanation: '"Always" significa sempre — indica uma ação que acontece 100% das vezes.' },
+          { type: 'multiple_choice', sentence: 'She _____ late for class. It\'s a problem.',         answer: 'is always', options: ['is always', 'always is', 'always'],   explanation: 'Com o verbo "to be", o advérbio vem depois do verbo: "She is always late."' },
+          { type: 'word_bank',       sentence: 'He _____ drinks coffee in the morning.',             answer: 'usually',   choices: ['usually', 'always', 'never', 'yet'], explanation: '"Usually" significa geralmente — ação frequente mas não sempre.' },
+          { type: 'word_bank',       sentence: 'I _____ eat breakfast. I\'m always in a hurry!',    answer: 'never',     choices: ['never', 'always', 'often', 'usually'], explanation: '"Never" significa nunca — ação que não acontece.' },
+          { type: 'fill_gap',        sentence: 'We _____ go to the cinema on Fridays.',              answer: 'often',     hint: 'Frequente, mas não sempre',             explanation: '"Often" significa frequentemente — mais que "sometimes" mas menos que "usually".' },
+          { type: 'fill_gap',        sentence: 'I _____ forget to call my mom. It\'s terrible!',    answer: 'always',    hint: 'Acontece 100% das vezes',               explanation: '"Always" = sempre. Quando algo acontece todo o tempo sem exceção.' },
+          { type: 'fill_gap',        sentence: 'She _____ takes the bus, but today she drove.',      answer: 'usually',   hint: 'Geralmente, mas não hoje',              explanation: '"Usually" = geralmente. Indica o hábito normal que hoje foi diferente.' },
+          { type: 'fix_error',       sentence: 'He goes always to bed late.',                        answer: 'He always goes to bed late.',              hint: 'Posição do advérbio antes do verbo principal', explanation: 'Com verbos principais, o advérbio de frequência vem antes do verbo: always goes.' },
+          { type: 'fix_error',       sentence: 'I sometimes am nervous before exams.',               answer: 'I am sometimes nervous before exams.',     hint: '"To be" → advérbio depois do verbo',          explanation: 'Com o verbo "to be", o advérbio vem depois: "I am sometimes nervous."' },
+          { type: 'read_answer',     passage: 'Pedro usually wakes up at 7 am. He never skips breakfast. He sometimes goes jogging before work. He is always at his desk by 9 am.', question: 'Does Pedro ever skip breakfast? (yes/no)', answer: 'no', explanation: 'O texto diz: "He never skips breakfast." — Pedro nunca pula o café.' },
+        ],
+      },
     ],
   },
 
@@ -169,10 +371,77 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Time, Place & Chunks',
     topics: [
-      { title: 'Numbers, dates & time',                                  grammar: [], pronunciation: [] },
-      { title: 'Prepositions of time — at, on, in',                     grammar: [], pronunciation: [] },
-      { title: 'Prepositions of place — in, on, at, next to, behind…',  grammar: [], pronunciation: [] },
-      { title: 'Common verb collocations — daily life chunks',           grammar: [], pronunciation: [] },
+      // ── Topic 1 — Numbers, dates & time ──────────────────────────────────
+      {
+        title: 'Numbers, dates & time',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'The meeting is _____ 3 o\'clock.',                  answer: 'at',        options: ['at', 'in', 'on'],                   explanation: 'Use "at" com horas específicas: at 3 o\'clock, at noon, at midnight.' },
+          { type: 'multiple_choice', sentence: 'Today is _____ March 15th.',                         answer: 'the',       options: ['the', 'a', 'on'],                   explanation: 'Datas em inglês: "March 15th" ou "the 15th of March". "The" indica a data ordinal.' },
+          { type: 'word_bank',       sentence: 'She was born in _____.',                             answer: '1995',      choices: ['1995', 'the 1995', 'at 1995', 'on 1995'], explanation: 'Anos em inglês não usam artigo: she was born in 1995.' },
+          { type: 'word_bank',       sentence: 'What time is it? It\'s _____ past two.',             answer: 'quarter',   choices: ['quarter', 'half', 'three', 'five'],  explanation: '"Quarter past two" = 2:15. "Quarter" em inglês equivale a 15 minutos.' },
+          { type: 'fill_gap',        sentence: 'The class starts _____ 8:30 am.',                    answer: 'at',        hint: 'Hora específica → preposição correta',   explanation: '"At" é usado antes de horas específicas: at 8:30 am.' },
+          { type: 'fill_gap',        sentence: 'My birthday is _____ June.',                         answer: 'in',        hint: 'Mês → preposição correta',              explanation: '"In" é usado antes de meses e anos: in June, in 2025.' },
+          { type: 'fill_gap',        sentence: 'The party is _____ Saturday, July 12th.',            answer: 'on',        hint: 'Dia da semana e data → preposição correta', explanation: '"On" é usado antes de dias da semana e datas específicas: on Saturday.' },
+          { type: 'fix_error',       sentence: 'The store opens in 9 am.',                           answer: 'The store opens at 9 am.',                 hint: 'Hora específica usa "at"',    explanation: '"At" é a preposição correta para horas: at 9 am (não "in").' },
+          { type: 'fix_error',       sentence: 'I was born on 1998.',                                answer: 'I was born in 1998.',                      hint: 'Ano usa "in"',                explanation: '"In" é a preposição correta para anos: in 1998 (não "on").' },
+          { type: 'read_answer',     passage: 'The library opens at 9 am and closes at 8 pm on weekdays. On Saturdays, it opens at 10 am and closes at 5 pm. It is closed on Sundays.', question: 'What time does the library open on Saturdays?', answer: '10 am', explanation: 'O texto diz: "On Saturdays, it opens at 10 am."' },
+        ],
+      },
+
+      // ── Topic 2 — Prepositions of time ────────────────────────────────────
+      {
+        title: 'Prepositions of time — at, on, in',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I always wake up early _____ the morning.',          answer: 'in',        options: ['in', 'at', 'on'],                   explanation: '"In the morning/afternoon/evening" — use "in" com partes do dia.' },
+          { type: 'multiple_choice', sentence: 'The flight departs _____ midnight.',                  answer: 'at',        options: ['at', 'in', 'on'],                   explanation: '"At midnight", "at noon", "at night" — expressões de tempo fixas com "at".' },
+          { type: 'word_bank',       sentence: 'She studies _____ the weekend.',                     answer: 'at',        choices: ['at', 'in', 'on', 'by'],             explanation: '"At the weekend" é a expressão britânica. Em inglês americano: "on the weekend".' },
+          { type: 'word_bank',       sentence: 'We have English class _____ Mondays.',               answer: 'on',        choices: ['on', 'in', 'at', 'by'],             explanation: '"On" é usado com dias da semana: on Monday, on Fridays.' },
+          { type: 'fill_gap',        sentence: 'My exam is _____ December.',                         answer: 'in',        hint: 'Mês',                                   explanation: '"In" é usado com meses: in December, in March.' },
+          { type: 'fill_gap',        sentence: 'The concert is _____ Friday night.',                 answer: 'on',        hint: 'Dia específico da semana',              explanation: '"On" é usado com dias da semana e datas: on Friday night.' },
+          { type: 'fill_gap',        sentence: 'I was born _____ 2000.',                             answer: 'in',        hint: 'Ano',                                   explanation: '"In" é usado com anos: in 2000, in 1995.' },
+          { type: 'fix_error',       sentence: 'The train arrives in 7:45 pm.',                      answer: 'The train arrives at 7:45 pm.',            hint: 'Hora → "at"',            explanation: '"At" é a preposição correta para horas: at 7:45 pm.' },
+          { type: 'fix_error',       sentence: 'They got married on summer.',                         answer: 'They got married in summer.',              hint: 'Estação do ano → "in"',   explanation: '"In" é usado com estações do ano: in summer, in winter.' },
+          { type: 'read_answer',     passage: 'Maria has a busy schedule. She works in the morning and goes to college in the afternoon. On Wednesdays, she has volleyball training at 7 pm. In December, she always takes two weeks off.', question: 'What does Maria do on Wednesdays at 7 pm?', answer: 'volleyball training', explanation: 'O texto diz: "On Wednesdays, she has volleyball training at 7 pm."' },
+        ],
+      },
+
+      // ── Topic 3 — Prepositions of place ──────────────────────────────────
+      {
+        title: 'Prepositions of place — in, on, at, next to, behind…',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'The cat is _____ the box.',                          answer: 'in',        options: ['in', 'on', 'at'],                   explanation: '"In" indica que algo está dentro de um espaço fechado ou contêiner.' },
+          { type: 'multiple_choice', sentence: 'Your keys are _____ the table.',                     answer: 'on',        choices: ['on', 'in', 'at'],                   explanation: '"On" indica que algo está em cima de uma superfície: on the table, on the shelf.' },
+          { type: 'word_bank',       sentence: 'I\'ll meet you _____ the airport.',                  answer: 'at',        choices: ['at', 'in', 'on', 'by'],             explanation: '"At" é usado com pontos de encontro e locais específicos: at the airport, at school.' },
+          { type: 'word_bank',       sentence: 'The bank is _____ the supermarket and the café.',    answer: 'between',   choices: ['between', 'next to', 'behind', 'in front of'], explanation: '"Between" indica posição entre dois lugares ou objetos.' },
+          { type: 'fill_gap',        sentence: 'The dog is hiding _____ the sofa.',                  answer: 'behind',    hint: 'Atrás de algo',                         explanation: '"Behind" = atrás de. The dog is behind the sofa.' },
+          { type: 'fill_gap',        sentence: 'The pharmacy is _____ the bakery. (ao lado)',        answer: 'next to',   hint: 'Ao lado de',                           explanation: '"Next to" = ao lado de. The pharmacy is next to the bakery.' },
+          { type: 'fill_gap',        sentence: 'She lives _____ the second floor.',                  answer: 'on',        hint: 'Andar de um prédio',                    explanation: '"On" é usado com andares de prédio: on the second floor.' },
+          { type: 'fix_error',       sentence: 'He works in the city centre, on Baker Street.',      answer: 'He works in the city centre, on Baker Street.',   hint: 'Esta frase está correta', explanation: '"In the city centre" e "on Baker Street" estão corretos — "in" para área, "on" para rua.' },
+          { type: 'fix_error',       sentence: 'The hospital is in the corner.',                     answer: 'The hospital is on the corner.',           hint: 'Esquina → "on" ou "at"', explanation: '"On the corner" ou "at the corner" — não "in the corner" para localizações na esquina.' },
+          { type: 'read_answer',     passage: 'The café is on Green Street, next to the post office. It is opposite the park. There is a car park behind the café. The entrance is at the front, on the corner.', question: 'What is next to the café?', answer: 'the post office', explanation: 'O texto diz: "next to the post office."' },
+        ],
+      },
+
+      // ── Topic 4 — Common verb collocations ───────────────────────────────
+      {
+        title: 'Common verb collocations — daily life chunks',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She _____ a shower every morning.',                  answer: 'takes',     options: ['takes', 'makes', 'does'],            explanation: '"Take a shower" é uma colocação fixa em inglês. Não se usa "make" ou "do".' },
+          { type: 'multiple_choice', sentence: 'Can you _____ me a favour?',                         answer: 'do',        options: ['do', 'make', 'take'],               explanation: '"Do someone a favour" é a colocação correta — não "make a favour".' },
+          { type: 'word_bank',       sentence: 'He _____ a mistake in the test.',                    answer: 'made',      choices: ['made', 'did', 'took', 'had'],       explanation: '"Make a mistake" é a colocação correta. Não se usa "do a mistake".' },
+          { type: 'word_bank',       sentence: 'I need to _____ the dishes after dinner.',           answer: 'do',        choices: ['do', 'make', 'take', 'wash'],       explanation: '"Do the dishes" = lavar a louça. Uma colocação fixa do cotidiano.' },
+          { type: 'fill_gap',        sentence: 'Don\'t _____ noise! The baby is sleeping.',          answer: 'make',      hint: '"Make" + noise (barulho)',               explanation: '"Make noise" é a colocação correta para fazer barulho.' },
+          { type: 'fill_gap',        sentence: 'She _____ her homework before dinner.',              answer: 'does',      hint: '"Do" + homework (tarefa)',              explanation: '"Do your homework" é a colocação fixa para fazer a tarefa de casa.' },
+          { type: 'fill_gap',        sentence: 'He _____ a photo of the sunset.',                    answer: 'took',      hint: '"Take" + photo (foto)',                 explanation: '"Take a photo" é a colocação correta. Não se usa "make" ou "do".' },
+          { type: 'fix_error',       sentence: 'She made her best to help us.',                      answer: 'She did her best to help us.',             hint: '"Do your best" = dar o seu melhor',  explanation: '"Do your best" é a expressão fixa. Não se usa "make your best".' },
+          { type: 'fix_error',       sentence: 'Can I do a suggestion?',                             answer: 'Can I make a suggestion?',                hint: '"Make" + suggestion',      explanation: '"Make a suggestion" é a colocação correta. Não se usa "do a suggestion".' },
+          { type: 'read_answer',     passage: 'Every morning, Tom makes breakfast, takes a quick shower, and does his homework before school. He always does his best in every test and never makes excuses when he makes a mistake.', question: 'What does Tom do before school?', answer: 'makes breakfast, takes a shower, does homework', explanation: 'O texto diz: "makes breakfast, takes a quick shower, and does his homework before school."' },
+        ],
+      },
     ],
   },
 
@@ -180,10 +449,77 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Quantifiers & Ability',
     topics: [
-      { title: 'There is / There are + some / any',                         grammar: [], pronunciation: [] },
-      { title: 'Quantifiers — a lot of, many, much, a few, a little',       grammar: [], pronunciation: [] },
-      { title: 'WH- questions — how much / how many + review',              grammar: [], pronunciation: [] },
-      { title: 'Can / can\'t — ability, possibility & permission',          grammar: [], pronunciation: [] },
+      // ── Topic 1 — There is / There are ───────────────────────────────────
+      {
+        title: 'There is / There are + some / any',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ a book on the table.',                        answer: 'There is',  options: ['There is', 'There are', 'It is'],    explanation: '"There is" é usado com substantivos singulares: there is a book.' },
+          { type: 'multiple_choice', sentence: '_____ some eggs in the fridge.',                    answer: 'There are', options: ['There are', 'There is', 'They are'],  explanation: '"There are" é usado com substantivos plurais: there are some eggs.' },
+          { type: 'word_bank',       sentence: 'Is there _____ milk in the fridge?',               answer: 'any',       choices: ['any', 'some', 'a', 'the'],           explanation: '"Any" é usado em perguntas e frases negativas com incontáveis: is there any milk?' },
+          { type: 'word_bank',       sentence: 'There are _____ chairs in the room.',               answer: 'some',      choices: ['some', 'any', 'a', 'much'],          explanation: '"Some" é usado em frases afirmativas: there are some chairs.' },
+          { type: 'fill_gap',        sentence: '_____ a supermarket near here?',                    answer: 'Is there',  hint: 'Pergunta com substantivo singular',       explanation: '"Is there" é a pergunta com singular. "Is there a supermarket near here?"' },
+          { type: 'fill_gap',        sentence: '_____ any buses on Sundays?',                       answer: 'Are there', hint: 'Pergunta com plural',                    explanation: '"Are there" é a pergunta com plural: "Are there any buses on Sundays?"' },
+          { type: 'fill_gap',        sentence: 'There _____ (not) any bread left.',                 answer: "isn't",     hint: 'Negativa com singular incontável',        explanation: '"There isn\'t any bread" — negativa com substantivo incontável singular.' },
+          { type: 'fix_error',       sentence: 'There is some students in the classroom.',          answer: 'There are some students in the classroom.', hint: '"Students" é plural', explanation: '"Students" é plural — use "There are", não "There is".' },
+          { type: 'fix_error',       sentence: 'Is there some water in the bottle?',                answer: 'Is there any water in the bottle?',  hint: 'Pergunta = "any"',   explanation: 'Em perguntas, usamos "any" (não "some"): Is there any water?' },
+          { type: 'read_answer',     passage: 'In my neighbourhood, there is a park and a small café. There are two supermarkets and some restaurants. There isn\'t a cinema, but there are some art galleries.', question: 'Is there a cinema in the neighbourhood? (yes/no)', answer: 'no', explanation: 'O texto diz: "There isn\'t a cinema."' },
+        ],
+      },
+
+      // ── Topic 2 — Quantifiers ─────────────────────────────────────────────
+      {
+        title: 'Quantifiers — a lot of, many, much, a few, a little',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I don\'t have _____ time right now.',               answer: 'much',      options: ['much', 'many', 'a few'],             explanation: '"Much" é usado com substantivos incontáveis (não plurais): much time, much money.' },
+          { type: 'multiple_choice', sentence: 'She has _____ friends in the city.',                 answer: 'many',      options: ['many', 'much', 'a little'],          explanation: '"Many" é usado com substantivos contáveis no plural: many friends, many books.' },
+          { type: 'word_bank',       sentence: 'I need _____ more time to finish.',                 answer: 'a little',  choices: ['a little', 'a few', 'many', 'much'], explanation: '"A little" = um pouco — usado com substantivos incontáveis: a little time, a little money.' },
+          { type: 'word_bank',       sentence: 'There are _____ people in the queue.',              answer: 'a lot of',  choices: ['a lot of', 'much', 'a little', 'a few'], explanation: '"A lot of" pode ser usado com contáveis e incontáveis: a lot of people, a lot of water.' },
+          { type: 'fill_gap',        sentence: 'I have _____ dollars left — just 5.',               answer: 'a few',     hint: 'Pouco quantidade — plural contável',      explanation: '"A few" = alguns poucos — usado com substantivos contáveis no plural.' },
+          { type: 'fill_gap',        sentence: 'Do you have _____ money for the bus?',              answer: 'any',       hint: 'Pergunta sobre quantidade incontável',    explanation: '"Any" é usado em perguntas: Do you have any money?' },
+          { type: 'fill_gap',        sentence: 'There is _____ sugar in the bowl — add more.',     answer: 'a little',  hint: 'Uma pequena quantidade de algo incontável', explanation: '"A little sugar" = um pouco de açúcar. Usado com incontáveis em sentido positivo.' },
+          { type: 'fix_error',       sentence: 'I drink much coffees every day.',                   answer: 'I drink a lot of coffee every day.',       hint: '"Coffee" é incontável — não pluraliza', explanation: '"Coffee" é incontável — não tem plural. Use "a lot of coffee".' },
+          { type: 'fix_error',       sentence: 'She has much friends at school.',                   answer: 'She has many friends at school.',          hint: '"Friends" é plural contável',          explanation: '"Friends" é contável no plural — use "many", não "much".' },
+          { type: 'read_answer',     passage: 'The recipe needs a little salt, a lot of tomatoes, a few cloves of garlic, and much patience! It\'s easy, but it takes a lot of time.', question: 'How much garlic does the recipe need?', answer: 'a few cloves', explanation: 'O texto diz: "a few cloves of garlic."' },
+        ],
+      },
+
+      // ── Topic 3 — How much / How many ────────────────────────────────────
+      {
+        title: 'WH- questions — how much / how many + review',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ water do you drink per day?',                 answer: 'How much',  options: ['How much', 'How many', 'How often'],  explanation: '"How much" é usado com incontáveis: How much water? How much time?' },
+          { type: 'multiple_choice', sentence: '_____ people are coming to the party?',             answer: 'How many',  options: ['How many', 'How much', 'How often'],  explanation: '"How many" é usado com contáveis no plural: How many people? How many books?' },
+          { type: 'word_bank',       sentence: '_____ languages do you speak?',                     answer: 'How many',  choices: ['How many', 'How much', 'How often', 'How long'], explanation: '"Languages" é contável e plural — use "How many languages?"' },
+          { type: 'word_bank',       sentence: '_____ does this cost?',                             answer: 'How much',  choices: ['How much', 'How many', 'What', 'How'], explanation: '"How much does this cost?" é a pergunta padrão para perguntar o preço.' },
+          { type: 'fill_gap',        sentence: '_____ sugar should I add?',                         answer: 'How much',  hint: 'Sugar é incontável',                     explanation: '"Sugar" é incontável — use "How much sugar?"' },
+          { type: 'fill_gap',        sentence: '_____ students are in the class?',                  answer: 'How many',  hint: 'Students é plural contável',             explanation: '"Students" é contável e plural — use "How many students?"' },
+          { type: 'fill_gap',        sentence: '_____ does it take to get there?',                  answer: 'How long',  hint: 'Pergunta sobre duração de tempo',        explanation: '"How long does it take?" pergunta a duração — quanto tempo leva.' },
+          { type: 'fix_error',       sentence: 'How many money do you have?',                       answer: 'How much money do you have?',              hint: '"Money" é incontável',      explanation: '"Money" é incontável — use "How much money?" (não "How many money").' },
+          { type: 'fix_error',       sentence: 'How much brothers do you have?',                    answer: 'How many brothers do you have?',           hint: '"Brothers" é plural contável', explanation: '"Brothers" é contável no plural — use "How many brothers?" (não "How much").' },
+          { type: 'read_answer',     passage: 'A: How many hours do you work per week? B: About 40 hours. A: And how much do you earn? B: I earn around R$3,000 per month. A: How long have you been in this job? B: Almost two years.', question: 'How much does person B earn per month?', answer: 'R$3,000', explanation: 'O texto diz: "I earn around R$3,000 per month."' },
+        ],
+      },
+
+      // ── Topic 4 — Can / can't ─────────────────────────────────────────────
+      {
+        title: "Can / can't — ability, possibility & permission",
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She _____ speak three languages.',                   answer: 'can',       options: ['can', 'cans', 'could'],              explanation: '"Can" é um modal — não muda com he/she/it. Sempre "she can", nunca "she cans".' },
+          { type: 'multiple_choice', sentence: '_____ I use your phone for a moment?',               answer: 'Can',       options: ['Can', 'Do', 'Am'],                  explanation: '"Can I...?" é usado para pedir permissão de forma educada e informal.' },
+          { type: 'word_bank',       sentence: 'I\'m sorry, you _____ enter without a ticket.',     answer: "can't",     choices: ["can't", "don't", "not can", "aren't"], explanation: '"Can\'t" = cannot — indica que algo não é permitido ou possível.' },
+          { type: 'word_bank',       sentence: 'He _____ swim, but he\'s learning.',                answer: "can't",     choices: ["can't", "doesn't", "isn't", "won't"], explanation: '"He can\'t swim" indica falta de habilidade — ele não sabe nadar.' },
+          { type: 'fill_gap',        sentence: '_____ you help me with this?',                       answer: 'Can',       hint: 'Pedido de ajuda',                        explanation: '"Can you help me?" é um pedido informal e educado de ajuda.' },
+          { type: 'fill_gap',        sentence: 'She _____ drive — she\'s only 15.',                  answer: "can't",     hint: 'Impossibilidade (não tem idade)',         explanation: '"Can\'t" indica impossibilidade: ela não pode dirigir porque tem apenas 15 anos.' },
+          { type: 'fill_gap',        sentence: 'I _____ hear you! The music is too loud.',           answer: "can't",     hint: 'Impossibilidade no momento',             explanation: '"Can\'t hear" indica impossibilidade no momento: o barulho impede de ouvir.' },
+          { type: 'fix_error',       sentence: 'She cans play the piano very well.',                 answer: 'She can play the piano very well.',        hint: '"Can" não muda com he/she/it',  explanation: '"Can" é modal e nunca recebe -s: she can (nunca "she cans").' },
+          { type: 'fix_error',       sentence: 'Can you to help me?',                                answer: 'Can you help me?',                         hint: 'Modal + forma base (sem "to")', explanation: 'Depois de modais como "can", o verbo fica na forma base sem "to": can help (não "can to help").' },
+          { type: 'read_answer',     passage: 'Miguel is very talented. He can speak English and Spanish. He can play the guitar and the drums. However, he can\'t draw at all, and he can\'t cook. He always burns everything!', question: 'Can Miguel cook? (yes/no)', answer: 'no', explanation: 'O texto diz: "he can\'t cook." — Miguel não sabe cozinhar.' },
+        ],
+      },
     ],
   },
 
@@ -191,9 +527,59 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Present Continuous',
     topics: [
-      { title: 'Present Continuous — affirmative & negative',              grammar: [], pronunciation: [] },
-      { title: 'Present Continuous — questions',                           grammar: [], pronunciation: [] },
-      { title: 'Present Simple vs. Present Continuous',                    grammar: [], pronunciation: [] },
+      // ── Topic 1 — Present Continuous affirmative & negative ───────────────
+      {
+        title: 'Present Continuous — affirmative & negative',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She _____ a book right now.',                       answer: 'is reading', options: ['is reading', 'reads', 'reading'],    explanation: '"Is reading" = Present Continuous. Usado para ações em andamento agora.' },
+          { type: 'multiple_choice', sentence: 'They _____ football at the moment.',                 answer: "aren't playing", options: ["aren't playing", "don't play", "not playing"], explanation: '"Aren\'t playing" = negativa do Present Continuous com "they".' },
+          { type: 'word_bank',       sentence: 'I _____ my homework right now.',                    answer: "am doing",  choices: ["am doing", "do", "doing", "does"],    explanation: '"Am doing" = I + am + verbo-ing. Ação em andamento neste momento.' },
+          { type: 'word_bank',       sentence: 'He _____ on the phone. Don\'t disturb him.',        answer: "is talking", choices: ["is talking", "talks", "talk", "are talking"], explanation: '"Is talking" = he + is + verbo-ing. Ação acontecendo agora.' },
+          { type: 'fill_gap',        sentence: 'We _____ (have) dinner at the moment.',              answer: "are having", hint: '"We" + Present Continuous',              explanation: '"Are having" = we + are + verbo-ing. Ação em andamento agora.' },
+          { type: 'fill_gap',        sentence: 'It _____ (rain) outside. Bring an umbrella!',        answer: "is raining", hint: '"It" + Present Continuous',             explanation: '"Is raining" = it + is + verbo-ing. Chovendo neste exato momento.' },
+          { type: 'fill_gap',        sentence: 'She _____ (not/listen) — she\'s on her phone.',     answer: "isn't listening", hint: 'Negativa com "she"',               explanation: '"Isn\'t listening" = she + is not + verbo-ing. Negativa do Present Continuous.' },
+          { type: 'fix_error',       sentence: 'He is play video games right now.',                  answer: 'He is playing video games right now.',    hint: 'is + verbo + -ing',   explanation: 'Present Continuous = is/am/are + verbo-ING: "is playing" (não "is play").' },
+          { type: 'fix_error',       sentence: 'They are not study right now.',                      answer: 'They are not studying right now.',         hint: 'are + verbo + -ing',  explanation: 'Present Continuous negativo: are + not + verbo-ING: "not studying".' },
+          { type: 'read_answer',     passage: 'It\'s 8 pm. Dad is cooking dinner in the kitchen. Mum is reading a book on the sofa. The kids are doing their homework. Nobody is watching TV tonight.', question: 'What is Dad doing?', answer: 'cooking dinner', explanation: 'O texto diz: "Dad is cooking dinner in the kitchen."' },
+        ],
+      },
+
+      // ── Topic 2 — Present Continuous questions ────────────────────────────
+      {
+        title: 'Present Continuous — questions',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ you studying English now?',                    answer: 'Are',       options: ['Are', 'Do', 'Is'],                  explanation: 'Perguntas do Present Continuous: "Are" para I/you/we/they.' },
+          { type: 'multiple_choice', sentence: 'What _____ she doing?',                              answer: 'is',        options: ['is', 'are', 'does'],                explanation: '"What is she doing?" — "is" para perguntas com he/she/it.' },
+          { type: 'word_bank',       sentence: '_____ it raining outside?',                          answer: 'Is',        choices: ['Is', 'Are', 'Does', 'Do'],           explanation: '"Is it raining?" — pergunta do Present Continuous com "it".' },
+          { type: 'word_bank',       sentence: 'Where _____ they going?',                            answer: 'are',       choices: ['are', 'is', 'do', 'does'],           explanation: '"Where are they going?" — "are" para perguntas com "they".' },
+          { type: 'fill_gap',        sentence: 'Why _____ he crying?',                               answer: 'is',        hint: '"He" usa "is" no Present Continuous',    explanation: '"Why is he crying?" — "is" para perguntas com he/she/it.' },
+          { type: 'fill_gap',        sentence: 'A: _____ you listening to me? B: Yes, I am.',        answer: 'Are',       hint: '"You" usa "are"',                        explanation: '"Are you listening?" — pergunta do Present Continuous com "you".' },
+          { type: 'fill_gap',        sentence: 'What _____ you cooking? It smells amazing!',         answer: 'are',       hint: 'WH- + verbo auxiliar + sujeito',         explanation: '"What are you cooking?" — forma correta da pergunta WH- no Present Continuous.' },
+          { type: 'fix_error',       sentence: 'Is they coming to the party?',                       answer: 'Are they coming to the party?',            hint: '"They" usa "are"',          explanation: '"They" usa "are", não "is": "Are they coming to the party?"' },
+          { type: 'fix_error',       sentence: 'What she is doing right now?',                       answer: 'What is she doing right now?',             hint: 'O auxiliar vem antes do sujeito', explanation: 'Em perguntas com WH-, o auxiliar vem antes do sujeito: "What is she doing?"' },
+          { type: 'read_answer',     passage: 'A: Are you coming to lunch? B: No, I\'m working. A: What are you working on? B: I\'m writing a report. A: Is your colleague helping you? B: No, she\'s at a meeting.', question: 'What is the colleague doing?', answer: 'at a meeting', explanation: 'O texto diz: "she\'s at a meeting."' },
+        ],
+      },
+
+      // ── Topic 3 — Present Simple vs. Present Continuous ──────────────────
+      {
+        title: 'Present Simple vs. Present Continuous',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I _____ coffee every morning. (hábito)',             answer: 'drink',     options: ['drink', 'am drinking', 'drinks'],    explanation: 'Hábitos e rotinas usam o Present Simple: "I drink coffee every morning."' },
+          { type: 'multiple_choice', sentence: 'Shh! The baby _____ right now.',                     answer: 'is sleeping', options: ['is sleeping', 'sleeps', 'sleep'],  explanation: 'Ação em andamento agora: Present Continuous. "The baby is sleeping right now."' },
+          { type: 'word_bank',       sentence: 'She _____ to work by bike today — her car is broken.', answer: 'is cycling', choices: ['is cycling', 'cycles', 'cycle', 'cycling'], explanation: 'Ação temporária e atual: Present Continuous. Hoje ela está de bicicleta (diferente do normal).' },
+          { type: 'word_bank',       sentence: 'He _____ in the city centre. (residência permanente)', answer: 'lives',   choices: ['lives', 'is living', 'live', 'is lives'], explanation: 'Situação permanente: Present Simple. "He lives in the city centre."' },
+          { type: 'fill_gap',        sentence: 'I _____ (not understand) what you mean.',             answer: "don't understand", hint: 'Estado mental — não usa Continuous', explanation: 'Verbos de estado (understand, know, like, want) não usam Present Continuous.' },
+          { type: 'fill_gap',        sentence: 'Look! They _____ (dance) in the street!',             answer: "are dancing", hint: 'Ação visível acontecendo agora',       explanation: '"Look!" indica ação em andamento agora — use Present Continuous.' },
+          { type: 'fill_gap',        sentence: 'She usually _____ (take) the subway, but today she _____ (drive).', answer: 'takes / is driving', hint: 'Hábito vs. ação atual', explanation: 'Hábito = Present Simple (takes). Ação de hoje (diferente do hábito) = Present Continuous (is driving).' },
+          { type: 'fix_error',       sentence: 'I am knowing the answer.',                           answer: 'I know the answer.',                      hint: '"Know" é verbo de estado',   explanation: '"Know" é um verbo de estado — não usa Present Continuous. Use Present Simple: "I know."' },
+          { type: 'fix_error',       sentence: 'She is go to the gym every day.',                    answer: 'She goes to the gym every day.',           hint: 'Rotina diária = Present Simple', explanation: 'Rotinas e hábitos usam Present Simple. "Goes" (não "is going") para hábito diário.' },
+          { type: 'read_answer',     passage: 'Clara normally works in an office, but this week she is working from home. She usually wakes up at 7 am, but today she is still sleeping at 9 am. Her cat is sitting on her laptop right now.', question: 'Where is Clara working this week?', answer: 'from home', explanation: 'O texto diz: "this week she is working from home."' },
+        ],
+      },
     ],
   },
 
@@ -201,9 +587,59 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Adjectives & Comparison',
     topics: [
-      { title: 'Adjectives — description + order',                         grammar: [], pronunciation: [] },
-      { title: 'Comparative adjectives (-er / more + than)',               grammar: [], pronunciation: [] },
-      { title: 'Superlative adjectives (the -est / the most)',             grammar: [], pronunciation: [] },
+      // ── Topic 1 — Adjectives: description + order ─────────────────────────
+      {
+        title: 'Adjectives — description + order',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She has _____ eyes.',                                answer: 'beautiful blue', options: ['beautiful blue', 'blue beautiful', 'beauty blue'], explanation: 'Em inglês, a ordem dos adjetivos é: opinião + cor. "Beautiful blue eyes" (não "blue beautiful").' },
+          { type: 'multiple_choice', sentence: 'They live in a _____ house.',                         answer: 'big old',   options: ['big old', 'old big', 'oldly big'],   explanation: 'Ordem correta: tamanho + idade. "A big old house" (tamanho antes da idade).' },
+          { type: 'word_bank',       sentence: 'He bought a _____ car.',                              answer: 'fast red',  choices: ['fast red', 'red fast', 'fastly red', 'redding fast'], explanation: 'Ordem: opinião/qualidade + cor. "A fast red car" (qualidade antes da cor).' },
+          { type: 'word_bank',       sentence: 'She\'s a _____ teacher.',                             answer: 'great',     choices: ['great', 'greatly', 'greating', 'greatful'], explanation: 'Adjetivos em inglês não mudam com o gênero do substantivo: "a great teacher" sempre.' },
+          { type: 'fill_gap',        sentence: 'This is a _____ (interest) film.',                    answer: 'interesting', hint: 'Adjetivo derivado de verbo + -ing',     explanation: '"Interesting" é o adjetivo correto. "-Ing adjectives" descrevem o que provoca emoção.' },
+          { type: 'fill_gap',        sentence: 'I\'m _____ (bore) — there\'s nothing to do!',        answer: 'bored',     hint: 'Adjetivo que descreve como a pessoa se sente', explanation: '"Bored" = entediado. "-Ed adjectives" descrevem como a pessoa se sente.' },
+          { type: 'fill_gap',        sentence: 'What a _____ (sun) day! Let\'s go to the beach.',    answer: 'sunny',     hint: 'Adjetivo derivado de substantivo + y',  explanation: '"Sunny" = ensolarado. Muitos adjetivos se formam adicionando -y ao substantivo.' },
+          { type: 'fix_error',       sentence: 'She is a tall and beautifull woman.',                 answer: 'She is a tall and beautiful woman.',       hint: 'Verifique a ortografia de "beautiful"', explanation: 'A grafia correta é "beautiful" (não "beautifull").' },
+          { type: 'fix_error',       sentence: 'I feel very tiredly today.',                          answer: 'I feel very tired today.',                 hint: 'Após "feel", use adjetivo (não advérbio)', explanation: 'Após verbos de ligação como "feel", use adjetivo: "tired" (não o advérbio "tiredly").' },
+          { type: 'read_answer',     passage: 'My new apartment is small but cosy. It has a beautiful view of the river. The walls are white and the furniture is modern. I love my new neighbourhood — it\'s lively and safe.', question: 'How is the neighbourhood described?', answer: 'lively and safe', explanation: 'O texto diz: "it\'s lively and safe."' },
+        ],
+      },
+
+      // ── Topic 2 — Comparative adjectives ─────────────────────────────────
+      {
+        title: 'Comparative adjectives (-er / more + than)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'Brazil is _____ Portugal.',                           answer: 'bigger than', options: ['bigger than', 'more big than', 'biggest than'], explanation: 'Adjetivos curtos (1-2 sílabas) formam o comparativo com -er + than: big → bigger than.' },
+          { type: 'multiple_choice', sentence: 'This exercise is _____ the last one.',                answer: 'more difficult than', options: ['more difficult than', 'difficulter than', 'difficult than'], explanation: 'Adjetivos longos (3+ sílabas) formam o comparativo com "more + adjetivo + than".' },
+          { type: 'word_bank',       sentence: 'She is _____ her brother.',                           answer: 'taller than', choices: ['taller than', 'more tall than', 'tall than', 'tallest'], explanation: '"Tall" é curto — comparativo: taller than. (Não "more tall").' },
+          { type: 'word_bank',       sentence: 'This film is _____ the book.',                        answer: 'more interesting than', choices: ['more interesting than', 'interestinger than', 'most interesting', 'interesting than'], explanation: '"Interesting" (4 sílabas) = more interesting than. Nunca "interestinger".' },
+          { type: 'fill_gap',        sentence: 'January is _____ (cold) than March here.',            answer: 'colder',    hint: 'Comparativo de adjetivo curto',           explanation: '"Cold" → comparativo: colder. Janeiro é mais frio que março.' },
+          { type: 'fill_gap',        sentence: 'This book is _____ (expensive) than that one.',       answer: 'more expensive', hint: 'Comparativo de adjetivo longo',          explanation: '"Expensive" (3 sílabas) → more expensive. Nunca "expensiver".' },
+          { type: 'fill_gap',        sentence: 'My new phone is _____ (good) than the old one.',      answer: 'better',    hint: 'Comparativo irregular de "good"',          explanation: '"Good" tem comparativo irregular: better (não "more good" ou "gooder").' },
+          { type: 'fix_error',       sentence: 'London is more big than Dublin.',                     answer: 'London is bigger than Dublin.',            hint: '"Big" é curto — use -er',     explanation: '"Big" é um adjetivo curto — comparativo: bigger. "More big" está errado.' },
+          { type: 'fix_error',       sentence: 'This is more easy than I thought.',                   answer: 'This is easier than I thought.',           hint: '"Easy" → comparativo com regra de -y', explanation: 'Adjetivos terminados em consoante + y: troque y por i e adicione -er. easy → easier.' },
+          { type: 'read_answer',     passage: 'Leo compared two apartments. The first one is bigger and cheaper, but the second is more modern and more comfortable. The first is closer to work, but the second has a better view.', question: 'Which apartment is more comfortable?', answer: 'the second', explanation: 'O texto diz: "the second is more modern and more comfortable."' },
+        ],
+      },
+
+      // ── Topic 3 — Superlative adjectives ─────────────────────────────────
+      {
+        title: 'Superlative adjectives (the -est / the most)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'Mount Everest is _____ mountain in the world.',       answer: 'the highest', options: ['the highest', 'the most high', 'higher'], explanation: 'Adjetivos curtos formam o superlativo com "the + -est": high → the highest.' },
+          { type: 'multiple_choice', sentence: 'That was _____ film I\'ve ever seen.',                answer: 'the most boring', options: ['the most boring', 'the boringest', 'most boring'], explanation: 'Adjetivos longos formam o superlativo com "the most + adjetivo": the most boring.' },
+          { type: 'word_bank',       sentence: 'She is _____ student in the class.',                  answer: 'the best',  choices: ['the best', 'the most good', 'the goodest', 'better'], explanation: '"Good" tem superlativo irregular: the best (não "the most good" ou "the goodest").' },
+          { type: 'word_bank',       sentence: 'This is _____ day of my life!',                       answer: 'the worst', choices: ['the worst', 'the most bad', 'the baddest', 'worse'], explanation: '"Bad" tem superlativo irregular: the worst (não "the most bad").' },
+          { type: 'fill_gap',        sentence: 'It was _____ (hot) day of the year.',                 answer: 'the hottest', hint: 'CVC → dobre a consoante final + -est',   explanation: '"Hot" (CVC: consoante-vogal-consoante) → dobra o t: the hottest.' },
+          { type: 'fill_gap',        sentence: 'He is _____ (popular) person in the office.',         answer: 'the most popular', hint: 'Adjetivo longo → "the most"',          explanation: '"Popular" (3 sílabas) → superlativo: the most popular.' },
+          { type: 'fill_gap',        sentence: 'This is _____ (easy) exercise in the book.',          answer: 'the easiest', hint: 'Consoante + y → the + i + est',           explanation: 'easy → the easiest. Consoante + y: troque y por i e adicione -est.' },
+          { type: 'fix_error',       sentence: 'This is the most cheap restaurant in town.',          answer: 'This is the cheapest restaurant in town.', hint: '"Cheap" é curto — use -est', explanation: '"Cheap" (1 sílaba) = adjetivo curto → the cheapest (não "the most cheap").' },
+          { type: 'fix_error',       sentence: 'She is the most tall girl in the team.',              answer: 'She is the tallest girl in the team.',    hint: '"Tall" é curto — use -est',  explanation: '"Tall" (1 sílaba) → the tallest. Não se usa "the most tall".' },
+          { type: 'read_answer',     passage: 'The Amazon is the largest river in the world. Brazil has the most biodiverse ecosystem on the planet. São Paulo is the most populated city in South America and one of the busiest in the world.', question: 'What is the Amazon described as?', answer: 'the largest river in the world', explanation: 'O texto diz: "The Amazon is the largest river in the world."' },
+        ],
+      },
     ],
   },
 
@@ -211,11 +647,95 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Past Simple',
     topics: [
-      { title: 'Past Simple — verb To Be (was / were)',                    grammar: [], pronunciation: [] },
-      { title: 'Past Simple — regular verbs',                              grammar: [], pronunciation: [] },
-      { title: 'Past Simple — irregular verbs Set 1',                      grammar: [], pronunciation: [] },
-      { title: 'Past Simple — irregular verbs Set 2',                      grammar: [], pronunciation: [] },
-      { title: 'Past Simple — questions (Did + base form)',                grammar: [], pronunciation: [] },
+      // ── Topic 1 — Past Simple: was / were ────────────────────────────────
+      {
+        title: 'Past Simple — verb To Be (was / were)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'Yesterday I _____ very tired.',                      answer: 'was',       options: ['was', 'were', 'am'],                 explanation: '"Was" é o passado de "is/am" — usado com I, he, she, it.' },
+          { type: 'multiple_choice', sentence: 'They _____ at the beach last weekend.',               answer: 'were',      options: ['were', 'was', 'are'],               explanation: '"Were" é o passado de "are" — usado com you, we, they.' },
+          { type: 'word_bank',       sentence: 'The weather _____ perfect last summer.',              answer: 'was',       choices: ['was', 'were', 'is', 'be'],           explanation: '"The weather" é singular → "was" (passado de "is").' },
+          { type: 'word_bank',       sentence: 'We _____ happy about the result.',                    answer: 'were',      choices: ['were', 'was', 'are', 'be'],          explanation: '"We" (plural) → "were" no passado.' },
+          { type: 'fill_gap',        sentence: 'He _____ (not) at the party last night.',             answer: "wasn't",    hint: 'Negativa no passado com he',             explanation: '"Wasn\'t" = was not — negativa do passado com he/she/it/I.' },
+          { type: 'fill_gap',        sentence: 'A: _____ you at school yesterday? B: Yes, I was.',   answer: 'Were',      hint: 'Pergunta no passado com "you"',           explanation: '"Were you...?" é a pergunta do passado com "you".' },
+          { type: 'fill_gap',        sentence: 'The children _____ (not) quiet during the film.',     answer: "weren't",   hint: 'Negativa no passado com plural',          explanation: '"Weren\'t" = were not — negativa do passado com we/you/they.' },
+          { type: 'fix_error',       sentence: 'He were very nervous before the exam.',               answer: 'He was very nervous before the exam.',    hint: '"He" usa "was" no passado',  explanation: '"He" (singular) usa "was" no passado, não "were".' },
+          { type: 'fix_error',       sentence: 'They was late for the meeting.',                      answer: 'They were late for the meeting.',          hint: '"They" usa "were" no passado', explanation: '"They" (plural) usa "were" no passado, não "was".' },
+          { type: 'read_answer',     passage: 'Last Saturday, Ana and her friends were at a theme park. The weather wasn\'t great, but they were happy. Ana was scared on the roller coaster. Her friends were brave!', question: 'How did Ana feel on the roller coaster?', answer: 'scared', explanation: 'O texto diz: "Ana was scared on the roller coaster."' },
+        ],
+      },
+
+      // ── Topic 2 — Past Simple: regular verbs ─────────────────────────────
+      {
+        title: 'Past Simple — regular verbs',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She _____ dinner at 7 pm yesterday.',                answer: 'cooked',    options: ['cooked', 'cook', 'cooks'],            explanation: 'Verbos regulares formam o passado simples adicionando -ed: cook → cooked.' },
+          { type: 'multiple_choice', sentence: 'I _____ my keys this morning.',                       answer: 'dropped',   options: ['dropped', 'droped', 'drop'],          explanation: 'Verbos CVC (consoante-vogal-consoante): dobre a consoante final + -ed: drop → dropped.' },
+          { type: 'word_bank',       sentence: 'They _____ to music all night.',                      answer: 'listened',  choices: ['listened', 'listen', 'listened to', 'listenings'], explanation: 'listen → listened. Verbo regular: adicione -ed.' },
+          { type: 'word_bank',       sentence: 'He _____ English for two years.',                     answer: 'studied',   choices: ['studied', 'studyed', 'study', 'studying'], explanation: 'Verbos terminados em consoante + y: troque y por i e adicione -ed: study → studied.' },
+          { type: 'fill_gap',        sentence: 'I _____ (walk) to school this morning.',              answer: 'walked',    hint: 'Regular: + -ed',                         explanation: 'walk → walked. Verbo regular: adicione -ed.' },
+          { type: 'fill_gap',        sentence: 'She _____ (dance) until midnight.',                   answer: 'danced',    hint: 'Termina em -e: adicione apenas -d',       explanation: 'Verbos terminados em -e silencioso: adicione apenas -d. dance → danced.' },
+          { type: 'fill_gap',        sentence: 'We _____ (stop) at a café on the way.',               answer: 'stopped',   hint: 'CVC: dobre a consoante + -ed',            explanation: '"Stop" termina em CVC → dobre o p: stopped.' },
+          { type: 'fix_error',       sentence: 'She goed to the market yesterday.',                   answer: 'She went to the market yesterday.',        hint: '"Go" é irregular no passado',  explanation: '"Go" é irregular — passado: "went" (não "goed").' },
+          { type: 'fix_error',       sentence: 'I cryed during the film.',                            answer: 'I cried during the film.',                 hint: 'Consoante + y → ied',          explanation: '"Cry" termina em consoante + y → troque y por i + ed: cried (não "cryed").' },
+          { type: 'read_answer',     passage: 'Last Sunday, Pedro woke up late, cooked a big breakfast, and called his mum. In the afternoon, he cleaned his apartment and watched a football match on TV. He relaxed all day!', question: 'What did Pedro do in the afternoon?', answer: 'cleaned his apartment and watched a football match', explanation: 'O texto diz: "he cleaned his apartment and watched a football match on TV."' },
+        ],
+      },
+
+      // ── Topic 3 — Past Simple: irregular verbs Set 1 ─────────────────────
+      {
+        title: 'Past Simple — irregular verbs Set 1',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I _____ a great film last night.',                    answer: 'saw',       options: ['saw', 'seed', 'seen'],               explanation: '"See" é irregular — passado simples: saw. (Não "seed" ou "seen" que é particípio).' },
+          { type: 'multiple_choice', sentence: 'She _____ a new dress for the party.',                answer: 'bought',    options: ['bought', 'buyed', 'buyed'],           explanation: '"Buy" é irregular — passado simples: bought.' },
+          { type: 'word_bank',       sentence: 'He _____ the bus to school this morning.',            answer: 'took',      choices: ['took', 'taked', 'taken', 'takes'],    explanation: '"Take" é irregular — passado simples: took.' },
+          { type: 'word_bank',       sentence: 'We _____ lunch together at noon.',                    answer: 'had',       choices: ['had', 'haved', 'have', 'has'],        explanation: '"Have" é irregular — passado simples: had.' },
+          { type: 'fill_gap',        sentence: 'She _____ (come) home very late yesterday.',          answer: 'came',      hint: 'Irregular: come → ?',                    explanation: '"Come" é irregular — passado simples: came.' },
+          { type: 'fill_gap',        sentence: 'I _____ (know) the answer immediately.',              answer: 'knew',      hint: 'Irregular: know → ?',                    explanation: '"Know" é irregular — passado simples: knew.' },
+          { type: 'fill_gap',        sentence: 'They _____ (go) to the beach last Saturday.',         answer: 'went',      hint: 'Irregular: go → ?',                      explanation: '"Go" é irregular — passado simples: went.' },
+          { type: 'fix_error',       sentence: 'I gived her a birthday present.',                     answer: 'I gave her a birthday present.',           hint: '"Give" é irregular',          explanation: '"Give" é irregular — passado simples: gave (não "gived").' },
+          { type: 'fix_error',       sentence: 'He thinked about it for a long time.',                answer: 'He thought about it for a long time.',     hint: '"Think" é irregular',          explanation: '"Think" é irregular — passado simples: thought (não "thinked").' },
+          { type: 'read_answer',     passage: 'Last year, Camila took a trip to Europe. She went to Paris, Rome, and Barcelona. She saw many famous landmarks and ate amazing food. She spent three weeks travelling and came back exhausted but happy.', question: 'How long did Camila travel for?', answer: 'three weeks', explanation: 'O texto diz: "She spent three weeks travelling."' },
+        ],
+      },
+
+      // ── Topic 4 — Past Simple: irregular verbs Set 2 ─────────────────────
+      {
+        title: 'Past Simple — irregular verbs Set 2',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She _____ very fast and won the race.',               answer: 'ran',       options: ['ran', 'runned', 'run'],              explanation: '"Run" é irregular — passado simples: ran.' },
+          { type: 'multiple_choice', sentence: 'I _____ him at the party last Friday.',               answer: 'met',       options: ['met', 'meeted', 'meet'],             explanation: '"Meet" é irregular — passado simples: met.' },
+          { type: 'word_bank',       sentence: 'He _____ the guitar at the concert.',                 answer: 'played',    choices: ['played', 'plaid', 'play', 'plaied'],  explanation: '"Play" é regular — passado simples: played (+ed).' },
+          { type: 'word_bank',       sentence: 'They _____ a great time at the wedding.',             answer: 'had',       choices: ['had', 'have', 'haved', 'has'],        explanation: '"Have a great time" no passado: had a great time.' },
+          { type: 'fill_gap',        sentence: 'I _____ (write) a letter to my friend.',              answer: 'wrote',     hint: 'Irregular: write → ?',                   explanation: '"Write" é irregular — passado simples: wrote.' },
+          { type: 'fill_gap',        sentence: 'She _____ (find) her lost keys under the sofa.',      answer: 'found',     hint: 'Irregular: find → ?',                    explanation: '"Find" é irregular — passado simples: found.' },
+          { type: 'fill_gap',        sentence: 'He _____ (tell) me the news yesterday.',              answer: 'told',      hint: 'Irregular: tell → ?',                    explanation: '"Tell" é irregular — passado simples: told.' },
+          { type: 'fix_error',       sentence: 'She weared a beautiful dress to the party.',          answer: 'She wore a beautiful dress to the party.', hint: '"Wear" é irregular',           explanation: '"Wear" é irregular — passado simples: wore (não "weared").' },
+          { type: 'fix_error',       sentence: 'They singed a great song at the concert.',            answer: 'They sang a great song at the concert.',   hint: '"Sing" é irregular',           explanation: '"Sing" é irregular — passado simples: sang (não "singed").' },
+          { type: 'read_answer',     passage: 'Yesterday Tom woke up early and made coffee. He read the news on his phone and then drove to work. At the office, he spoke to his boss and wrote three reports. He left work at 6 pm and met his friend for dinner.', question: 'How did Tom get to work?', answer: 'drove', explanation: 'O texto diz: "then drove to work."' },
+        ],
+      },
+
+      // ── Topic 5 — Past Simple: questions ─────────────────────────────────
+      {
+        title: 'Past Simple — questions (Did + base form)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ you go to the cinema last night?',              answer: 'Did',       options: ['Did', 'Was', 'Do'],                  explanation: '"Did" é o auxiliar para perguntas no Past Simple. Sempre seguido de verbo na forma base.' },
+          { type: 'multiple_choice', sentence: 'What time _____ she arrive?',                         answer: 'did',       options: ['did', 'was', 'does'],               explanation: '"What time did she arrive?" — "did" é o auxiliar do Past Simple em perguntas.' },
+          { type: 'word_bank',       sentence: '_____ they enjoy the film?',                          answer: 'Did',       choices: ['Did', 'Was', 'Were', 'Do'],          explanation: '"Did they enjoy?" — perguntas Past Simple usam "Did" para todos os sujeitos.' },
+          { type: 'word_bank',       sentence: 'Where _____ you go on holiday?',                      answer: 'did',       choices: ['did', 'were', 'was', 'do'],          explanation: '"Where did you go?" — WH- + did + sujeito + verbo base.' },
+          { type: 'fill_gap',        sentence: 'A: _____ he call you? B: No, he didn\'t.',            answer: 'Did',       hint: 'Pergunta Past Simple',                   explanation: '"Did he call you?" — pergunta Past Simple. Resposta negativa: "No, he didn\'t."' },
+          { type: 'fill_gap',        sentence: 'A: Did she _____ (like) the gift? B: Yes, she did.', answer: 'like',      hint: 'Após "did", verbo na forma base',         explanation: 'Após "did", o verbo fica na forma base: like (não "liked").' },
+          { type: 'fill_gap',        sentence: 'Why _____ you leave early yesterday?',                answer: 'did',       hint: 'WH- + auxiliar Past Simple',             explanation: '"Why did you leave?" — WH- + did + sujeito + verbo base.' },
+          { type: 'fix_error',       sentence: 'Did she went to the party?',                          answer: 'Did she go to the party?',                 hint: 'Após "did", verbo na forma base', explanation: 'Depois de "did", o verbo fica na forma base: go (não "went").' },
+          { type: 'fix_error',       sentence: 'What did he said to you?',                            answer: 'What did he say to you?',                  hint: 'Após "did", verbo na forma base', explanation: 'Depois de "did", o verbo fica na forma base: say (não "said").' },
+          { type: 'read_answer',     passage: 'A: Did you have a good weekend? B: Yes, it was great! A: What did you do? B: I went to a concert and then had dinner with friends. A: Did you enjoy the concert? B: Loved it! The band played all their best songs.', question: 'What did person B do after the concert?', answer: 'had dinner with friends', explanation: 'O texto diz: "I went to a concert and then had dinner with friends."' },
+        ],
+      },
     ],
   },
 
@@ -223,10 +743,77 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Past Continuous & Obligation',
     topics: [
-      { title: 'Past Continuous — affirmative, negative & questions',      grammar: [], pronunciation: [] },
-      { title: 'Past Continuous — while / when clauses',                   grammar: [], pronunciation: [] },
-      { title: 'Have to / don\'t have to (obligation)',                    grammar: [], pronunciation: [] },
-      { title: 'Should / shouldn\'t (advice)',                             grammar: [], pronunciation: [] },
+      // ── Topic 1 — Past Continuous ─────────────────────────────────────────
+      {
+        title: 'Past Continuous — affirmative, negative & questions',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'At 8 pm, she _____ her favourite show.',              answer: 'was watching', options: ['was watching', 'watched', 'watches'], explanation: '"Was watching" = Past Continuous. Ação em andamento em um momento específico do passado.' },
+          { type: 'multiple_choice', sentence: 'They _____ when the teacher arrived.',                answer: 'were talking', options: ['were talking', 'talked', 'were talk'],  explanation: '"Were talking" = Past Continuous com "they". Ação em andamento quando algo aconteceu.' },
+          { type: 'word_bank',       sentence: 'I _____ at 10 pm — I was exhausted.',                answer: "was sleeping", choices: ["was sleeping", "slept", "sleep", "sleeping"], explanation: '"Was sleeping" = I + was + verbo-ing. Ação em andamento no passado.' },
+          { type: 'word_bank',       sentence: 'He _____ a shower when the phone rang.',              answer: "was having",  choices: ["was having", "had", "have", "having"], explanation: '"Was having" = Past Continuous. Ação em andamento quando o telefone tocou.' },
+          { type: 'fill_gap',        sentence: 'We _____ (not/work) yesterday — it was a holiday.',  answer: "weren't working", hint: 'Negativa Past Continuous com "we"',    explanation: '"Weren\'t working" = were not + working. Negativa do Past Continuous.' },
+          { type: 'fill_gap',        sentence: '_____ she _____ (listen) to music?',                  answer: 'Was / listening', hint: 'Pergunta Past Continuous com "she"',  explanation: '"Was she listening?" — pergunta do Past Continuous com she/he/it.' },
+          { type: 'fill_gap',        sentence: 'It _____ (snow) all night.',                          answer: "was snowing", hint: '"It" + Past Continuous',                 explanation: '"Was snowing" = it + was + verbo-ing. Descrevendo o clima no passado.' },
+          { type: 'fix_error',       sentence: 'I were sleeping when you called.',                    answer: 'I was sleeping when you called.',          hint: '"I" usa "was" no passado',   explanation: '"I" (primeira pessoa) usa "was" no Past Continuous, não "were".' },
+          { type: 'fix_error',       sentence: 'They was watching TV all evening.',                   answer: 'They were watching TV all evening.',       hint: '"They" usa "were"',           explanation: '"They" usa "were" no passado, não "was".' },
+          { type: 'read_answer',     passage: 'At 6 pm yesterday, the whole family was busy. Dad was cooking in the kitchen. Mum was reading emails. The twins were doing homework, and the dog was sleeping in its basket.', question: 'What was dad doing at 6 pm?', answer: 'cooking', explanation: 'O texto diz: "Dad was cooking in the kitchen."' },
+        ],
+      },
+
+      // ── Topic 2 — Past Continuous: while / when ───────────────────────────
+      {
+        title: 'Past Continuous — while / when clauses',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I _____ TV when she called.',                         answer: 'was watching', options: ['was watching', 'watched', 'watch'],  explanation: '"Was watching" (ação em andamento) + "when she called" (ação que interrompeu).' },
+          { type: 'multiple_choice', sentence: 'While he _____, it started to rain.',                  answer: 'was driving', options: ['was driving', 'drove', 'drives'],     explanation: '"While he was driving" = ação em andamento que foi interrompida ou ocorreu em paralelo.' },
+          { type: 'word_bank',       sentence: 'She fell asleep _____ she was reading.',               answer: 'while',     choices: ['while', 'when', 'during', 'as soon'],  explanation: '"While" é usado com verbos — indica duas ações simultâneas. "While she was reading."' },
+          { type: 'word_bank',       sentence: 'He dropped his phone _____ he was running.',           answer: 'while',     choices: ['while', 'when', 'as', 'after'],       explanation: '"While he was running" = ação em andamento durante a qual algo aconteceu.' },
+          { type: 'fill_gap',        sentence: 'While they _____ (eat), the lights went out.',         answer: "were eating", hint: 'Past Continuous após "while"',            explanation: '"While they were eating" = ação em andamento. "The lights went out" = interrupção.' },
+          { type: 'fill_gap',        sentence: 'I _____ (meet) him when I _____ (work) in Rio.',      answer: 'met / was working', hint: 'Passado simples (evento) + Continuous (contexto)', explanation: '"Met" = evento único no passado. "Was working" = contexto/situação em andamento.' },
+          { type: 'fill_gap',        sentence: 'She _____ (check) her phone _____ the teacher was talking.', answer: 'was checking / while', hint: '"While" + ação em andamento',  explanation: '"She was checking her phone while the teacher was talking." — duas ações simultâneas.' },
+          { type: 'fix_error',       sentence: 'While I walked home, it started raining.',            answer: 'While I was walking home, it started raining.', hint: '"While" + Past Continuous',  explanation: '"While" indica ação em andamento → Past Continuous: "While I was walking."' },
+          { type: 'fix_error',       sentence: 'He was hurting his leg when he played football.',      answer: 'He hurt his leg when he was playing football.', hint: 'Evento = Past Simple; contexto = Continuous', explanation: '"Hurt his leg" = evento (Past Simple). "Was playing" = contexto em andamento (Continuous).' },
+          { type: 'read_answer',     passage: 'While Marco was cooking dinner, his wife was setting the table. Their daughter was doing her homework when her friend called. While they were having dinner, the dog kept barking at the window.', question: 'What was Marco\'s wife doing while he cooked?', answer: 'setting the table', explanation: 'O texto diz: "his wife was setting the table."' },
+        ],
+      },
+
+      // ── Topic 3 — Have to / don't have to ────────────────────────────────
+      {
+        title: "Have to / don't have to (obligation)",
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'You _____ a passport to travel abroad.',              answer: 'have to',   options: ['have to', 'must', 'need'],            explanation: '"Have to" indica obrigação externa (regra ou necessidade). Use com I/you/we/they.' },
+          { type: 'multiple_choice', sentence: 'She _____ wear a uniform at her new job.',             answer: 'has to',    options: ['has to', 'have to', 'must to'],       explanation: '"Has to" é a forma de "have to" para he/she/it na terceira pessoa.' },
+          { type: 'word_bank',       sentence: 'We _____ be here on Sunday. It\'s our day off.',      answer: "don't have to", choices: ["don't have to", "must not", "have to", "must"], explanation: '"Don\'t have to" = não é obrigação (é opcional). Diferente de "must not" (proibição).' },
+          { type: 'word_bank',       sentence: 'He _____ work overtime this weekend.',                 answer: "doesn't have to", choices: ["doesn't have to", "don't have to", "mustn't", "hasn't to"], explanation: '"Doesn\'t have to" = não é obrigação para he/she/it. Ele pode, mas não precisa.' },
+          { type: 'fill_gap',        sentence: 'Students _____ (have to) arrive before 8 am.',        answer: 'have to',   hint: 'Obrigação com "students" (plural)',        explanation: '"Have to" com sujeito plural: "Students have to arrive before 8 am."' },
+          { type: 'fill_gap',        sentence: 'She _____ (not/have to) cook — her husband loves it.', answer: "doesn't have to", hint: 'Sem obrigação para "she"',            explanation: '"Doesn\'t have to" = não é necessário. Ela não precisa cozinhar.' },
+          { type: 'fill_gap',        sentence: '_____ I _____ (have to) bring anything to the party?', answer: 'Do / have to', hint: 'Pergunta com "have to"',               explanation: '"Do I have to bring anything?" — pergunta sobre obrigação com I.' },
+          { type: 'fix_error',       sentence: 'She have to finish the report today.',                 answer: 'She has to finish the report today.',      hint: '"She" usa "has to"',          explanation: '"She" (terceira pessoa singular) usa "has to", não "have to".' },
+          { type: 'fix_error',       sentence: 'You must to study more.',                              answer: 'You must study more.',                     hint: '"Must" não usa "to"',          explanation: '"Must" é um modal — não usa "to". Correto: "You must study more."' },
+          { type: 'read_answer',     passage: 'At Marina\'s company, employees have to arrive by 9 am. They don\'t have to wear formal clothes on Fridays. The managers have to attend a weekly meeting on Mondays. Interns don\'t have to travel, but they have to complete all assigned tasks.', question: 'Do employees have to wear formal clothes on Fridays? (yes/no)', answer: 'no', explanation: 'O texto diz: "They don\'t have to wear formal clothes on Fridays."' },
+        ],
+      },
+
+      // ── Topic 4 — Should / shouldn't ─────────────────────────────────────
+      {
+        title: "Should / shouldn't (advice)",
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'You look tired. You _____ go to bed.',                answer: 'should',    options: ['should', 'must', 'have to'],          explanation: '"Should" dá conselho ou sugestão: "You should go to bed" = minha recomendação.' },
+          { type: 'multiple_choice', sentence: 'You _____ smoke — it\'s terrible for your health.',   answer: "shouldn't", options: ["shouldn't", "mustn't", "don't have to"], explanation: '"Shouldn\'t" = conselho negativo: não é uma boa ideia fumar.' },
+          { type: 'word_bank',       sentence: 'She _____ eat more vegetables.',                       answer: 'should',    choices: ['should', 'has to', 'must to', 'will'], explanation: '"Should" é conselho/recomendação — mais suave que "must" ou "have to".' },
+          { type: 'word_bank',       sentence: 'He _____ drive so fast in the rain.',                  answer: "shouldn't", choices: ["shouldn't", "mustn't", "doesn't have to", "can't"], explanation: '"Shouldn\'t drive so fast" = conselho negativo: não é uma boa ideia.' },
+          { type: 'fill_gap',        sentence: 'You _____ drink 8 glasses of water per day.',          answer: 'should',    hint: 'Conselho de saúde',                      explanation: '"Should" = conselho ou recomendação: beber água é bom para você.' },
+          { type: 'fill_gap',        sentence: 'We _____ (not) waste food — people are hungry.',      answer: "shouldn't", hint: 'Conselho negativo com "we"',              explanation: '"Shouldn\'t" = conselho negativo. Desperdiçar comida não é uma boa ideia.' },
+          { type: 'fill_gap',        sentence: '_____ I call her or send a message?',                  answer: 'Should',    hint: 'Pedindo conselho/sugestão',               explanation: '"Should I...?" é uma pergunta para pedir conselho ou opinião.' },
+          { type: 'fix_error',       sentence: 'He shoulds exercise more.',                            answer: 'He should exercise more.',                hint: '"Should" não muda com he/she/it', explanation: '"Should" é modal e não recebe -s. Sempre "he should" (nunca "shoulds").' },
+          { type: 'fix_error',       sentence: 'You should to eat less sugar.',                        answer: 'You should eat less sugar.',               hint: 'Modal + forma base (sem "to")', explanation: 'Depois de modais como "should", o verbo fica na forma base sem "to": should eat.' },
+          { type: 'read_answer',     passage: 'Doctor\'s advice: You should eat more fruit and vegetables every day. You shouldn\'t skip breakfast. You should exercise for at least 30 minutes, three times a week. You shouldn\'t stay up past midnight. Sleep is essential.', question: 'How often should the patient exercise?', answer: 'three times a week', explanation: 'O texto diz: "exercise for at least 30 minutes, three times a week."' },
+        ],
+      },
     ],
   },
 
@@ -234,11 +821,95 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Future & First Conditionals',
     topics: [
-      { title: 'Articles — the / zero article revisited',                  grammar: [], pronunciation: [] },
-      { title: 'Going to — future plans & intentions',                     grammar: [], pronunciation: [] },
-      { title: 'Will — predictions & spontaneous decisions',               grammar: [], pronunciation: [] },
-      { title: 'Going to vs. Will',                                        grammar: [], pronunciation: [] },
-      { title: 'Zero Conditional + First Conditional (intro)',             grammar: [], pronunciation: [] },
+      // ── Topic 1 — Articles: the / zero article ────────────────────────────
+      {
+        title: 'Articles — the / zero article revisited',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I love _____ music.',                                 answer: '—',         options: ['—', 'the', 'a'],                    explanation: 'Conceitos gerais e abstratos (music, love, life) não usam artigo: "I love music."' },
+          { type: 'multiple_choice', sentence: '_____ sun rises in the east.',                        answer: 'The',       options: ['The', 'A', '—'],                    explanation: '"The sun" — só existe um sol. Usamos "the" com coisas únicas no universo.' },
+          { type: 'word_bank',       sentence: 'She plays _____ piano beautifully.',                  answer: 'the',       choices: ['the', 'a', 'an', '—'],               explanation: '"Play the piano/the guitar" — instrumentos musicais usam "the".' },
+          { type: 'word_bank',       sentence: '_____ breakfast is the most important meal.',         answer: '—',         choices: ['—', 'The', 'A', 'An'],               explanation: 'Refeições (breakfast, lunch, dinner) não usam artigo: "Breakfast is important."' },
+          { type: 'fill_gap',        sentence: 'I go to _____ school by bus every day.',              answer: '—',         hint: 'Instituição — finalidade principal',      explanation: '"Go to school" = ir à escola (finalidade — estudar). Sem artigo neste sentido.' },
+          { type: 'fill_gap',        sentence: 'I visited _____ school where my dad used to teach.',  answer: 'the',       hint: 'Escola específica',                       explanation: '"The school where my dad used to teach" = escola específica e identificada. Usa "the".' },
+          { type: 'fill_gap',        sentence: 'She dreams of travelling _____ world one day.',       answer: 'the',       hint: 'Existe só um mundo',                      explanation: '"Travel the world" = único e específico. Use "the".' },
+          { type: 'fix_error',       sentence: 'The life is too short to be unhappy.',                answer: 'Life is too short to be unhappy.',         hint: 'Conceito geral — sem artigo',  explanation: '"Life" como conceito geral não usa artigo: "Life is too short."' },
+          { type: 'fix_error',       sentence: 'I play a guitar in a band.',                          answer: 'I play the guitar in a band.',             hint: 'Instrumento musical usa "the"',  explanation: '"Play the guitar" — instrumentos musicais usam "the". Não "a guitar".' },
+          { type: 'read_answer',     passage: 'The Amazon river is the longest river in South America. People around the world know Brazil for its music, football, and natural beauty. Many tourists visit the country every year to see the natural wonders.', question: 'What is Brazil known for internationally?', answer: 'music, football, and natural beauty', explanation: 'O texto diz: "People around the world know Brazil for its music, football, and natural beauty."' },
+        ],
+      },
+
+      // ── Topic 2 — Going to ────────────────────────────────────────────────
+      {
+        title: 'Going to — future plans & intentions',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I _____ visit my grandparents this weekend.',         answer: 'am going to', options: ['am going to', 'will', 'going to'],   explanation: '"Am going to" expressa plano ou intenção já decidida: "I am going to visit."' },
+          { type: 'multiple_choice', sentence: 'Look at those clouds! It _____ rain.',                answer: "is going to", options: ["is going to", "will", "rains"],      explanation: '"Is going to rain" = evidência visual indica que algo vai acontecer em breve.' },
+          { type: 'word_bank',       sentence: 'They _____ move to a new apartment next month.',      answer: "are going to", choices: ["are going to", "will to", "going to", "will going to"], explanation: '"Are going to" = plano decidido para o futuro. "They are going to move."' },
+          { type: 'word_bank',       sentence: 'He _____ study medicine at university.',              answer: "is going to", choices: ["is going to", "are going to", "will to", "going"], explanation: '"Is going to" = plano/intenção de he/she/it.' },
+          { type: 'fill_gap',        sentence: 'We _____ (go) camping in July.',                      answer: "are going to go", hint: '"We" + going to + verbo base',          explanation: '"We are going to go camping in July." — plano já decidido.' },
+          { type: 'fill_gap',        sentence: 'A: She _____ (not/come) to the party. B: Why not?',  answer: "isn't going to come", hint: 'Negativa de "going to" com she',        explanation: '"Isn\'t going to come" = plano negativo. Ela não vai vir.' },
+          { type: 'fill_gap',        sentence: '_____ you _____ (travel) abroad this year?',          answer: 'Are / going to', hint: 'Pergunta com going to',                  explanation: '"Are you going to travel abroad this year?" — pergunta sobre planos.' },
+          { type: 'fix_error',       sentence: 'She going to call you later.',                        answer: 'She is going to call you later.',          hint: 'Não esqueça o verbo "to be"', explanation: '"Going to" sempre precisa do verbo "to be": she IS going to call.' },
+          { type: 'fix_error',       sentence: 'We are going to moved to a bigger house.',            answer: 'We are going to move to a bigger house.',  hint: 'Após "going to", verbo na forma base', explanation: 'Após "going to", o verbo fica na forma base: move (não "moved").' },
+          { type: 'read_answer',     passage: 'Lisa has lots of plans for the summer. She\'s going to take a Portuguese course, visit her cousin in Portugal, and start learning how to cook. She isn\'t going to work in August — she wants to rest.', question: 'Is Lisa going to work in August? (yes/no)', answer: 'no', explanation: 'O texto diz: "She isn\'t going to work in August."' },
+        ],
+      },
+
+      // ── Topic 3 — Will ────────────────────────────────────────────────────
+      {
+        title: 'Will — predictions & spontaneous decisions',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I think it _____ tomorrow.',                          answer: "will rain", options: ["will rain", "is going to rain", "rains"], explanation: '"Will" é usado para previsões baseadas em opinião pessoal ou crença: "I think it will rain."' },
+          { type: 'multiple_choice', sentence: 'A: The phone is ringing. B: I _____ get it!',         answer: "I'll",      options: ["I'll", "I'm going to", "I'm"],       explanation: '"I\'ll get it" = decisão espontânea (feita no momento de falar). Não "going to".' },
+          { type: 'word_bank',       sentence: 'Don\'t worry — everything _____ fine.',               answer: "will be",   choices: ["will be", "is going to be", "going to", "will being"], explanation: '"Will be" = previsão otimista/promessa. "Don\'t worry, it will be fine."' },
+          { type: 'word_bank',       sentence: 'I promise I _____ you.',                              answer: "won't forget", choices: ["won't forget", "will not forgetting", "don't forget", "will forgot"], explanation: '"Won\'t forget" = will not + forma base. Promessa negativa.' },
+          { type: 'fill_gap',        sentence: 'A: I\'m hungry. B: I _____ (make) you a sandwich.',  answer: "I'll make", hint: 'Decisão espontânea no momento',           explanation: '"I\'ll make you a sandwich" = decisão feita no momento de falar.' },
+          { type: 'fill_gap',        sentence: 'Scientists think robots _____ (do) most jobs by 2050.', answer: "will do", hint: 'Previsão para o futuro distante',           explanation: '"Will do" = previsão futura baseada em opinião. "Robots will do most jobs."' },
+          { type: 'fill_gap',        sentence: '_____ you help me carry this? It\'s heavy!',          answer: "Will",      hint: 'Pedido educado usando "will"',            explanation: '"Will you help me?" = pedido educado usando "will".' },
+          { type: 'fix_error',       sentence: 'She will comes to the party.',                        answer: 'She will come to the party.',              hint: 'Após "will", verbo na forma base', explanation: 'Após "will", o verbo fica na forma base: come (não "comes").' },
+          { type: 'fix_error',       sentence: 'I will to call you later.',                           answer: "I'll call you later.",                     hint: '"Will" não usa "to"',           explanation: '"Will" é modal — não usa "to". Correto: "I\'ll call you later."' },
+          { type: 'read_answer',     passage: 'Forecast for the week: Monday will be sunny and warm. On Tuesday, there will be some clouds but no rain. Wednesday will bring heavy rain. By the weekend, temperatures will drop significantly.', question: 'What will the weather be like on Monday?', answer: 'sunny and warm', explanation: 'O texto diz: "Monday will be sunny and warm."' },
+        ],
+      },
+
+      // ── Topic 4 — Going to vs. Will ──────────────────────────────────────
+      {
+        title: 'Going to vs. Will',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'A: What are your plans for summer? B: I _____ travel to Europe.', answer: "I'm going to", options: ["I'm going to", "I'll", "I'm"], explanation: '"Going to" para planos já decididos antes do momento de falar.' },
+          { type: 'multiple_choice', sentence: 'A: The printer is broken. B: I _____ call IT now.',   answer: "I'll",      options: ["I'll", "I'm going to", "I'm"],       explanation: '"Will" para decisões espontâneas feitas no momento de falar.' },
+          { type: 'word_bank',       sentence: 'Look! She _____ fall — the road is icy!',              answer: "is going to fall", choices: ["is going to fall", "will fall", "falls", "will to fall"], explanation: '"Going to" quando há evidência clara de que algo vai acontecer em breve.' },
+          { type: 'word_bank',       sentence: 'I think Brazil _____ win the next World Cup.',         answer: "will win",  choices: ["will win", "is going to win", "going to win", "wins"], explanation: '"Will" para previsões baseadas em opinião pessoal.' },
+          { type: 'fill_gap',        sentence: 'I\'ve already booked the tickets. We _____ (fly) in July.', answer: "are going to fly", hint: 'Plano já confirmado',               explanation: '"Going to fly" — plano já decidido e confirmado (passagens compradas).' },
+          { type: 'fill_gap',        sentence: 'A: Can you help? B: Sure, I _____ (do) it right now.', answer: "I'll do", hint: 'Decisão tomada agora para ajudar',           explanation: '"I\'ll do it" = decisão espontânea feita no momento de responder.' },
+          { type: 'fill_gap',        sentence: 'He\'s been training hard. He _____ (win) the race.',   answer: "is going to win", hint: 'Evidência presente → previsão com "going to"', explanation: '"Going to win" — há evidência (treinamento intenso) que indica resultado provável.' },
+          { type: 'fix_error',       sentence: 'A: The phone is ringing! B: I\'m going to answer it.',  answer: "A: The phone is ringing! B: I'll answer it.", hint: 'Decisão espontânea = will', explanation: 'Decisão feita no momento = "will/\'ll". "Going to" é para planos anteriores.' },
+          { type: 'fix_error',       sentence: 'I already bought tickets. I think I\'ll go to the concert.',  answer: 'I already bought tickets. I\'m going to go to the concert.', hint: 'Plano decidido = going to', explanation: 'Com ingressos comprados, o plano já está decidido: "I\'m going to go to the concert."' },
+          { type: 'read_answer',     passage: 'Tom: I\'m going to start a new job next Monday — everything is confirmed. His friend: Great! I\'ll come and celebrate with you this weekend then — how about Saturday? Tom: Sure! I think it will be a great year.', question: 'When does Tom start his new job?', answer: 'next Monday', explanation: 'O texto diz: "I\'m going to start a new job next Monday."' },
+        ],
+      },
+
+      // ── Topic 5 — Zero + First Conditional ───────────────────────────────
+      {
+        title: 'Zero Conditional + First Conditional (intro)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'If you heat water to 100°C, it _____.',               answer: 'boils',     options: ['boils', 'will boil', 'boiled'],       explanation: 'Zero Conditional: fact/truth. If + present → present. "If you heat water, it boils."' },
+          { type: 'multiple_choice', sentence: 'If it rains tomorrow, I _____ my umbrella.',           answer: "I'll bring", options: ["I'll bring", "bring", "I brought"],  explanation: 'First Conditional: possível futuro. If + present → will. "If it rains, I\'ll bring..."' },
+          { type: 'word_bank',       sentence: 'If you study hard, you _____ the exam.',               answer: "will pass", choices: ["will pass", "pass", "passed", "passing"], explanation: 'First Conditional: resultado provável no futuro. If + present → will + base.' },
+          { type: 'word_bank',       sentence: 'Plants die if they _____ water.',                      answer: "don't get", choices: ["don't get", "won't get", "didn't get", "get"], explanation: 'Zero Conditional: fato geral. If + present → present (afirmativo ou negativo).' },
+          { type: 'fill_gap',        sentence: 'If she _____ (be) late, the boss will be angry.',      answer: 'is',        hint: 'First Conditional: if-clause no presente',   explanation: 'First Conditional: a cláusula "if" usa o presente simples.' },
+          { type: 'fill_gap',        sentence: 'If you touch that, it _____ (burn) you.',              answer: 'will burn', hint: 'Resultado provável = will + base',         explanation: 'First Conditional: resultado provável = "will burn". If you touch it → result.' },
+          { type: 'fill_gap',        sentence: 'If water freezes, it _____ (turn) into ice.',          answer: 'turns',     hint: 'Zero Conditional: verdade científica',    explanation: 'Zero Conditional: fato científico universal → use present simple em ambas as cláusulas.' },
+          { type: 'fix_error',       sentence: 'If it will rain, I will stay home.',                   answer: 'If it rains, I will stay home.',           hint: 'If-clause usa presente (não will)',  explanation: 'Na cláusula "if" do First Conditional, usamos presente simples (não "will").' },
+          { type: 'fix_error',       sentence: 'If you pressed the button, the door opens.',           answer: 'If you press the button, the door opens.',  hint: 'Zero Conditional — ambas no presente', explanation: 'Zero Conditional usa presente em ambas as cláusulas: "press / opens."' },
+          { type: 'read_answer',     passage: 'There are two main types of conditional in English. The Zero Conditional states facts: "If you mix blue and yellow, you get green." The First Conditional describes possible future results: "If you study tonight, you will pass the exam." The main difference is whether we are stating facts or possible outcomes.', question: 'What does the First Conditional describe?', answer: 'possible future results', explanation: 'O texto diz: "The First Conditional describes possible future results."' },
+        ],
+      },
     ],
   },
 
@@ -246,12 +917,113 @@ const NOVICE_MODULES: Module[] = [
   {
     title: 'Connectors, Movement & Vocabulary',
     topics: [
-      { title: 'Conjunctions (and, but, or, so, because, although)',       grammar: [], pronunciation: [] },
-      { title: 'Prepositions of movement + phrasal verbs intro',           grammar: [], pronunciation: [] },
-      { title: 'Subject questions (Who made this? What happened?)',        grammar: [], pronunciation: [] },
-      { title: 'Vocabulary chunks — travel, shopping & technology',        grammar: [], pronunciation: [] },
-      { title: 'Vocabulary chunks — home, work & relationships',           grammar: [], pronunciation: [] },
-      { title: 'Novice Module Review — consolidação A1/A2',                grammar: [], pronunciation: [] },
+      // ── Topic 1 — Conjunctions ────────────────────────────────────────────
+      {
+        title: 'Conjunctions (and, but, or, so, because, although)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'I was tired, _____ I went to bed early.',             answer: 'so',        options: ['so', 'but', 'because'],              explanation: '"So" indica resultado ou consequência: "I was tired, so I went to bed early."' },
+          { type: 'multiple_choice', sentence: 'She loves coffee _____ she can\'t drink it at night.', answer: 'but',      options: ['but', 'and', 'so'],                  explanation: '"But" indica contraste ou contradição: "She loves coffee but can\'t drink it at night."' },
+          { type: 'word_bank',       sentence: 'I missed the bus _____ I was late for work.',          answer: 'because',   choices: ['because', 'so', 'but', 'although'],   explanation: '"Because" indica a causa ou motivo: "I missed the bus because I woke up late."' },
+          { type: 'word_bank',       sentence: 'You can have tea _____ coffee — which do you prefer?', answer: 'or',       choices: ['or', 'and', 'but', 'so'],            explanation: '"Or" é usado para dar opções ou alternativas.' },
+          { type: 'fill_gap',        sentence: 'She studied hard _____ she failed the exam.',          answer: 'but',       hint: 'Contraste inesperado',                   explanation: '"But" indica contraste — ela estudou, mas mesmo assim reprovou.' },
+          { type: 'fill_gap',        sentence: 'He didn\'t eat _____ he wasn\'t hungry.',              answer: 'because',   hint: 'Motivo/razão',                          explanation: '"Because" indica a razão: "He didn\'t eat because he wasn\'t hungry."' },
+          { type: 'fill_gap',        sentence: '_____ it was raining, we still went for a walk.',      answer: 'Although',  hint: 'Concessão — apesar de',                 explanation: '"Although" = apesar de. Indica contraste surpreendente no início da frase.' },
+          { type: 'fix_error',       sentence: 'I like tea and coffee, but I prefer tea.',              answer: 'I like tea and coffee, but I prefer tea.', hint: 'Esta frase está correta', explanation: 'A frase está correta: "and" une dois substantivos, "but" introduz contraste.' },
+          { type: 'fix_error',       sentence: 'She was tired, because she rested.',                   answer: 'She was tired, so she rested.',            hint: '"Because" = causa; "so" = resultado',  explanation: '"So" indica resultado. "Because" indicaria que o cansaço era a causa do descanso (faz mais sentido com "so").' },
+          { type: 'read_answer',     passage: 'Tom wanted to go to the gym, but he was too tired. He decided to rest because he had worked all day. Although he felt guilty, he stayed home and watched TV. He fell asleep early, so he woke up refreshed the next morning.', question: 'Why did Tom decide to rest?', answer: 'because he had worked all day', explanation: 'O texto diz: "He decided to rest because he had worked all day."' },
+        ],
+      },
+
+      // ── Topic 2 — Prepositions of movement + phrasal verbs intro ──────────
+      {
+        title: 'Prepositions of movement + phrasal verbs intro',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She ran _____ the finish line.',                       answer: 'across',    options: ['across', 'through', 'along'],        explanation: '"Across" = atravessar (de um lado ao outro de uma superfície).' },
+          { type: 'multiple_choice', sentence: 'The train goes _____ the tunnel.',                     answer: 'through',   options: ['through', 'across', 'over'],         explanation: '"Through" = passar por dentro de algo (de um lado ao outro de um espaço fechado).' },
+          { type: 'word_bank',       sentence: 'He climbed _____ the fence.',                          answer: 'over',      choices: ['over', 'through', 'across', 'into'],  explanation: '"Over" = passar por cima de algo.' },
+          { type: 'word_bank',       sentence: 'The dog ran _____ the house.',                         answer: 'into',      choices: ['into', 'out of', 'over', 'through'],   explanation: '"Into" = movimento para dentro de um lugar.' },
+          { type: 'fill_gap',        sentence: 'Walk _____ the bridge and turn right.',                 answer: 'across',    hint: 'Atravessar (ponte, rua)',                explanation: '"Across" = de um lado ao outro. "Walk across the bridge."' },
+          { type: 'fill_gap',        sentence: 'The cat jumped _____ the table.',                      answer: 'onto',      hint: 'Movimento para cima de uma superfície',  explanation: '"Onto" = movimento para cima de uma superfície. "Jumped onto the table."' },
+          { type: 'fill_gap',        sentence: 'Can you _____ (turn off) the lights please?',           answer: 'turn off',  hint: 'Phrasal verb: desligar',                explanation: '"Turn off" = desligar. "Turn off the lights." Um dos phrasal verbs mais comuns.' },
+          { type: 'fix_error',       sentence: 'She ran through the bridge quickly.',                   answer: 'She ran across the bridge quickly.',       hint: 'Atravessar = "across"',    explanation: '"Across" = atravessar de um lado ao outro. "Through" é para espaços fechados.' },
+          { type: 'fix_error',       sentence: 'Please turn up the TV — it\'s too loud.',               answer: 'Please turn down the TV — it\'s too loud.', hint: '"Turn down" = baixar volume',  explanation: '"Turn down" = baixar volume. "Turn up" = aumentar volume. Aqui precisa-se "turn down".' },
+          { type: 'read_answer',     passage: 'To get to the park: Go along Main Street, walk across the bridge over the river, then go through the gates. Turn left and walk up the hill. The café is at the top.', question: 'What is at the top of the hill?', answer: 'the café', explanation: 'O texto diz: "The café is at the top."' },
+        ],
+      },
+
+      // ── Topic 3 — Subject questions ───────────────────────────────────────
+      {
+        title: 'Subject questions (Who made this? What happened?)',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: '_____ lives next door to you?',                        answer: 'Who',       options: ['Who', 'Whom', 'What'],               explanation: '"Who" pergunta sobre pessoas quando o WH-word é o sujeito da frase.' },
+          { type: 'multiple_choice', sentence: '_____ happened at the party?',                          answer: 'What',      options: ['What', 'Who', 'Which'],              explanation: '"What happened?" = pergunta de sujeito sobre um evento. Não usa auxiliar.' },
+          { type: 'word_bank',       sentence: '_____ made this delicious cake?',                       answer: 'Who',       choices: ['Who', 'Whom', 'Whose', 'Which'],      explanation: '"Who made this cake?" — sujeito da pergunta. Não usa "did": "Who made" (não "Who did make").' },
+          { type: 'word_bank',       sentence: '_____ caused the accident?',                            answer: 'What',      choices: ['What', 'Who', 'Why', 'How'],          explanation: '"What caused the accident?" — sujeito "what" sem auxiliar.' },
+          { type: 'fill_gap',        sentence: '_____ called you so late last night?',                  answer: 'Who',       hint: 'Sujeito da pergunta = pessoa',           explanation: '"Who called you?" — "who" é o sujeito. Não precisa de "did".' },
+          { type: 'fill_gap',        sentence: '_____ is happening in there? It\'s very noisy!',        answer: 'What',      hint: 'Pergunta sobre evento/situação',          explanation: '"What is happening?" — pergunta de sujeito sobre uma situação.' },
+          { type: 'fill_gap',        sentence: '_____ gave you that idea?',                             answer: 'Who',       hint: 'Sujeito (pessoa) da pergunta',            explanation: '"Who gave you that idea?" — "who" é o sujeito. Sem auxiliar.' },
+          { type: 'fix_error',       sentence: 'Who did call you?',                                     answer: 'Who called you?',                          hint: 'Pergunta de sujeito — sem auxiliar', explanation: 'Perguntas de sujeito com "who/what" não usam auxiliar "did": "Who called you?"' },
+          { type: 'fix_error',       sentence: 'What did happen at school?',                            answer: 'What happened at school?',                 hint: '"What happened" — sem "did"',         explanation: '"What happened?" — pergunta de sujeito. Não usa auxiliar "did".' },
+          { type: 'read_answer',     passage: 'Police report: At 9 pm, someone broke into the bakery on Oak Street. A neighbour heard a loud noise and called the police. The police arrived quickly. Nothing was stolen. The owner will speak to detectives tomorrow.', question: 'Who called the police?', answer: 'a neighbour', explanation: 'O texto diz: "A neighbour heard a loud noise and called the police."' },
+        ],
+      },
+
+      // ── Topic 4 — Vocabulary: travel, shopping & technology ──────────────
+      {
+        title: 'Vocabulary chunks — travel, shopping & technology',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'Can I _____ a single ticket to London, please?',       answer: 'have',      options: ['have', 'take', 'get'],               explanation: '"Can I have a ticket?" é a expressão mais natural para comprar uma passagem.' },
+          { type: 'multiple_choice', sentence: 'How _____ is it from here to the airport?',             answer: 'far',       options: ['far', 'long', 'much'],               explanation: '"How far" pergunta sobre distância. "How far is it?" = Qual a distância?' },
+          { type: 'word_bank',       sentence: 'Excuse me, where is the _____ (guichê)?',              answer: 'check-in',  choices: ['check-in', 'check out', 'departure', 'arrival'], explanation: '"Check-in" = guichê/processo de registro para voo ou hotel.' },
+          { type: 'word_bank',       sentence: 'This phone is out of _____ — I need to charge it.',    answer: 'battery',   choices: ['battery', 'signal', 'memory', 'data'],  explanation: '"Out of battery" = sem bateria. "I need to charge it" = preciso carregar.' },
+          { type: 'fill_gap',        sentence: 'I need to _____ the bill — can I pay by card?',        answer: 'pay',       hint: '"Pay the bill" = pagar a conta',          explanation: '"Pay the bill" é a expressão para pagar a conta em inglês.' },
+          { type: 'fill_gap',        sentence: 'My phone is _____ — I can\'t make calls.',              answer: 'out of signal', hint: 'Sem sinal de celular',                explanation: '"Out of signal" = sem sinal. Não consigo fazer ligações.' },
+          { type: 'fill_gap',        sentence: 'Can I try this _____ ? I want to see if it fits.',     answer: 'on',        hint: 'Phrasal verb: experimentar roupa',        explanation: '"Try on" = experimentar roupa. "Can I try this on?" = Posso experimentar isso?' },
+          { type: 'fix_error',       sentence: 'I want to book a travel to Italy.',                    answer: 'I want to book a trip to Italy.',          hint: '"Trip" ou "holiday" — não "travel"',  explanation: '"Travel" é verbo ou substantivo incontável. Para viagem específica, use "trip" ou "holiday".' },
+          { type: 'fix_error',       sentence: 'My phone has no battery — it\'s dead.',                answer: 'My phone has no battery — it\'s dead.',    hint: 'Esta frase está correta',  explanation: '"My phone has no battery, it\'s dead" é completamente correto e natural em inglês.' },
+          { type: 'read_answer',     passage: 'At the airport: "Excuse me, where is the check-in for flight BR204?" "It\'s at counter 12. You should hurry — boarding starts in 30 minutes." "Thank you! Can I also charge my phone somewhere? It\'s almost dead."', question: 'When does boarding start?', answer: 'in 30 minutes', explanation: 'O texto diz: "boarding starts in 30 minutes."' },
+        ],
+      },
+
+      // ── Topic 5 — Vocabulary: home, work & relationships ─────────────────
+      {
+        title: 'Vocabulary chunks — home, work & relationships',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'They _____ up last year after 5 years together.',      answer: 'broke',     options: ['broke', 'split', 'finished'],         explanation: '"Break up" = separar-se. Past: broke up. "They broke up last year."' },
+          { type: 'multiple_choice', sentence: 'She _____ promoted to manager last month.',             answer: 'was',       options: ['was', 'got', 'has'],                  explanation: '"Was promoted" = passiva formal de "to promote". Também: "got promoted" é igualmente correto.' },
+          { type: 'word_bank',       sentence: 'He _____ a good impression at the interview.',          answer: 'made',      choices: ['made', 'did', 'gave', 'had'],         explanation: '"Make a good impression" é a colocação correta — não "do" ou "give".' },
+          { type: 'word_bank',       sentence: 'My parents _____ up when I was 10.',                    answer: 'split',     choices: ['split', 'broke', 'separated', 'divided'], explanation: '"Split up" = separar-se. Intercambiável com "break up" em muitos contextos.' },
+          { type: 'fill_gap',        sentence: 'Can you _____ (take) care of my plants while I\'m away?', answer: 'take',   hint: '"Take care of" = cuidar de',            explanation: '"Take care of" = cuidar de. "Can you take care of my plants?"' },
+          { type: 'fill_gap',        sentence: 'We need to _____ a decision about the new office.',     answer: 'make',      hint: '"Make a decision" = decidir',            explanation: '"Make a decision" é a colocação correta. Não "do a decision".' },
+          { type: 'fill_gap',        sentence: 'He got _____ with his neighbours — they argue all the time.', answer: "fed up", hint: '"Fed up with" = farto/cansado de',      explanation: '"Get fed up with" = ficar farto ou cansado de. Muito comum em inglês informal.' },
+          { type: 'fix_error',       sentence: 'She did a great impression at the interview.',           answer: 'She made a great impression at the interview.', hint: '"Make an impression" = causar impressão', explanation: '"Make an impression" é a colocação correta. Não "do an impression".' },
+          { type: 'fix_error',       sentence: 'Can you look the children while I go out?',             answer: 'Can you look after the children while I go out?', hint: '"Look after" = cuidar de',  explanation: '"Look after" = cuidar de. "Look" sozinho não tem esse significado.' },
+          { type: 'read_answer',     passage: 'Ana started a new job last month. She made a great impression on her boss and got along well with her colleagues. She has to take care of many different tasks, but she loves the challenge. She feels at home in the new company.', question: 'How does Ana feel in her new company?', answer: 'at home', explanation: 'O texto diz: "She feels at home in the new company."' },
+        ],
+      },
+
+      // ── Topic 6 — Novice Review ───────────────────────────────────────────
+      {
+        title: 'Novice Module Review — consolidação A1/A2',
+        pronunciation: [],
+        grammar: [
+          { type: 'multiple_choice', sentence: 'She _____ TV when I called her.',                      answer: 'was watching', options: ['was watching', 'watched', 'watch'],  explanation: 'Past Continuous: ação em andamento no passado. "She was watching TV when I called."' },
+          { type: 'multiple_choice', sentence: 'If it _____ tomorrow, we\'ll cancel the trip.',        answer: 'rains',     options: ['rains', 'will rain', 'rained'],       explanation: 'First Conditional: "if" + present simple → will. "If it rains, we\'ll cancel."' },
+          { type: 'word_bank',       sentence: 'She _____ go to bed early because she has an exam.',   answer: 'should',    choices: ['should', 'must to', 'have', 'going to'], explanation: '"Should" = conselho. Ela deveria dormir cedo por causa do exame.' },
+          { type: 'word_bank',       sentence: 'There _____ many people at the concert last night.',    answer: 'were',      choices: ['were', 'was', 'are', 'is'],           explanation: '"Were" = passado de "are" — para plural no passado.' },
+          { type: 'fill_gap',        sentence: 'He _____ (not/have to) work on Sundays.',               answer: "doesn't have to", hint: 'Sem obrigação com "he"',             explanation: '"Doesn\'t have to" = não é obrigação para he/she/it.' },
+          { type: 'fill_gap',        sentence: 'I _____ (go) to the gym three times a week. (hábito)', answer: 'go',        hint: 'Hábito recorrente = Present Simple',      explanation: 'Hábitos usam Present Simple: "I go to the gym three times a week."' },
+          { type: 'fill_gap',        sentence: 'She is _____ (tall) her sister.',                       answer: 'taller than', hint: 'Comparativo de adjetivo curto',          explanation: '"Taller than" = comparativo de "tall" — adjetivo curto + -er + than.' },
+          { type: 'fix_error',       sentence: 'He don\'t know the answer.',                            answer: "He doesn't know the answer.",             hint: '"He" usa "doesn\'t"',         explanation: '"He" (terceira pessoa singular) usa "doesn\'t" na negativa.' },
+          { type: 'fix_error',       sentence: 'What she doing right now?',                             answer: 'What is she doing right now?',             hint: 'Precisa do auxiliar "is"',    explanation: 'Present Continuous: sempre precisa do verbo "to be". "What is she doing?"' },
+          { type: 'read_answer',     passage: 'Paulo has been studying English for two years. He usually studies in the evenings. Last night, he was doing exercises when his phone rang. He\'s going to take an English exam next month. If he passes, he\'ll apply for a job at an international company.', question: 'What will Paulo do if he passes the exam?', answer: 'apply for a job at an international company', explanation: 'O texto diz: "If he passes, he\'ll apply for a job at an international company."' },
+        ],
+      },
     ],
   },
 ];
