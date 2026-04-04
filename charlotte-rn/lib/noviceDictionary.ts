@@ -433,14 +433,19 @@ export const WORD_DICT: Record<string, string> = {
   "didn't": "não (passado neg.)",
 };
 
-// Lookup function: checks single words (case-insensitive, strips punctuation)
+// Normalize curly/smart apostrophes to straight apostrophe before lookup
+function normalizeApostrophe(s: string): string {
+  return s.replace(/[\u2018\u2019\u02BC\u2032]/g, "'");
+}
+
+// Lookup function: checks single words (case-insensitive, strips punctuation, normalizes apostrophes)
 export function translate(token: string): string | null {
-  const clean = token.toLowerCase().replace(/[^a-z']/g, '');
+  const clean = normalizeApostrophe(token).toLowerCase().replace(/[^a-z']/g, '');
   return WORD_DICT[clean] ?? null;
 }
 
 // Check if two adjacent words form a known phrase
 export function translatePhrase(token1: string, token2: string): string | null {
-  const phrase = (token1 + ' ' + token2).toLowerCase().replace(/[^a-z' ]/g, '');
+  const phrase = normalizeApostrophe(token1 + ' ' + token2).toLowerCase().replace(/[^a-z' ]/g, '');
   return PHRASE_DICT[phrase] ?? null;
 }
