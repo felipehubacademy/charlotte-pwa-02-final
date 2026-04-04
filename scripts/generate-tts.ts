@@ -120,6 +120,7 @@ async function main() {
     for (const mod of CURRICULUM[level]) {
       for (const topic of mod.topics) {
         for (const step of topic.pronunciation) {
+          if (!step.text) continue;
           const key = ttsKey(step.text);
           if (!phrases.has(key)) phrases.set(key, step.text);
         }
