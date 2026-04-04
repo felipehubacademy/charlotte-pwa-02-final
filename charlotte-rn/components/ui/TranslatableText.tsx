@@ -146,21 +146,18 @@ function TranslatableWord({
       disabled={!hasTranslation}
       style={{ marginRight: 3, marginBottom: 2 }}
     >
-      <View
-        style={
-          hasTranslation
-            ? {
-                borderBottomWidth: 1.5,
-                borderBottomColor: '#D97706',
-                borderStyle: 'dotted' as any,
-              }
-            : undefined
-        }
+      <AppText
+        style={[
+          textStyle,
+          hasTranslation && {
+            textDecorationLine: 'underline',
+            textDecorationStyle: 'dotted' as any,
+            textDecorationColor: 'rgba(217,119,6,0.55)',
+          },
+        ]}
       >
-        <AppText style={[textStyle, hasTranslation && { color: undefined }]}>
-          {display}
-        </AppText>
-      </View>
+        {display}
+      </AppText>
     </TouchableOpacity>
   );
 }
