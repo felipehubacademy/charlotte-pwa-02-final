@@ -1331,8 +1331,13 @@ export default function HomeScreen() {
                   {isPortuguese ? 'Exemplo' : 'Example'}
                 </AppText>
                 <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 23 }}>
-                  "{isPortuguese && tip.examplePt ? tip.examplePt : tip.example}"
+                  "{tip.example}"
                 </AppText>
+                {isPortuguese && tip.examplePt && (
+                  <AppText style={{ fontSize: 14, color: C.navyMid, fontStyle: 'italic', lineHeight: 22, marginTop: 8 }}>
+                    "{tip.examplePt}"
+                  </AppText>
+                )}
               </View>
 
             </View>
