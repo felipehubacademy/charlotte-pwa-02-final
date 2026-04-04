@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   ScrollView,
@@ -9,6 +9,7 @@ import {
   Image,
   Platform,
   Modal,
+  Animated,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { router, useFocusEffect } from 'expo-router';
@@ -417,6 +418,38 @@ function getTip(level: string, seed: number): Tip {
   return pool[seed % pool.length];
 }
 
+// ── Typing Dots — matches ChatBox TypingIndicator, white dots for dark bubble ──
+
+function TypingDots() {
+  // Same animation as ChatBox.TypingIndicator: opacity 0→1→0, staggered 200ms
+  const dots = [0, 1, 2].map(() => useRef(new Animated.Value(0)).current);
+
+  useEffect(() => {
+    const animations = dots.map((dot, i) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(i * 200),
+          Animated.timing(dot, { toValue: 1, duration: 400, useNativeDriver: true }),
+          Animated.timing(dot, { toValue: 0, duration: 400, useNativeDriver: true }),
+        ]),
+      ),
+    );
+    animations.forEach(a => a.start());
+    return () => animations.forEach(a => a.stop());
+  }, []); // eslint-disable-line
+
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 3 }}>
+      {dots.map((dot, i) => (
+        <Animated.View
+          key={i}
+          style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.75)', opacity: dot }}
+        />
+      ))}
+    </View>
+  );
+}
+
 // ── XP Ring ───────────────────────────────────────────────────
 
 function XPRing({ todayXP, goal }: { todayXP: number; goal: number }) {
@@ -715,7 +748,8 @@ export default function HomeScreen() {
   const [showTipModal, setShowTipModal]   = useState(false);
   const [showLiveVoice, setShowLiveVoice] = useState(false);
   const [showStats, setShowStats]         = useState(false);
-  const [aiGreeting, setAiGreeting] = useState<string | null>(null);
+  const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
+  const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
 
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
@@ -806,21 +840,32 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [fetchData]);
 
-  // ── AI Greeting — fetched once per day, cached in SecureStore ──
+  // ── AI Greeting — regenerates after 2h of inactivity ───────
+  // Cache: SecureStore stores { message, ts } per user.
+  // On open: if ts is recent (< GREETING_TTL_MS) reuse the message.
+  // After 2h away → generate a fresh, contextual greeting.
+  const GREETING_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+  const GREETING_CACHE_KEY = `ai_greeting_v2_${userId}`;
+
   useEffect(() => {
     if (!userId || !name || greetingFetchedRef.current) return;
     greetingFetchedRef.current = true;
 
-    const today = Math.floor(Date.now() / 86400000).toString();
-    const cacheKey = `ai_greeting_${userId}_${today}`;
-
     (async () => {
       try {
-        // Check cache first
-        const cached = await SecureStore.getItemAsync(cacheKey);
-        if (cached) { setAiGreeting(cached); return; }
+        // Check timestamp-based cache
+        const raw = await SecureStore.getItemAsync(GREETING_CACHE_KEY);
+        if (raw) {
+          const parsed: { message: string; ts: number } = JSON.parse(raw);
+          const age = Date.now() - parsed.ts;
+          if (age < GREETING_TTL_MS && parsed.message) {
+            setAiGreeting(parsed.message);
+            setGreetingLoading(false);
+            return;
+          }
+        }
 
-        // Fetch from API
+        // Stale or missing — fetch a fresh greeting
         const res = await fetch(`${API_BASE_URL}/api/greeting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -833,14 +878,19 @@ export default function HomeScreen() {
             level,
           }),
         });
-        if (!res.ok) return;
+        if (!res.ok) { setGreetingLoading(false); return; }
         const json = await res.json();
         if (json.message) {
           setAiGreeting(json.message);
-          await SecureStore.setItemAsync(cacheKey, json.message);
+          await SecureStore.setItemAsync(
+            GREETING_CACHE_KEY,
+            JSON.stringify({ message: json.message, ts: Date.now() }),
+          );
         }
       } catch {
-        // Silently fall back to hardcoded message
+        // Silently fail — dots will disappear, no message shown (acceptable)
+      } finally {
+        setGreetingLoading(false);
       }
     })();
   }, [userId, name, level]); // eslint-disable-line
@@ -1039,14 +1089,18 @@ export default function HomeScreen() {
                   backgroundColor: '#3B3A5A',
                   borderRadius: 18,
                   paddingHorizontal: 14,
-                  paddingVertical: 12,
+                  paddingVertical: greetingLoading ? 10 : 12,
                 }}>
-                  <AppText style={{
-                    fontSize: 15, color: '#FFFFFF',
-                    lineHeight: 23, fontWeight: '500',
-                  }}>
-                    {aiGreeting ?? charlotteMessage(firstName, streak, todayXP, isPortuguese)}
-                  </AppText>
+                  {greetingLoading ? (
+                    <TypingDots />
+                  ) : (
+                    <AppText style={{
+                      fontSize: 15, color: '#FFFFFF',
+                      lineHeight: 23, fontWeight: '500',
+                    }}>
+                      {aiGreeting ?? charlotteMessage(firstName, streak, todayXP, isPortuguese)}
+                    </AppText>
+                  )}
                 </View>
               </View>
             </View>
