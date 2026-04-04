@@ -30,6 +30,7 @@ interface ChatInputBarProps {
   onLiveVoicePress?: () => void; // kept for compat — Phone moved to header
   disabled?: boolean;
   mode?: 'grammar' | 'pronunciation' | 'chat';
+  userLevel?: string;
 }
 
 const BAR_COUNT = 22;
@@ -44,7 +45,9 @@ export default function ChatInputBar({
   onSendAudio,
   disabled = false,
   mode = 'chat',
+  userLevel,
 }: ChatInputBarProps) {
+  const isNovice = userLevel === 'Novice';
   const insets = useSafeAreaInsets();
   const [text, setText]             = React.useState('');
   const [previewUri, setPreviewUri] = React.useState<string | null>(null);
@@ -334,9 +337,9 @@ export default function ChatInputBar({
             <TextInput
               value={text}
               onChangeText={setText}
-              placeholder="Type in English..."
+              placeholder={isNovice ? 'Digite em inglês...' : 'Type in English...'}
               placeholderTextColor={C.navyLight}
-              style={{ color: C.navy, fontSize: 15, lineHeight: 22, maxHeight: 120 }}
+              style={{ color: C.navy, fontSize: 15, lineHeight: 22, maxHeight: 120, flex: 1 }}
               multiline
               returnKeyType="default"
               editable={!disabled}

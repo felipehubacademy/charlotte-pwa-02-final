@@ -270,18 +270,18 @@ export default function LearnIntroScreen() {
           const isActive  = w.start <= currentTime && currentTime < w.end;
           const isSpoken  = w.end <= currentTime;
           const color     = isActive ? C.wordActive : isSpoken ? C.wordSpoken : C.wordDim;
-          const weight    = isActive ? '800' : '600';
-          const scale     = isActive ? 1.05 : 1;
+          // Keep fontWeight constant to avoid text reflow — only color changes
+          const opacity   = isActive ? 1 : undefined;
 
           return (
             <AppText
               key={i}
               style={{
                 fontSize: 22,
-                fontWeight: weight,
+                fontWeight: '600',
                 color,
                 lineHeight: 34,
-                transform: [{ scale }],
+                opacity,
               }}
             >
               {w.word}{' '}

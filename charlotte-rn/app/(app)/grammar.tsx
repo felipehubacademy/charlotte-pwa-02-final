@@ -75,6 +75,7 @@ export default function GrammarScreen() {
           onSendAudio={() => {}}
           disabled={isProcessing}
           mode="grammar"
+          userLevel={userLevel}
         />
       </KeyboardAvoidingView>
 
