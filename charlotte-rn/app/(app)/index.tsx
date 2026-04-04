@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -30,12 +30,17 @@ import {
   BookOpenText,
   Headphones,
 } from 'phosphor-react-native';
+import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { AppText } from '@/components/ui/Text';
 import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
+
+const API_BASE_URL =
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
 
 // ── Light theme palette ───────────────────────────────────────
 const C = {
@@ -307,6 +312,39 @@ const TIPS: Record<string, Tip[]> = {
     { type: 'expression',   term: 'let alone',                meaning: 'not to mention — for increasingly unlikely things',        example: 'I can barely afford rent, let alone a holiday.' },
     { type: 'grammar',      term: 'used to vs. would',        meaning: '"used to" for states & habits; "would" only for habits',   example: 'I used to be shy. I would study every evening as a kid.' },
     { type: 'grammar',      term: 'wish + past simple',       meaning: 'expresses regret about the present',                       example: 'I wish I knew the answer. I wish I could speak better.' },
+    // ── Batch 2 ──
+    { type: 'phrasal verb', term: 'catch up',                 meaning: 'to reach the same level as others; to update someone',     example: 'I need to catch up on the emails I missed this week.' },
+    { type: 'phrasal verb', term: 'back up',                  meaning: 'to support someone; to save a copy of data',               example: 'Can you back me up in the meeting? And back up your files!' },
+    { type: 'phrasal verb', term: 'carry out',                meaning: 'to complete or perform a task or plan',                    example: 'The team carried out the project on time and under budget.' },
+    { type: 'phrasal verb', term: 'set up',                   meaning: 'to establish, arrange, or prepare something',              example: 'She set up a new business after leaving her old job.' },
+    { type: 'phrasal verb', term: 'deal with',                meaning: 'to handle or manage a situation or problem',               example: 'How do you deal with difficult clients at work?' },
+    { type: 'phrasal verb', term: 'point out',                meaning: 'to draw attention to something; to mention',               example: 'He pointed out several errors in my presentation.' },
+    { type: 'phrasal verb', term: 'fall apart',               meaning: 'to break into pieces; to fall into disorder',              example: 'The project started to fall apart after the manager left.' },
+    { type: 'phrasal verb', term: 'go through',               meaning: 'to experience something; to examine carefully',            example: 'Let\'s go through the report together before the meeting.' },
+    { type: 'phrasal verb', term: 'break down',               meaning: 'to stop working; to lose emotional control',               example: 'The car broke down on the motorway. She broke down in tears.' },
+    { type: 'phrasal verb', term: 'hold on',                  meaning: 'to wait; to grip something tightly',                       example: 'Hold on — I just need to check one thing.' },
+    { type: 'idiom',        term: 'the last straw',           meaning: 'the final problem that makes a situation unbearable',      example: 'Being late again was the last straw — she quit immediately.' },
+    { type: 'idiom',        term: 'beat around the bush',     meaning: 'to avoid talking about the main point directly',           example: 'Stop beating around the bush and tell me what happened.' },
+    { type: 'idiom',        term: 'once in a blue moon',      meaning: 'very rarely; almost never',                                example: 'I only eat fast food once in a blue moon.' },
+    { type: 'idiom',        term: 'pull someone\'s leg',      meaning: 'to tease or joke with someone',                            example: 'A: You won the lottery! B: Are you pulling my leg?' },
+    { type: 'idiom',        term: 'see eye to eye',           meaning: 'to agree with someone on something',                       example: 'We don\'t always see eye to eye, but we respect each other.' },
+    { type: 'idiom',        term: 'ring a bell',              meaning: 'to sound familiar; to remind you of something',            example: 'That name rings a bell — did we meet at the conference?' },
+    { type: 'expression',   term: 'in a nutshell',            meaning: 'in brief; summarising the key point',                      example: 'In a nutshell, the project is over budget and behind schedule.' },
+    { type: 'expression',   term: 'easier said than done',    meaning: 'something sounds simple but is actually difficult',        example: '"Just relax." — Easier said than done when you\'re under pressure.' },
+    { type: 'expression',   term: 'for what it\'s worth',     meaning: 'used before an opinion that may or may not be useful',     example: 'For what it\'s worth, I think you made the right call.' },
+    { type: 'expression',   term: 'on second thought',        meaning: 'after reconsidering something',                            example: 'On second thought, let\'s postpone the meeting to Friday.' },
+    { type: 'grammar',      term: 'past perfect',             meaning: 'use "had + past participle" for actions before another past event', example: 'By the time I arrived, the meeting had already started.' },
+    { type: 'grammar',      term: 'reported speech',          meaning: 'change tenses back when reporting what someone said',      example: 'She said she was tired. (was = backshifted from "am")' },
+    { type: 'grammar',      term: 'third conditional',        meaning: 'if + past perfect → would have + past participle — for past regrets', example: 'If I had studied harder, I would have passed the exam.' },
+    { type: 'grammar',      term: 'relative clauses',         meaning: 'use "who" for people, "which" for things, "that" for both', example: 'The report that she submitted was excellent. The man who called is here.' },
+    { type: 'grammar',      term: 'passive voice',            meaning: 'use "be + past participle" to focus on the action, not the actor', example: 'The report was submitted yesterday. Mistakes were made.' },
+    { type: 'grammar',      term: 'gerund vs. infinitive',    meaning: 'some verbs take -ing, some take "to", some take both',     example: 'I enjoy running. I want to run. I stopped to rest. I stopped running.' },
+    { type: 'grammar',      term: 'present perfect continuous', meaning: 'have/has been + -ing — for ongoing actions with visible results', example: 'I\'ve been working on this for three hours. She\'s been crying.' },
+    { type: 'word',         term: 'ambiguous',                meaning: 'open to more than one interpretation; unclear',            example: 'His answer was ambiguous — I wasn\'t sure what he meant.' },
+    { type: 'word',         term: 'elaborate',                meaning: 'to explain or describe something in more detail',          example: 'Could you elaborate on that point? I\'d like to know more.' },
+    { type: 'word',         term: 'compelling',               meaning: 'convincing and interesting; difficult to ignore',          example: 'She made a compelling argument for changing the strategy.' },
+    { type: 'word',         term: 'subtle',                   meaning: 'not obvious; delicate and hard to notice',                 example: 'There\'s a subtle difference between "affect" and "effect".' },
+    { type: 'word',         term: 'concise',                  meaning: 'giving a lot of information clearly and in few words',     example: 'Keep your email concise — no one reads long messages.' },
   ],
   Advanced: [
     { type: 'word',         term: 'albeit',               meaning: 'even though — used for concession mid-sentence',          example: 'It was a successful event, albeit a small one.' },
@@ -329,6 +367,40 @@ const TIPS: Record<string, Tip[]> = {
     { type: 'grammar',      term: 'cleft sentences',     meaning: 'split a sentence to emphasise one element elegantly',     example: 'It was the tone of his voice that made me uncomfortable.' },
     { type: 'grammar',      term: 'subjunctive mood',    meaning: 'used in formal recommendations and hypotheticals',        example: 'The committee recommends that the policy be reviewed annually.' },
     { type: 'phrasal verb', term: 'gloss over',          meaning: 'to treat something briefly without proper attention',     example: 'The report glosses over some serious financial problems.' },
+    // ── Batch 2 ──
+    { type: 'word',         term: 'eloquent',             meaning: 'expressing ideas clearly and effectively in speech or writing', example: 'Her eloquent defence of the proposal won over the board.' },
+    { type: 'word',         term: 'lucid',                meaning: 'easy to understand; clear and rational',                   example: 'Despite the complexity, his explanation was remarkably lucid.' },
+    { type: 'word',         term: 'unequivocal',          meaning: 'leaving no doubt; completely clear',                       example: 'The CEO gave an unequivocal statement: there will be no layoffs.' },
+    { type: 'word',         term: 'reticent',             meaning: 'not revealing one\'s thoughts or feelings readily',        example: 'He was reticent about his plans — no one knew what he was thinking.' },
+    { type: 'word',         term: 'ostensibly',           meaning: 'apparently or on the surface — but possibly not really',   example: 'The meeting was ostensibly about budget, but the real issue was leadership.' },
+    { type: 'word',         term: 'prerogative',          meaning: 'an exclusive right or privilege',                          example: 'It\'s entirely your prerogative to decline the offer.' },
+    { type: 'word',         term: 'pervasive',            meaning: 'spreading widely throughout; present everywhere',          example: 'There\'s a pervasive sense of uncertainty in the market right now.' },
+    { type: 'word',         term: 'delineate',            meaning: 'to describe or portray something precisely',               example: 'The report delineates the key risks facing the organisation.' },
+    { type: 'word',         term: 'commensurate',         meaning: 'corresponding in size or degree; proportionate',           example: 'The salary should be commensurate with experience and qualifications.' },
+    { type: 'word',         term: 'amalgamate',           meaning: 'to combine or unite different things into one',            example: 'The two departments were amalgamated to reduce overhead costs.' },
+    { type: 'idiom',        term: 'a double-edged sword', meaning: 'something with both advantages and disadvantages',         example: 'Social media is a double-edged sword — great for reach, risky for reputation.' },
+    { type: 'idiom',        term: 'split hairs',          meaning: 'to make overly fine distinctions; argue about details',    example: 'We\'re splitting hairs here — both options are essentially the same.' },
+    { type: 'idiom',        term: 'throw in the towel',   meaning: 'to admit defeat; to give up',                              example: 'After three failed attempts, he finally threw in the towel.' },
+    { type: 'idiom',        term: 'cut corners',          meaning: 'to do something poorly to save time or money',             example: 'Cutting corners on safety is never acceptable in this industry.' },
+    { type: 'idiom',        term: 'on thin ice',          meaning: 'in a risky or precarious situation',                       example: 'After that comment, he\'s on very thin ice with his manager.' },
+    { type: 'idiom',        term: 'go to great lengths',  meaning: 'to make a big effort to achieve something',                example: 'She went to great lengths to ensure the client was satisfied.' },
+    { type: 'idiom',        term: 'hold your ground',     meaning: 'to maintain your position under pressure',                 example: 'Negotiations were tough, but she held her ground throughout.' },
+    { type: 'expression',   term: 'with that in mind',    meaning: 'taking the previous point into consideration',             example: 'The data is inconclusive. With that in mind, I\'d recommend caution.' },
+    { type: 'expression',   term: 'on the face of it',    meaning: 'based on initial appearances; superficially',             example: 'On the face of it, the proposal looks attractive. But read the small print.' },
+    { type: 'expression',   term: 'it goes without saying', meaning: 'something is so obvious it barely needs to be stated',  example: 'It goes without saying that confidentiality is essential here.' },
+    { type: 'expression',   term: 'in the final analysis', meaning: 'when everything has been considered; ultimately',        example: 'In the final analysis, the project failed due to poor communication.' },
+    { type: 'expression',   term: 'to no avail',          meaning: 'without success; despite efforts',                        example: 'She tried to reach him several times, but to no avail.' },
+    { type: 'expression',   term: 'strike a balance',     meaning: 'to find an acceptable middle point between extremes',     example: 'The policy tries to strike a balance between security and privacy.' },
+    { type: 'expression',   term: 'lend weight to',       meaning: 'to add support or credibility to an argument',            example: 'This new evidence lends weight to the prosecution\'s case.' },
+    { type: 'grammar',      term: 'nominalisation',       meaning: 'turning verbs/adjectives into nouns — raises register',   example: 'They improved → an improvement. We decided → the decision.' },
+    { type: 'grammar',      term: 'ellipsis',             meaning: 'omitting words already understood from context',          example: 'A: Are you coming? B: Yes, I am. (= "I am coming")' },
+    { type: 'grammar',      term: 'mixed conditionals',   meaning: 'mix past unreal + present result for nuanced hypotheticals', example: 'If I had studied law, I would be a lawyer now.' },
+    { type: 'grammar',      term: 'it + passive reporting', meaning: 'impersonal it + passive is used in formal writing',     example: 'It is believed that… It has been reported that… It is argued that…' },
+    { type: 'grammar',      term: 'fronting for emphasis', meaning: 'move element to the front of the clause for focus',      example: 'That I did not expect. What she said surprised everyone.' },
+    { type: 'grammar',      term: 'future in the past',   meaning: 'was/were going to, would, was about to — for past future', example: 'She was about to leave when the phone rang. He was going to call.' },
+    { type: 'phrasal verb', term: 'call into question',   meaning: 'to cause doubt about something',                          example: 'The new findings call into question the entire research methodology.' },
+    { type: 'phrasal verb', term: 'bear out',             meaning: 'to confirm or support the truth of something',            example: 'The results bear out the hypothesis we proposed last year.' },
+    { type: 'phrasal verb', term: 'give rise to',         meaning: 'to cause or produce something',                           example: 'The merger gave rise to serious concerns about market competition.' },
   ],
 };
 
@@ -643,6 +715,8 @@ export default function HomeScreen() {
   const [showTipModal, setShowTipModal]   = useState(false);
   const [showLiveVoice, setShowLiveVoice] = useState(false);
   const [showStats, setShowStats]         = useState(false);
+  const [aiGreeting, setAiGreeting] = useState<string | null>(null);
+  const greetingFetchedRef = useRef(false);
 
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
@@ -731,6 +805,45 @@ export default function HomeScreen() {
     await fetchData();
     setRefreshing(false);
   }, [fetchData]);
+
+  // ── AI Greeting — fetched once per day, cached in SecureStore ──
+  useEffect(() => {
+    if (!userId || !name || greetingFetchedRef.current) return;
+    greetingFetchedRef.current = true;
+
+    const today = Math.floor(Date.now() / 86400000).toString();
+    const cacheKey = `ai_greeting_${userId}_${today}`;
+
+    (async () => {
+      try {
+        // Check cache first
+        const cached = await SecureStore.getItemAsync(cacheKey);
+        if (cached) { setAiGreeting(cached); return; }
+
+        // Fetch from API
+        const res = await fetch(`${API_BASE_URL}/api/greeting`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: name.split(' ')[0] ?? name,
+            streak:    data?.streakDays ?? 0,
+            todayXP:   data?.todayXP   ?? 0,
+            dailyGoal: DAILY_XP_GOAL,
+            hour:      new Date().getHours(),
+            level,
+          }),
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.message) {
+          setAiGreeting(json.message);
+          await SecureStore.setItemAsync(cacheKey, json.message);
+        }
+      } catch {
+        // Silently fall back to hardcoded message
+      }
+    })();
+  }, [userId, name, level]); // eslint-disable-line
 
   const missions     = data ? buildMissions(data, level) : [];
   const doneMissions = missions.filter(m => m.completed).length;
@@ -932,7 +1045,7 @@ export default function HomeScreen() {
                     fontSize: 15, color: '#FFFFFF',
                     lineHeight: 23, fontWeight: '500',
                   }}>
-                    {charlotteMessage(firstName, streak, todayXP, isPortuguese)}
+                    {aiGreeting ?? charlotteMessage(firstName, streak, todayXP, isPortuguese)}
                   </AppText>
                 </View>
               </View>
