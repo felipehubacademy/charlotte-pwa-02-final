@@ -508,14 +508,28 @@ export default function LearnSessionScreen() {
       }
 
       if (data.result) {
-        const score = data.result.pronunciationScore ?? 0;
+        const score        = data.result.pronunciationScore  ?? 0;
+        const completeness = data.result.completenessScore   ?? 0;
+        const fluency      = data.result.fluencyScore        ?? 0;
+
         const allZero = score === 0
           && (data.result.accuracyScore ?? 0) === 0
-          && (data.result.fluencyScore ?? 0) === 0
-          && (data.result.completenessScore ?? 0) === 0;
+          && fluency === 0
+          && completeness === 0;
 
         if (allZero) {
-          // Assessment returned zeros — likely silence or very short audio → ask retry
+          // Assessment returned zeros — likely silence or very short audio
+          setPronStatus('retry');
+          return;
+        }
+
+        // Shadowing & repeat require the user to actually speak.
+        // Azure returns low but non-zero scores for near-silence.
+        // Enforce a minimum completeness threshold so staying silent
+        // or muttering a single word can't pass the exercise.
+        const isShadowing = currentStep.phrase.type === 'shadowing';
+        const isRepeat    = currentStep.phrase.type === 'repeat';
+        if ((isShadowing || isRepeat) && completeness < 35) {
           setPronStatus('retry');
           return;
         }
@@ -524,7 +538,7 @@ export default function LearnSessionScreen() {
         setSessionScores(prev => [...prev, score]);
         const xp = score >= 85 ? 15 : score >= 70 ? 10 : 5;
         setSessionXP(prev => prev + xp);
-        const exType = currentStep.phrase.type === 'shadowing' ? 'shadowing' : 'repeat';
+        const exType = isShadowing ? 'shadowing' : 'repeat';
         saveExercise({ level, moduleIndex, topicIndex, exerciseType: exType, isCorrect: score >= 70, xpEarned: xp });
         if (score >= 80) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
@@ -664,7 +678,10 @@ export default function LearnSessionScreen() {
                       : currentStep.exercise.type === 'word_order'     ? (isPortuguese ? 'Ordene as Palavras'  : 'Word Order')
                       : currentStep.exercise.type === 'short_write'    ? (isPortuguese ? 'Escrita Livre'       : 'Short Write')
                       :                                                   (isPortuguese ? 'Leia e Responda'     : 'Read & Answer'))
-                    : (currentStep.phrase.type === 'repeat'             ? (isPortuguese ? 'Repita Depois de Mim' : 'Repeat After Me')
+                    : (currentStep.phrase.type === 'repeat'          ? (isPortuguese ? 'Repita Depois de Mim' : 'Repeat After Me')
+                      : currentStep.phrase.type === 'shadowing'       ? (isPortuguese ? 'Siga Junto'           : 'Follow Along')
+                      : currentStep.phrase.type === 'minimal_pairs'   ? (isPortuguese ? 'Pares Mínimos'        : 'Minimal Pairs')
+                      : currentStep.phrase.type === 'sentence_stress'  ? (isPortuguese ? 'Entonação'            : 'Sentence Stress')
                       :                                                   (isPortuguese ? 'Ouça e Escreva'      : 'Listen & Write'))
                   }
                 </AppText>

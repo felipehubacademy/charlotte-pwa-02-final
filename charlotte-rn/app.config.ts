@@ -59,6 +59,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         backgroundColor: '#F4F3FA',
         image: './assets/charlotte-avatar.png',
         resizeMode: 'contain',
+        imageWidth: 120,
       },
     ],
     [
