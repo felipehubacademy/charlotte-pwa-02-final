@@ -66,6 +66,47 @@ export const MODULE_INTROS: AllIntros = {
       ],
     },
   },
+  Advanced: {
+    // ── Module 1 — Formal & Complex Structures C1 ─────────────────
+    0: {
+      title: 'Formal & Complex Structures',
+      slides: [
+        {
+          label: 'Welcome',
+          text: "Welcome to Advanced. If you're here, you already know English well. This module is about precision — the structures that separate good English from truly sophisticated English. Let's sharpen your edge.",
+        },
+        {
+          label: 'Inversion & Conditionals',
+          text: "We start with inversion and advanced conditionals. Structures like Never have I seen and Were I to resign flip the normal word order for emphasis or formality. You'll find these in formal writing, speeches, and high-register conversation.",
+          highlight: 'Never have I seen such dedication.\nWere I to resign, chaos would follow.',
+        },
+        {
+          label: 'Modals with Nuance',
+          text: "Advanced modals go beyond permission and ability. At C1, you use would, could, might and should to signal distance, doubt, or politeness — not just possibility. The same word carries completely different weight depending on context.",
+          highlight: 'He could be right. (doubt)\nYou might want to reconsider. (polite pressure)',
+        },
+        {
+          label: 'Nominalisation',
+          text: "Nominalisation is the art of turning verbs and adjectives into nouns. It compresses meaning and raises register instantly. Academic writing, reports, and formal speech all rely on it heavily.",
+          highlight: 'They decided → The decision\nIt improved significantly → a significant improvement',
+        },
+        {
+          label: 'Clefts, Passives & Subjunctive',
+          text: "Cleft sentences put the spotlight on one element. The advanced passive removes the agent entirely, letting the idea take centre stage. And the subjunctive signals formality in suggestions and requirements — a mark of true C1 control.",
+          highlight: 'It was the timing that surprised me.\nIt is essential that he be informed.',
+        },
+        {
+          label: 'Ellipsis & Cohesion',
+          text: "The final two topics are about flow. Ellipsis and substitution let you avoid repetition elegantly — so do I, I think so, neither did she. And discourse coherence ties it all together: how ideas connect, reference each other, and build a well-structured text.",
+          highlight: 'A: I love jazz. B: So do I.\nThe policy — debated for months — was rejected.',
+        },
+        {
+          label: "You're ready",
+          text: "Nine powerful topics. Each one will push your English toward genuine C1 mastery. Don't rush — the exercises are designed to make these structures feel natural over time. Let's go.",
+        },
+      ],
+    },
+  },
   Inter: {
     // ── Module 1 — Present Perfect ────────────────────────────
     0: {

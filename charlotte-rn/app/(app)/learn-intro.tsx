@@ -227,11 +227,8 @@ export default function LearnIntroScreen() {
     redirectedRef.current = true;
     subRef.current?.remove();
     try { playerRef.current?.pause(); } catch {}
-    router.replace({
-      pathname: '/(app)/learn-session',
-      params: { level, moduleIndex, topicIndex },
-    });
-  }, [level, moduleIndex, topicIndex]);
+    router.back();
+  }, []);
 
   const handleNext = useCallback(() => {
     if (slideIdx < slides.length - 1) {
@@ -372,7 +369,7 @@ export default function LearnIntroScreen() {
           }}
         >
           <AppText style={{ fontSize: 16, fontWeight: '800', color: '#FFF' }}>
-            {isLast ? (isPortuguese ? 'Vamos lá!' : "Let's Start!") : (isPortuguese ? 'Próximo' : 'Next')}
+            {isLast ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}
           </AppText>
           <ArrowRight size={18} color="#FFF" weight="bold" />
         </TouchableOpacity>
