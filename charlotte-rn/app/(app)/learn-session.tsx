@@ -102,7 +102,7 @@ function checkGrammar(ex: GrammarEx, answer: string): boolean {
   const u = normalise(answer);
   const c = normalise(ex.answer);
   if (u === c) return true;
-  if (ex.type === 'multiple_choice' || ex.type === 'word_bank') return false;
+  if (ex.type === 'multiple_choice' || ex.type === 'word_bank' || ex.type === 'word_order') return false;
 
   // If the expected answer uses a contraction, don't expand — test is specifically
   // checking the contracted form. Only expand when the answer uses the full form.
@@ -232,6 +232,8 @@ export default function LearnSessionScreen() {
   const [showHint, setShowHint]         = useState(false);
   const [shuffledOptions, setShuffledOptions] = useState<string[]>([]);
   const [shuffledChoices, setShuffledChoices] = useState<string[]>([]);
+  const [wordOrderPlaced, setWordOrderPlaced] = useState<string[]>([]);
+  const [wordOrderPool, setWordOrderPool]     = useState<string[]>([]);
   const feedbackAnim = useRef(new Animated.Value(0)).current;
 
   // ── Pronunciation state ────────────────────────────────────
@@ -242,6 +244,12 @@ export default function LearnSessionScreen() {
   const [listenWriteCorrect, setListenWriteCorrect] = useState<boolean | null>(null);
   const [assessmentResult, setAssessmentResult]   = useState<any>(null);
   const [sessionScores, setSessionScores]         = useState<number[]>([]);
+  // minimal_pairs state
+  const [mpChosen, setMpChosen]       = useState<'word1' | 'word2' | null>(null);
+  const [mpCorrect, setMpCorrect]     = useState<boolean | null>(null);
+  // sentence_stress state
+  const [stressTapped, setStressTapped]   = useState<string | null>(null);
+  const [stressCorrect, setStressCorrect] = useState<boolean | null>(null);
   const resultAnim   = useRef(new Animated.Value(0)).current;
 
   const { playingMessageId, toggle: toggleAudio, stop: stopAudio } = useMessageAudioPlayer();
@@ -312,6 +320,13 @@ export default function LearnSessionScreen() {
     feedbackAnim.setValue(0);
     if (ex.options) setShuffledOptions([...ex.options].sort(() => Math.random() - 0.5));
     if (ex.choices) setShuffledChoices([...ex.choices].sort(() => Math.random() - 0.5));
+    if (ex.type === 'word_order' && ex.words) {
+      setWordOrderPool([...ex.words].sort(() => Math.random() - 0.5));
+      setWordOrderPlaced([]);
+    } else {
+      setWordOrderPool([]);
+      setWordOrderPlaced([]);
+    }
   }, [feedbackAnim]);
 
   // ── Load pronunciation step ────────────────────────────────
@@ -322,19 +337,42 @@ export default function LearnSessionScreen() {
     setAssessmentResult(null);
     setListenWriteAnswer('');
     setListenWriteCorrect(null);
+    setMpChosen(null);
+    setMpCorrect(null);
+    setStressTapped(null);
+    setStressCorrect(null);
     resultAnim.setValue(0);
     stopAudio();
 
     try {
-      // Reuse audio if same phrase text (e.g. repeat then listen_write)
-      if (ph.text !== lastPhraseText.current) {
-        const uri = await fetchTTS(ph.text);
-        if (uri) {
-          setCharlotteAudioUri(uri);
-          lastPhraseText.current = ph.text;
-        } else {
-          setCharlotteAudioUri(null);
-          lastPhraseText.current = null;
+      if (ph.type === 'sentence_stress') {
+        // No audio needed for sentence_stress
+        setCharlotteAudioUri(null);
+        lastPhraseText.current = null;
+      } else if (ph.type === 'minimal_pairs') {
+        // Fetch TTS for the target word
+        const targetWord = ph.target === 'word2' ? ph.word2 : ph.word1;
+        if (targetWord && targetWord !== lastPhraseText.current) {
+          const uri = await fetchTTS(targetWord);
+          if (uri) {
+            setCharlotteAudioUri(uri);
+            lastPhraseText.current = targetWord;
+          } else {
+            setCharlotteAudioUri(null);
+            lastPhraseText.current = null;
+          }
+        }
+      } else if (ph.text) {
+        // repeat, listen_write, shadowing — use ph.text
+        if (ph.text !== lastPhraseText.current) {
+          const uri = await fetchTTS(ph.text);
+          if (uri) {
+            setCharlotteAudioUri(uri);
+            lastPhraseText.current = ph.text;
+          } else {
+            setCharlotteAudioUri(null);
+            lastPhraseText.current = null;
+          }
         }
       }
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
@@ -358,9 +396,40 @@ export default function LearnSessionScreen() {
   // ── Grammar: check answer ──────────────────────────────────
   const handleGrammarSubmit = () => {
     if (!currentStep || currentStep.kind !== 'grammar') return;
+
+    const ex = currentStep.exercise;
+
+    // short_write: free-form — always correct if non-trivial length
+    if (ex.type === 'short_write') {
+      if (userAnswer.trim().length <= 5) return;
+      setIsCorrect(true);
+      setGStatus('submitted');
+      setSessionXP(prev => prev + 8);
+      saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: true, xpEarned: 8 });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+      return;
+    }
+
+    // word_order: check placed words against answer
+    if (ex.type === 'word_order') {
+      if (wordOrderPlaced.length === 0) return;
+      const answerText = wordOrderPlaced.join(' ');
+      const correct = checkGrammar(ex, answerText);
+      const xp = correct ? 10 : 2;
+      setIsCorrect(correct);
+      setGStatus('submitted');
+      setSessionXP(prev => prev + xp);
+      saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: correct, xpEarned: xp });
+      if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+      return;
+    }
+
     if (!userAnswer.trim()) return;
 
-    const correct = checkGrammar(currentStep.exercise, userAnswer);
+    const correct = checkGrammar(ex, userAnswer);
     const xp = correct ? 10 : 2;
     setIsCorrect(correct);
     setGStatus('submitted');
@@ -368,7 +437,7 @@ export default function LearnSessionScreen() {
 
     saveExercise({
       level, moduleIndex, topicIndex,
-      exerciseType: currentStep.exercise.type,
+      exerciseType: ex.type,
       isCorrect: correct, xpEarned: xp,
     });
 
@@ -425,7 +494,8 @@ export default function LearnSessionScreen() {
       const isWav = audioUri.toLowerCase().endsWith('.wav');
       const formData = new FormData();
       formData.append('audio', { uri: audioUri, name: isWav ? 'recording.wav' : 'recording.m4a', type: isWav ? 'audio/wav' : 'audio/x-m4a' } as unknown as Blob);
-      formData.append('referenceText', currentStep.phrase.text);
+      const referenceText = currentStep.phrase.text ?? '';
+      formData.append('referenceText', referenceText);
 
       const res = await fetch(`${API_BASE_URL}/api/pronunciation`, { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Assessment failed');
@@ -454,7 +524,8 @@ export default function LearnSessionScreen() {
         setSessionScores(prev => [...prev, score]);
         const xp = score >= 85 ? 15 : score >= 70 ? 10 : 5;
         setSessionXP(prev => prev + xp);
-        saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'repeat', isCorrect: score >= 70, xpEarned: xp });
+        const exType = currentStep.phrase.type === 'shadowing' ? 'shadowing' : 'repeat';
+        saveExercise({ level, moduleIndex, topicIndex, exerciseType: exType, isCorrect: score >= 70, xpEarned: xp });
         if (score >= 80) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
       }
@@ -467,7 +538,7 @@ export default function LearnSessionScreen() {
     if (!currentStep || currentStep.kind !== 'pronunciation') return;
     if (!listenWriteAnswer.trim()) return;
     const u = listenWriteAnswer.trim().toLowerCase().replace(/[.,!?]/g, '');
-    const c = currentStep.phrase.text.toLowerCase().replace(/[.,!?]/g, '');
+    const c = (currentStep.phrase.text ?? '').toLowerCase().replace(/[.,!?]/g, '');
     const words   = c.split(' ').filter(w => w.length > 2);
     const matched = words.filter(w => u.includes(w)).length;
     const correct = matched >= Math.ceil(words.length * 0.7);
@@ -483,6 +554,8 @@ export default function LearnSessionScreen() {
 
   // ── Advance step ───────────────────────────────────────────
   const handleNext = async () => {
+    setWordOrderPlaced([]);
+    setWordOrderPool([]);
     const next = stepIdx + 1;
     if (next >= totalSteps) {
       await saveTopicComplete(level, moduleIndex, topicIndex);
@@ -588,6 +661,8 @@ export default function LearnSessionScreen() {
                       : currentStep.exercise.type === 'word_bank'      ? (isPortuguese ? 'Banco de Palavras'   : 'Word Bank')
                       : currentStep.exercise.type === 'fill_gap'       ? (isPortuguese ? 'Complete a Lacuna'   : 'Fill the Gap')
                       : currentStep.exercise.type === 'fix_error'      ? (isPortuguese ? 'Corrija o Erro'      : 'Fix the Error')
+                      : currentStep.exercise.type === 'word_order'     ? (isPortuguese ? 'Ordene as Palavras'  : 'Word Order')
+                      : currentStep.exercise.type === 'short_write'    ? (isPortuguese ? 'Escrita Livre'       : 'Short Write')
                       :                                                   (isPortuguese ? 'Leia e Responda'     : 'Read & Answer'))
                     : (currentStep.phrase.type === 'repeat'             ? (isPortuguese ? 'Repita Depois de Mim' : 'Repeat After Me')
                       :                                                   (isPortuguese ? 'Ouça e Escreva'      : 'Listen & Write'))
@@ -615,6 +690,8 @@ export default function LearnSessionScreen() {
                       : currentStep.exercise.type === 'word_bank'      ? (isPortuguese ? 'Toque na palavra correta para preencher o espaço.' : 'Tap the correct word to fill the blank.')
                       : currentStep.exercise.type === 'fill_gap'       ? (isPortuguese ? 'Preencha o espaço com a palavra ou frase correta.'  : 'Fill in the blank with the correct word or phrase.')
                       : currentStep.exercise.type === 'fix_error'      ? (isPortuguese ? 'Encontre o erro e reescreva a frase corretamente.'  : 'Find the mistake and rewrite the sentence correctly.')
+                      : currentStep.exercise.type === 'word_order'     ? (isPortuguese ? 'Toque nas palavras abaixo para montar a frase na ordem correta.' : 'Tap the words below to build the sentence in the correct order.')
+                      : currentStep.exercise.type === 'short_write'    ? (isPortuguese ? 'Escreva sua resposta em inglês. Depois, veja o exemplo.' : 'Write your answer in English. Then see the model answer.')
                       :                                                   (isPortuguese ? 'Leia o texto e responda à pergunta.'                : 'Read the text and answer the question.')}
                   </AppText>
                 </View>
@@ -735,6 +812,106 @@ export default function LearnSessionScreen() {
                 </View>
               )}
 
+              {/* ── Word Order ── */}
+              {currentStep.exercise.type === 'word_order' && gStatus === 'answering' && (
+                <View style={{ gap: 12 }}>
+                  {/* Context in PT */}
+                  {currentStep.exercise.context_pt && (
+                    <AppText style={{ fontSize: 14, color: C.navyMid, fontStyle: 'italic', textAlign: 'center' }}>
+                      {currentStep.exercise.context_pt}
+                    </AppText>
+                  )}
+
+                  {/* Sentence builder — placed words */}
+                  <View style={{
+                    minHeight: 52, backgroundColor: C.ghost, borderRadius: 14,
+                    borderWidth: 1.5, borderColor: C.border,
+                    flexDirection: 'row', flexWrap: 'wrap', padding: 10, gap: 8, alignItems: 'center',
+                  }}>
+                    {wordOrderPlaced.length === 0 && (
+                      <AppText style={{ color: C.navyLight, fontSize: 14 }}>
+                        {isPortuguese ? 'Toque nas palavras abaixo...' : 'Tap words below...'}
+                      </AppText>
+                    )}
+                    {wordOrderPlaced.map((w, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => {
+                          setWordOrderPlaced(prev => prev.filter((_, idx) => idx !== i));
+                          setWordOrderPool(prev => [...prev, w]);
+                        }}
+                        style={{ backgroundColor: C.violet, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 }}
+                      >
+                        <AppText style={{ color: '#FFF', fontWeight: '700', fontSize: 15 }}>{w}</AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Word pool — available chips */}
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                    {wordOrderPool.map((w, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => {
+                          setWordOrderPool(prev => prev.filter((_, idx) => idx !== i));
+                          setWordOrderPlaced(prev => [...prev, w]);
+                        }}
+                        style={{ backgroundColor: C.card, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: C.border }}
+                      >
+                        <AppText style={{ color: C.navy, fontWeight: '600', fontSize: 15 }}>{w}</AppText>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* ── Short Write ── */}
+              {currentStep.exercise.type === 'short_write' && gStatus === 'answering' && (
+                <View style={{ gap: 12 }}>
+                  {currentStep.exercise.prompt && (
+                    <View style={{ backgroundColor: C.goldBg, borderRadius: 12, padding: 14 }}>
+                      <AppText style={{ fontSize: 14, color: C.gold, fontWeight: '700', marginBottom: 4 }}>
+                        {isPortuguese ? 'Sua tarefa:' : 'Your task:'}
+                      </AppText>
+                      <AppText style={{ fontSize: 15, color: C.navy, lineHeight: 22 }}>
+                        {currentStep.exercise.prompt}
+                      </AppText>
+                    </View>
+                  )}
+                  <TextInput
+                    value={userAnswer}
+                    onChangeText={setUserAnswer}
+                    placeholder={isPortuguese ? 'Escreva sua resposta em inglês...' : 'Write your answer in English...'}
+                    placeholderTextColor={C.navyLight}
+                    style={{
+                      borderWidth: 1.5, borderColor: C.border, borderRadius: 14,
+                      paddingHorizontal: 16, paddingVertical: 14,
+                      fontSize: 15, color: C.navy, minHeight: 110,
+                      textAlignVertical: 'top', backgroundColor: C.card,
+                    }}
+                    multiline
+                    autoCorrect={false}
+                    autoCapitalize="sentences"
+                  />
+                  {currentStep.exercise.hint && showHint && (
+                    <View style={{ backgroundColor: C.violetBg, borderRadius: 10, padding: 12 }}>
+                      <AppText style={{ fontSize: 13, color: C.violet }}>{currentStep.exercise.hint}</AppText>
+                    </View>
+                  )}
+                  {currentStep.exercise.hint && (
+                    <TouchableOpacity
+                      onPress={() => setShowHint(v => !v)}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' }}
+                    >
+                      <LightbulbFilament size={14} color={accent} weight="fill" />
+                      <AppText style={{ fontSize: 13, color: accent, fontWeight: '600' }}>
+                        {showHint ? (isPortuguese ? 'Ocultar dica' : 'Hide hint') : (isPortuguese ? 'Mostrar dica' : 'Show hint')}
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
               {/* Text input (fill_gap / fix_error / read_answer) */}
               {(currentStep.exercise.type === 'fill_gap' || currentStep.exercise.type === 'fix_error' || currentStep.exercise.type === 'read_answer') && gStatus === 'answering' && (
                 <>
@@ -805,7 +982,7 @@ export default function LearnSessionScreen() {
                     </AppText>
                     <View style={{ backgroundColor: isCorrect ? 'rgba(61,136,0,0.12)' : 'rgba(220,38,38,0.10)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
                       <AppText style={{ fontSize: 11, fontWeight: '800', color: isCorrect ? C.green : C.red }}>
-                        +{isCorrect ? 10 : 2} XP
+                        +{currentStep.kind === 'grammar' && currentStep.exercise.type === 'short_write' ? 8 : isCorrect ? 10 : 2} XP
                       </AppText>
                     </View>
                   </View>
@@ -816,6 +993,16 @@ export default function LearnSessionScreen() {
                         ? <TranslatableText text={currentStep.exercise.answer ?? ''} style={{ fontSize: 15, color: C.navy, fontWeight: '600' }} />
                         : <AppText style={{ fontSize: 15, color: C.navy, fontWeight: '600' }}>{currentStep.exercise.answer}</AppText>
                       }
+                    </View>
+                  )}
+                  {currentStep.exercise.type === 'short_write' && currentStep.exercise.example_answer && (
+                    <View style={{ backgroundColor: C.greenBg, borderRadius: 12, padding: 14, marginBottom: 8 }}>
+                      <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>
+                        {isPortuguese ? 'Exemplo de resposta' : 'Model answer'}
+                      </AppText>
+                      <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 22 }}>
+                        "{currentStep.exercise.example_answer}"
+                      </AppText>
                     </View>
                   )}
                   <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12 }}>
@@ -837,6 +1024,12 @@ export default function LearnSessionScreen() {
                   <AppText style={{ fontSize: 14, color: accent, fontWeight: '700' }}>
                     {currentStep.phrase.type === 'repeat'
                       ? (isPortuguese ? 'Ouça a Charlotte e repita a frase.'        : 'Listen to Charlotte and repeat the phrase.')
+                      : currentStep.phrase.type === 'shadowing'
+                      ? (isPortuguese ? 'Siga junto com Charlotte — foco no ritmo e entonação.' : 'Follow along with Charlotte\'s rhythm and prosody.')
+                      : currentStep.phrase.type === 'minimal_pairs'
+                      ? (isPortuguese ? 'Ouça a Charlotte e toque na palavra que ela disse.' : 'Listen to Charlotte and tap the word you heard.')
+                      : currentStep.phrase.type === 'sentence_stress'
+                      ? (isPortuguese ? 'Toque na palavra que tem a sílaba mais forte na frase.' : 'Tap the word that carries the strongest stress in this sentence.')
                       : (isPortuguese ? 'Ouça a Charlotte e escreva o que ouviu.'   : 'Listen to Charlotte and write what you hear.')}
                   </AppText>
                 </View>
@@ -849,44 +1042,158 @@ export default function LearnSessionScreen() {
                 </AppText>
               </View>
 
-              {/* Phrase (hidden for listen_write until answered) */}
-              {(currentStep.phrase.type === 'repeat' || pronStatus === 'result') && (
+              {/* Phrase (hidden for listen_write/minimal_pairs until answered) */}
+              {(currentStep.phrase.type === 'repeat' || currentStep.phrase.type === 'shadowing' || pronStatus === 'result') && currentStep.phrase.text && (
                 <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34, marginBottom: 24 }}>
                   {currentStep.phrase.text}
                 </AppText>
               )}
-              {currentStep.phrase.type === 'listen_write' && pronStatus !== 'result' && (
+              {(currentStep.phrase.type === 'listen_write' || currentStep.phrase.type === 'minimal_pairs') && pronStatus !== 'result' && (
                 <View style={{ height: 4, backgroundColor: accent + '33', borderRadius: 2, marginBottom: 24 }} />
               )}
 
-              {/* Play Charlotte button */}
-              {pronStatus === 'loading_audio' ? (
-                <View style={{ alignItems: 'center', paddingVertical: 20, marginBottom: 12 }}>
-                  <ActivityIndicator color={accent} />
-                  <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 10 }}>{isPortuguese ? 'Preparando áudio…' : 'Preparing audio…'}</AppText>
+              {/* sentence_stress: show tappable words */}
+              {currentStep.phrase.type === 'sentence_stress' && currentStep.phrase.text && (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
+                  {currentStep.phrase.text.split(' ').map((word, i) => {
+                    const tapped = stressTapped === word;
+                    const isCorrectWord = stressCorrect !== null && word === currentStep.phrase.stressed_word;
+                    const isWrongTap    = stressCorrect === false && tapped;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        disabled={stressTapped !== null}
+                        onPress={() => {
+                          const correct = word === currentStep.phrase.stressed_word;
+                          setStressTapped(word);
+                          setStressCorrect(correct);
+                          const xp = correct ? 8 : 2;
+                          setSessionXP(prev => prev + xp);
+                          saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'sentence_stress', isCorrect: correct, xpEarned: xp });
+                          if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+                          setPronStatus('result');
+                        }}
+                        style={{
+                          paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10,
+                          borderWidth: 2,
+                          borderColor: isCorrectWord ? C.green : isWrongTap ? C.red : tapped ? accent : C.border,
+                          backgroundColor: isCorrectWord ? C.greenBg : isWrongTap ? C.redBg : tapped ? accentBg : C.card,
+                        }}
+                      >
+                        <AppText style={{
+                          fontSize: 17, fontWeight: '700',
+                          color: isCorrectWord ? C.green : isWrongTap ? C.red : C.navy,
+                        }}>
+                          {word}
+                        </AppText>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
-              ) : (
-                <TouchableOpacity
-                  onPress={handlePlayCharlotte}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
-                    backgroundColor: accentBg, borderRadius: 16, borderWidth: 1.5,
-                    borderColor: accent + '40', paddingVertical: 14, marginBottom: 16,
-                  }}
-                >
-                  {isPlaying
-                    ? <Pause size={20} color={accent} weight="fill" />
-                    : <SpeakerHigh size={20} color={accent} weight="fill" />
-                  }
-                  <AppText style={{ fontSize: 14, fontWeight: '700', color: accent }}>
-                    {isPlaying
-                      ? (isPortuguese ? 'Pausar' : 'Pause')
-                      : (isPortuguese ? 'Ouça a Charlotte' : 'Listen to Charlotte')}
-                  </AppText>
-                </TouchableOpacity>
               )}
 
+              {/* Play Charlotte button — not shown for sentence_stress */}
+              {currentStep.phrase.type !== 'sentence_stress' && (
+                pronStatus === 'loading_audio' ? (
+                  <View style={{ alignItems: 'center', paddingVertical: 20, marginBottom: 12 }}>
+                    <ActivityIndicator color={accent} />
+                    <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 10 }}>{isPortuguese ? 'Preparando áudio…' : 'Preparing audio…'}</AppText>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    onPress={handlePlayCharlotte}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                      backgroundColor: accentBg, borderRadius: 16, borderWidth: 1.5,
+                      borderColor: accent + '40', paddingVertical: 14, marginBottom: 16,
+                    }}
+                  >
+                    {isPlaying
+                      ? <Pause size={20} color={accent} weight="fill" />
+                      : <SpeakerHigh size={20} color={accent} weight="fill" />
+                    }
+                    <AppText style={{ fontSize: 14, fontWeight: '700', color: accent }}>
+                      {isPlaying
+                        ? (isPortuguese ? 'Pausar' : 'Pause')
+                        : currentStep.phrase.type === 'minimal_pairs'
+                        ? (isPortuguese ? 'Ouça a palavra' : 'Listen to the word')
+                        : (isPortuguese ? 'Ouça a Charlotte' : 'Listen to Charlotte')}
+                    </AppText>
+                  </TouchableOpacity>
+                )
+              )}
 
+              {/* minimal_pairs: word choice buttons */}
+              {currentStep.phrase.type === 'minimal_pairs' && pronStatus === 'listening' && currentStep.phrase.word1 && currentStep.phrase.word2 && (
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16 }}>
+                  {(['word1', 'word2'] as const).map(key => {
+                    const word = currentStep.phrase[key] as string;
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        onPress={() => {
+                          const correct = key === currentStep.phrase.target;
+                          setMpChosen(key);
+                          setMpCorrect(correct);
+                          const xp = correct ? 8 : 2;
+                          setSessionXP(prev => prev + xp);
+                          saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'minimal_pairs', isCorrect: correct, xpEarned: xp });
+                          if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                          else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                          Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+                          setPronStatus('result');
+                        }}
+                        style={{
+                          flex: 1, paddingVertical: 18, borderRadius: 14,
+                          borderWidth: 2, borderColor: C.border,
+                          backgroundColor: C.card, alignItems: 'center',
+                        }}
+                      >
+                        <AppText style={{ fontSize: 20, fontWeight: '800', color: C.navy }}>{word}</AppText>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* minimal_pairs: result */}
+              {currentStep.phrase.type === 'minimal_pairs' && pronStatus === 'result' && mpCorrect !== null && (
+                <Animated.View style={{
+                  opacity: resultAnim,
+                  transform: [{ translateY: resultAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+                }}>
+                  <View style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 10,
+                    padding: 14, borderRadius: 14, marginBottom: 12,
+                    backgroundColor: mpCorrect ? C.greenBg : C.redBg,
+                    borderWidth: 1,
+                    borderColor: mpCorrect ? 'rgba(61,136,0,0.2)' : 'rgba(220,38,38,0.18)',
+                  }}>
+                    {mpCorrect ? <CheckCircle size={20} color={C.green} weight="fill" /> : <XCircle size={20} color={C.red} weight="fill" />}
+                    <AppText style={{ fontSize: 15, fontWeight: '700', color: mpCorrect ? C.green : C.red, flex: 1 }}>
+                      {mpCorrect
+                        ? (isPortuguese ? 'Correto!' : 'Correct!')
+                        : (isPortuguese ? 'Quase lá — Charlotte disse: ' : 'Not quite — Charlotte said: ') + (currentStep.phrase.target === 'word2' ? currentStep.phrase.word2 : currentStep.phrase.word1)}
+                    </AppText>
+                  </View>
+                </Animated.View>
+              )}
+
+              {/* sentence_stress: result */}
+              {currentStep.phrase.type === 'sentence_stress' && pronStatus === 'result' && stressCorrect !== null && (
+                <Animated.View style={{
+                  opacity: resultAnim,
+                  transform: [{ translateY: resultAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+                }}>
+                  <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12 }}>
+                    <AppText style={{ fontSize: 13, color: C.navyMid, lineHeight: 20 }}>
+                      {currentStep.phrase.focus}
+                    </AppText>
+                  </View>
+                </Animated.View>
+              )}
 
               {/* Listen & Write: text input */}
               {currentStep.phrase.type === 'listen_write' && (pronStatus === 'listening' || pronStatus === 'result') && (
@@ -929,8 +1236,8 @@ export default function LearnSessionScreen() {
                   transform: [{ translateY: resultAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
                   marginTop: 8,
                 }}>
-                  {/* Repeat result */}
-                  {assessmentResult && currentStep.phrase.type === 'repeat' && (
+                  {/* Repeat / Shadowing result */}
+                  {assessmentResult && (currentStep.phrase.type === 'repeat' || currentStep.phrase.type === 'shadowing') && (
                     <View style={{ backgroundColor: C.ghost, borderRadius: 14, padding: 16, marginBottom: 12 }}>
                       <AppText style={{ fontSize: 16, fontWeight: '800', color: scoreColor(assessmentResult.pronunciationScore ?? 0), marginBottom: 12 }}>
                         {scoreLabel(assessmentResult.pronunciationScore ?? 0, isPortuguese)}
@@ -1002,12 +1309,19 @@ export default function LearnSessionScreen() {
           backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border,
         }}>
           {/* ── Grammar ── */}
-          {currentStep.kind === 'grammar' && gStatus === 'answering' && (
-            <TouchableOpacity onPress={handleGrammarSubmit} disabled={!userAnswer.trim()}
-              style={{ backgroundColor: userAnswer.trim() ? C.navy : C.ghost, borderRadius: 16, paddingVertical: 15, alignItems: 'center' }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: userAnswer.trim() ? '#FFF' : C.navyLight }}>{isPortuguese ? 'Verificar' : 'Check'}</AppText>
-            </TouchableOpacity>
-          )}
+          {currentStep.kind === 'grammar' && gStatus === 'answering' && (() => {
+            const ex = currentStep.exercise;
+            const canSubmit =
+              ex.type === 'word_order'  ? wordOrderPlaced.length > 0 :
+              ex.type === 'short_write' ? userAnswer.trim().length > 5 :
+              !!userAnswer.trim();
+            return (
+              <TouchableOpacity onPress={handleGrammarSubmit} disabled={!canSubmit}
+                style={{ backgroundColor: canSubmit ? C.navy : C.ghost, borderRadius: 16, paddingVertical: 15, alignItems: 'center' }}>
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: canSubmit ? '#FFF' : C.navyLight }}>{isPortuguese ? 'Verificar' : 'Check'}</AppText>
+              </TouchableOpacity>
+            );
+          })()}
           {currentStep.kind === 'grammar' && gStatus === 'submitted' && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -1054,6 +1368,60 @@ export default function LearnSessionScreen() {
 
           {/* ── Pronunciation: Listen & Write ── */}
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'listen_write' && pronStatus === 'result' && (
+            <TouchableOpacity onPress={handleNext}
+              style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
+              {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
+            </TouchableOpacity>
+          )}
+
+          {/* ── Pronunciation: Shadowing (same hold-to-record as repeat) ── */}
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'shadowing' && (
+            (pronStatus === 'result' || pronStatus === 'retry') ? (
+              <TouchableOpacity onPress={handleNext}
+                style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
+                {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
+              </TouchableOpacity>
+            ) : pronStatus === 'loading_audio' ? (
+              <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <ActivityIndicator color={accent} />
+              </View>
+            ) : pronStatus === 'assessing' ? (
+              <View style={{ alignItems: 'center', paddingVertical: 12 }}>
+                <ActivityIndicator color={accent} />
+                <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 6 }}>{isPortuguese ? 'Analisando…' : 'Assessing…'}</AppText>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPressIn={startRecording}
+                onPressOut={stopRecording}
+                activeOpacity={0.8}
+                style={{
+                  backgroundColor: pronStatus === 'recording' ? '#DC2626' : '#7C3AED',
+                  borderRadius: 16, paddingVertical: 16,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+                }}
+              >
+                <Microphone size={22} color="#FFF" weight="fill" />
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
+                  {pronStatus === 'recording' ? (isPortuguese ? 'Gravando… solte para parar' : 'Recording… release to stop') : (isPortuguese ? 'Segure e siga junto' : 'Hold and follow along')}
+                </AppText>
+              </TouchableOpacity>
+            )
+          )}
+
+          {/* ── Pronunciation: Minimal Pairs — Next after result ── */}
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'minimal_pairs' && pronStatus === 'result' && (
+            <TouchableOpacity onPress={handleNext}
+              style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
+              {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
+            </TouchableOpacity>
+          )}
+
+          {/* ── Pronunciation: Sentence Stress — Next after result ── */}
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'sentence_stress' && pronStatus === 'result' && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>

@@ -9,8 +9,8 @@
 // Sequence (5-exercise topic):  mc wb fill fix read
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type GrammarExType = 'multiple_choice' | 'word_bank' | 'fill_gap' | 'fix_error' | 'read_answer';
-export type PronExType    = 'repeat' | 'listen_write';
+export type GrammarExType = 'multiple_choice' | 'word_bank' | 'fill_gap' | 'fix_error' | 'read_answer' | 'word_order' | 'short_write';
+export type PronExType    = 'repeat' | 'listen_write' | 'minimal_pairs' | 'shadowing' | 'sentence_stress';
 
 export interface GrammarEx {
   type:        GrammarExType;
@@ -22,12 +22,24 @@ export interface GrammarEx {
   choices?:    string[];   // word_bank: [correct, d1, d2, d3]
   hint?:       string;
   explanation: string;
+  // word_order
+  context_pt?:    string;   // Portuguese context shown to student
+  words?:         string[]; // the correct words (component will shuffle them)
+  // short_write
+  prompt?:        string;   // the writing prompt/instruction
+  example_answer?: string;  // model answer shown after submission
 }
 
 export interface PronStep {
   type:  PronExType;
-  text:  string;
+  text?: string;
   focus: string;
+  // minimal_pairs
+  word1?:   string;
+  word2?:   string;
+  target?:  'word1' | 'word2';  // which word Charlotte plays
+  // sentence_stress
+  stressed_word?: string;       // the correctly stressed word
 }
 
 export interface Topic {
@@ -72,6 +84,8 @@ const NOVICE_MODULES: Module[] = [
           { type: 'fix_error', sentence: 'How you are?',                                   answer: 'How are you?',          hint: 'Ordem do auxiliar nas perguntas', explanation: 'Em perguntas em inglês, o auxiliar vem antes do sujeito: "How are you?"' },
           // read × 1  (simplified for Novice — short dialogue, single-word answer)
           { type: 'read_answer', passage: 'Ana: Good morning! How are you?\nTom: I\'m fine, thank you! And you?\nAna: Great!', question: 'Como Tom está? (em inglês)', answer: 'fine', explanation: 'Tom diz "I\'m fine" — "fine" significa bem/ótimo em inglês.' },
+          // word_order × 1
+          { type: 'word_order', context_pt: 'Monte a saudação em inglês:', words: ['morning', 'Good', 'you', 'are', 'How'], answer: 'Good morning How are you', explanation: '"Good morning" é bom dia. "How are you?" é como vai você.' },
         ],
       },
       {
@@ -260,6 +274,7 @@ const INTER_MODULES: Module[] = [
           { type: 'repeat',       text: 'They have already eaten dinner.',            focus: '"already" stress placement' },
           { type: 'listen_write', text: 'We haven\'t decided yet.',                  focus: 'negative contraction' },
           { type: 'repeat',       text: 'He has worked here for five years.',        focus: 'weak form reduction in connected speech' },
+          { type: 'minimal_pairs', word1: 'ship', word2: 'sheep', target: 'word2', focus: '/ɪ/ vs /iː/ — short vs long vowel' },
         ],
         grammar: [
           { type: 'multiple_choice', sentence: 'She _____ (visit) Paris three times.',            answer: 'has visited',      options: ['has visited', 'visited', 'have visited'],       explanation: '"Has visited" is the present perfect with third person singular (she).' },
@@ -272,6 +287,7 @@ const INTER_MODULES: Module[] = [
           { type: 'fix_error', sentence: 'I have went to that restaurant before.',                answer: 'I have been to that restaurant before.',  hint: 'Past participle of "go"',         explanation: 'The past participle of "go" is "been" in the expression "have been to" (visited).' },
           { type: 'fix_error', sentence: 'She has finish her presentation.',                      answer: 'She has finished her presentation.',       hint: 'Past participle needed',         explanation: 'The present perfect uses the past participle: finish → finished.' },
           { type: 'read_answer', passage: 'The company has expanded rapidly over the past decade. It has opened offices in six countries and has hired over 500 new employees. The CEO has stated that further growth is planned.', question: 'How many countries does the company have offices in?', answer: 'six', explanation: 'The passage says "it has opened offices in six countries".' },
+          { type: 'short_write', prompt: 'Write a sentence using the Present Perfect to describe something you have done recently.', example_answer: 'I have just finished reading a great book.', answer: '', hint: 'Use: have/has + past participle', explanation: 'The Present Perfect connects a past action to the present. "Just" means very recently.' },
         ],
       },
       {
@@ -545,6 +561,8 @@ const ADVANCED_MODULES: Module[] = [
           { type: 'listen_write', text: 'Little did they know what was about to happen.',       focus: '"Little did" inversion' },
           { type: 'repeat',       text: 'Barely had he finished speaking when the questions started.', focus: '"Barely had" rhythm' },
           { type: 'listen_write', text: 'Only then did we realise the magnitude of the problem.', focus: '"Only then did" structure' },
+          { type: 'shadowing',      text: 'Never have I seen such remarkable dedication.',      focus: 'inversion stress pattern and rhythm' },
+          { type: 'sentence_stress', text: 'I have never been to Japan before.', stressed_word: 'never', focus: 'negative adverbs carry strong stress' },
         ],
         grammar: [
           { type: 'multiple_choice', sentence: 'Never _____ seen such a remarkable performance.',      answer: 'have I',       options: ['have I', 'I have', 'I had'],               explanation: 'After "never" at the start of a sentence, invert subject and auxiliary: "Never have I seen…"' },

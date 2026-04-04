@@ -150,12 +150,15 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
 
 // ── Types ──────────────────────────────────────────────────────
 
-type ExerciseType = 'repeat' | 'listen_write';
+type ExerciseType = 'repeat' | 'listen_write' | 'minimal_pairs' | 'shadowing' | 'sentence_stress';
 type Status = 'loading_audio' | 'listening' | 'recording' | 'assessing' | 'result' | 'error';
 
 const TYPE_LABELS: Record<ExerciseType, string> = {
-  repeat:       'Repeat After Me',
-  listen_write: 'Listen & Write',
+  repeat:          'Repeat After Me',
+  listen_write:    'Listen & Write',
+  minimal_pairs:   'Minimal Pairs',
+  shadowing:       'Shadowing',
+  sentence_stress: 'Sentence Stress',
 };
 
 // ── Main Screen ────────────────────────────────────────────────
@@ -178,6 +181,12 @@ export default function LearnPronunciationScreen() {
   const [assessmentResult, setAssessmentResult] = useState<any>(null);
   const [sessionScores, setSessionScores] = useState<number[]>([]);
   const [sessionXP, setSessionXP]         = useState(0);
+  // minimal_pairs state
+  const [mpChosen, setMpChosen]           = useState<'word1' | 'word2' | null>(null);
+  const [mpCorrect, setMpCorrect]         = useState<boolean | null>(null);
+  // sentence_stress state
+  const [stressTapped, setStressTapped]   = useState<string | null>(null);
+  const [stressCorrect, setStressCorrect] = useState<boolean | null>(null);
 
   const { playingMessageId, toggle: toggleAudio, stop: stopAudio } = useMessageAudioPlayer();
   const charlottePlayId = 'charlotte-learn-phrase';
