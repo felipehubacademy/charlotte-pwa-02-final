@@ -11,8 +11,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   icon: './assets/charlotte-avatar.png',
   userInterfaceStyle: 'light',
   splash: {
-    image: './assets/charlotte-avatar.png',
-    resizeMode: 'contain',
+    image: './assets/splash.png',
+    resizeMode: 'cover',
     backgroundColor: '#F4F3FA',
   },
   scheme: 'charlotte',
@@ -57,9 +57,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'expo-splash-screen',
       {
         backgroundColor: '#F4F3FA',
-        image: './assets/charlotte-avatar.png',
-        resizeMode: 'contain',
-        imageWidth: 120,
+        image: './assets/splash.png',
+        resizeMode: 'cover',
       },
     ],
     [
