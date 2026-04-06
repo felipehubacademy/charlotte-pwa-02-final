@@ -18,6 +18,7 @@ import {
   Animated,
   Image,
   Platform,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { requestRecordingPermissionsAsync, setAudioModeAsync, createAudioPlayer, type AudioPlayer } from 'expo-audio';
@@ -602,6 +603,7 @@ export default function LiveVoiceModal({
       transparent={false}
       hardwareAccelerated
     >
+      <StatusBar barStyle="light-content" backgroundColor="#07071C" />
       <View style={{ flex: 1, backgroundColor: '#07071C', paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 24 }}>
 

@@ -40,8 +40,9 @@ function parseTokens(text: string): Token[] {
         continue;
       }
     }
-    // Single word
-    const wordTranslation = translate(w1);
+    // Single word — dialogue labels like "A:" or "B:" are never translated
+    const isDialogueLabel = /^[A-Za-z]:$/.test(w1);
+    const wordTranslation = isDialogueLabel ? null : translate(w1);
     tokens.push({ display: w1, translation: wordTranslation, isPhrase: false });
     i++;
   }

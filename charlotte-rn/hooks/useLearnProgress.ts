@@ -85,19 +85,27 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     const alreadyDone = existing.some(k => k.m === moduleIndex && k.t === topicIndex);
     const newCompleted = alreadyDone ? existing : [...existing, key];
 
-    // Advance to next topic
+    // Advance pointer only on first-time completion; redos keep current pointer
     const modules = CURRICULUM[lvl];
-    let nextModule = moduleIndex;
-    let nextTopic  = topicIndex + 1;
+    let nextModule: number;
+    let nextTopic: number;
 
-    if (nextTopic >= modules[moduleIndex].topics.length) {
-      nextModule = moduleIndex + 1;
-      nextTopic  = 0;
-    }
-    if (nextModule >= modules.length) {
-      // Trail complete — stay at last position
+    if (alreadyDone) {
+      // Redo of a previously completed topic — don't move the frontier
+      nextModule = progress?.moduleIndex ?? moduleIndex;
+      nextTopic  = progress?.topicIndex  ?? topicIndex;
+    } else {
       nextModule = moduleIndex;
-      nextTopic  = topicIndex;
+      nextTopic  = topicIndex + 1;
+      if (nextTopic >= modules[moduleIndex].topics.length) {
+        nextModule = moduleIndex + 1;
+        nextTopic  = 0;
+      }
+      if (nextModule >= modules.length) {
+        // Trail complete — stay at last position
+        nextModule = moduleIndex;
+        nextTopic  = topicIndex;
+      }
     }
 
     const { error } = await supabase
