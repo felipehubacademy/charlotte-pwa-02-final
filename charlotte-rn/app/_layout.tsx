@@ -9,6 +9,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { useAuth } from '@/hooks/useAuth';
+import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { ONBOARDING_KEY } from './(onboarding)/index';
 
 // Mantém a splash screen visível enquanto carrega
@@ -94,6 +95,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <AuthProvider>
           <AuthGuard />
+          <OfflineBanner />
           <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
