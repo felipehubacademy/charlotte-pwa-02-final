@@ -50,10 +50,6 @@ function AuthGuard() {
     if (onboardingDone === null) return; // still reading AsyncStorage
     if (isAuthenticated && profile === null) return; // wait for profile
 
-    // Auth is fully resolved — hide the native splash now so we transition
-    // directly to the correct screen with no intermediate JS loading frame.
-    SplashScreen.hideAsync();
-
     let target: string;
     if (!isAuthenticated && !onboardingDone) {
       target = '/(onboarding)';
@@ -89,6 +85,10 @@ function AuthGuard() {
 }
 
 export default function RootLayout() {
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
