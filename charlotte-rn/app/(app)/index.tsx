@@ -990,6 +990,8 @@ export default function HomeScreen() {
           activeOpacity={0.7}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
           hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
+          accessibilityLabel="Estatísticas / Stats"
+          accessibilityRole="button"
         >
           {/* Streak pill */}
           <View style={{
@@ -1029,7 +1031,12 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <View style={{ flex: 1 }} />
-        <TouchableOpacity onPress={() => router.push('/(app)/configuracoes')} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity
+          onPress={() => router.push('/(app)/configuracoes')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityLabel="Configurações / Settings"
+          accessibilityRole="button"
+        >
           <Gear size={22} color={C.navyMid} />
         </TouchableOpacity>
       </View>

@@ -679,6 +679,10 @@ export default function LiveVoiceModal({
             <TouchableOpacity
               onPress={handleMute}
               pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              accessibilityLabel={isMuted
+                ? (userLevel === 'Novice' ? 'Ativar microfone / Unmute' : 'Unmute microphone')
+                : (userLevel === 'Novice' ? 'Silenciar microfone / Mute' : 'Mute microphone')}
+              accessibilityRole="button"
               style={{
                 width: 56, height: 56, borderRadius: 28,
                 backgroundColor: isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
@@ -697,6 +701,8 @@ export default function LiveVoiceModal({
             <TouchableOpacity
               onPress={handleEndCall}
               pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              accessibilityLabel={userLevel === 'Novice' ? 'Encerrar chamada / End call' : 'End call'}
+              accessibilityRole="button"
               style={{
                 width: 68, height: 68, borderRadius: 34,
                 backgroundColor: '#ef4444',
@@ -713,6 +719,10 @@ export default function LiveVoiceModal({
             <TouchableOpacity
               onPress={handleSpeakerToggle}
               pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+              accessibilityLabel={isSpeaker
+                ? (userLevel === 'Novice' ? 'Usar fone de ouvido / Switch to earpiece' : 'Switch to earpiece')
+                : (userLevel === 'Novice' ? 'Usar alto-falante / Switch to speaker' : 'Switch to speaker')}
+              accessibilityRole="button"
               style={{
                 width: 56, height: 56, borderRadius: 28,
                 backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',

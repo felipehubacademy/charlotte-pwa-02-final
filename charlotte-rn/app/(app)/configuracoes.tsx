@@ -182,6 +182,8 @@ export default function ConfiguracoesScreen() {
           onPress={() => router.back()}
           style={{ padding: 10, borderRadius: 20, marginRight: 4 }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityLabel={isPt ? 'Voltar / Go back' : 'Go back'}
+          accessibilityRole="button"
         >
           <CaretLeft size={22} color={C.navy} weight="bold" />
         </TouchableOpacity>

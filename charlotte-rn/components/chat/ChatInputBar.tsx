@@ -193,6 +193,8 @@ export default function ChatInputBar({
               {/* Cancel */}
               <TouchableOpacity
                 onPress={cancelPreview}
+                accessibilityLabel={isNovice ? 'Cancelar áudio / Cancel audio' : 'Cancel audio'}
+                accessibilityRole="button"
                 style={{
                   width: 48, height: 48, borderRadius: 24,
                   backgroundColor: `${C.red}18`,
@@ -206,6 +208,10 @@ export default function ChatInputBar({
               <TouchableOpacity
                 onPress={() => { if (isPlaying) player.pause(); else player.play(); }}
                 activeOpacity={0.85}
+                accessibilityLabel={isPlaying
+                  ? (isNovice ? 'Pausar áudio / Pause audio' : 'Pause audio')
+                  : (isNovice ? 'Reproduzir áudio / Play audio' : 'Play audio')}
+                accessibilityRole="button"
                 style={{
                   width: 80, height: 80, borderRadius: 40,
                   backgroundColor: C.green,
@@ -230,6 +236,8 @@ export default function ChatInputBar({
               {/* Send */}
               <TouchableOpacity
                 onPress={sendPreview}
+                accessibilityLabel={isNovice ? 'Enviar áudio / Send audio' : 'Send audio'}
+                accessibilityRole="button"
                 style={{
                   width: 48, height: 48, borderRadius: 24,
                   backgroundColor: C.navy,
@@ -282,6 +290,8 @@ export default function ChatInputBar({
                 disabled={disabled || isProcessing}
                 activeOpacity={1}
                 pressRetentionOffset={{ top: 60, bottom: 60, left: 60, right: 60 }}
+                accessibilityLabel={isNovice ? 'Gravar áudio — segure para gravar / Hold to record' : 'Hold to record audio'}
+                accessibilityRole="button"
                 style={{
                   width: 80, height: 80, borderRadius: 40,
                   backgroundColor:
@@ -357,6 +367,8 @@ export default function ChatInputBar({
                 borderWidth: hasText ? 0 : 1, borderColor: C.border,
               },
             ]}
+            accessibilityLabel={isNovice ? 'Enviar mensagem / Send message' : 'Send message'}
+            accessibilityRole="button"
           >
             <ArrowUp size={20} color={hasText ? C.navy : C.navyLight} weight="bold" />
           </TouchableOpacity>
@@ -378,7 +390,14 @@ export default function ChatInputBar({
           {/* Audio preview */}
           {isPreview && (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
-              <TouchableOpacity onPress={() => { if (isPlaying) player.pause(); else player.play(); }} style={{ padding: 2 }}>
+              <TouchableOpacity
+                onPress={() => { if (isPlaying) player.pause(); else player.play(); }}
+                style={{ padding: 2 }}
+                accessibilityLabel={isPlaying
+                  ? (isNovice ? 'Pausar / Pause' : 'Pause')
+                  : (isNovice ? 'Reproduzir / Play' : 'Play')}
+                accessibilityRole="button"
+              >
                 {isPlaying
                   ? <Pause size={16} color={C.navy} weight="fill" />
                   : <Play  size={16} color={C.navy} weight="fill" />
@@ -395,7 +414,12 @@ export default function ChatInputBar({
               <AppText style={{ color: C.navyLight, fontSize: 12, fontVariant: ['tabular-nums'] }}>
                 {formatDuration(previewDur)}
               </AppText>
-              <TouchableOpacity onPress={cancelPreview} style={{ padding: 2 }}>
+              <TouchableOpacity
+                onPress={cancelPreview}
+                style={{ padding: 2 }}
+                accessibilityLabel={isNovice ? 'Cancelar / Cancel' : 'Cancel'}
+                accessibilityRole="button"
+              >
                 <X size={16} color={C.red} weight="bold" />
               </TouchableOpacity>
             </View>
@@ -420,7 +444,12 @@ export default function ChatInputBar({
               }}>
                 {formatDuration(duration)}
               </AppText>
-              <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); cancelRecording(); }} style={{ padding: 2 }}>
+              <TouchableOpacity
+                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); cancelRecording(); }}
+                style={{ padding: 2 }}
+                accessibilityLabel={isNovice ? 'Cancelar gravação / Cancel recording' : 'Cancel recording'}
+                accessibilityRole="button"
+              >
                 <X size={16} color={C.red} weight="bold" />
               </TouchableOpacity>
             </View>
@@ -445,12 +474,23 @@ export default function ChatInputBar({
         {/* Action button — outside the pill */}
         {isPreview ? (
           // Preview: send audio
-          <TouchableOpacity onPress={sendPreview} style={[styles.actionBtn, { backgroundColor: C.green }]}>
+          <TouchableOpacity
+            onPress={sendPreview}
+            style={[styles.actionBtn, { backgroundColor: C.green }]}
+            accessibilityLabel={isNovice ? 'Enviar áudio / Send audio' : 'Send audio'}
+            accessibilityRole="button"
+          >
             <ArrowUp size={20} color={C.navy} weight="bold" />
           </TouchableOpacity>
         ) : hasText ? (
           // Has text: send text
-          <TouchableOpacity onPress={sendText} disabled={disabled} style={[styles.actionBtn, { backgroundColor: C.green, opacity: disabled ? 0.4 : 1 }]}>
+          <TouchableOpacity
+            onPress={sendText}
+            disabled={disabled}
+            style={[styles.actionBtn, { backgroundColor: C.green, opacity: disabled ? 0.4 : 1 }]}
+            accessibilityLabel={isNovice ? 'Enviar mensagem / Send message' : 'Send message'}
+            accessibilityRole="button"
+          >
             <ArrowUp size={20} color={C.navy} weight="bold" />
           </TouchableOpacity>
         ) : (
@@ -464,6 +504,8 @@ export default function ChatInputBar({
             style={[styles.actionBtn, {
               backgroundColor: disabled || isProcessing ? `${C.green}50` : C.green,
             }]}
+            accessibilityLabel={isNovice ? 'Microfone — segure para gravar / Hold to record' : 'Hold to record audio'}
+            accessibilityRole="button"
           >
             {isProcessing
               ? <Hourglass size={17} color={`${C.navy}60`} weight="regular" />
