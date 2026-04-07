@@ -159,7 +159,7 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
         <AppText style={{ fontSize: 11, color, fontWeight: '800' }}>{Math.round(score)}</AppText>
       </View>
       <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-        <View style={{ height: '100%', width: `${Math.min(score, 100)}%` as any, backgroundColor: color, borderRadius: 3 }} />
+        <View style={{ height: '100%', width: `${Math.min(score, 100)}%` as `${number}%`, backgroundColor: color, borderRadius: 3 }} />
       </View>
     </View>
   );
@@ -691,7 +691,7 @@ export default function LearnSessionScreen() {
               </AppText>
             </View>
             <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-              <View style={{ height: 5, width: `${progress * 100}%` as any, backgroundColor: accent, borderRadius: 3 }} />
+              <View style={{ height: 5, width: `${progress * 100}%` as `${number}%`, backgroundColor: accent, borderRadius: 3 }} />
             </View>
           </View>
 

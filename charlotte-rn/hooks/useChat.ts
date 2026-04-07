@@ -121,6 +121,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(mode === 'chat');
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
   const historyLoadedRef = useRef(false);
@@ -157,7 +158,8 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       .order('created_at', { ascending: false })
       .limit(30)
       .then(({ data, error }) => {
-        if (error) { console.warn('⚠️ load chat history:', error.message); return; }
+        setHistoryLoading(false);
+        if (error) { console.warn('⚠️ load chat history:', error.message); setMessages([buildWelcome(mode, userLevel, userName)]); return; }
         if (!data || data.length === 0) {
           // No history — show welcome message
           setMessages([buildWelcome(mode, userLevel, userName)]);
@@ -766,6 +768,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
     messages,
     isProcessing,
     isProcessingAudio,
+    historyLoading,
     sessionXP,
     totalXP,
     sendTextMessage,

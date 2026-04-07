@@ -146,7 +146,7 @@ export default function LearnTrailScreen() {
 
           {/* Progress bar */}
           <View style={{ height: 6, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-            <View style={{ height: 6, width: `${pct}%` as any, backgroundColor: accent, borderRadius: 3 }} />
+            <View style={{ height: 6, width: `${pct}%` as `${number}%`, backgroundColor: accent, borderRadius: 3 }} />
           </View>
           <AppText style={{ fontSize: 11, color: C.navyLight, fontWeight: '600', marginTop: 6 }}>
             {completed} {isPortuguese ? 'de' : 'of'} {total} {isPortuguese ? 'tópicos concluídos' : 'topics completed'}

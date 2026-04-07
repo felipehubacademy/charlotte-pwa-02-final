@@ -418,7 +418,7 @@ export default function LearnPronunciationScreen() {
               </AppText>
             </View>
             <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-              <View style={{ height: 5, width: `${progress * 100}%` as any, backgroundColor: C.violet, borderRadius: 3 }} />
+              <View style={{ height: 5, width: `${progress * 100}%` as `${number}%`, backgroundColor: C.violet, borderRadius: 3 }} />
             </View>
           </View>
 

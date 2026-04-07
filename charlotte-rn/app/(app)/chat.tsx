@@ -17,7 +17,7 @@ export default function ChatScreen() {
   const userName  = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const userId    = profile?.id ?? '';
 
-  const { messages, isProcessing, isProcessingAudio, sessionXP, totalXP, sendTextMessage, sendAudioMessage } =
+  const { messages, isProcessing, isProcessingAudio, historyLoading, sessionXP, totalXP, sendTextMessage, sendAudioMessage } =
     useChat({ userLevel, userName, userId, mode: 'chat' });
 
   const [showOnboarding, setShowOnboarding] = React.useState(false);
@@ -50,6 +50,7 @@ export default function ChatScreen() {
             finalTranscript=""
             isProcessingMessage={isProcessing}
             isProcessingAudio={isProcessingAudio}
+            historyLoading={historyLoading}
             userLevel={userLevel}
             onPlayAudio={toggle}
             playingMessageId={playingMessageId}

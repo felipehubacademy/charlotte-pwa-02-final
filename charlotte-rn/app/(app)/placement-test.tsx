@@ -424,7 +424,7 @@ export default function PlacementTestScreen() {
       {/* Progress header */}
       <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
         <View style={{ height: 4, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 2, overflow: 'hidden' }}>
-          <View style={{ height: 4, width: `${progress * 100}%` as any, backgroundColor: C.green, borderRadius: 2 }} />
+          <View style={{ height: 4, width: `${progress * 100}%` as `${number}%`, backgroundColor: C.green, borderRadius: 2 }} />
         </View>
       </View>
 

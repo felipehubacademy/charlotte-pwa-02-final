@@ -6,6 +6,7 @@ import {
   Image,
   Animated,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import Svg, { Defs, Pattern, Circle, Rect } from 'react-native-svg';
 import {
@@ -41,6 +42,7 @@ interface ChatBoxProps {
   finalTranscript: string;
   isProcessingMessage: boolean;
   isProcessingAudio?: boolean;
+  historyLoading?: boolean;
   userLevel: string;
   mode?: 'grammar' | 'pronunciation' | 'chat';
   onPlayAudio?: (messageId: string, uri: string) => void;
@@ -371,6 +373,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   finalTranscript,
   isProcessingMessage,
   isProcessingAudio = false,
+  historyLoading = false,
   userLevel,
   mode,
   onPlayAudio,
@@ -427,6 +430,11 @@ const ChatBox: React.FC<ChatBoxProps> = ({
         </Defs>
         <Rect width="100%" height="100%" fill="url(#dots)" />
       </Svg>
+      {historyLoading && (
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+          <ActivityIndicator size="small" color="#9896B8" />
+        </View>
+      )}
       <FlatList
         ref={flatListRef}
         data={reversedMessages}
