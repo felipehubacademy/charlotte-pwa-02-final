@@ -40,9 +40,11 @@ export default function MobileOnlyWrapper({
     isPopup
   });
 
-  // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá ou for /landing, /forgot-password, /reset-password)
+  const isPublicPage = pathname === '/landing' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/privacidade' || pathname === '/termos';
+
+  // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá ou for páginas públicas)
   useEffect(() => {
-    if (shouldBlockMobileBrowser && pathname !== '/install' && pathname !== '/landing' && pathname !== '/forgot-password' && pathname !== '/reset-password') {
+    if (shouldBlockMobileBrowser && pathname !== '/install' && !isPublicPage) {
       console.log('📱 Mobile browser detected, redirecting to /install');
       router.push('/install');
     }
@@ -54,21 +56,21 @@ export default function MobileOnlyWrapper({
     return <>{children}</>;
   }
 
-  // ✅ PERMITIR /install, /landing, /forgot-password, /reset-password no mobile browser
-  if (shouldBlockMobileBrowser && (pathname === '/install' || pathname === '/landing' || pathname === '/forgot-password' || pathname === '/reset-password')) {
+  // ✅ PERMITIR /install e páginas públicas no mobile browser
+  if (shouldBlockMobileBrowser && (pathname === '/install' || isPublicPage)) {
     console.log('📱 Mobile browser on allowed page, allowing access');
     return <>{children}</>;
   }
 
-  // ✅ BLOQUEAR DESKTOP (exceto popups, landing page e páginas de auth)
-  if (deviceShouldBlock && pathname !== '/landing' && pathname !== '/forgot-password' && pathname !== '/reset-password') {
+  // ✅ BLOQUEAR DESKTOP (exceto popups e páginas públicas)
+  if (deviceShouldBlock && !isPublicPage) {
     console.log('🖥️ Desktop detected, showing block page');
     return <MobileOnlyPage />;
   }
 
-  // ✅ PERMITIR LANDING PAGE e páginas de auth em qualquer dispositivo
-  if (pathname === '/landing' || pathname === '/forgot-password' || pathname === '/reset-password') {
-    console.log('🔓 Auth page detected, allowing access on any device');
+  // ✅ PERMITIR páginas públicas em qualquer dispositivo
+  if (isPublicPage) {
+    console.log('🔓 Public page detected, allowing access on any device');
     return <>{children}</>;
   }
 
