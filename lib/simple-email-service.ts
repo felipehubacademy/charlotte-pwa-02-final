@@ -45,7 +45,7 @@ export class SimpleEmailService {
         </div>
 
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install"
+          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/install"
              style="background: #a3ff3c; color: #000; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
             📱 Instalar App Agora
           </a>
@@ -79,7 +79,7 @@ O que você pode fazer agora:
 - Use recursos de voz e câmera
 - Ganhe conquistas e acompanhe seu progresso
 
-Instalar App: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install
+Instalar App: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/install
 
 Importante: Seu teste grátis expira em 7 dias. Após esse período, entre em contato conosco para continuar usando o Charlotte.
 
@@ -94,7 +94,7 @@ Hub Academy - Charlotte IA
     try {
       const apiKey = process.env.RESEND_API_KEY;
       const fromEmail =
-        process.env.RESEND_FROM_EMAIL || 'Charlotte <noreply@hubacademy.com.br>';
+        process.env.RESEND_FROM_EMAIL || 'Charlotte <noreply@hubacademybr.com>';
 
       if (!apiKey) {
         console.error('❌ RESEND_API_KEY não configurada');

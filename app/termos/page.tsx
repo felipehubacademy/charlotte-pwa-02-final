@@ -138,7 +138,7 @@ export default function TermosPage() {
         </Section>
 
         <Section title="10. Contato">
-          <ContactCard label="Hub Academy — Suporte" email="contato@hubacademy.com.br" />
+          <ContactCard label="Hub Academy — Suporte" email="contato@hubacademybr.com" />
         </Section>
 
       </main>

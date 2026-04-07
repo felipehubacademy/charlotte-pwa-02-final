@@ -104,7 +104,7 @@ export class EmailNotificationService {
             </div>
 
             <div class="cta">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install" class="cta-button">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/install" class="cta-button">
                 Começar a Praticar Agora
               </a>
             </div>
@@ -118,7 +118,7 @@ export class EmailNotificationService {
           </div>
           
           <div class="footer">
-            <img src="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/logos/hub-white.png" alt="Hub Academy" class="logo">
+            <img src="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/logos/hub-white.png" alt="Hub Academy" class="logo">
             <p>Charlotte by Hub Academy<br>
             Transformando o aprendizado de inglês com IA</p>
           </div>
@@ -145,7 +145,7 @@ Que alegria ter você conosco! Seu teste grátis do Charlotte já está ativo e 
 • Feedback de Pronúncia: Receba correções instantâneas da sua pronúncia
 • Sistema de Conquistas: Ganhe XP e desbloqueie conquistas conforme progride
 
-Comece agora: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install
+Comece agora: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/install
 
 Dica: Para ter a melhor experiência, instale o app no seu celular. Assim você terá acesso offline e notificações para não perder nenhum dia de prática!
 
@@ -201,7 +201,7 @@ Transformando o aprendizado de inglês com IA
             </div>
 
             <div class="cta">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install" class="cta-button">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/install" class="cta-button">
                 Continuar Praticando
               </a>
             </div>
@@ -228,7 +228,7 @@ Você ainda tem tempo para aproveitar ao máximo seu teste grátis do Charlotte!
 
 ${diasRestantes} DIAS RESTANTES
 
-Continue praticando: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/install
+Continue praticando: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/install
 
 Aproveite cada minuto para melhorar seu inglês!
 
@@ -288,7 +288,7 @@ Charlotte by Hub Academy
             </div>
 
             <div class="cta">
-              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/configuracoes" class="cta-button">
+              <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/configuracoes" class="cta-button">
                 Ver Planos Disponíveis
               </a>
             </div>
@@ -297,7 +297,7 @@ Charlotte by Hub Academy
               <div class="contact-title">💬 Precisa de Ajuda?</div>
               <div class="contact-desc">
                 Entre em contato conosco para dúvidas sobre planos ou suporte técnico.<br>
-                Email: contato@hubacademy.com.br
+                Email: contato@hubacademybr.com
               </div>
             </div>
           </div>
@@ -321,11 +321,11 @@ Seu teste grátis de 7 dias do Charlotte chegou ao fim. Esperamos que tenha gost
 
 Que tal continuar sua jornada de aprendizado? Temos planos especiais para quem testou nossa plataforma.
 
-Ver planos: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademy.com.br'}/configuracoes
+Ver planos: ${process.env.NEXT_PUBLIC_APP_URL || 'https://charlotte.hubacademybr.com'}/configuracoes
 
 💬 PRECISA DE AJUDA?
 Entre em contato conosco para dúvidas sobre planos ou suporte técnico.
-Email: contato@hubacademy.com.br
+Email: contato@hubacademybr.com
 
 Charlotte by Hub Academy
     `;

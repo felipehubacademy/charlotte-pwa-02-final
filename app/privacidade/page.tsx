@@ -61,7 +61,7 @@ export default function PrivacidadePage() {
           <p>O controlador dos seus dados pessoais é a <strong>Hub Academy</strong>, responsável pelo aplicativo Charlotte AI.</p>
           <ContactCard
             label="Contato do Encarregado (DPO)"
-            email="privacidade@hubacademy.com.br"
+            email="privacidade@hubacademybr.com"
           />
         </Section>
 
@@ -130,7 +130,7 @@ export default function PrivacidadePage() {
           ]} />
           <ContactCard
             label="Para exercer seus direitos (resposta em até 15 dias úteis)"
-            email="privacidade@hubacademy.com.br"
+            email="privacidade@hubacademybr.com"
           />
         </Section>
 
@@ -153,7 +153,7 @@ export default function PrivacidadePage() {
 
         <Section title="11. Contato e ANPD">
           <p style={{ marginBottom: 16 }}>Para dúvidas ou reclamações:</p>
-          <ContactCard label="Hub Academy — DPO" email="privacidade@hubacademy.com.br" />
+          <ContactCard label="Hub Academy — DPO" email="privacidade@hubacademybr.com" />
           <p style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>
             Você também pode apresentar reclamação à <strong>Autoridade Nacional de Proteção de Dados (ANPD)</strong>:{' '}
             <a href="https://www.gov.br/anpd" target="_blank" rel="noopener noreferrer" style={{ color: '#7c3aed' }}>www.gov.br/anpd</a>.

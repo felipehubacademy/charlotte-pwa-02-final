@@ -12,7 +12,7 @@ import MobileOnlyWrapper from '@/components/MobileOnlyWrapper';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://charlotte-v2.vercel.app'),
+  metadataBase: new URL('https://charlotte.hubacademybr.com'),
   title: 'Charlotte - Hub Academy',
   description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
   manifest: '/manifest.json',
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Charlotte - Hub Academy',
     description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
-    url: 'https://charlotte-v2.vercel.app',
+    url: 'https://charlotte.hubacademybr.com',
     siteName: 'Charlotte - Hub Academy',
     images: [
       {
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     title: 'Charlotte - Hub Academy',
     description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
     images: ['/images/og-image.png'],
-    creator: '@hubacademy',
+    creator: '@hubacademybr',
   },
   
   // 📱 PWA Configuration
@@ -152,7 +152,7 @@ export default function RootLayout({
         <meta name="description" content="AI-powered English learning assistant with live voice conversations and personalized lessons" />
         <meta name="keywords" content="English learning, AI assistant, voice conversation, pronunciation, Hub Academy, Charlotte" />
         <meta name="author" content="Hub Academy" />
-        <link rel="canonical" href="https://charlotte-v2.vercel.app" />
+        <link rel="canonical" href="https://charlotte.hubacademybr.com" />
       </head>
       <body className={`${inter.className} bg-secondary text-white antialiased`} suppressHydrationWarning>
         <AuthProvider>
