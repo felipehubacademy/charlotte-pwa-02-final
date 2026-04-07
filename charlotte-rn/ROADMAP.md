@@ -1,6 +1,6 @@
 # Charlotte AI — Roadmap
 
-> Última atualização: Abril 2026 | Build atual: 50 (TestFlight)
+> Última atualização: Abril 2026 | Build atual: 52 (TestFlight) — próximo build acumula melhorias abaixo
 
 ---
 
@@ -63,11 +63,14 @@ Três níveis: **Novice (A1/A2) → Inter (B1/B2) → Advanced (C1/C2)**
 
 ### Learn with Charlotte — Trilha
 - Trilha visual com módulos e tópicos desbloqueáveis por nível
-- Mini-aulas por módulo (karaoke TTS, slides, cores por nível) — **Módulo 1 apenas**
+- Mini-aulas por módulo (karaoke TTS, slides, cores por nível) — **todos os 25 módulos** ✅
   - Novice: 6 slides PT-BR | Inter: 8 slides EN | Advanced: 7 slides EN
-- Sessão de exercícios: Fill the Gap, Fix the Error, Read & Answer, Multiple Choice, True/False
+  - 1.037 arquivos TTS gerados (617 pron MP3 + 128 intro MP3+JSON + 33 C2 pendentes ElevenLabs)
+- Sessão de exercícios: Fill the Gap, Fix the Error, Read & Answer, Multiple Choice, True/False, Word Order, Word Bank, Short Write
 - XP por acerto, feedback inline, hint toggle
-- Curriculum: ~11 módulos × nível (~61 tópicos Novice / ~64 Inter / ~31 Advanced)
+- Curriculum 100% completo: 11 módulos Novice + 11 Inter + 4 Advanced (~156 tópicos, zero `grammar: []`)
+- Tipos de pronúncia: repeat, shadowing, listen_write, minimal_pairs, sentence_stress
+- Redo de tópico não retrocede o ponteiro de progresso ✅
 
 ---
 
@@ -77,18 +80,16 @@ Três níveis: **Novice (A1/A2) → Inter (B1/B2) → Advanced (C1/C2)**
 
 ### BLOCO 1 — Conteúdo & Aprendizado
 
-#### 1.1 Mini-aulas para todos os módulos
-- Hoje apenas Módulo 1 de cada nível tem mini-aula (introdução narrada por Charlotte)
-- Criar slides + gerar áudios (ElevenLabs) para Módulos 2–11
-- Novice em PT-BR, Inter/Advanced em EN
-- Baixo esforço técnico, alto impacto pedagógico
+#### 1.1 Mini-aulas para todos os módulos ✅ CONCLUÍDO
+- Todos os 25 módulos têm mini-aula com slides + áudio TTS
+- 33 slides do Advanced C2 aguardam upgrade do plano ElevenLabs (ver seção Pendência TTS)
 
-#### 1.2 Novos tipos de exercício
-- [ ] **Build the Sentence** — palavras embaralhadas, aluno monta a frase na ordem correta
-- [ ] **Short Write** — escrever frase completa com estrutura/palavra alvo + avaliação por IA
-- [ ] **Minimal Pairs** (Pronunciation) — distinguir sons parecidos: ship/sheep, think/sink, tree/free
-- [ ] **Shadowing mode** — aluno repete frase imediatamente após Charlotte, overlap intencional
-- [ ] **Sentence stress** — marcar qual sílaba/palavra é a mais enfatizada
+#### 1.2 Novos tipos de exercício ✅ CONCLUÍDO
+- ✅ **Word Order** — palavras embaralhadas, aluno monta a frase
+- ✅ **Short Write** — escrever frase completa com modelo de resposta
+- ✅ **Minimal Pairs** — distinguir sons parecidos (ship/sheep, think/sink)
+- ✅ **Shadowing** — aluno segue junto com Charlotte
+- ✅ **Sentence Stress** — identificar sílaba/palavra enfatizada
 
 #### 1.3 Feedback loop personalizado
 - [ ] Armazenar erros recentes do aluno no Supabase por categoria (tempo verbal, artigo, preposição…)
@@ -139,11 +140,26 @@ Três níveis: **Novice (A1/A2) → Inter (B1/B2) → Advanced (C1/C2)**
 
 ### BLOCO 4 — Qualidade & Polish
 
-#### 4.1 UX
-- [ ] **Offline graceful degradation** — exercícios em cache continuam funcionando sem internet; mensagem clara quando sem conexão
-- [ ] **TranslatableText em mais lugares** — avaliar home greeting, dica do dia inline
-- [ ] **Animação de conclusão de tópico** — celebração ao completar 100% de um tópico (confetti, XP pop)
-- [ ] **Animação de desbloqueio** — quando um novo tópico/módulo abre na trilha
+#### 4.1 UX — Concluídos ✅
+- ✅ Splash nativa seamless (splash.png replica LoadingScreen JS, `cover`)
+- ✅ `SplashScreen.hideAsync()` no mount — spinner visível durante auth resolve
+- ✅ Live Voice status bar branca (StatusBar `light-content` no fundo `#07071C`)
+- ✅ Diálogo A:/B: não traduzido (regex `/^[A-Za-z]:$/` em `TranslatableText`)
+- ✅ Redo de tópico não retrocede ponteiro de progresso (`useLearnProgress`)
+- ✅ Pronúncia travada em erro — botão Next aparece em todos os 5 tipos
+- ✅ Live Voice — botão "Try again" ao falhar conexão WebRTC
+- ✅ Chat history — spinner durante carregamento; welcome message em fallback de erro
+- ✅ Progress bars — `as \`${number}%\`` em vez de `as any` (6 arquivos)
+- ✅ Fallback de API URL — produção em vez de `localhost:3000` (10 arquivos)
+- ✅ Grammar mode — `onSendAudio` removido (texto apenas, sem stub vazio)
+- ✅ Labels de pronúncia corretas — 5 tipos com labels PT-BR/EN distintos
+- ✅ Shadowing/repeat — threshold de `completeness < 35` exige fala real
+
+#### 4.1 UX — Pendentes
+- [ ] **Offline graceful degradation** — mensagem clara quando sem conexão
+- [ ] **TranslatableText em mais lugares** — home greeting, dica do dia
+- [ ] **Animação de conclusão de tópico** — confetti/XP pop ao completar 100%
+- [ ] **Animação de desbloqueio** — quando novo tópico/módulo abre na trilha
 
 #### 4.2 Performance
 - [ ] Pré-carregar áudios TTS das mini-aulas em background logo após login
@@ -151,9 +167,9 @@ Três níveis: **Novice (A1/A2) → Inter (B1/B2) → Advanced (C1/C2)**
 - [ ] Medir e reduzir tempo de abertura do app (Time to Interactive)
 
 #### 4.3 Acessibilidade
+- [ ] `accessibilityLabel` nos botões de ícone (home, trilha, chat)
 - [ ] Testar com VoiceOver (iOS) e TalkBack (Android)
 - [ ] Garantir contraste mínimo WCAG 2.1 AA em todos os textos
-- [ ] Labels de acessibilidade em botões de ícone
 
 ---
 
@@ -172,9 +188,10 @@ Três níveis: **Novice (A1/A2) → Inter (B1/B2) → Advanced (C1/C2)**
 #### 6.1 Pré-requisitos técnicos
 - [ ] **Versão de produção**: bumpar para 1.x.0 com `autoIncrement` no profile `production`
 - [ ] **App icon**: todos os tamanhos necessários (1024×1024 para App Store, adaptive icon para Android)
-- [ ] **Splash screen**: verificar qualidade em todos os tamanhos de tela (iPhone SE → Pro Max, tablets Android)
+- ✅ **Splash screen**: `splash.png` 1284×2778px gerado (`npm run generate-splash`), `cover` configurado
+- [ ] **Splash screen**: verificar qualidade em iPhone SE, Pro Max e tablets Android
 - [ ] **Deep links**: configurar Universal Links (iOS) e App Links (Android) se necessário
-- [ ] **Sem conteúdo de debug**: remover todos os `console.log`, telas de teste, dados hardcoded de dev
+- [ ] **Sem conteúdo de debug**: remover `console.log` remanescentes, telas de teste, dados hardcoded de dev
 
 #### 6.2 App Store Connect (iOS)
 - [ ] **Screenshots**: 6.7" (iPhone 16 Pro Max), 6.5" (iPhone 14 Plus), 5.5" (iPhone 8 Plus) — pelo menos 3 telas por tamanho
