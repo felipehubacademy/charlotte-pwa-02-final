@@ -626,7 +626,20 @@ export default function LiveVoiceModal({
               </AppText>
             )}
             {status === 'error' && (
-              <AppText style={{ color: '#ef4444', fontSize: 13 }}>{errorMsg}</AppText>
+              <View style={{ alignItems: 'center', gap: 8 }}>
+                <AppText style={{ color: '#ef4444', fontSize: 13, textAlign: 'center' }}>{errorMsg}</AppText>
+                <TouchableOpacity
+                  onPress={connect}
+                  style={{
+                    backgroundColor: '#A3FF3C', borderRadius: 20,
+                    paddingHorizontal: 20, paddingVertical: 8,
+                  }}
+                >
+                  <AppText style={{ color: '#07071C', fontSize: 13, fontWeight: '700' }}>
+                    {userLevel === 'Novice' ? 'Tentar novamente' : 'Try again'}
+                  </AppText>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
 

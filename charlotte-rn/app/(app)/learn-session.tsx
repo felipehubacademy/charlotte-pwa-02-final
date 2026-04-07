@@ -1349,7 +1349,7 @@ export default function LearnSessionScreen() {
 
           {/* ── Pronunciation: Repeat ── */}
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && (
-            (pronStatus === 'result' || pronStatus === 'retry') ? (
+            (pronStatus === 'result' || pronStatus === 'retry' || pronStatus === 'error') ? (
               <TouchableOpacity onPress={handleNext}
                 style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
@@ -1384,7 +1384,7 @@ export default function LearnSessionScreen() {
           )}
 
           {/* ── Pronunciation: Listen & Write ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'listen_write' && pronStatus === 'result' && (
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'listen_write' && (pronStatus === 'result' || pronStatus === 'error') && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
@@ -1394,7 +1394,7 @@ export default function LearnSessionScreen() {
 
           {/* ── Pronunciation: Shadowing (same hold-to-record as repeat) ── */}
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'shadowing' && (
-            (pronStatus === 'result' || pronStatus === 'retry') ? (
+            (pronStatus === 'result' || pronStatus === 'retry' || pronStatus === 'error') ? (
               <TouchableOpacity onPress={handleNext}
                 style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
@@ -1429,7 +1429,7 @@ export default function LearnSessionScreen() {
           )}
 
           {/* ── Pronunciation: Minimal Pairs — Next after result ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'minimal_pairs' && pronStatus === 'result' && (
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'minimal_pairs' && (pronStatus === 'result' || pronStatus === 'error') && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
@@ -1438,7 +1438,7 @@ export default function LearnSessionScreen() {
           )}
 
           {/* ── Pronunciation: Sentence Stress — Next after result ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'sentence_stress' && pronStatus === 'result' && (
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'sentence_stress' && (pronStatus === 'result' || pronStatus === 'error') && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
