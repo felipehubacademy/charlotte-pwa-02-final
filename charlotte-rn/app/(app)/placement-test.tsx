@@ -26,7 +26,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 
 const SCREEN_W     = Dimensions.get('window').width;
-const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
+const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {

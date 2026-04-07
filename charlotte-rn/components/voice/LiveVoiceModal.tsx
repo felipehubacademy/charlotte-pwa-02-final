@@ -32,7 +32,7 @@ import { useCallTimer } from '@/hooks/useCallTimer';
 import Constants from 'expo-constants';
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 const MODEL = 'gpt-4o-realtime-preview-2024-12-17';
 

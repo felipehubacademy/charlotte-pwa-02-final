@@ -28,7 +28,7 @@ export const PRONUNCIATION_RECORDING_OPTIONS = {
 } as typeof RecordingPresets.HIGH_QUALITY;
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 type RecordingState = 'idle' | 'recording' | 'processing';
 

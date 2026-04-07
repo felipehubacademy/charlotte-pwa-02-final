@@ -14,7 +14,7 @@ import { PronunciationData } from '@/components/chat/PronunciationScoreCard';
 import { useAchievementsContext } from '@/components/achievements/AchievementsProvider';
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

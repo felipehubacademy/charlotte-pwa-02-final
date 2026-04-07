@@ -27,7 +27,7 @@ import { TrailLevel } from '@/data/curriculum';
 
 // ── Config ─────────────────────────────────────────────────────
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'http://localhost:3000';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 // ── Types ──────────────────────────────────────────────────────
 interface WordTiming {
