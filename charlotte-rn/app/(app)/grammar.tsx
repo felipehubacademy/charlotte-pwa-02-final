@@ -18,7 +18,7 @@ export default function GrammarScreen() {
   const userName  = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const userId    = profile?.id ?? '';
 
-  const { messages, isProcessing, isProcessingAudio, sessionXP, totalXP, sendTextMessage } =
+  const { messages, isProcessing, sessionXP, totalXP, sendTextMessage } =
     useChat({ userLevel, userName, userId, mode: 'grammar' });
 
   const [showStats, setShowStats]       = React.useState(false);
@@ -72,7 +72,6 @@ export default function GrammarScreen() {
         </View>
         <ChatInputBar
           onSendText={sendTextMessage}
-          onSendAudio={() => {}}
           disabled={isProcessing}
           mode="grammar"
           userLevel={userLevel}

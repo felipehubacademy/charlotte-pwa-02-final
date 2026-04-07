@@ -26,7 +26,7 @@ const C = {
 
 interface ChatInputBarProps {
   onSendText: (text: string) => void;
-  onSendAudio: (uri: string, duration: number) => void;
+  onSendAudio?: (uri: string, duration: number) => void;
   onLiveVoicePress?: () => void; // kept for compat — Phone moved to header
   disabled?: boolean;
   mode?: 'grammar' | 'pronunciation' | 'chat';
@@ -152,7 +152,7 @@ export default function ChatInputBar({
   };
 
   const sendPreview = () => {
-    if (!previewUri) return;
+    if (!previewUri || !onSendAudio) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const uri = previewUri; const dur = previewDur;
     player.pause();
