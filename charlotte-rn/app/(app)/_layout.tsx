@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
-import { TrialExpiredModal } from '@/components/auth/TrialExpiredModal';
+import { PaywallModal } from '@/components/auth/PaywallModal';
 import { XPToastProvider } from '@/components/ui/XPToastProvider';
 import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
 
@@ -15,7 +15,7 @@ export default function AppLayout() {
   return (
     <XPToastProvider>
       <AchievementsProvider>
-      <TrialExpiredModal />
+      <PaywallModal />
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="first-access" options={{ animation: 'none' }} />
         <Stack.Screen name="index" options={{ animation: 'none' }} />

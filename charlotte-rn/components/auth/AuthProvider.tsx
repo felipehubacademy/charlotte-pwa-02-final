@@ -3,6 +3,7 @@ import { unstable_batchedUpdates } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { supabase, UserProfile } from '@/lib/supabase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { initPurchases, identifyUser, resetUser } from '@/lib/purchases';
 
 export interface AuthContextType {
   session: Session | null;
@@ -25,6 +26,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   usePushNotifications(session?.user?.id);
+
+  // Initialise RevenueCat SDK once on mount (idempotent)
+  useEffect(() => { initPurchases(); }, []);
 
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     console.log('[AuthProvider] fetchProfile start for:', userId);
@@ -92,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setSession(null);
             setProfile(null);
           });
+          resetUser(); // logout from RevenueCat too
           clearTimeout(hardTimeout);
           markResolved();
           return;
@@ -126,6 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('[AuthProvider] fetchProfile deferred start for:', userId);
           const userProfile = await fetchProfile(userId);
           if (mounted && userProfile) setProfile(userProfile);
+          // Identify user in RevenueCat so purchase history is linked
+          identifyUser(userId);
         }, 0);
       }
     );
