@@ -174,14 +174,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   //       test completes and sets subscription_status = 'trial'
   const hasAccess = (() => {
     if (!profile) return false;
+    // (a) Institutional: is_active não importa — acesso sempre garantido
     if (profile.is_institutional) return true;
-    // Grace for brand-new users: they haven't gone through placement test yet.
-    // placement-test.tsx sets subscription_status + trial_ends_at on completion.
-    if (!profile.subscription_status) return true;
+    // (b) Grace para usuários sem assinatura ainda (null OU 'none'):
+    //     placement-test.tsx seta subscription_status='trial' ao concluir.
+    const noSub = !profile.subscription_status || profile.subscription_status === 'none';
+    if (noSub) return true;
+    // (c) Usuário inativo com assinatura = sem acesso
     if (!profile.is_active) return false;
     if (profile.subscription_status === 'active') return true;
     if (profile.subscription_status === 'trial') {
-      if (!profile.trial_ends_at) return false; // sem data = forçar paywall
+      if (!profile.trial_ends_at) return false;
       return new Date(profile.trial_ends_at) > new Date();
     }
     return false;
