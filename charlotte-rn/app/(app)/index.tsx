@@ -586,14 +586,16 @@ const MISSION_POOL: MissionTemplate[] = [
   },
 
   // ── Família: Streak ───────────────────────────────────────────
+  // Requer prática HOJE (todayXP > 0) além do streak acumulado,
+  // para evitar mostrar "Concluída" antes de qualquer ação no dia.
   {
     id: 'streak_2',
     label: isPt => isPt ? 'Sequência de 2 dias' : '2-day streak',
-    sub:   isPt => isPt ? 'Pratique hoje e amanhã' : 'Practice today and keep it going',
+    sub:   isPt => isPt ? 'Pratique hoje e mantenha a sequência!' : 'Practice today and keep it going!',
     xpReward: 20, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
     icon: <Fire size={22} color={C.orange} weight="fill" />,
-    getCompleted:     d => d.streakDays >= 2,
-    getProgress:      d => Math.min(d.streakDays / 2, 1),
+    getCompleted:     d => d.streakDays >= 2 && d.todayXP > 0,
+    getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 2, 1) : Math.min(d.streakDays / 2, 0.9),
     getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 2)} / 2 ${isPt ? 'dias' : 'days'}`,
   },
   {
@@ -602,8 +604,8 @@ const MISSION_POOL: MissionTemplate[] = [
     sub:   isPt => isPt ? 'Consistência é tudo!' : 'Consistency is everything!',
     xpReward: 50, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
     icon: <Fire size={22} color={C.orange} weight="fill" />,
-    getCompleted:     d => d.streakDays >= 5,
-    getProgress:      d => Math.min(d.streakDays / 5, 1),
+    getCompleted:     d => d.streakDays >= 5 && d.todayXP > 0,
+    getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 5, 1) : Math.min(d.streakDays / 5, 0.9),
     getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 5)} / 5 ${isPt ? 'dias' : 'days'}`,
   },
   {
@@ -612,8 +614,8 @@ const MISSION_POOL: MissionTemplate[] = [
     sub:   isPt => isPt ? 'Você está no caminho certo!' : 'You\'re on a roll!',
     xpReward: 80, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
     icon: <Fire size={22} color={C.orange} weight="fill" />,
-    getCompleted:     d => d.streakDays >= 10,
-    getProgress:      d => Math.min(d.streakDays / 10, 1),
+    getCompleted:     d => d.streakDays >= 10 && d.todayXP > 0,
+    getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 10, 1) : Math.min(d.streakDays / 10, 0.9),
     getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 10)} / 10 ${isPt ? 'dias' : 'days'}`,
   },
 

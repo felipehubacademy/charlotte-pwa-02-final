@@ -889,23 +889,23 @@ export default function LiveVoiceModal({
             {poolLoading && status === 'idle' && (
               <AppText style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>...</AppText>
             )}
-            {/* Pool badge */}
+            {/* Pool restante — texto discreto, sem pill/fundo */}
             {!poolLoading && !poolExhausted && poolRemaining < levelPool && (
-              <View style={{
-                marginTop: 6,
-                backgroundColor: poolRemaining < 300 ? 'rgba(239,68,68,0.15)' : 'rgba(163,255,60,0.1)',
-                borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3,
+              <AppText style={{
+                marginTop: 5,
+                fontSize: 12,
+                fontWeight: '400',
+                letterSpacing: 0.2,
+                color: poolRemaining < 60
+                  ? '#ef4444'                       // vermelho só < 1 min (urgente)
+                  : poolRemaining < 120
+                    ? 'rgba(249,115,22,0.85)'        // laranja < 2 min
+                    : 'rgba(255,255,255,0.30)',       // branco muted — informativo
               }}>
-                <AppText style={{
-                  fontSize: 11, fontWeight: '600',
-                  color: poolRemaining < 300 ? '#ef4444' : 'rgba(163,255,60,0.7)',
-                }}>
-                  {poolRemaining < 300
-                    ? (userLevel === 'Novice' ? `${poolMins} min restante${poolMins !== 1 ? 's' : ''}` : `${poolMins} min left`)
-                    : (userLevel === 'Novice' ? `${poolMins} min restantes este mês` : `${poolMins} min left this month`)
-                  }
-                </AppText>
-              </View>
+                {userLevel === 'Novice'
+                  ? `${poolMins} min restante${poolMins !== 1 ? 's' : ''} este mês`
+                  : `${poolMins} min left this month`}
+              </AppText>
             )}
           </View>
 
