@@ -154,7 +154,7 @@ export default function RootLayout({
         <meta name="author" content="Hub Academy" />
         <link rel="canonical" href="https://charlotte.hubacademybr.com" />
       </head>
-      <body className={`${inter.className} bg-secondary text-white antialiased`} suppressHydrationWarning>
+      <body className={`${inter.className} antialiased`} suppressHydrationWarning>
         <AuthProvider>
           <Suspense fallback={
             <div className="min-h-screen bg-secondary flex items-center justify-center">
