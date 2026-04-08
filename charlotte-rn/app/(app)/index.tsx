@@ -40,6 +40,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
 import { getLiveVoiceStatus, LIVE_VOICE_POOL_SECONDS } from '@/lib/liveVoiceUsage';
+import { soundEngine } from '@/lib/soundEngine';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -757,6 +758,7 @@ export default function HomeScreen() {
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
   const rewardSeedLoadedRef = React.useRef(false);
+  const streakSoundPlayedRef = React.useRef(false); // toca só uma vez por sessão
 
   const fetchData = useCallback(async () => {
     if (!userId) return;
@@ -824,6 +826,12 @@ export default function HomeScreen() {
       newData.todayXP += missionXPGranted;
     }
     setData(newData);
+
+    // 🔊 Som de streak — toca uma vez por sessão quando há streak ativo
+    if (!streakSoundPlayedRef.current && newData.streakDays > 0) {
+      streakSoundPlayedRef.current = true;
+      setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
+    }
   }, [userId, level]);
 
   useEffect(() => {
@@ -1244,6 +1252,7 @@ export default function HomeScreen() {
                     [{ text: isPortuguese ? 'Entendido' : 'Got it' }]
                   );
                 } else if (card.mode === 'live') {
+                  soundEngine.setMuted(true); // silenciar sons durante Live Voice
                   setShowLiveVoice(true);
                 } else if (card.route) {
                   router.push(card.route);
@@ -1306,7 +1315,7 @@ export default function HomeScreen() {
         isOpen={showLiveVoice}
         onClose={() => {
           setShowLiveVoice(false);
-          // Atualizar badge de minutos restantes após fechar a sessão
+          soundEngine.setMuted(false); // reativar sons
           setTimeout(() => loadLiveVoicePool(), 1500);
         }}
         userLevel={level}

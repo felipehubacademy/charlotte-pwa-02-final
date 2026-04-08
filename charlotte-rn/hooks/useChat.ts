@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase';
 import { ChatMode } from '@/lib/levelConfig';
 import { PronunciationData } from '@/components/chat/PronunciationScoreCard';
 import { useAchievementsContext } from '@/components/achievements/AchievementsProvider';
+import { soundEngine } from '@/lib/soundEngine';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -318,6 +319,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         saveChatMessage(userId, 'assistant', feedback, mode);
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        soundEngine.play('xp_gained').catch(() => {}); // 🔊 XP ding
         setSessionXP(prev => prev + xpAwarded);
         setTotalXP(prev => {
           const milestone = checkXPMilestone(prev, prev + xpAwarded);
@@ -626,6 +628,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         }
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        soundEngine.play('xp_gained').catch(() => {}); // 🔊 XP ding
         setSessionXP(prev => prev + xpAwarded);
         setTotalXP(prev => {
           const milestone = checkXPMilestone(prev, prev + xpAwarded);

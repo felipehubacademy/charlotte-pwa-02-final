@@ -11,9 +11,13 @@ import { AuthProvider } from '@/components/auth/AuthProvider';
 import { useAuth } from '@/hooks/useAuth';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { ONBOARDING_KEY } from './(onboarding)/index';
+import { soundEngine } from '@/lib/soundEngine';
 
 // Mantém a splash screen visível enquanto carrega
 SplashScreen.preventAutoHideAsync();
+
+// Pré-gera e faz cache de todos os efeitos sonoros em background
+soundEngine.preload().catch(() => {});
 
 /**
  * Handles all auth-based navigation at the ROOT level where the full

@@ -11,6 +11,16 @@ import {
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { Achievement } from '@/lib/types/achievement';
+import { soundEngine, SoundName } from '@/lib/soundEngine';
+
+function achievementSound(rarity: Achievement['rarity']): SoundName {
+  switch (rarity) {
+    case 'legendary': return 'achievement_legendary';
+    case 'epic':      return 'achievement_epic';
+    case 'rare':      return 'achievement_rare';
+    default:          return 'achievement_common';
+  }
+}
 
 // ── Palette (matches app light theme) ────────────────────────────────────────
 const C = {
@@ -135,6 +145,9 @@ export default function AchievementNotification({ achievements, onDismiss, isPt 
     sparkAnim.setValue(0);
     ringAnim.setValue(0);
     glowAnim.setValue(1);
+
+    // 🔊 Som baseado na raridade
+    soundEngine.play(achievementSound(current.rarity)).catch(() => {});
 
     // Entrance
     Animated.parallel([
