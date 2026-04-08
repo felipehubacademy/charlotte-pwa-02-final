@@ -7,7 +7,6 @@ import { Suspense } from 'react';
 
 import ClientLayout from './ClientLayout';
 import IOSAutoRecovery from '@/components/notifications/IOSAutoRecovery';
-import MobileOnlyWrapper from '@/components/MobileOnlyWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -161,11 +160,9 @@ export default function RootLayout({
               <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
             </div>
           }>
-            <MobileOnlyWrapper forceMobile={true}>
-              <ClientLayout>
-                {children}
-              </ClientLayout>
-            </MobileOnlyWrapper>
+            <ClientLayout>
+              {children}
+            </ClientLayout>
           </Suspense>
           <Toaster
             position="top-center"
