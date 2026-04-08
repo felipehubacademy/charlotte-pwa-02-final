@@ -9,7 +9,8 @@ import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { useAuth } from '@/hooks/useAuth';
-import { OfflineBanner } from '@/components/ui/OfflineBanner';
+// OfflineBanner desativado temporariamente — reimplementar com @react-native-community/netinfo
+// import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { ONBOARDING_KEY } from './(onboarding)/index';
 import { soundEngine } from '@/lib/soundEngine';
 import { ThemeProvider, useTheme } from '@/lib/theme';
@@ -101,7 +102,6 @@ export default function RootLayout() {
         <SafeAreaProvider>
           <AuthProvider>
             <AuthGuard />
-            <OfflineBanner />
             <ThemedStatusBar />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
