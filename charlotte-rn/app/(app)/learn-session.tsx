@@ -722,22 +722,21 @@ export default function LearnSessionScreen() {
           {/* ── GRAMMAR CARD ── */}
           {currentStep.kind === 'grammar' && (
             <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: C.border, ...shadow }}>
-              {/* Charlotte instruction — não exibe para fill_gap (instrução está no placeholder do campo) */}
-              {currentStep.exercise.type !== 'fill_gap' && (
-                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 24 }}>
-                  <CharlotteAvatar size="xs" />
-                  <View style={{ flex: 1, backgroundColor: accentBg, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 14 }}>
-                    <AppText style={{ fontSize: 14, color: accent, fontWeight: '700' }}>
-                      {currentStep.exercise.type === 'multiple_choice' ? (isPortuguese ? 'Escolha a opção correta para completar a frase.'    : 'Choose the correct option to complete the sentence.')
-                        : currentStep.exercise.type === 'word_bank'      ? (isPortuguese ? 'Toque na palavra correta para preencher o espaço.' : 'Tap the correct word to fill the blank.')
-                        : currentStep.exercise.type === 'fix_error'      ? (isPortuguese ? 'Encontre o erro e reescreva a frase corretamente.'  : 'Find the mistake and rewrite the sentence correctly.')
-                        : currentStep.exercise.type === 'word_order'     ? (isPortuguese ? 'Toque nas palavras abaixo para montar a frase na ordem correta.' : 'Tap the words below to build the sentence in the correct order.')
-                        : currentStep.exercise.type === 'short_write'    ? (isPortuguese ? 'Escreva sua resposta em inglês. Depois, veja o exemplo.' : 'Write your answer in English. Then see the model answer.')
-                        :                                                   (isPortuguese ? 'Leia o texto e responda à pergunta.'                : 'Read the text and answer the question.')}
-                    </AppText>
-                  </View>
+              {/* Charlotte instruction */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 24 }}>
+                <CharlotteAvatar size="xs" />
+                <View style={{ flex: 1, backgroundColor: accentBg, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 14 }}>
+                  <AppText style={{ fontSize: 14, color: accent, fontWeight: '700' }}>
+                    {currentStep.exercise.type === 'multiple_choice' ? (isPortuguese ? 'Escolha a opção correta para completar a frase.'    : 'Choose the correct option to complete the sentence.')
+                      : currentStep.exercise.type === 'word_bank'      ? (isPortuguese ? 'Toque na palavra correta para preencher o espaço.' : 'Tap the correct word to fill the blank.')
+                      : currentStep.exercise.type === 'fill_gap'       ? (isPortuguese ? 'Toque na lacuna e digite a palavra que falta.'     : 'Tap the blank and type the missing word.')
+                      : currentStep.exercise.type === 'fix_error'      ? (isPortuguese ? 'Encontre o erro e reescreva a frase corretamente.'  : 'Find the mistake and rewrite the sentence correctly.')
+                      : currentStep.exercise.type === 'word_order'     ? (isPortuguese ? 'Toque nas palavras abaixo para montar a frase na ordem correta.' : 'Tap the words below to build the sentence in the correct order.')
+                      : currentStep.exercise.type === 'short_write'    ? (isPortuguese ? 'Escreva sua resposta em inglês. Depois, veja o exemplo.' : 'Write your answer in English. Then see the model answer.')
+                      :                                                   (isPortuguese ? 'Leia o texto e responda à pergunta.'                : 'Read the text and answer the question.')}
+                  </AppText>
                 </View>
-              )}
+              </View>
 
               {/* Passage */}
               {currentStep.exercise.type === 'read_answer' && currentStep.exercise.passage && (
@@ -750,7 +749,57 @@ export default function LearnSessionScreen() {
               )}
 
               {/* Sentence / Question */}
-              {isPortuguese ? (
+              {currentStep.exercise.type === 'fill_gap' ? (
+                /* ── Fill-gap: lacuna inline na frase ── */
+                (() => {
+                  const GAP = '_____';
+                  const sentence = currentStep.exercise.sentence ?? '';
+                  const parts    = sentence.split(GAP);
+                  const before   = parts[0] ?? '';
+                  const after    = parts[1] ?? '';
+                  const textStyle = { fontSize: 22, fontWeight: '500' as const, color: C.navy, lineHeight: 34 };
+                  return (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 20 }}>
+                      {before.length > 0 && (
+                        <AppText style={textStyle}>{before}</AppText>
+                      )}
+                      {gStatus === 'answering' ? (
+                        <TextInput
+                          value={userAnswer}
+                          onChangeText={setUserAnswer}
+                          autoFocus
+                          autoCorrect={false}
+                          autoCapitalize="none"
+                          returnKeyType="done"
+                          onSubmitEditing={handleGrammarSubmit}
+                          placeholderTextColor={accent + '80'}
+                          placeholder="___"
+                          style={{
+                            fontSize: 22, fontWeight: '700', color: accent,
+                            borderBottomWidth: 2.5, borderBottomColor: accent,
+                            minWidth: 72, paddingHorizontal: 6, paddingBottom: 2,
+                            lineHeight: 34,
+                          }}
+                        />
+                      ) : (
+                        /* Estado submetido — mostra resposta com cor de certo/errado */
+                        <AppText style={{
+                          fontSize: 22, fontWeight: '700',
+                          color: isCorrect ? C.green : C.red,
+                          borderBottomWidth: 2,
+                          borderBottomColor: isCorrect ? C.green : C.red,
+                          paddingHorizontal: 4,
+                        }}>
+                          {userAnswer || '___'}
+                        </AppText>
+                      )}
+                      {after.length > 0 && (
+                        <AppText style={textStyle}>{after}</AppText>
+                      )}
+                    </View>
+                  );
+                })()
+              ) : isPortuguese ? (
                 <TranslatableText
                   text={currentStep.exercise.type === 'read_answer' ? (currentStep.exercise.question ?? '') : (currentStep.exercise.sentence ?? '')}
                   style={{
@@ -954,29 +1003,28 @@ export default function LearnSessionScreen() {
                 </View>
               )}
 
-              {/* Text input (fill_gap / fix_error / read_answer) */}
-              {(currentStep.exercise.type === 'fill_gap' || currentStep.exercise.type === 'fix_error' || currentStep.exercise.type === 'read_answer') && gStatus === 'answering' && (
+              {/* Text input (fix_error / read_answer) — fill_gap usa lacuna inline na frase acima */}
+              {(currentStep.exercise.type === 'fix_error' || currentStep.exercise.type === 'read_answer') && gStatus === 'answering' && (
                 <>
                   <View style={{ flex: 1 }} />
                   <TextInput
                     value={userAnswer}
                     onChangeText={setUserAnswer}
                     placeholder={
-                      currentStep.exercise.type === 'fill_gap'  ? (isPortuguese ? 'Digite a palavra que falta…'   : 'Type the missing word…')
-                      : currentStep.exercise.type === 'fix_error' ? (isPortuguese ? 'Reescreva a frase completa…'  : 'Rewrite the full sentence…')
-                      :                                              (isPortuguese ? 'Sua resposta…'               : 'Your answer…')
+                      currentStep.exercise.type === 'fix_error' ? (isPortuguese ? 'Reescreva a frase completa…'  : 'Rewrite the full sentence…')
+                      :                                            (isPortuguese ? 'Sua resposta…'               : 'Your answer…')
                     }
                     placeholderTextColor={C.navyLight}
                     style={{
                       borderWidth: 1.5, borderColor: C.border, borderRadius: 14,
                       paddingHorizontal: 16, paddingVertical: 14,
                       fontSize: 16, color: C.navy, backgroundColor: '#FAFAF9',
-                      minHeight: currentStep.exercise.type === 'fill_gap' ? 56 : 110,
+                      minHeight: 110,
                       textAlignVertical: 'top',
                     }}
-                    multiline={currentStep.exercise.type !== 'fill_gap'}
-                    returnKeyType={currentStep.exercise.type === 'fill_gap' ? 'done' : 'default'}
-                    onSubmitEditing={currentStep.exercise.type === 'fill_gap' ? handleGrammarSubmit : undefined}
+                    multiline
+                    returnKeyType="default"
+                    onSubmitEditing={handleGrammarSubmit}
                     autoCorrect={false}
                     autoCapitalize="none"
                   />
