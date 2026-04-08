@@ -16,6 +16,8 @@ import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import { soundEngine } from '@/lib/soundEngine';
+import { scheduleReviews, trackExerciseError, markReviewDone } from '@/lib/spacedRepetition';
+import { track } from '@/lib/analytics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAudioRecorder, setAudioModeAsync, RecordingPresets } from 'expo-audio';
 import Constants from 'expo-constants';
@@ -168,7 +170,7 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
 
 // ── Main screen ────────────────────────────────────────────────
 export default function LearnSessionScreen() {
-  const params      = useLocalSearchParams<{ level: string; moduleIndex: string; topicIndex: string }>();
+  const params      = useLocalSearchParams<{ level: string; moduleIndex: string; topicIndex: string; reviewId?: string }>();
   const level       = (params.level ?? 'Inter') as TrailLevel;
   const moduleIndex = parseInt(params.moduleIndex ?? '0', 10);
   const topicIndex  = parseInt(params.topicIndex  ?? '0', 10);
@@ -581,6 +583,16 @@ export default function LearnSessionScreen() {
     if (next >= totalSteps) {
       await saveTopicComplete(level, moduleIndex, topicIndex);
       setIsComplete(true);
+      if (userId) {
+        // 📅 Agendar revisões espaçadas (3, 7, 14, 30 dias) — somente se NÃO for uma revisão
+        if (!params.reviewId) {
+          scheduleReviews(userId, level, moduleIndex, topicIndex, topic?.title ?? '').catch(console.warn);
+        } else {
+          // ✅ Marcar revisão como concluída
+          markReviewDone(parseInt(params.reviewId, 10)).catch(console.warn);
+        }
+        track('lesson_completed', { level, module: moduleIndex, topic: topicIndex, isReview: !!params.reviewId });
+      }
       // 🎉 Celebração de conclusão: som + vibração tripla
       soundEngine.play('daily_goal').catch(() => {});
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

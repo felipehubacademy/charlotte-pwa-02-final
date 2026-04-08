@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CURRICULUM, TrailLevel } from '@/data/curriculum';
 import { useAchievementsContext } from '@/components/achievements/AchievementsProvider';
+import { trackExerciseError } from '@/lib/spacedRepetition';
 
 export interface CompletedKey { m: number; t: number }
 
@@ -140,6 +141,17 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
       xp_earned:     params.xpEarned,
     });
     if (error) console.error('[useLearnProgress] history insert error', error);
+
+    // Registrar erro se exercício foi incorreto (para revisão espaçada)
+    if (!params.isCorrect) {
+      trackExerciseError(userId, {
+        userLevel:    params.level,
+        moduleIndex:  params.moduleIndex,
+        topicIndex:   params.topicIndex,
+        exerciseType: params.exerciseType,
+        exerciseData: {},  // dados do exercício (expandir conforme necessário)
+      }).catch(console.warn);
+    }
 
     // Save to charlotte_practices so XP flows to charlotte_progress & charlotte_leaderboard_cache via trigger
     const { error: practiceError } = await supabase.from('charlotte_practices').insert({

@@ -42,6 +42,7 @@ import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
 import { getLiveVoiceStatus, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { soundEngine } from '@/lib/soundEngine';
 import { identifyUser, track } from '@/lib/analytics';
+import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -752,6 +753,7 @@ export default function HomeScreen() {
   const [showLiveVoice, setShowLiveVoice]           = useState(false);
   const [liveVoiceRemaining, setLiveVoiceRemaining] = useState<number | null>(null);
   const [showStats, setShowStats]                   = useState(false);
+  const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
@@ -857,15 +859,23 @@ export default function HomeScreen() {
       const { secondsRemaining } = await getLiveVoiceStatus(level);
       setLiveVoiceRemaining(secondsRemaining);
     } catch { /* silencioso */ }
+  }, [userId, level]);
+
+  const loadPendingReviews = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const items = await getPendingReviews(userId);
+      setPendingReviews(items);
+    } catch { /* silencioso */ }
   }, [userId]);
 
   useEffect(() => {
-    if (userId) loadLiveVoicePool();
+    if (userId) { loadLiveVoicePool(); loadPendingReviews(); }
   }, [userId]); // eslint-disable-line
 
   useFocusEffect(useCallback(() => {
-    if (userId) loadLiveVoicePool();
-  }, [loadLiveVoicePool]));
+    if (userId) { loadLiveVoicePool(); loadPendingReviews(); }
+  }, [loadLiveVoicePool, loadPendingReviews]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1237,6 +1247,68 @@ export default function HomeScreen() {
               <CaretRight size={18} color={C.navyLight} weight="bold" />
           </TouchableOpacity>
         </View>
+
+        {/* ══════════════════════════════════════════
+            REVIEWS — revisão espaçada
+        ══════════════════════════════════════════ */}
+        {pendingReviews.length > 0 && (
+          <>
+            <SectionHeader
+              label={isPortuguese ? 'Revisão pendente' : 'Review due'}
+              badge={`${pendingReviews.length}`}
+              isPt={isPortuguese}
+            />
+            <View style={{ paddingHorizontal: 20 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  // Navegar para o primeiro tópico pendente
+                  const r = pendingReviews[0];
+                  router.push({
+                    pathname: '/(app)/learn-session',
+                    params: {
+                      level: r.userLevel,
+                      moduleIndex: r.moduleIndex.toString(),
+                      topicIndex: r.topicIndex.toString(),
+                      reviewId: r.id.toString(),
+                    },
+                  });
+                }}
+                activeOpacity={0.72}
+                style={{
+                  borderRadius: 18,
+                  backgroundColor: '#FFFBEB',
+                  borderWidth: 1,
+                  borderColor: 'rgba(245,158,11,0.2)',
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 14,
+                  paddingHorizontal: 20,
+                  gap: 14,
+                  ...cardShadow,
+                }}
+              >
+                <View style={{
+                  width: 44, height: 44, borderRadius: 14,
+                  backgroundColor: 'rgba(245,158,11,0.12)',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <BookOpenText size={22} color="#F59E0B" weight="bold" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
+                    {pendingReviews[0].topicTitle || (isPortuguese ? 'Revisão' : 'Review')}
+                  </AppText>
+                  <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 2 }}>
+                    {isPortuguese
+                      ? `${pendingReviews.length} tópico${pendingReviews.length > 1 ? 's' : ''} para revisar`
+                      : `${pendingReviews.length} topic${pendingReviews.length > 1 ? 's' : ''} to review`}
+                  </AppText>
+                </View>
+                <CaretRight size={16} color={C.navyLight} weight="bold" />
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
 
         {/* ══════════════════════════════════════════
             PRACTICE — destination cards
