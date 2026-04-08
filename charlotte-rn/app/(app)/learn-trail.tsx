@@ -337,8 +337,8 @@ export default function LearnTrailScreen() {
                         </View>
                       </View>
 
-                      {/* CTA arrow */}
-                      {current && hasContent && (
+                      {/* CTA arrow — "Iniciar" se current e não completo, "Rever" se current e já feito */}
+                      {current && hasContent && !complete && (
                         <View style={{
                           backgroundColor: accent, borderRadius: 10,
                           paddingHorizontal: 12, paddingVertical: 8,
@@ -348,7 +348,18 @@ export default function LearnTrailScreen() {
                           <CaretRight size={12} color="#FFF" weight="bold" />
                         </View>
                       )}
-                      {complete && (
+                      {complete && current && hasContent && (
+                        <View style={{
+                          backgroundColor: 'transparent', borderRadius: 10,
+                          paddingHorizontal: 12, paddingVertical: 8,
+                          borderWidth: 1, borderColor: accent + '50',
+                          flexDirection: 'row', alignItems: 'center', gap: 4,
+                        }}>
+                          <AppText style={{ fontSize: 12, fontWeight: '800', color: accent }}>{isPortuguese ? 'Rever' : 'Review'}</AppText>
+                          <CaretRight size={12} color={accent} weight="bold" />
+                        </View>
+                      )}
+                      {complete && !current && (
                         <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green }}>{isPortuguese ? 'Feito' : 'Done'}</AppText>
                       )}
                     </TouchableOpacity>

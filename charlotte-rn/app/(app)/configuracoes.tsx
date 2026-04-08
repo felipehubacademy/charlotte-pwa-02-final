@@ -339,16 +339,20 @@ export default function ConfiguracoesScreen() {
           chevron
         />
 
-        {/* Assinatura */}
-        <SectionTitle label={isPt ? 'Assinatura' : 'Subscription'} />
-        <SettingRow
-          icon={restoringPurchases
-            ? <ActivityIndicator size={18} color={C.navyMid} />
-            : <ArrowsClockwise size={18} color={C.navyMid} weight="duotone" />}
-          label={isPt ? 'Restaurar compras' : 'Restore purchases'}
-          onPress={restoringPurchases ? undefined : handleRestorePurchases}
-          chevron
-        />
+        {/* Assinatura — oculto para usuários institucionais (sem acesso via loja) */}
+        {!profile?.is_institutional && (
+          <>
+            <SectionTitle label={isPt ? 'Assinatura' : 'Subscription'} />
+            <SettingRow
+              icon={restoringPurchases
+                ? <ActivityIndicator size={18} color={C.navyMid} />
+                : <ArrowsClockwise size={18} color={C.navyMid} weight="duotone" />}
+              label={isPt ? 'Restaurar compras' : 'Restore purchases'}
+              onPress={restoringPurchases ? undefined : handleRestorePurchases}
+              chevron
+            />
+          </>
+        )}
 
         {/* Legal */}
         <SectionTitle label="Legal" />

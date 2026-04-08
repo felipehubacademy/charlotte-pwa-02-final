@@ -417,8 +417,8 @@ export const MODULE_INTROS: AllIntros = {
           highlight: 'travel · shopping · technology · home · relationships',
         },
         {
-          label: 'Parabéns, Novice!',
-          text: 'Você completou o nível Novice! Isso é enorme. Você aprendeu a se apresentar, falar de rotinas, descrever, comparar, narrar o passado e planejar o futuro. A base está construída. Agora é para o Inter!',
+          label: 'Prepare-se!',
+          text: 'Este módulo é desafiador — conectores, preposições de movimento, perguntas de sujeito e vocabulário do mundo real. Mas você chegou até aqui. Respira fundo e bora finalizar o Novice com tudo!',
         },
       ],
     },

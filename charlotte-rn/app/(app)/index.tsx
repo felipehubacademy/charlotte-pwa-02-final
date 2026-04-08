@@ -1037,7 +1037,7 @@ export default function HomeScreen() {
         : '',
       accentColor: C.orange,
       accentBg: 'rgba(255,107,53,0.10)',
-      icon: <Phone size={26} color={hasLive ? C.orange : C.navyLight} weight="bold" />,
+      icon: <Phone size={26} color={C.orange} weight="bold" />,
       locked: false, // Disponível para todos os níveis
     },
   ];
@@ -1247,7 +1247,9 @@ export default function HomeScreen() {
             WEEKLY CHALLENGE — um desafio por semana
         ══════════════════════════════════════════ */}
         {weeklyState && (
-          <View style={{ paddingHorizontal: 20, marginTop: 8, marginBottom: 4 }}>
+          <>
+          <SectionHeader label={isPortuguese ? 'Desafio da semana' : 'Weekly Challenge'} />
+          <View style={{ paddingHorizontal: 20, marginBottom: 4 }}>
             <View style={{
               borderRadius: 18, overflow: 'hidden',
               backgroundColor: weeklyState.challenge.bgColor,
@@ -1294,6 +1296,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+          </>
         )}
 
         {/* ══════════════════════════════════════════
