@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, View, TouchableOpacity, Animated } from 'react-native';
 import {
   Hand, ChatTeardropText, Microphone, Phone,
-  Camera, Lightning, RocketLaunch,
+  Lightning, RocketLaunch,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { Button } from '@/components/ui/Button';
@@ -58,14 +58,6 @@ function buildSteps(isNovice: boolean): OnboardingStep[] {
       description: isNovice
         ? 'Use a conversa por voz em tempo real para praticar como se fosse uma ligação!'
         : 'Use real-time voice conversation to practice like a phone call!',
-    },
-    {
-      id: 'photo',
-      icon: <Camera size={ICON_SIZE} color={ICON_COLOR} weight="fill" />,
-      title: isNovice ? 'Mande Fotos' : 'Send Photos',
-      description: isNovice
-        ? 'Tire uma foto de qualquer objeto e Charlotte vai te ensinar o vocabulário em inglês!'
-        : 'Take a photo of any object and Charlotte will teach you the vocabulary in English!',
     },
     {
       id: 'xp',

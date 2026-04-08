@@ -70,8 +70,7 @@ export default function PrivacidadePage() {
             ['Dados de cadastro', 'Nome, e-mail e senha (armazenada com hash seguro).'],
             ['Dados de uso', 'Histórico de conversas com a IA, progresso nas lições, streak diário, nível de inglês e preferências de aprendizado.'],
             ['Dados de áudio', 'Gravações de voz durante sessões de conversação. Processados em tempo real — não são armazenados permanentemente.'],
-            ['Dados de câmera', 'Imagens capturadas para criação de flashcards de vocabulário. Armazenadas na sua conta.'],
-            ['Dados de dispositivo', 'Token de notificações push, sistema operacional e versão do app (para lembretes de estudo).'],
+['Dados de dispositivo', 'Token de notificações push, sistema operacional e versão do app (para lembretes de estudo).'],
             ['Dados de pagamento', 'Processados exclusivamente pela App Store ou Google Play via RevenueCat. Não armazenamos dados bancários.'],
           ]} />
         </Section>

@@ -151,8 +151,7 @@ export default function EnhancedStatsModal({
         pronunciation:    isPortuguese ? 'Pronúncia'          : 'Pronunciation',
         grammar:          isPortuguese ? 'Gramática'          : 'Grammar',
         learn_exercise:   isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail',
-        image_recognition:'Object Recognition',
-        camera_object:    'Object Recognition',
+        image_recognition: isPortuguese ? 'Prática' : 'Practice',
       };
       const getActivityLabel = (type: string) => {
         if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';

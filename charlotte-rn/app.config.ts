@@ -21,9 +21,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     infoPlist: {
       NSMicrophoneUsageDescription:
         'Charlotte usa o microfone para praticar conversação em inglês com IA.',
-      NSCameraUsageDescription:
-        'Charlotte usa a câmera para criar flashcards de vocabulário com fotos.',
-      ITSAppUsesNonExemptEncryption: false,
+ITSAppUsesNonExemptEncryption: false,
       // Status bar: dark icons (time, wifi, battery) on light backgrounds
       UIViewControllerBasedStatusBarAppearance: false,
       UIStatusBarStyle: 'UIStatusBarStyleDarkContent',
