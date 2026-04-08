@@ -1,11 +1,11 @@
 // components/ui/WelcomeModal.tsx
-// Modal fullscreen de boas-vindas — exibido UMA VEZ após o primeiro login/placement test.
-// Charlotte fala uma saudação via TTS pré-gerado e o usuário toca para fechar.
+// Modal fullscreen de boas-vindas — exibido UMA VEZ após o primeiro login.
+// Charlotte fala uma saudação com karaokê sincronizado (word-by-word highlight).
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Modal, View, TouchableOpacity, Animated, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
@@ -16,32 +16,23 @@ const API_BASE_URL =
 
 const WELCOME_DONE_KEY = 'charlotte_welcome_done_v1';
 
-const GREETING_FILES: Record<string, string[]> = {
+// ── Greeting data ────────────────────────────────────────────────────────────
+
+interface WordTiming { word: string; start: number; end: number; }
+
+const GREETING_IDS: Record<string, string[]> = {
   Novice:   ['novice_01', 'novice_02', 'novice_03', 'novice_04'],
   Inter:    ['inter_01', 'inter_02', 'inter_03', 'inter_04'],
   Advanced: ['advanced_01', 'advanced_02', 'advanced_03', 'advanced_04'],
 };
 
-const GREETING_TEXT: Record<string, string[]> = {
-  Novice: [
-    'Oi! Que bom te ver!\nBora praticar?',
-    'Oi! Estou te esperando.\nVamos lá!',
-    'Ei, que bom que voltou!\nBora pro inglês?',
-    'Oi! Pronta pra mais\numa sessão?',
-  ],
-  Inter: [
-    "Hey! Good to see you —\nlet's get started!",
-    "Hey! Ready for\nsome practice?",
-    "Oh hey! Welcome back —\nlet's do this!",
-    "Hey! I've been waiting.\nLet's go!",
-  ],
-  Advanced: [
-    "Hey! What's on your\nmind today?",
-    "Oh hey! Ready to\ndive in?",
-    "Hey! Let's make this\nsession count.",
-    "What's up? Good to\nsee you again.",
-  ],
+const SUBTITLE: Record<string, string> = {
+  Novice:   'estou aqui pra te ajudar\na falar inglês de verdade.',
+  Inter:    "I'm here to help you\nspeak English for real.",
+  Advanced: "I'm here to help you\nspeak English for real.",
 };
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 interface WelcomeModalProps {
   userLevel: 'Novice' | 'Inter' | 'Advanced';
@@ -51,39 +42,51 @@ interface WelcomeModalProps {
 export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps) {
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
-  const [greetingIdx, setGreetingIdx] = useState(0);
+  const [timings, setTimings] = useState<WordTiming[]>([]);
+  const [currentTime, setCurrentTime] = useState(-1); // -1 = not started
+
+  const isPt = userLevel === 'Novice';
+  const firstName = userName.split(' ')[0] ?? userName;
 
   const fadeAnim     = useRef(new Animated.Value(0)).current;
   const scaleAnim    = useRef(new Animated.Value(0.8)).current;
   const textFadeAnim = useRef(new Animated.Value(0)).current;
   const ringAnim     = useRef(new Animated.Value(1)).current;
+  const playerRef    = useRef<AudioPlayer | null>(null);
+  const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const greetingIdRef = useRef('');
 
-  const isPt = userLevel === 'Novice';
-
-  // ── Check se já viu o welcome ─────────────────────────────────
+  // ── Check if already seen ─────────────────────────────────────
   useEffect(() => {
     SecureStore.getItemAsync(WELCOME_DONE_KEY)
-      .then(val => {
-        if (val !== 'done') setVisible(true);
-      })
-      .catch(() => setVisible(true)); // se falhar leitura, mostra
+      .then(val => { if (val !== 'done') setVisible(true); })
+      .catch(() => setVisible(true));
   }, []);
 
-  // ── Animação + TTS ao abrir ───────────────────────────────────
+  // ── Poll player time for karaoke ──────────────────────────────
+  useEffect(() => {
+    pollRef.current = setInterval(() => {
+      if (playerRef.current?.playing) {
+        setCurrentTime(playerRef.current.currentTime ?? 0);
+      }
+    }, 40); // 25fps for smooth highlight
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  // ── Load + play on visible ────────────────────────────────────
   useEffect(() => {
     if (!visible) return;
 
-    const idx = Math.floor(Math.random() * 4);
-    setGreetingIdx(idx);
+    const ids = GREETING_IDS[userLevel] ?? GREETING_IDS.Inter;
+    const pick = ids[Math.floor(Math.random() * ids.length)];
+    greetingIdRef.current = pick;
 
-    // Animação de entrada
+    // Entrance animation
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
       Animated.spring(scaleAnim, { toValue: 1, stiffness: 180, damping: 16, useNativeDriver: true }),
     ]).start(() => {
-      // Texto aparece após avatar
-      Animated.timing(textFadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-      // Pulso suave no avatar
+      Animated.timing(textFadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
       Animated.loop(
         Animated.sequence([
           Animated.timing(ringAnim, { toValue: 1.08, duration: 1200, useNativeDriver: true }),
@@ -92,22 +95,42 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
       ).start();
     });
 
-    // TTS pré-gerado
-    playWelcomeAudio(idx).catch(() => {});
+    // Load audio + timings in parallel
+    loadAndPlay(pick).catch(() => {});
   }, [visible]); // eslint-disable-line
 
-  const playWelcomeAudio = async (idx: number) => {
+  const loadAndPlay = async (id: string) => {
     try {
-      const files = GREETING_FILES[userLevel] ?? GREETING_FILES.Inter;
-      const pick = files[idx] ?? files[0];
-      const remoteUrl = `${API_BASE_URL}/tts/greetings/${pick}.mp3`;
-      const localUri = `${FileSystem.cacheDirectory}welcome_${pick}.mp3`;
+      const baseUrl = `${API_BASE_URL}/tts/greetings/${id}`;
 
-      const info = await FileSystem.getInfoAsync(localUri);
-      if (!info.exists) {
-        await FileSystem.downloadAsync(remoteUrl, localUri);
+      // Download audio + timings in parallel
+      const audioUri  = `${FileSystem.cacheDirectory}welcome_${id}.mp3`;
+      const timingUri = `${FileSystem.cacheDirectory}welcome_${id}.json`;
+
+      const [audioInfo, timingInfo] = await Promise.all([
+        FileSystem.getInfoAsync(audioUri),
+        FileSystem.getInfoAsync(timingUri),
+      ]);
+
+      const downloads: Promise<void>[] = [];
+      if (!audioInfo.exists) {
+        downloads.push(
+          FileSystem.downloadAsync(`${baseUrl}.mp3`, audioUri).then(() => {})
+        );
       }
+      if (!timingInfo.exists) {
+        downloads.push(
+          FileSystem.downloadAsync(`${baseUrl}.json`, timingUri).then(() => {})
+        );
+      }
+      if (downloads.length > 0) await Promise.all(downloads);
 
+      // Parse timings
+      const rawJson = await FileSystem.readAsStringAsync(timingUri);
+      const wordTimings: WordTiming[] = JSON.parse(rawJson);
+      setTimings(wordTimings);
+
+      // Play audio
       await setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: true,
@@ -115,13 +138,22 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
         shouldRouteThroughEarpiece: false,
       }).catch(() => {});
 
-      const player = createAudioPlayer({ uri: localUri });
-      player.play();
-      setTimeout(() => { try { player.pause(); player.remove(); } catch {} }, 10000);
-    } catch { /* silencioso */ }
+      playerRef.current?.pause();
+      playerRef.current?.remove();
+      playerRef.current = createAudioPlayer({ uri: audioUri });
+      playerRef.current.play();
+      setCurrentTime(0);
+    } catch (e) {
+      console.warn('[WelcomeModal] load error:', e);
+    }
   };
 
   const handleDismiss = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    playerRef.current?.pause();
+    playerRef.current?.remove();
+    playerRef.current = null;
+
     Animated.parallel([
       Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 0.9, duration: 250, useNativeDriver: true }),
@@ -133,9 +165,35 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
 
   if (!visible) return null;
 
-  const texts = GREETING_TEXT[userLevel] ?? GREETING_TEXT.Inter;
-  const greetingText = texts[greetingIdx] ?? texts[0];
-  const firstName = userName.split(' ')[0] ?? userName;
+  // ── Karaoke rendering ─────────────────────────────────────────
+  const renderKaraoke = () => {
+    if (timings.length === 0) return null;
+
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
+        {timings.map((w, i) => {
+          const isActive = currentTime >= 0 && w.start <= currentTime && currentTime < w.end;
+          const isSpoken = currentTime >= 0 && w.end <= currentTime;
+          const color    = isActive ? '#A3FF3C' : isSpoken ? '#FFFFFF' : 'rgba(255,255,255,0.25)';
+
+          return (
+            <AppText
+              key={i}
+              style={{
+                fontSize: 28,
+                fontWeight: '800',
+                color,
+                lineHeight: 40,
+                letterSpacing: -0.3,
+              }}
+            >
+              {w.word}{' '}
+            </AppText>
+          );
+        })}
+      </View>
+    );
+  };
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent>
@@ -155,10 +213,7 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}
         >
           {/* Charlotte badge */}
-          <Animated.View style={{
-            opacity: fadeAnim,
-            marginBottom: 8,
-          }}>
+          <Animated.View style={{ opacity: fadeAnim, marginBottom: 8 }}>
             <View style={{
               backgroundColor: '#A3FF3C',
               borderRadius: 8,
@@ -174,7 +229,7 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
           {/* Avatar com ring pulsante */}
           <Animated.View style={{
             transform: [{ scale: scaleAnim }],
-            marginBottom: 32,
+            marginBottom: 36,
           }}>
             <Animated.View style={{
               position: 'absolute',
@@ -193,29 +248,20 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
             />
           </Animated.View>
 
-          {/* Greeting text */}
-          <Animated.View style={{ opacity: textFadeAnim, alignItems: 'center' }}>
-            <AppText style={{
-              color: '#FFFFFF',
-              fontSize: 28,
-              fontWeight: '800',
-              textAlign: 'center',
-              lineHeight: 38,
-              letterSpacing: -0.5,
-              marginBottom: 12,
-            }}>
-              {greetingText}
-            </AppText>
+          {/* Karaoke greeting text */}
+          <Animated.View style={{ opacity: textFadeAnim, alignItems: 'center', minHeight: 90 }}>
+            {renderKaraoke()}
+          </Animated.View>
 
+          {/* Subtitle */}
+          <Animated.View style={{ opacity: textFadeAnim, marginTop: 16 }}>
             <AppText style={{
-              color: 'rgba(255,255,255,0.5)',
+              color: 'rgba(255,255,255,0.45)',
               fontSize: 15,
               textAlign: 'center',
               lineHeight: 22,
             }}>
-              {isPt
-                ? `${firstName}, estou aqui pra te ajudar\na falar inglês de verdade.`
-                : `${firstName}, I'm here to help you\nspeak English for real.`}
+              {firstName}, {SUBTITLE[userLevel] ?? SUBTITLE.Inter}
             </AppText>
           </Animated.View>
 
@@ -226,7 +272,7 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
             opacity: textFadeAnim,
           }}>
             <AppText style={{
-              color: 'rgba(255,255,255,0.25)',
+              color: 'rgba(255,255,255,0.2)',
               fontSize: 13,
               letterSpacing: 0.5,
             }}>
