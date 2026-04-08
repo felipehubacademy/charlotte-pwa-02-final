@@ -43,6 +43,8 @@ import { getLiveVoiceStatus, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { soundEngine } from '@/lib/soundEngine';
 import { identifyUser, track } from '@/lib/analytics';
 import { useTheme } from '@/lib/theme';
+import { cacheHomeData, getCachedHomeData } from '@/lib/offlineCache';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 
@@ -748,6 +750,7 @@ export default function HomeScreen() {
   const name   = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const config = LEVEL_CONFIG[level];
   const { colors: T, isDark } = useTheme();
+  const isOnline = useNetworkStatus();
 
   const [data, setData]             = useState<HomeData | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -840,8 +843,24 @@ export default function HomeScreen() {
       streakSoundPlayedRef.current = true;
       setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
     }
+    // Cache para uso offline
+    cacheHomeData({ ...newData, cachedAt: Date.now() }).catch(() => {});
     } catch (e) {
       console.warn('⚠️ fetchData error:', e);
+      // Offline fallback: tentar carregar dados cacheados
+      if (!data) {
+        const cached = await getCachedHomeData().catch(() => null);
+        if (cached) {
+          setData({
+            streakDays:    cached.streakDays,
+            totalXP:       cached.totalXP,
+            todayXP:       cached.todayXP,
+            rank:          cached.rank,
+            todayMessages: cached.todayMessages,
+            todayAudios:   cached.todayAudios,
+          });
+        }
+      }
     }
   }, [userId, level]);
 
