@@ -49,7 +49,6 @@ ITSAppUsesNonExemptEncryption: false,
     'expo-router',
     'expo-secure-store',
     'expo-config-plugin-incall-manager',
-    './plugins/withWebRTCXcode16Fix.js',
     [
       'expo-splash-screen',
       {
