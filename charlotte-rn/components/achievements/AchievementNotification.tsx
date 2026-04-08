@@ -13,6 +13,8 @@ import {
 import { AppText } from '@/components/ui/Text';
 import { Achievement } from '@/lib/types/achievement';
 import { soundEngine, SoundName } from '@/lib/soundEngine';
+import { shareAchievement } from '@/lib/shareUtils';
+import { ShareNetwork } from 'phosphor-react-native';
 
 function achievementSound(rarity: Achievement['rarity']): SoundName {
   switch (rarity) {
@@ -312,23 +314,41 @@ export default function AchievementNotification({ achievements, onDismiss, isPt 
                 )}
               </View>
 
-              {/* Dismiss button */}
-              <TouchableOpacity
-                onPress={handleDismiss}
-                activeOpacity={0.85}
-                style={{
-                  backgroundColor: C.green,
-                  paddingHorizontal: 36,
-                  paddingVertical: 14,
-                  borderRadius: 16,
-                  width: '100%',
-                  alignItems: 'center',
-                }}
-              >
-                <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800' }}>
-                  {isPt ? 'Incrível! 🎉' : 'Awesome! 🎉'}
-                </AppText>
-              </TouchableOpacity>
+              {/* Action buttons */}
+              <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+                <TouchableOpacity
+                  onPress={handleDismiss}
+                  activeOpacity={0.85}
+                  style={{
+                    flex: 1,
+                    backgroundColor: C.green,
+                    paddingHorizontal: 20,
+                    paddingVertical: 14,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                  }}
+                >
+                  <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800' }}>
+                    {isPt ? 'Incrível! 🎉' : 'Awesome! 🎉'}
+                  </AppText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => shareAchievement(current.title, current.rarity, isPt)}
+                  activeOpacity={0.85}
+                  style={{
+                    backgroundColor: 'rgba(22,21,58,0.06)',
+                    paddingHorizontal: 16,
+                    paddingVertical: 14,
+                    borderRadius: 16,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: 1,
+                    borderColor: 'rgba(22,21,58,0.08)',
+                  }}
+                >
+                  <ShareNetwork size={18} color={C.navy} weight="bold" />
+                </TouchableOpacity>
+              </View>
             </View>
           </Animated.View>
         </TouchableOpacity>

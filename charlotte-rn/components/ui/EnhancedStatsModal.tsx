@@ -16,6 +16,8 @@ import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
 import LevelLeaderboard from '@/components/leaderboard/LevelLeaderboard';
+import { shareStreak, shareXP } from '@/lib/shareUtils';
+import { ShareNetwork } from 'phosphor-react-native';
 
 // ── Light theme ───────────────────────────────────────────────
 const C = {
@@ -424,12 +426,23 @@ export default function EnhancedStatsModal({
             <AppText style={{ color: C.navy, fontSize: 20, fontWeight: '800' }}>
               {isPortuguese ? 'Seu Progresso' : 'Your Progress'}
             </AppText>
-            <TouchableOpacity
-              onPress={onClose}
-              style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border }}
-            >
-              <X size={14} color={C.navyMid} weight="bold" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (realData.streak > 0) shareStreak(realData.streak, isPortuguese);
+                  else shareXP(realData.freshTotalXP || totalXP, isPortuguese);
+                }}
+                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(163,255,60,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)' }}
+              >
+                <ShareNetwork size={14} color={C.greenDark} weight="bold" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onClose}
+                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border }}
+              >
+                <X size={14} color={C.navyMid} weight="bold" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Tabs */}
