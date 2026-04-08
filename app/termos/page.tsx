@@ -63,8 +63,7 @@ export default function TermosPage() {
             'Conversas em tempo real com IA para prática de inglês',
             'Lições interativas de gramática, pronúncia e vocabulário',
             'Sistema de progresso gamificado com streaks e níveis',
-            'Criação de flashcards com câmera do dispositivo',
-            'Funcionalidades premium disponíveis mediante assinatura',
+            'Funcionalidades completas disponíveis mediante assinatura',
           ]} />
         </Section>
 
@@ -88,9 +87,9 @@ export default function TermosPage() {
 
         <Section title="4. Assinaturas e Pagamentos">
           <DataTable rows={[
+            ['Período de teste', 'O Charlotte AI oferece 7 dias de acesso gratuito completo. Ao término, a assinatura é convertida automaticamente em paga, salvo cancelamento antes do encerramento.'],
             ['Cobrança', 'Automática no início de cada período (mensal ou anual) até o cancelamento.'],
-            ['Período de teste', 'Convertido em assinatura paga ao término, salvo cancelamento antes do encerramento.'],
-            ['Cancelamento', 'A qualquer momento nas configurações da App Store ou Google Play. O acesso premium permanece até o fim do período pago.'],
+            ['Cancelamento', 'A qualquer momento nas configurações da App Store ou Google Play. O acesso permanece ativo até o fim do período pago.'],
             ['Reembolsos', 'Regidos pelas políticas da Apple ou Google. Solicite diretamente nas plataformas.'],
             ['Preços', 'Sujeitos a alteração com aviso prévio razoável.'],
           ]} />
