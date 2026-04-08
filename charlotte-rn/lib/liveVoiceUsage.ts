@@ -1,16 +1,29 @@
 // lib/liveVoiceUsage.ts
-// Pool mensal de Live Voice: 30 min (1800 s) por usuário.
+// Pool mensal de Live Voice — tiered por nível:
+//   Advanced: 30 min (1 800 s)
+//   Inter:     5 min (300 s)
+//   Novice:    3 min (180 s) — "taste" desbloqueável após módulo 3
 // Reset automático no 1º dia de cada mês.
 
 import { supabase } from './supabase';
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
-export const LIVE_VOICE_POOL_SECONDS = 30 * 60; // 1 800 s
+export const POOL_BY_LEVEL: Record<string, number> = {
+  Advanced: 30 * 60, // 1 800 s
+  Inter:     5 * 60, // 300 s
+  Novice:    3 * 60, // 180 s (taste)
+};
+
+/** Fallback — se nível desconhecido, usa o menor. */
+export const LIVE_VOICE_POOL_SECONDS = 30 * 60; // legado: usado pelo LiveVoiceModal
+
+export function getPoolForLevel(level: string): number {
+  return POOL_BY_LEVEL[level] ?? POOL_BY_LEVEL.Novice;
+}
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Retorna a data do 1º dia do mês corrente em formato 'YYYY-MM-01'. */
 function thisMonthFirstDay(): string {
   const d    = new Date();
   const yyyy = d.getFullYear();
@@ -23,16 +36,17 @@ function thisMonthFirstDay(): string {
 export interface LiveVoiceStatus {
   secondsUsed:      number;
   secondsRemaining: number;
-  resetDate:        string; // 'YYYY-MM-01'
+  poolTotal:        number;  // pool total para o nível
+  resetDate:        string;  // 'YYYY-MM-01'
 }
 
 // ── Funções públicas ─────────────────────────────────────────────────────────
 
 /**
- * Obtém o status atual do pool.
+ * Obtém o status atual do pool para o nível informado.
  * Se o mês mudou desde o último uso, zera o contador automaticamente.
  */
-export async function getLiveVoiceStatus(): Promise<LiveVoiceStatus> {
+export async function getLiveVoiceStatus(level?: string): Promise<LiveVoiceStatus> {
   const {
     data: { user },
     error: authErr,
@@ -43,11 +57,14 @@ export async function getLiveVoiceStatus(): Promise<LiveVoiceStatus> {
 
   const { data, error } = await supabase
     .from('charlotte_users')
-    .select('live_voice_seconds_used, live_voice_reset_date')
+    .select('live_voice_seconds_used, live_voice_reset_date, charlotte_level')
     .eq('id', user.id)
     .single();
 
   if (error) throw error;
+
+  const userLevel = level ?? data.charlotte_level ?? 'Novice';
+  const poolTotal = getPoolForLevel(userLevel);
 
   // Virou o mês → reset
   const needsReset =
@@ -67,7 +84,8 @@ export async function getLiveVoiceStatus(): Promise<LiveVoiceStatus> {
 
     return {
       secondsUsed:      0,
-      secondsRemaining: LIVE_VOICE_POOL_SECONDS,
+      secondsRemaining: poolTotal,
+      poolTotal,
       resetDate:        thisMonth,
     };
   }
@@ -75,15 +93,14 @@ export async function getLiveVoiceStatus(): Promise<LiveVoiceStatus> {
   const secondsUsed = data.live_voice_seconds_used ?? 0;
   return {
     secondsUsed,
-    secondsRemaining: Math.max(0, LIVE_VOICE_POOL_SECONDS - secondsUsed),
+    secondsRemaining: Math.max(0, poolTotal - secondsUsed),
+    poolTotal,
     resetDate:        data.live_voice_reset_date,
   };
 }
 
 /**
  * Registra segundos consumidos na sessão atual.
- * Usa leitura+escrita (o SDK JS não suporta increment atômico nativo;
- * para uso de um único dispositivo por vez, isso é suficientemente seguro).
  */
 export async function consumeLiveVoiceSeconds(seconds: number): Promise<void> {
   if (seconds <= 0) return;

@@ -39,8 +39,9 @@ import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
-import { getLiveVoiceStatus, LIVE_VOICE_POOL_SECONDS } from '@/lib/liveVoiceUsage';
+import { getLiveVoiceStatus, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { soundEngine } from '@/lib/soundEngine';
+import { identifyUser, track } from '@/lib/analytics';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -840,6 +841,8 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!userId) return;
+    identifyUser(userId, level);
+    track('app_open');
     setLoading(true);
     fetchData().finally(() => setLoading(false));
   }, [userId]); // eslint-disable-line
@@ -851,7 +854,7 @@ export default function HomeScreen() {
   const loadLiveVoicePool = useCallback(async () => {
     if (!userId) return;
     try {
-      const { secondsRemaining } = await getLiveVoiceStatus();
+      const { secondsRemaining } = await getLiveVoiceStatus(level);
       setLiveVoiceRemaining(secondsRemaining);
     } catch { /* silencioso */ }
   }, [userId]);
@@ -941,7 +944,7 @@ export default function HomeScreen() {
   const hasGrammar      = config.tabs.includes('grammar');
   const hasPronun       = config.tabs.includes('pronunciation');
   const hasChat         = config.tabs.includes('chat');
-  const hasLive         = level === 'Advanced';
+  const hasLive         = level === 'Advanced' || level === 'Inter';
 
   const modeCards: ModeCard[] = [
     {
@@ -990,8 +993,7 @@ export default function HomeScreen() {
       accentColor: C.orange,
       accentBg: 'rgba(255,107,53,0.10)',
       icon: <Phone size={26} color={hasLive ? C.orange : C.navyLight} weight="bold" />,
-      locked: !hasLive,
-      lockLevel: 'Advanced',
+      locked: false, // Disponível para todos os níveis
     },
   ];
 

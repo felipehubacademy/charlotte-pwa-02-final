@@ -34,8 +34,9 @@ import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
 import { useCallTimer } from '@/hooks/useCallTimer';
 import Constants from 'expo-constants';
-import { getLiveVoiceStatus, consumeLiveVoiceSeconds, LIVE_VOICE_POOL_SECONDS } from '@/lib/liveVoiceUsage';
+import { getLiveVoiceStatus, consumeLiveVoiceSeconds, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { supabase } from '@/lib/supabase';
+import { track, trackDuration } from '@/lib/analytics';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -201,7 +202,8 @@ export default function LiveVoiceModal({
 
   // ── Pool de minutos ────────────────────────────────────────────────────────
   const [poolLoading, setPoolLoading]             = React.useState(true);
-  const [poolRemaining, setPoolRemaining]         = React.useState(LIVE_VOICE_POOL_SECONDS);
+  const levelPool = getPoolForLevel(userLevel);
+  const [poolRemaining, setPoolRemaining]         = React.useState(levelPool);
   const [poolExhausted, setPoolExhausted]         = React.useState(false);
 
   // ── Inatividade ───────────────────────────────────────────────────────────
@@ -367,21 +369,21 @@ export default function LiveVoiceModal({
     setPoolLoading(true);
     setPoolExhausted(false);
     try {
-      const { secondsRemaining } = await getLiveVoiceStatus();
+      const { secondsRemaining } = await getLiveVoiceStatus(userLevel);
       setPoolRemaining(secondsRemaining);
       if (secondsRemaining <= 0) {
         setPoolExhausted(true);
         setStatus('error');
         setErrorMsg(
           userLevel === 'Novice'
-            ? 'Você usou seus 30 min de Live Voice deste mês. Volta no mês que vem!'
-            : "You've used your 30-min monthly Live Voice allowance. Come back next month!"
+            ? `Você usou seus ${Math.floor(levelPool / 60)} min de Live Voice deste mês. Volta no mês que vem!`
+            : `You've used your ${Math.floor(levelPool / 60)}-min monthly Live Voice allowance. Come back next month!`
         );
       }
       return secondsRemaining;
     } catch (e) {
       console.warn('[LiveVoice] loadPool error:', e);
-      return LIVE_VOICE_POOL_SECONDS; // fallback: allow call
+      return levelPool; // fallback: allow call
     } finally {
       setPoolLoading(false);
     }
@@ -393,7 +395,7 @@ export default function LiveVoiceModal({
     clearSessionInterval();
     sessionIntervalRef.current = setInterval(() => {
       const elapsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
-      const remaining = Math.max(0, LIVE_VOICE_POOL_SECONDS - elapsed);
+      const remaining = Math.max(0, levelPool - elapsed);
       setPoolRemaining(remaining);
       if (remaining <= 0) {
         // Pool esgotado → encerrar chamada
@@ -458,8 +460,8 @@ export default function LiveVoiceModal({
     setStatus('error');
     setErrorMsg(
       userLevel === 'Novice'
-        ? 'Seus 30 min de Live Voice deste mês acabaram. Volta no mês que vem!'
-        : 'Your 30-min monthly allowance is up. See you next month!'
+        ? `Seus ${Math.floor(levelPool / 60)} min de Live Voice deste mês acabaram. Volta no mês que vem!`
+        : `Your ${Math.floor(levelPool / 60)}-min monthly allowance is up. See you next month!`
     );
   }, [poolExhausted]); // eslint-disable-line
 
@@ -533,8 +535,8 @@ export default function LiveVoiceModal({
           setStatus('error');
           setErrorMsg(
             userLevel === 'Novice'
-              ? 'Você usou seus 30 min de Live Voice deste mês. Volta no mês que vem!'
-              : "You've used your 30-min monthly Live Voice allowance. Come back next month!"
+              ? `Você usou seus ${Math.floor(levelPool / 60)} min de Live Voice deste mês. Volta no mês que vem!`
+              : `You've used your ${Math.floor(levelPool / 60)}-min monthly Live Voice allowance. Come back next month!`
           );
           stopRingTone();
           return;
@@ -595,6 +597,7 @@ export default function LiveVoiceModal({
         // Iniciar timers
         startSessionTimer();
         startInactivityTimer();
+        track('live_voice_started', { level: userLevel });
       };
 
       dc.onmessage = (event: any) => {
@@ -752,6 +755,10 @@ export default function LiveVoiceModal({
 
   const handleEndCall = React.useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Registrar analytics
+    const segSecsForTrack = sessionStartRef.current > 0
+      ? Math.floor((Date.now() - sessionStartRef.current) / 1000) : 0;
+    trackDuration('live_voice_ended', sessionAccumSecs.current + segSecsForTrack, { level: userLevel });
     // Salvar segundos acumulados
     const segSecs = sessionStartRef.current > 0
       ? Math.floor((Date.now() - sessionStartRef.current) / 1000)
@@ -883,7 +890,7 @@ export default function LiveVoiceModal({
               <AppText style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>...</AppText>
             )}
             {/* Pool badge */}
-            {!poolLoading && !poolExhausted && poolRemaining < LIVE_VOICE_POOL_SECONDS && (
+            {!poolLoading && !poolExhausted && poolRemaining < levelPool && (
               <View style={{
                 marginTop: 6,
                 backgroundColor: poolRemaining < 300 ? 'rgba(239,68,68,0.15)' : 'rgba(163,255,60,0.1)',
