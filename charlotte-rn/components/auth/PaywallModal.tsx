@@ -34,15 +34,17 @@ import {
 } from '@/lib/purchases';
 
 const C = {
-  bg:         '#07071C',
-  card:       '#12113A',
-  cardBorder: 'rgba(255,255,255,0.08)',
+  bg:         '#F4F3FA',
+  card:       '#FFFFFF',
+  cardBorder: 'rgba(22,21,58,0.10)',
   green:      '#A3FF3C',
   greenDark:  '#3D8800',
   navy:       '#16153A',
+  navyMid:    '#4B4A72',
   white:      '#FFFFFF',
-  muted:      'rgba(255,255,255,0.45)',
-  highlight:  'rgba(163,255,60,0.10)',
+  muted:      '#9896B8',
+  highlight:  'rgba(163,255,60,0.12)',
+  selected:   'rgba(163,255,60,0.08)',
 };
 
 const FEATURES = [
@@ -148,16 +150,16 @@ export function PaywallModal() {
           {/* ── Badge ── */}
           <View style={{
             backgroundColor: C.highlight,
-            borderRadius: 20, borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)',
+            borderRadius: 20, borderWidth: 1, borderColor: 'rgba(61,136,0,0.20)',
             paddingHorizontal: 14, paddingVertical: 5, marginBottom: 28,
           }}>
-            <AppText style={{ color: C.green, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}>
+            <AppText style={{ color: C.greenDark, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}>
               {isPt ? '7 DIAS GRÁTIS' : '7-DAY FREE TRIAL'}
             </AppText>
           </View>
 
           {/* ── Headline ── */}
-          <AppText style={{ fontSize: 26, fontWeight: '800', color: C.white, textAlign: 'center', marginBottom: 10, lineHeight: 34 }}>
+          <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, textAlign: 'center', marginBottom: 10, lineHeight: 34 }}>
             {isPt ? 'Aprenda inglês com\nCharlotte AI' : 'Learn English with\nCharlotte AI'}
           </AppText>
           <AppText style={{ fontSize: 14, color: C.muted, textAlign: 'center', marginBottom: 32, lineHeight: 20 }}>
@@ -170,8 +172,8 @@ export function PaywallModal() {
           <View style={{ alignSelf: 'stretch', gap: 12, marginBottom: 32 }}>
             {FEATURES.map((f, i) => (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <CheckCircle size={18} color={C.green} weight="fill" />
-                <AppText style={{ color: C.white, fontSize: 14, flex: 1 }}>
+                <CheckCircle size={18} color={C.greenDark} weight="fill" />
+                <AppText style={{ color: C.navyMid, fontSize: 14, flex: 1 }}>
                   {isPt ? f.pt : f.en}
                 </AppText>
               </View>
@@ -180,7 +182,7 @@ export function PaywallModal() {
 
           {/* ── Plan cards ── */}
           {loadingOffer ? (
-            <ActivityIndicator color={C.green} style={{ marginVertical: 24 }} />
+            <ActivityIndicator color={C.greenDark} style={{ marginVertical: 24 }} />
           ) : (
             <View style={{ alignSelf: 'stretch', gap: 12, marginBottom: 28 }}>
 
@@ -192,24 +194,28 @@ export function PaywallModal() {
                   backgroundColor: selected.includes('yearly') ? C.highlight : C.card,
                   borderRadius: 16,
                   borderWidth: 2,
-                  borderColor: selected.includes('yearly') ? C.green : C.cardBorder,
+                  borderColor: selected.includes('yearly') ? C.greenDark : C.cardBorder,
                   padding: 18,
+                  shadowColor: 'rgba(22,21,58,0.08)',
+                  shadowOpacity: 1, shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 2 },
+                  elevation: 2,
                 }}
               >
                 {/* Best value badge */}
                 <View style={{
                   position: 'absolute', top: -10, right: 16,
-                  backgroundColor: C.green, borderRadius: 10,
+                  backgroundColor: C.greenDark, borderRadius: 10,
                   paddingHorizontal: 10, paddingVertical: 3,
                 }}>
-                  <AppText style={{ color: C.navy, fontSize: 11, fontWeight: '800' }}>
+                  <AppText style={{ color: C.white, fontSize: 11, fontWeight: '800' }}>
                     {isPt ? 'MELHOR VALOR' : 'BEST VALUE'}
                   </AppText>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
-                    <AppText style={{ color: C.white, fontSize: 15, fontWeight: '700' }}>
+                    <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '700' }}>
                       {isPt ? 'Anual' : 'Annual'}
                     </AppText>
                     <AppText style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>
@@ -217,7 +223,7 @@ export function PaywallModal() {
                     </AppText>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <AppText style={{ color: C.green, fontSize: 20, fontWeight: '800' }}>
+                    <AppText style={{ color: C.greenDark, fontSize: 20, fontWeight: '800' }}>
                       {yearlyPrice}
                     </AppText>
                     <AppText style={{ color: C.muted, fontSize: 11 }}>
@@ -232,19 +238,23 @@ export function PaywallModal() {
                 onPress={() => setSelected(monthlyPkg?.product.identifier ?? 'com.hubacademy.charlotte.monthly')}
                 activeOpacity={0.85}
                 style={{
-                  backgroundColor: selected.includes('monthly') ? C.highlight : C.card,
+                  backgroundColor: C.card,
                   borderRadius: 16,
-                  borderWidth: 2,
-                  borderColor: selected.includes('monthly') ? C.green : C.cardBorder,
+                  borderWidth: selected.includes('monthly') ? 2 : 1,
+                  borderColor: selected.includes('monthly') ? C.greenDark : C.cardBorder,
                   padding: 18,
+                  shadowColor: 'rgba(22,21,58,0.06)',
+                  shadowOpacity: 1, shadowRadius: 6,
+                  shadowOffset: { width: 0, height: 1 },
+                  elevation: 1,
                 }}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <AppText style={{ color: C.white, fontSize: 15, fontWeight: '700' }}>
+                  <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '700' }}>
                     {isPt ? 'Mensal' : 'Monthly'}
                   </AppText>
                   <View style={{ alignItems: 'flex-end' }}>
-                    <AppText style={{ color: C.white, fontSize: 20, fontWeight: '800' }}>
+                    <AppText style={{ color: C.navy, fontSize: 20, fontWeight: '800' }}>
                       {monthlyPrice}
                     </AppText>
                     <AppText style={{ color: C.muted, fontSize: 11 }}>

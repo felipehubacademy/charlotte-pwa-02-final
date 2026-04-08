@@ -170,12 +170,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Access granted if:
   //   (a) institutional user (admin-managed, bypasses paywall)
   //   (b) app subscriber: active or non-expired trial
+  //   (c) brand-new user with no subscription yet (null) — grace until placement
+  //       test completes and sets subscription_status = 'trial'
   const hasAccess = (() => {
-    if (!profile || !profile.is_active) return false;
+    if (!profile) return false;
     if (profile.is_institutional) return true;
+    // Grace for brand-new users: they haven't gone through placement test yet.
+    // placement-test.tsx sets subscription_status + trial_ends_at on completion.
+    if (!profile.subscription_status) return true;
+    if (!profile.is_active) return false;
     if (profile.subscription_status === 'active') return true;
     if (profile.subscription_status === 'trial') {
-      if (!profile.trial_ends_at) return false; // sem data de expiração = tratar como sem acesso (forçar refresh RevenueCat)
+      if (!profile.trial_ends_at) return false; // sem data = forçar paywall
       return new Date(profile.trial_ends_at) > new Date();
     }
     return false;

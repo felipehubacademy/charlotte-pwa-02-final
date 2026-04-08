@@ -1,15 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 
 /**
- * Detecta status de rede sem dependência nativa.
- * Usa polling via fetch com lógica anti-falso-positivo:
- * - Inicia como online (true) para evitar flash de banner no cold start
- * - Delay de 4s antes da primeira verificação (aguarda app inicializar)
- * - Requer 2 falhas consecutivas antes de marcar offline
- * - Usa URL confiável (Apple captive portal check)
+ * Detecta status de rede.
+ *
+ * Estratégia:
+ * 1. `navigator.onLine` + eventos `online`/`offline` da window — instantâneo,
+ *    usa o status de rede real do sistema operacional.
+ * 2. Fallback de polling (para versões RN que não propagam os eventos):
+ *    - Pinga `connectivitycheck.gstatic.com/generate_204` (retorna 204 = ok)
+ *    - Requer 3 falhas consecutivas para marcar offline
+ *    - Polling a cada 30s
+ *    - 4s delay inicial + otimismo ao voltar do background
  */
 export function useNetworkStatus() {
+  // Começa como true — evita qualquer flash de banner no cold start.
+  // Os eventos online/offline ou o primeiro poll vão corrigir se necessário.
   const [isOnline, setIsOnline] = useState(true);
   const failureCountRef = useRef(0);
   const intervalRef     = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -17,45 +23,58 @@ export function useNetworkStatus() {
 
   async function checkConnectivity() {
     const controller = new AbortController();
-    // Manual timeout — mais compatível que AbortSignal.timeout em todas versões RN
-    const timer = setTimeout(() => controller.abort(), 8000);
+    const timer = setTimeout(() => controller.abort(), 6000);
     try {
-      const res = await fetch('https://captive.apple.com/hotspot-detect.html', {
-        method: 'HEAD',
+      // generate_204 foi feito para connectivity checks:
+      // retorna 204 No Content quando online, redirect quando atrás de captive portal.
+      // Muito mais confiável que captive.apple.com para requisições HEAD.
+      const res = await fetch('https://connectivitycheck.gstatic.com/generate_204', {
+        method: 'GET',
+        cache: 'no-store',
         signal: controller.signal,
       });
       clearTimeout(timer);
       if (!mountedRef.current) return;
-      if (res.ok) {
+      // 204 = definitivamente online
+      if (res.status === 204 || res.ok) {
         failureCountRef.current = 0;
-        setIsOnline(true);
+        if (!isOnline) setIsOnline(true);
       } else {
         failureCountRef.current++;
-        if (failureCountRef.current >= 2) setIsOnline(false);
+        if (failureCountRef.current >= 3) setIsOnline(false);
       }
     } catch {
       clearTimeout(timer);
       if (!mountedRef.current) return;
       failureCountRef.current++;
-      // Só marca offline após 2 falhas consecutivas (evita falsos positivos no cold start)
-      if (failureCountRef.current >= 2) setIsOnline(false);
+      // Só marca offline após 3 falhas consecutivas
+      if (failureCountRef.current >= 3) setIsOnline(false);
     }
   }
 
   useEffect(() => {
     mountedRef.current = true;
 
-    // Delay inicial de 4s — evita false-negative enquanto o app está inicializando
+    // ── Eventos de janela (funcionam no Hermes / RN) ──────────────────
+    const handleOnline  = () => { failureCountRef.current = 0; setIsOnline(true);  };
+    const handleOffline = () => { setIsOnline(false); };
+    // @ts-ignore — window events disponíveis no runtime JS do RN
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online',  handleOnline);
+      window.addEventListener('offline', handleOffline);
+    }
+
+    // ── Polling de fallback ────────────────────────────────────────────
     const startTimer = setTimeout(() => {
       checkConnectivity();
-      intervalRef.current = setInterval(checkConnectivity, 20000);
+      intervalRef.current = setInterval(checkConnectivity, 30_000);
     }, 4000);
 
+    // Ao voltar do background, reseta e re-verifica
     const sub = AppState.addEventListener('change', (state: AppStateStatus) => {
       if (state === 'active') {
-        // Ao retornar ao foreground, reseta contador e re-verifica imediatamente
         failureCountRef.current = 0;
-        setIsOnline(true); // otimista — se falhar 2x, banner aparece
+        setIsOnline(true); // otimista — poll confirmará em seguida
         checkConnectivity();
       }
     });
@@ -65,6 +84,10 @@ export function useNetworkStatus() {
       clearTimeout(startTimer);
       if (intervalRef.current) clearInterval(intervalRef.current);
       sub.remove();
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('online',  handleOnline);
+        window.removeEventListener('offline', handleOffline);
+      }
     };
   }, []);
 

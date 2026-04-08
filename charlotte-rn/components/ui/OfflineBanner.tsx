@@ -14,35 +14,37 @@ export function OfflineBanner() {
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
 
   useEffect(() => {
-    Animated.timing(translateY, {
+    Animated.spring(translateY, {
       toValue: isOnline ? -60 : 0,
-      duration: 300,
       useNativeDriver: true,
+      bounciness: 4,
     }).start();
   }, [isOnline]);
 
   return (
     <Animated.View
+      pointerEvents="none"
       style={{
         position: 'absolute',
-        top: insets.top,
+        top: insets.top + 8,
         left: 0,
         right: 0,
         zIndex: 9999,
+        alignItems: 'center',
         transform: [{ translateY }],
       }}
     >
       <View style={{
-        backgroundColor: '#ef4444',
+        backgroundColor: 'rgba(30,27,60,0.92)',
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        paddingVertical: 10,
+        gap: 7,
+        paddingVertical: 8,
         paddingHorizontal: 16,
+        borderRadius: 20,
       }}>
-        <WifiSlash size={16} color="#fff" weight="fill" />
-        <AppText style={{ color: '#fff', fontSize: 13, fontWeight: '600' }}>
+        <WifiSlash size={14} color="#F87171" weight="fill" />
+        <AppText style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '600' }}>
           {isPt ? 'Sem conexão com a internet' : 'No internet connection'}
         </AppText>
       </View>

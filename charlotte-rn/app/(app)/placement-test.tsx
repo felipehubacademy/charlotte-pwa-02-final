@@ -383,9 +383,18 @@ export default function PlacementTestScreen() {
     try {
       const userId = session?.user?.id;
       if (!userId) throw new Error('Not authenticated');
+      // Start 7-day trial automatically when placement test is completed.
+      const trialEndsAt = new Date();
+      trialEndsAt.setDate(trialEndsAt.getDate() + 7);
       const { error } = await supabase
         .from('charlotte_users')
-        .update({ charlotte_level: assignedLevel, placement_test_done: true })
+        .update({
+          charlotte_level:    assignedLevel,
+          placement_test_done: true,
+          subscription_status: 'trial',
+          trial_ends_at:       trialEndsAt.toISOString(),
+          is_active:           true,
+        })
         .eq('id', userId);
       if (error) throw error;
       await refreshProfile();
