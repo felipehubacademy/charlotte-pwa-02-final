@@ -1039,8 +1039,9 @@ export default function HomeScreen() {
         : '',
       accentColor: C.orange,
       accentBg: 'rgba(255,107,53,0.10)',
-      icon: <Phone size={26} color={C.orange} weight="bold" />,
-      locked: false, // Disponível para todos os níveis
+      icon: <Phone size={26} color={hasLive ? C.orange : C.navyLight} weight="bold" />,
+      locked: !hasLive,
+      lockLevel: 'Intermediate',
     },
   ];
 
