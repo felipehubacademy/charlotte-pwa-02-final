@@ -51,6 +51,10 @@ import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
+// Module-level flag — persists for the entire JS session even if component remounts.
+// Ensures the streak sound plays at most once per app launch.
+let _streakSoundPlayedThisSession = false;
+
 // ── Light theme palette ───────────────────────────────────────
 const C = {
   bg:         '#F4F3FA',   // page background — off-white with lavender tint
@@ -770,7 +774,7 @@ export default function HomeScreen() {
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
   const rewardSeedLoadedRef = React.useRef(false);
-  const streakSoundPlayedRef = React.useRef(false); // toca só uma vez por sessão
+  // streakSoundPlayed: uses module-level var so it survives component remounts
 
   const fetchData = useCallback(async () => {
     if (!userId) return;
@@ -840,9 +844,9 @@ export default function HomeScreen() {
     }
     setData(newData);
 
-    // 🔊 Som de streak — toca uma vez por sessão quando há streak ativo
-    if (!streakSoundPlayedRef.current && newData.streakDays > 0) {
-      streakSoundPlayedRef.current = true;
+    // 🔊 Som de streak — toca UMA VEZ por app session quando há streak ativo
+    if (!_streakSoundPlayedThisSession && newData.streakDays > 0) {
+      _streakSoundPlayedThisSession = true;
       setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
     }
     // Cache para uso offline

@@ -12,7 +12,7 @@ import Svg, { Defs, Pattern, Circle, Rect } from 'react-native-svg';
 import {
   Play, Pause, SpeakerHigh,
   Globe, Microphone, ArrowsClockwise,
-  ChatCenteredText,
+  ChatCenteredText, Lightbulb,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
@@ -47,6 +47,8 @@ interface ChatBoxProps {
   mode?: 'grammar' | 'pronunciation' | 'chat';
   onPlayAudio?: (messageId: string, uri: string) => void;
   playingMessageId?: string | null;
+  /** Called when user taps "Me explique melhor" / "Explain more" in grammar mode */
+  onExplainMore?: (originalCorrection: string) => void;
 }
 
 // Typing indicator — dots for text, mic pulse for audio
@@ -116,7 +118,8 @@ const MessageBubble: React.FC<{
   mode?: 'grammar' | 'pronunciation' | 'chat';
   isPlaying: boolean;
   onTogglePlay: () => void;
-}> = ({ message, userLevel, mode, isPlaying, onTogglePlay }) => {
+  onExplainMore?: (originalCorrection: string) => void;
+}> = ({ message, userLevel, mode, isPlaying, onTogglePlay, onExplainMore }) => {
   const [showTranslation, setShowTranslation] = React.useState(false);
   const [showTranscription, setShowTranscription] = React.useState(false);
   const [translation, setTranslation] = React.useState('');
@@ -301,6 +304,19 @@ const MessageBubble: React.FC<{
               </TouchableOpacity>
             )}
 
+            {/* "Me explique melhor" — grammar mode, Charlotte messages only */}
+            {mode === 'grammar' && !!message.content && !!onExplainMore && (
+              <TouchableOpacity
+                onPress={() => onExplainMore(message.content)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                <Lightbulb size={12} color="#4B4A72" weight="regular" />
+                <AppText style={{ fontSize: 12, color: '#4B4A72' }}>
+                  {isNovice ? 'Me explique melhor' : 'Explain more'}
+                </AppText>
+              </TouchableOpacity>
+            )}
+
             {/* "Ver texto" — shows Charlotte's TTS text; available for all levels on audio responses */}
             {isCharlotteAudio && !!message.content && (
               <TouchableOpacity
@@ -378,6 +394,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
   mode,
   onPlayAudio,
   playingMessageId,
+  onExplainMore,
 }) => {
   const flatListRef = React.useRef<FlatList>(null);
 
@@ -415,6 +432,7 @@ const ChatBox: React.FC<ChatBoxProps> = ({
           const uri = item.audioUri ?? item.audioUrl ?? '';
           if (uri) onPlayAudio?.(item.id, uri);
         }}
+        onExplainMore={onExplainMore}
       />
     );
   };

@@ -21,6 +21,13 @@ export default function GrammarScreen() {
   const { messages, isProcessing, sessionXP, totalXP, sendTextMessage } =
     useChat({ userLevel, userName, userId, mode: 'grammar' });
 
+  const handleExplainMore = React.useCallback((originalCorrection: string) => {
+    const prompt = userLevel === 'Novice'
+      ? 'Me explique melhor essa correção, com mais detalhes e exemplos em português.'
+      : 'Please explain that correction in more detail, with examples.';
+    sendTextMessage(prompt);
+  }, [userLevel, sendTextMessage]);
+
   const [showStats, setShowStats]       = React.useState(false);
   const [achievements, setAchievements] = React.useState<Achievement[]>([]);
 
@@ -55,6 +62,7 @@ export default function GrammarScreen() {
             mode="grammar"
             onPlayAudio={toggle}
             playingMessageId={playingMessageId}
+            onExplainMore={handleExplainMore}
           />
           <TouchableOpacity
             onPress={() => Alert.alert(
