@@ -5,15 +5,13 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, Eye, EyeSlash, CheckCircle, WarningCircle, UserCircle } from 'phosphor-react-native';
+import { Lock, Eye, EyeSlash, CheckCircle, WarningCircle } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
-// ── Light theme ───────────────────────────────────────────────
 const C = {
   bg:        '#F4F3FA',
-  card:      '#FFFFFF',
   navy:      '#16153A',
   navyMid:   '#4B4A72',
   navyLight: '#9896B8',
@@ -24,26 +22,18 @@ const C = {
 };
 
 export default function FirstAccessScreen() {
-  const [name, setName]                 = useState('');
   const [password, setPassword]         = useState('');
   const [confirm, setConfirm]           = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm]   = useState(false);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
-  const passwordRef                     = useRef<TextInput>(null);
   const confirmRef                      = useRef<TextInput>(null);
   const { session, refreshProfile, profile } = useAuth();
-  const userEmail                            = session?.user?.email ?? '';
+  const userEmail = session?.user?.email ?? '';
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
-  // Só pede nome se ainda não tem (usuário criado pelo admin sem nome)
-  const needsName = !profile?.name;
 
   const handleSave = async () => {
-    if (needsName && !name.trim()) {
-      setError(isPt ? 'Digite seu nome.' : 'Please enter your name.');
-      return;
-    }
     if (password.length < 8) {
       setError(isPt ? 'A senha deve ter pelo menos 8 caracteres.' : 'Password must be at least 8 characters.');
       return;
@@ -56,11 +46,9 @@ export default function FirstAccessScreen() {
     setLoading(true);
     try {
       if (session?.user?.id) {
-        const updates: Record<string, any> = { must_change_password: false };
-        if (needsName && name.trim()) updates.name = name.trim();
         const { error: dbErr } = await supabase
           .from('charlotte_users')
-          .update(updates)
+          .update({ must_change_password: false })
           .eq('id', session.user.id);
         if (dbErr) throw dbErr;
       }
@@ -69,7 +57,9 @@ export default function FirstAccessScreen() {
 
       if (authError) {
         if (session?.user?.id) {
-          await supabase.from('charlotte_users').update({ must_change_password: true }).eq('id', session.user.id);
+          await supabase.from('charlotte_users')
+            .update({ must_change_password: true })
+            .eq('id', session.user.id);
         }
         throw authError;
       }
@@ -80,8 +70,8 @@ export default function FirstAccessScreen() {
       const msg = (e?.message ?? '') as string;
       setError(
         msg.includes('different from the old password')
-          ? (isPt ? 'A nova senha deve ser diferente da senha temporária.' : 'New password must be different from the temporary one.')
-          : msg || (isPt ? 'Erro ao salvar senha. Tente novamente.' : 'Error saving password. Please try again.')
+          ? (isPt ? 'A nova senha deve ser diferente da senha temporária.' : 'New password must differ from the temporary one.')
+          : msg || (isPt ? 'Erro ao salvar. Tente novamente.' : 'Error saving. Please try again.')
       );
     } finally {
       setLoading(false);
@@ -99,14 +89,9 @@ export default function FirstAccessScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-
           {/* Icon + title */}
           <View style={{ alignItems: 'center', marginBottom: 36 }}>
-            <View style={{
-              width: 72, height: 72, borderRadius: 36,
-              backgroundColor: 'rgba(163,255,60,0.12)',
-              alignItems: 'center', justifyContent: 'center', marginBottom: 20,
-            }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(163,255,60,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
               <Lock size={32} color={C.navy} weight="duotone" />
             </View>
             <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, textAlign: 'center' }}>
@@ -115,11 +100,11 @@ export default function FirstAccessScreen() {
             <AppText style={{ fontSize: 14, color: C.navyMid, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
               {isPt
                 ? `É seu primeiro acesso.\nDefina uma senha pessoal para continuar.`
-                : `This is your first access.\nSet a personal password to continue.`}
+                : `First access.\nSet a personal password to continue.`}
             </AppText>
           </View>
 
-          {/* Hidden username field so iOS offers "Save to Face ID / Keychain" */}
+          {/* Hidden username for iOS Keychain */}
           <TextInput
             value={userEmail}
             textContentType="username"
@@ -128,34 +113,11 @@ export default function FirstAccessScreen() {
             editable={false}
           />
 
-          {/* Fields */}
           <View style={{ gap: 12, marginBottom: 20 }}>
-
-            {/* Nome — só aparece se o usuário não tem nome ainda */}
-            {needsName && (
-              <View style={inputWrap}>
-                <UserCircle size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
-                <TextInput
-                  value={name}
-                  onChangeText={t => { setName(t); setError(null); }}
-                  placeholder={isPt ? 'Seu nome' : 'Your name'}
-                  placeholderTextColor={C.navyLight}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  autoComplete="name"
-                  textContentType="name"
-                  returnKeyType="next"
-                  onSubmitEditing={() => passwordRef.current?.focus()}
-                  style={[inputStyle, { flex: 1 }]}
-                />
-              </View>
-            )}
-
             {/* Password */}
             <View style={inputWrap}>
               <Lock size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
               <TextInput
-                ref={passwordRef}
                 value={password}
                 onChangeText={t => { setPassword(t); setError(null); }}
                 placeholder={isPt ? 'Nova senha' : 'New password'}
@@ -170,8 +132,7 @@ export default function FirstAccessScreen() {
               <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={{ padding: 6 }}>
                 {showPassword
                   ? <EyeSlash size={18} color={C.navyLight} weight="regular" />
-                  : <Eye     size={18} color={C.navyLight} weight="regular" />
-                }
+                  : <Eye     size={18} color={C.navyLight} weight="regular" />}
               </TouchableOpacity>
             </View>
 
@@ -194,30 +155,21 @@ export default function FirstAccessScreen() {
               <TouchableOpacity onPress={() => setShowConfirm(v => !v)} style={{ padding: 6 }}>
                 {showConfirm
                   ? <EyeSlash size={18} color={C.navyLight} weight="regular" />
-                  : <Eye     size={18} color={C.navyLight} weight="regular" />
-                }
+                  : <Eye     size={18} color={C.navyLight} weight="regular" />}
               </TouchableOpacity>
             </View>
 
             {/* Validation hints */}
             <View style={{ gap: 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <CheckCircle
-                  size={13}
-                  color={strongEnough ? C.greenDark : C.navyLight}
-                  weight={strongEnough ? 'fill' : 'regular'}
-                />
+                <CheckCircle size={13} color={strongEnough ? C.greenDark : C.navyLight} weight={strongEnough ? 'fill' : 'regular'} />
                 <AppText style={{ fontSize: 12, color: strongEnough ? C.greenDark : C.navyLight }}>
                   {isPt ? 'Mínimo 8 caracteres' : 'Minimum 8 characters'}
                 </AppText>
               </View>
               {confirm.length > 0 && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <CheckCircle
-                    size={13}
-                    color={matches ? C.greenDark : C.red}
-                    weight={matches ? 'fill' : 'regular'}
-                  />
+                  <CheckCircle size={13} color={matches ? C.greenDark : C.red} weight={matches ? 'fill' : 'regular'} />
                   <AppText style={{ fontSize: 12, color: matches ? C.greenDark : C.red }}>
                     {matches
                       ? (isPt ? 'Senhas coincidem' : 'Passwords match')
@@ -235,20 +187,15 @@ export default function FirstAccessScreen() {
             )}
           </View>
 
-          {/* Submit */}
           <TouchableOpacity
             onPress={handleSave}
             disabled={loading}
-            style={{
-              backgroundColor: loading ? `${C.green}80` : C.green,
-              borderRadius: 14, paddingVertical: 16, alignItems: 'center',
-            }}
+            style={{ backgroundColor: loading ? `${C.green}80` : C.green, borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
           >
             <AppText style={{ color: C.navy, fontWeight: '700', fontSize: 15 }}>
               {loading ? (isPt ? 'Salvando...' : 'Saving...') : (isPt ? 'Salvar e entrar' : 'Save and continue')}
             </AppText>
           </TouchableOpacity>
-
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -266,7 +213,4 @@ const inputWrap = {
   paddingVertical: 15,
 };
 
-const inputStyle = {
-  color: '#16153A',
-  fontSize: 15,
-};
+const inputStyle = { color: '#16153A', fontSize: 15 };

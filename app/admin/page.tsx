@@ -83,16 +83,8 @@ export default function AdminPage() {
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving]       = useState(false);
 
-  // Form state
-  const [form, setForm] = useState({
-    email: '',
-    password: '',
-    name: '',
-    is_institutional: false,
-    charlotte_level: 'Novice' as 'Novice' | 'Inter' | 'Advanced',
-    must_change_password: true,
-    subscription_status: 'none' as 'none' | 'trial' | 'active',
-  });
+  // Form state — institutional + must_change_password are automatic
+  const [form, setForm] = useState({ email: '', password: '', name: '' });
 
   // Restore session
   useEffect(() => {
@@ -140,7 +132,7 @@ export default function AdminPage() {
       const json = await res.json();
       if (json.error) { setError(json.error); return; }
       setShowModal(false);
-      setForm({ email: '', password: '', name: '', is_institutional: false, charlotte_level: 'Novice', must_change_password: true, subscription_status: 'none' });
+      setForm({ email: '', password: '', name: '' });
       fetchData(secret);
     } catch {
       setError('Erro ao criar usuário.');
@@ -374,44 +366,10 @@ export default function AdminPage() {
                 <input style={inputStyle} type="password" placeholder="Mínimo 8 caracteres" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required minLength={8} />
               </div>
 
-              <div>
-                <label style={labelStyle}>Nível inicial</label>
-                <select
-                  style={{ ...inputStyle, appearance: 'none' }}
-                  value={form.charlotte_level}
-                  onChange={e => setForm(f => ({ ...f, charlotte_level: e.target.value as 'Novice' | 'Inter' | 'Advanced' }))}
-                >
-                  <option value="Novice">Novice (Iniciante)</option>
-                  <option value="Inter">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Tipo de acesso</label>
-                <select
-                  style={{ ...inputStyle, appearance: 'none' }}
-                  value={form.subscription_status}
-                  onChange={e => setForm(f => ({ ...f, subscription_status: e.target.value as 'none' | 'trial' | 'active' }))}
-                >
-                  <option value="none">Sem plano (fluxo normal)</option>
-                  <option value="trial">Trial (7 dias grátis)</option>
-                  <option value="active">Assinante ativo</option>
-                </select>
-              </div>
-
-              {/* Toggles */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: '16px 18px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                  <span style={{ fontSize: 14, color: C.white }}>Institucional</span>
-                  <span style={{ fontSize: 12, color: C.muted, marginLeft: 8, flex: 1, paddingLeft: 12 }}>Acesso permanente sem paywall</span>
-                  <input type="checkbox" checked={form.is_institutional} onChange={e => setForm(f => ({ ...f, is_institutional: e.target.checked }))} style={{ width: 18, height: 18, cursor: 'pointer', accentColor: C.green }} />
-                </label>
-                <div style={{ borderTop: `1px solid ${C.border}` }} />
-                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                  <span style={{ fontSize: 14, color: C.white }}>Trocar senha no primeiro login</span>
-                  <input type="checkbox" checked={form.must_change_password} onChange={e => setForm(f => ({ ...f, must_change_password: e.target.checked }))} style={{ width: 18, height: 18, cursor: 'pointer', accentColor: C.green }} />
-                </label>
+              {/* Info box */}
+              <div style={{ backgroundColor: 'rgba(96,165,250,0.08)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: 10, padding: '12px 14px', fontSize: 12, color: C.blue, lineHeight: 1.6 }}>
+                Usuário criado como <strong>Institucional</strong> — acesso completo sem paywall.<br />
+                Nível definido após o placement test. Senha temporária deve ser trocada no primeiro login.
               </div>
 
               {error && <div style={{ color: C.red, fontSize: 13 }}>{error}</div>}

@@ -58,15 +58,7 @@ export async function POST(req: NextRequest) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const {
-    email,
-    password,
-    name,
-    is_institutional = false,
-    charlotte_level = 'Novice',
-    must_change_password = false,
-    subscription_status = 'none',
-  } = body;
+  const { email, password, name } = body;
 
   if (!email || !password) {
     return NextResponse.json({ error: 'email e password são obrigatórios' }, { status: 400 });
@@ -74,34 +66,30 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  // 1. Create auth user
+  // 1. Create auth user — always institutional, must change password on first login
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { name, is_institutional },
+    user_metadata: { name: name || null, is_institutional: true },
   });
 
   if (authError) return NextResponse.json({ error: authError.message }, { status: 400 });
 
   const userId = authData.user.id;
 
-  // 2. Upsert charlotte_users row (trigger may have already created it)
-  const trialEndsAt = subscription_status === 'trial'
-    ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-    : null;
-
+  // 2. Upsert charlotte_users — level set by placement test, institutional + must_change_password automatic
   const { error: profileError } = await supabase
     .from('charlotte_users')
     .upsert({
       id: userId,
       email,
       name: name || null,
-      is_institutional,
-      charlotte_level,
-      must_change_password,
-      subscription_status,
-      trial_ends_at: trialEndsAt,
+      is_institutional: true,
+      charlotte_level: 'Novice',
+      must_change_password: true,
+      subscription_status: 'none',
+      trial_ends_at: null,
       is_active: true,
       placement_test_done: false,
     }, { onConflict: 'id' });
