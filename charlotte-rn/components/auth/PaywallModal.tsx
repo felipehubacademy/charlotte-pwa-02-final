@@ -21,7 +21,8 @@ import {
   ScrollView, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CheckCircle, SignOut, ArrowsClockwise } from 'phosphor-react-native';
+import { CheckCircle, SignOut, ArrowsClockwise, X } from 'phosphor-react-native';
+import { usePaywallContext } from '@/lib/paywallContext';
 import { PurchasesPackage, PurchasesOffering } from 'react-native-purchases';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,10 +56,13 @@ const FEATURES = [
 
 export function PaywallModal() {
   const { profile, hasAccess, signOut, refreshProfile } = useAuth();
+  const { paywallOpen, closePaywall } = usePaywallContext();
   const insets = useSafeAreaInsets();
   const isPt   = (profile?.charlotte_level ?? 'Novice') === 'Novice';
 
-  const visible = !!profile && !hasAccess;
+  // Mostra quando: trial expirou (hasAccess=false) OU quando aberto manualmente
+  const forcedOpen  = paywallOpen && !!profile && hasAccess;
+  const visible     = (!!profile && !hasAccess) || forcedOpen;
 
   const [offering, setOffering]       = useState<PurchasesOffering | null>(null);
   const [selected, setSelected]       = useState<string>(PRODUCT_YEARLY);
@@ -138,6 +142,19 @@ export function PaywallModal() {
   return (
     <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: C.bg }}>
+        {/* Botão fechar — só quando aberto manualmente (trial ainda ativo) */}
+        {forcedOpen && (
+          <TouchableOpacity
+            onPress={closePaywall}
+            style={{
+              position: 'absolute', top: insets.top + 12, right: 20,
+              zIndex: 10, padding: 8,
+            }}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <X size={22} color={C.navyMid} weight="bold" />
+          </TouchableOpacity>
+        )}
         <ScrollView
           contentContainerStyle={{
             paddingTop: insets.top + 24,

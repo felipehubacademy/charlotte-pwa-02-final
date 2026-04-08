@@ -4,6 +4,7 @@ import { PaywallModal } from '@/components/auth/PaywallModal';
 import { XPToastProvider } from '@/components/ui/XPToastProvider';
 import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
 import WelcomeModal from '@/components/ui/WelcomeModal';
+import { PaywallProvider } from '@/lib/paywallContext';
 
 export default function AppLayout() {
   const { isAuthenticated, profile } = useAuth();
@@ -14,6 +15,7 @@ export default function AppLayout() {
   if (!isAuthenticated) return null;
 
   return (
+    <PaywallProvider>
     <XPToastProvider>
       <AchievementsProvider>
       <PaywallModal />
@@ -21,6 +23,7 @@ export default function AppLayout() {
         <WelcomeModal
           userLevel={profile.charlotte_level}
           userName={profile.name ?? profile.email?.split('@')[0] ?? 'Student'}
+          isInstitutional={profile.is_institutional}
         />
       )}
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
@@ -40,5 +43,6 @@ export default function AppLayout() {
       </Stack>
       </AchievementsProvider>
     </XPToastProvider>
+    </PaywallProvider>
   );
 }

@@ -45,6 +45,7 @@ import { identifyUser, track } from '@/lib/analytics';
 import { useTheme } from '@/lib/theme';
 import { cacheHomeData, getCachedHomeData } from '@/lib/offlineCache';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { usePaywallContext } from '@/lib/paywallContext';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 
@@ -750,6 +751,7 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
 
 export default function HomeScreen() {
   const { profile } = useAuth();
+  const { openPaywall } = usePaywallContext();
   const insets = useSafeAreaInsets();
   const userId = profile?.id ?? '';
   const level  = (profile?.charlotte_level ?? 'Novice') as UserLevel;
@@ -757,6 +759,16 @@ export default function HomeScreen() {
   const config = LEVEL_CONFIG[level];
   const { colors: T, isDark } = useTheme();
   const isOnline = useNetworkStatus();
+
+  // Trial badge — days remaining for non-institutional users on trial
+  const trialDaysLeft = useMemo(() => {
+    if (!profile || profile.is_institutional) return null;
+    if (profile.subscription_status !== 'trial') return null;
+    if (!profile.trial_ends_at) return null;
+    const diff = new Date(profile.trial_ends_at).getTime() - Date.now();
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+    return days > 0 ? days : 0;
+  }, [profile]);
 
   const [data, setData]             = useState<HomeData | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -1121,6 +1133,30 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         <View style={{ flex: 1 }} />
+
+        {/* Trial badge — shown only while on trial */}
+        {trialDaysLeft !== null && (
+          <TouchableOpacity
+            onPress={openPaywall}
+            activeOpacity={0.75}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 5,
+              backgroundColor: 'rgba(61,136,0,0.10)',
+              borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5,
+              marginRight: 10,
+              borderWidth: 1, borderColor: 'rgba(61,136,0,0.20)',
+            }}
+          >
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#3D8800' }} />
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: '#3D8800' }}>
+              {level === 'Novice'
+                ? `${trialDaysLeft}d grátis`
+                : `${trialDaysLeft}d trial`}
+            </AppText>
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           onPress={() => router.push('/(app)/configuracoes')}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}

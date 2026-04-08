@@ -37,9 +37,10 @@ const SUBTITLE: Record<string, string> = {
 interface WelcomeModalProps {
   userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName: string;
+  isInstitutional?: boolean;
 }
 
-export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps) {
+export default function WelcomeModal({ userLevel, userName, isInstitutional = false }: WelcomeModalProps) {
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
   const [timings, setTimings] = useState<WordTiming[]>([]);
@@ -264,6 +265,31 @@ export default function WelcomeModal({ userLevel, userName }: WelcomeModalProps)
               {firstName}, {SUBTITLE[userLevel] ?? SUBTITLE.Inter}
             </AppText>
           </Animated.View>
+
+          {/* Trial badge — só para não-institucionais */}
+          {!isInstitutional && (
+            <Animated.View style={{
+              position: 'absolute',
+              bottom: insets.bottom + 72,
+              opacity: textFadeAnim,
+              alignItems: 'center',
+            }}>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+                backgroundColor: 'rgba(163,255,60,0.12)',
+                borderRadius: 20, borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)',
+                paddingHorizontal: 16, paddingVertical: 8,
+              }}>
+                <View style={{
+                  width: 7, height: 7, borderRadius: 4,
+                  backgroundColor: '#A3FF3C',
+                }} />
+                <AppText style={{ color: '#A3FF3C', fontSize: 13, fontWeight: '700' }}>
+                  {isPt ? '7 dias grátis ativados' : '7-day free trial activated'}
+                </AppText>
+              </View>
+            </Animated.View>
+          )}
 
           {/* Tap hint */}
           <Animated.View style={{
