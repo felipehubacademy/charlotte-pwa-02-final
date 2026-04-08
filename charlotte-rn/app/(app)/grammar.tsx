@@ -50,7 +50,7 @@ export default function GrammarScreen() {
             transcript=""
             finalTranscript=""
             isProcessingMessage={isProcessing}
-            isProcessingAudio={isProcessingAudio}
+            isProcessingAudio={isProcessing}
             userLevel={userLevel}
             mode="grammar"
             onPlayAudio={toggle}
