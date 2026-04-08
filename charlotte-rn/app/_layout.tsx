@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { ONBOARDING_KEY } from './(onboarding)/index';
 import { soundEngine } from '@/lib/soundEngine';
+import { ThemeProvider, useTheme } from '@/lib/theme';
 
 // Mantém a splash screen visível enquanto carrega
 SplashScreen.preventAutoHideAsync();
@@ -96,19 +97,26 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <AuthGuard />
-          <OfflineBanner />
-          <StatusBar style="dark" backgroundColor="#FFFFFF" translucent={false} />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(onboarding)" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(app)" />
-          </Stack>
-        </AuthProvider>
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <AuthGuard />
+            <OfflineBanner />
+            <ThemedStatusBar />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(onboarding)" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(app)" />
+            </Stack>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </ThemeProvider>
     </GestureHandlerRootView>
   );
+}
+
+function ThemedStatusBar() {
+  const { isDark, colors } = useTheme();
+  return <StatusBar style={isDark ? 'light' : 'dark'} backgroundColor={colors.card} translucent={false} />;
 }

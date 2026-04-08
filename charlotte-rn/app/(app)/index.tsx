@@ -42,6 +42,7 @@ import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
 import { getLiveVoiceStatus, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { soundEngine } from '@/lib/soundEngine';
 import { identifyUser, track } from '@/lib/analytics';
+import { useTheme } from '@/lib/theme';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 
@@ -746,6 +747,7 @@ export default function HomeScreen() {
   const level  = (profile?.charlotte_level ?? 'Novice') as UserLevel;
   const name   = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const config = LEVEL_CONFIG[level];
+  const { colors: T, isDark } = useTheme();
 
   const [data, setData]             = useState<HomeData | null>(null);
   const [loading, setLoading]       = useState(true);
@@ -1026,7 +1028,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top']}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: T.bg }}>
           <ActivityIndicator size="large" color={C.navy} />
         </View>
       </SafeAreaView>
@@ -1034,7 +1036,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: T.card }} edges={['top', 'left', 'right']}>
 
       {/* ══════════════════════════════════════════
           HEADER  —  streak · XP · rank · gear
@@ -1104,7 +1106,7 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
-        style={{ flex: 1, backgroundColor: C.bg }}
+        style={{ flex: 1, backgroundColor: T.bg }}
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.navy} />}

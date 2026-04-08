@@ -9,7 +9,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   // Fallback: o repositório atual só inclui `charlotte-avatar.png` em `assets/`.
   // Se você adicionar `icon.png`, trocamos de volta.
   icon: './assets/charlotte-avatar.png',
-  userInterfaceStyle: 'light',
+  userInterfaceStyle: 'automatic',
   splash: {
     backgroundColor: '#F4F3FA',
   },
