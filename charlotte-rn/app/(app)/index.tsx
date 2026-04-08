@@ -43,6 +43,7 @@ import { getLiveVoiceStatus, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { soundEngine } from '@/lib/soundEngine';
 import { identifyUser, track } from '@/lib/analytics';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
+import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -754,6 +755,7 @@ export default function HomeScreen() {
   const [liveVoiceRemaining, setLiveVoiceRemaining] = useState<number | null>(null);
   const [showStats, setShowStats]                   = useState(false);
   const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
+  const [weeklyState, setWeeklyState]               = useState<WeeklyChallengeState | null>(null);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
@@ -869,13 +871,25 @@ export default function HomeScreen() {
     } catch { /* silencioso */ }
   }, [userId]);
 
+  const loadWeeklyChallenge = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const weekly = await fetchWeeklyData(userId);
+      const state = getWeeklyChallenge(
+        weekly.weeklyMessages, weekly.weeklyXP,
+        data?.streakDays ?? 0, weekly.weeklyLessons, weekly.weeklyAudios,
+      );
+      setWeeklyState(state);
+    } catch { /* silencioso */ }
+  }, [userId, data?.streakDays]);
+
   useEffect(() => {
-    if (userId) { loadLiveVoicePool(); loadPendingReviews(); }
+    if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); }
   }, [userId]); // eslint-disable-line
 
   useFocusEffect(useCallback(() => {
-    if (userId) { loadLiveVoicePool(); loadPendingReviews(); }
-  }, [loadLiveVoicePool, loadPendingReviews]));
+    if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); }
+  }, [loadLiveVoicePool, loadPendingReviews, loadWeeklyChallenge]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1207,6 +1221,59 @@ export default function HomeScreen() {
             />
           ))}
         </View>
+
+        {/* ══════════════════════════════════════════
+            WEEKLY CHALLENGE — um desafio por semana
+        ══════════════════════════════════════════ */}
+        {weeklyState && (
+          <View style={{ paddingHorizontal: 20, marginTop: 8, marginBottom: 4 }}>
+            <View style={{
+              borderRadius: 18, overflow: 'hidden',
+              backgroundColor: weeklyState.challenge.bgColor,
+              borderWidth: 1,
+              borderColor: weeklyState.challenge.color + '25',
+              ...cardShadow,
+            }}>
+              <View style={{ paddingHorizontal: 18, paddingVertical: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <AppText style={{ fontSize: 10, fontWeight: '800', color: weeklyState.challenge.color, letterSpacing: 0.8, textTransform: 'uppercase' }}>
+                      {isPortuguese ? 'Desafio da semana' : 'Weekly Challenge'}
+                    </AppText>
+                    {weeklyState.completed && (
+                      <View style={{ backgroundColor: weeklyState.challenge.color + '20', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <AppText style={{ fontSize: 9, fontWeight: '800', color: weeklyState.challenge.color }}>
+                          {isPortuguese ? 'COMPLETO' : 'DONE'}
+                        </AppText>
+                      </View>
+                    )}
+                  </View>
+                  <AppText style={{ fontSize: 11, fontWeight: '700', color: weeklyState.challenge.color }}>
+                    +{weeklyState.challenge.xpReward} XP
+                  </AppText>
+                </View>
+                <AppText style={{ fontSize: 15, fontWeight: '700', color: C.navy, marginBottom: 2 }}>
+                  {isPortuguese ? weeklyState.challenge.title.pt : weeklyState.challenge.title.en}
+                </AppText>
+                <AppText style={{ fontSize: 12, color: C.navyMid, marginBottom: 10 }}>
+                  {isPortuguese ? weeklyState.challenge.sub.pt : weeklyState.challenge.sub.en}
+                </AppText>
+                {/* Progress bar */}
+                <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(22,21,58,0.06)' }}>
+                  <View style={{
+                    height: 8, borderRadius: 4,
+                    backgroundColor: weeklyState.challenge.color,
+                    width: `${Math.round((weeklyState.current / weeklyState.challenge.target) * 100)}%`,
+                    maxWidth: '100%',
+                  }} />
+                </View>
+                <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 4, textAlign: 'right' }}>
+                  {weeklyState.current} / {weeklyState.challenge.target} {isPortuguese ? weeklyState.challenge.unit.pt : weeklyState.challenge.unit.en}
+                </AppText>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* ══════════════════════════════════════════
             LEARN — structured lessons
