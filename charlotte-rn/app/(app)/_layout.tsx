@@ -3,9 +3,10 @@ import { useAuth } from '@/hooks/useAuth';
 import { PaywallModal } from '@/components/auth/PaywallModal';
 import { XPToastProvider } from '@/components/ui/XPToastProvider';
 import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
+import WelcomeModal from '@/components/ui/WelcomeModal';
 
 export default function AppLayout() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, profile } = useAuth();
 
   // AuthGuard in app/_layout.tsx handles all redirects at root level.
   // app/index.tsx holds the branded LoadingScreen until session + profile are
@@ -16,6 +17,12 @@ export default function AppLayout() {
     <XPToastProvider>
       <AchievementsProvider>
       <PaywallModal />
+      {profile && (
+        <WelcomeModal
+          userLevel={profile.charlotte_level}
+          userName={profile.name ?? profile.email?.split('@')[0] ?? 'Student'}
+        />
+      )}
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
         <Stack.Screen name="first-access" options={{ animation: 'none' }} />
         <Stack.Screen name="index" options={{ animation: 'none' }} />

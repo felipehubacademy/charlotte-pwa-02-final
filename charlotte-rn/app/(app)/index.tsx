@@ -43,8 +43,6 @@ import { getLiveVoiceStatus, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { soundEngine } from '@/lib/soundEngine';
 import { identifyUser, track } from '@/lib/analytics';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
-import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
-import * as FileSystem from 'expo-file-system/legacy';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -759,7 +757,6 @@ export default function HomeScreen() {
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
-  const wowPlayedRef = useRef(false); // TTS welcome — toca uma vez por sessão
 
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
@@ -907,11 +904,6 @@ export default function HomeScreen() {
           if (age < GREETING_TTL_MS && parsed.message) {
             setAiGreeting(parsed.message);
             setGreetingLoading(false);
-            // 🎤 Momento wow com áudio pré-gerado (mesmo com greeting cacheado)
-            if (!wowPlayedRef.current) {
-              wowPlayedRef.current = true;
-              playGreetingTTS().catch(() => {});
-            }
             return;
           }
         }
@@ -937,11 +929,6 @@ export default function HomeScreen() {
             GREETING_CACHE_KEY,
             JSON.stringify({ message: json.message, ts: Date.now() }),
           );
-          // 🎤 Momento wow: Charlotte fala saudação pré-gerada (primeira vez por sessão)
-          if (!wowPlayedRef.current) {
-            wowPlayedRef.current = true;
-            playGreetingTTS().catch(() => {});
-          }
         }
       } catch {
         // Silently fail — dots will disappear, no message shown (acceptable)
@@ -950,40 +937,6 @@ export default function HomeScreen() {
       }
     })();
   }, [userId, name, level]); // eslint-disable-line
-
-  // ── TTS da saudação (momento wow) — pré-gerado, zero latência ─────────────
-  // 4 áudios por nível em public/tts/greetings/{level}_{01-04}.mp3
-  const GREETING_FILES: Record<string, string[]> = {
-    Novice:   ['novice_01', 'novice_02', 'novice_03', 'novice_04'],
-    Inter:    ['inter_01', 'inter_02', 'inter_03', 'inter_04'],
-    Advanced: ['advanced_01', 'advanced_02', 'advanced_03', 'advanced_04'],
-  };
-
-  const playGreetingTTS = useCallback(async () => {
-    try {
-      const files = GREETING_FILES[level] ?? GREETING_FILES.Inter;
-      const pick = files[Math.floor(Math.random() * files.length)];
-      const remoteUrl = `${API_BASE_URL}/tts/greetings/${pick}.mp3`;
-
-      // Download para cache local (rápido — ~40KB)
-      const localUri = `${FileSystem.cacheDirectory}greeting_${pick}.mp3`;
-      const info = await FileSystem.getInfoAsync(localUri);
-      if (!info.exists) {
-        await FileSystem.downloadAsync(remoteUrl, localUri);
-      }
-
-      await setAudioModeAsync({
-        allowsRecording: false,
-        playsInSilentMode: true,
-        interruptionMode: 'mixWithOthers',
-        shouldRouteThroughEarpiece: false,
-      }).catch(() => {});
-
-      const player = createAudioPlayer({ uri: localUri });
-      player.play();
-      setTimeout(() => { try { player.pause(); player.remove(); } catch {} }, 10000);
-    } catch { /* silencioso */ }
-  }, [level]);
 
   const missions     = data ? buildMissions(data, level) : [];
   const doneMissions = missions.filter(m => m.completed).length;
