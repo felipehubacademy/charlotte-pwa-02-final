@@ -39,6 +39,7 @@ import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
+import { getLiveVoiceStatus, LIVE_VOICE_POOL_SECONDS } from '@/lib/liveVoiceUsage';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -746,8 +747,9 @@ export default function HomeScreen() {
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showTipModal, setShowTipModal]   = useState(false);
-  const [showLiveVoice, setShowLiveVoice] = useState(false);
-  const [showStats, setShowStats]         = useState(false);
+  const [showLiveVoice, setShowLiveVoice]           = useState(false);
+  const [liveVoiceRemaining, setLiveVoiceRemaining] = useState<number | null>(null);
+  const [showStats, setShowStats]                   = useState(false);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
@@ -833,6 +835,22 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     if (userId) fetchData();
   }, [fetchData]));
+
+  const loadLiveVoicePool = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { secondsRemaining } = await getLiveVoiceStatus();
+      setLiveVoiceRemaining(secondsRemaining);
+    } catch { /* silencioso */ }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) loadLiveVoicePool();
+  }, [userId]); // eslint-disable-line
+
+  useFocusEffect(useCallback(() => {
+    if (userId) loadLiveVoicePool();
+  }, [loadLiveVoicePool]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -950,7 +968,13 @@ export default function HomeScreen() {
     {
       mode: 'live' as const,
       title: 'Live Voice',
-      sub: '',
+      sub: hasLive && liveVoiceRemaining !== null
+        ? liveVoiceRemaining <= 0
+          ? (isPortuguese ? '0 min este mês' : '0 min this month')
+          : (isPortuguese
+              ? `${Math.ceil(liveVoiceRemaining / 60)} min restantes`
+              : `${Math.ceil(liveVoiceRemaining / 60)} min left`)
+        : '',
       accentColor: C.orange,
       accentBg: 'rgba(255,107,53,0.10)',
       icon: <Phone size={26} color={hasLive ? C.orange : C.navyLight} weight="bold" />,
@@ -1280,7 +1304,11 @@ export default function HomeScreen() {
 
       <LiveVoiceModal
         isOpen={showLiveVoice}
-        onClose={() => setShowLiveVoice(false)}
+        onClose={() => {
+          setShowLiveVoice(false);
+          // Atualizar badge de minutos restantes após fechar a sessão
+          setTimeout(() => loadLiveVoicePool(), 1500);
+        }}
         userLevel={level}
         userName={name}
       />
@@ -1511,6 +1539,11 @@ function PracticePortal({ card, onPress }: { card: ModeCard; onPress: () => void
           {card.lockLevel}
         </AppText>
       )}
+      {!locked && card.sub ? (
+        <AppText style={{ fontSize: 10, color: C.navyLight, marginTop: 3, textAlign: 'center' }}>
+          {card.sub}
+        </AppText>
+      ) : null}
     </TouchableOpacity>
   );
 }

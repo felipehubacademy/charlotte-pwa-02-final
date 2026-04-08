@@ -1,11 +1,21 @@
 // app/api/realtime-token/route.ts
 // Cria uma ephemeral session token para o OpenAI Realtime API via WebRTC.
+// Valida o pool mensal de 30 min do usuário antes de emitir o token.
 // O client_secret retornado é de curta duração (~1 min) e usado apenas para
 // a troca de SDP — a API key nunca sai do servidor.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 const MODEL = 'gpt-4o-realtime-preview-2024-12-17';
+const POOL_SECONDS = 30 * 60; // 1 800 s
+
+function thisMonthFirstDay(): string {
+  const d    = new Date();
+  const yyyy = d.getFullYear();
+  const mm   = String(d.getMonth() + 1).padStart(2, '0');
+  return `${yyyy}-${mm}-01`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,7 +25,50 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { userLevel, userName } = body;
+    const { userLevel, userName, accessToken } = body;
+
+    // ── Validação de pool (opcional mas recomendada) ─────────────────────────
+    // Se o app enviou o accessToken, verificamos o pool no servidor.
+    // Sem accessToken, deixamos a validação client-side fazer o trabalho.
+    if (accessToken && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.SUPABASE_SERVICE_ROLE_KEY,
+        );
+
+        // Verificar usuário a partir do token JWT
+        const { data: { user }, error: authErr } = await supabase.auth.getUser(accessToken);
+        if (authErr || !user) {
+          return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { data, error: dbErr } = await supabase
+          .from('charlotte_users')
+          .select('live_voice_seconds_used, live_voice_reset_date')
+          .eq('id', user.id)
+          .single();
+
+        if (!dbErr && data) {
+          const thisMonth    = thisMonthFirstDay();
+          const needsReset   = !data.live_voice_reset_date || data.live_voice_reset_date < thisMonth;
+          const secondsUsed  = needsReset ? 0 : (data.live_voice_seconds_used ?? 0);
+          const remaining    = Math.max(0, POOL_SECONDS - secondsUsed);
+
+          if (remaining <= 0) {
+            console.warn('⛔ Live Voice pool exhausted for user:', user.id);
+            return NextResponse.json(
+              { error: 'monthly_pool_exhausted', message: 'Monthly Live Voice allowance used up.' },
+              { status: 403 }
+            );
+          }
+          console.log(`✅ Pool check: ${remaining}s remaining for user ${user.id}`);
+        }
+      } catch (poolErr) {
+        // Falha na verificação do pool → deixa passar (client-side é o backstop)
+        console.warn('⚠️ Pool check skipped due to error:', poolErr);
+      }
+    }
 
     console.log('🔑 Creating Realtime ephemeral session for', userName, '/', userLevel);
 

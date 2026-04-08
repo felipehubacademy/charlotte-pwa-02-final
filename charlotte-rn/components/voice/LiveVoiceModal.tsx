@@ -1,6 +1,10 @@
 // components/voice/LiveVoiceModal.tsx
 // Live voice — WebRTC transport → OpenAI Realtime API
 //
+// Pool mensal: 30 min (1 800 s). Detecta inatividade:
+//   45 s sem fala → aviso "Ainda está aí?"
+//   +30 s → pausa automática (WebRTC fecha, timer congela)
+//
 // Antes (WebSocket manual):
 //   expo-audio grava 400ms chunks → strip WAV header → base64 → input_audio_buffer.append
 //   response.audio.delta chunks → buildWav() → createAudioPlayer
@@ -25,16 +29,22 @@ import { requestRecordingPermissionsAsync, setAudioModeAsync, createAudioPlayer,
 import * as FileSystem from 'expo-file-system/legacy';
 import { RTCPeerConnection, mediaDevices } from 'react-native-webrtc';
 import InCallManager from 'react-native-incall-manager';
-import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear } from 'phosphor-react-native';
+import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear, Pause, ArrowCounterClockwise } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
 import { useCallTimer } from '@/hooks/useCallTimer';
 import Constants from 'expo-constants';
+import { getLiveVoiceStatus, consumeLiveVoiceSeconds, LIVE_VOICE_POOL_SECONDS } from '@/lib/liveVoiceUsage';
+import { supabase } from '@/lib/supabase';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 const MODEL = 'gpt-4o-realtime-preview-2024-12-17';
+
+// Inatividade: 45 s → aviso; 75 s → pausa
+const INACTIVITY_WARN_SEC  = 45;
+const INACTIVITY_PAUSE_SEC = 75;
 
 // ── Helpers para ring tone (PCM16 gerado em JS, tocado via expo-audio) ─────────
 
@@ -158,7 +168,13 @@ function getRandomGreeting(level: 'Novice' | 'Inter' | 'Advanced'): string {
   return list[Math.floor(Math.random() * list.length)];
 }
 
-type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+function formatSecs(s: number): string {
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+}
+
+type ConnectionStatus = 'idle' | 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface LiveVoiceModalProps {
   isOpen: boolean;
@@ -176,31 +192,66 @@ export default function LiveVoiceModal({
   onXPGained,
 }: LiveVoiceModalProps) {
   const insets = useSafeAreaInsets();
-  const [status, setStatus] = React.useState<ConnectionStatus>('disconnected');
+  const [status, setStatus] = React.useState<ConnectionStatus>('idle');
   const [isMuted, setIsMuted] = React.useState(false);
   const [isSpeaker, setIsSpeaker] = React.useState(true);
   const [errorMsg, setErrorMsg] = React.useState('');
   const [charlotteSpeaking, setCharlotteSpeaking] = React.useState(false);
   const [userSpeaking, setUserSpeaking] = React.useState(false);
 
+  // ── Pool de minutos ────────────────────────────────────────────────────────
+  const [poolLoading, setPoolLoading]             = React.useState(true);
+  const [poolRemaining, setPoolRemaining]         = React.useState(LIVE_VOICE_POOL_SECONDS);
+  const [poolExhausted, setPoolExhausted]         = React.useState(false);
+
+  // ── Inatividade ───────────────────────────────────────────────────────────
+  const [inactivityWarning, setInactivityWarning] = React.useState(false);
+  const [warningCountdown, setWarningCountdown]   = React.useState(30);
+  const [isPaused, setIsPaused]                   = React.useState(false);
+
   // ── WebRTC refs ────────────────────────────────────────────────────────────
   const pcRef             = React.useRef<InstanceType<typeof RTCPeerConnection> | null>(null);
-  const dcRef             = React.useRef<any>(null); // RTCDataChannel
-  const localStreamRef    = React.useRef<any>(null); // MediaStream
+  const dcRef             = React.useRef<any>(null);
+  const localStreamRef    = React.useRef<any>(null);
 
-  // ── Ring tone ref (expo-audio — só usado durante connecting) ──────────────
+  // ── Ring tone ref ─────────────────────────────────────────────────────────
   const ringPlayerRef     = React.useRef<AudioPlayer | null>(null);
 
-  // ── State refs (síncronos — evitam stale closure nos handlers) ────────────
+  // ── State refs ────────────────────────────────────────────────────────────
   const isMutedRef              = React.useRef(false);
   const isSpeakerRef            = React.useRef(true);
   const charlotteSpeakingRef    = React.useRef(false);
   const responseActiveRef       = React.useRef(false);
   const lastCharlotteDoneRef    = React.useRef(0);
 
-  const callTime = useCallTimer(status === 'connected');
+  // ── Session tracking refs ─────────────────────────────────────────────────
+  const sessionStartRef         = React.useRef<number>(0);      // Date.now() when segment started
+  const sessionAccumSecs        = React.useRef<number>(0);      // total accumulated secs (all segments)
+  const sessionIntervalRef      = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // ── Audio mode (ringtone phase only — WebRTC não usa isso) ───────────────
+  // ── Inactivity tracking refs ──────────────────────────────────────────────
+  const lastActivityRef         = React.useRef<number>(Date.now());
+  const inactivityIntervalRef   = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const warnStartRef            = React.useRef<number>(0);
+
+  const callTime = useCallTimer(status === 'connected' && !isPaused);
+
+  // ── Helpers: clear timers ─────────────────────────────────────────────────
+  const clearSessionInterval = React.useCallback(() => {
+    if (sessionIntervalRef.current) {
+      clearInterval(sessionIntervalRef.current);
+      sessionIntervalRef.current = null;
+    }
+  }, []);
+
+  const clearInactivityInterval = React.useCallback(() => {
+    if (inactivityIntervalRef.current) {
+      clearInterval(inactivityIntervalRef.current);
+      inactivityIntervalRef.current = null;
+    }
+  }, []);
+
+  // ── Audio mode ────────────────────────────────────────────────────────────
   const applyAudioMode = React.useCallback(async (speakerOn?: boolean) => {
     try {
       const useSpeaker = speakerOn !== undefined ? speakerOn : isSpeakerRef.current;
@@ -213,10 +264,9 @@ export default function LiveVoiceModal({
     } catch (e) { console.warn('applyAudioMode:', e); }
   }, []);
 
-  // ── Ring tone ──────────────────────────────────────────────────────────────
+  // ── Ring tone ─────────────────────────────────────────────────────────────
   const startRingTone = React.useCallback(async () => {
     try {
-      // Necessário para tocar no modo silencioso antes do WebRTC assumir o AVAudioSession
       await applyAudioMode();
       const wavBase64 = buildWav(generateRingPcm());
       const path = `${FileSystem.cacheDirectory}ring.wav`;
@@ -237,7 +287,7 @@ export default function LiveVoiceModal({
     ringPlayerRef.current = null;
   }, []);
 
-  // ── Mute: desabilita o mic track local ────────────────────────────────────
+  // ── Mute ──────────────────────────────────────────────────────────────────
   const applyMute = React.useCallback((muted: boolean) => {
     if (!localStreamRef.current) return;
     localStreamRef.current.getAudioTracks().forEach((track: any) => {
@@ -245,14 +295,14 @@ export default function LiveVoiceModal({
     });
   }, []);
 
-  // ── Enviar evento via data channel ─────────────────────────────────────────
+  // ── Enviar evento via data channel ────────────────────────────────────────
   const sendEvent = React.useCallback((event: object) => {
     if (dcRef.current?.readyState === 'open') {
       dcRef.current.send(JSON.stringify(event));
     }
   }, []);
 
-  // ── Avatar ring animations — driven pela Charlotte (não pelo usuário) ────────
+  // ── Avatar ring animations ────────────────────────────────────────────────
   const ringScale   = React.useRef(new Animated.Value(1)).current;
   const ringOpacity = React.useRef(new Animated.Value(0.5)).current;
   const loopRef     = React.useRef<Animated.CompositeAnimation | null>(null);
@@ -261,7 +311,6 @@ export default function LiveVoiceModal({
     loopRef.current?.stop();
 
     if (status === 'connecting') {
-      // Pulso laranja suave — aguardando conexão
       loopRef.current = Animated.loop(
         Animated.sequence([
           Animated.parallel([
@@ -275,8 +324,7 @@ export default function LiveVoiceModal({
         ])
       );
       loopRef.current.start();
-    } else if (status === 'connected' && charlotteSpeaking) {
-      // Pulso verde vivo — Charlotte está falando
+    } else if (status === 'connected' && charlotteSpeaking && !isPaused) {
       loopRef.current = Animated.loop(
         Animated.sequence([
           Animated.parallel([
@@ -290,8 +338,7 @@ export default function LiveVoiceModal({
         ])
       );
       loopRef.current.start();
-    } else if (status === 'connected') {
-      // Respiração suave — idle, aguardando usuário
+    } else if (status === 'connected' && !isPaused) {
       loopRef.current = Animated.loop(
         Animated.sequence([
           Animated.parallel([
@@ -311,17 +358,154 @@ export default function LiveVoiceModal({
     }
 
     return () => loopRef.current?.stop();
-  }, [status, charlotteSpeaking]);
+  }, [status, charlotteSpeaking, isPaused]);
 
   const ringColor = status === 'connecting' ? '#F97316' : '#A3FF3C';
 
-  // ── Connect via WebRTC ─────────────────────────────────────────────────────
+  // ── Pool: carregar ao abrir o modal ───────────────────────────────────────
+  const loadPool = React.useCallback(async () => {
+    setPoolLoading(true);
+    setPoolExhausted(false);
+    try {
+      const { secondsRemaining } = await getLiveVoiceStatus();
+      setPoolRemaining(secondsRemaining);
+      if (secondsRemaining <= 0) {
+        setPoolExhausted(true);
+        setStatus('error');
+        setErrorMsg(
+          userLevel === 'Novice'
+            ? 'Você usou seus 30 min de Live Voice deste mês. Volta no mês que vem!'
+            : "You've used your 30-min monthly Live Voice allowance. Come back next month!"
+        );
+      }
+      return secondsRemaining;
+    } catch (e) {
+      console.warn('[LiveVoice] loadPool error:', e);
+      return LIVE_VOICE_POOL_SECONDS; // fallback: allow call
+    } finally {
+      setPoolLoading(false);
+    }
+  }, [userLevel]);
+
+  // ── Session timer: conta segundos enquanto conectado ─────────────────────
+  const startSessionTimer = React.useCallback(() => {
+    sessionStartRef.current = Date.now();
+    clearSessionInterval();
+    sessionIntervalRef.current = setInterval(() => {
+      const elapsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      const remaining = Math.max(0, LIVE_VOICE_POOL_SECONDS - elapsed);
+      setPoolRemaining(remaining);
+      if (remaining <= 0) {
+        // Pool esgotado → encerrar chamada
+        setPoolExhausted(true);
+      }
+    }, 1000);
+  }, [clearSessionInterval]);
+
+  // ── Inactivity timer ──────────────────────────────────────────────────────
+  const resetActivity = React.useCallback(() => {
+    lastActivityRef.current = Date.now();
+    if (inactivityWarning) {
+      setInactivityWarning(false);
+      setWarningCountdown(30);
+    }
+  }, [inactivityWarning]);
+
+  const startInactivityTimer = React.useCallback(() => {
+    lastActivityRef.current = Date.now();
+    clearInactivityInterval();
+    inactivityIntervalRef.current = setInterval(() => {
+      const idleSec = Math.floor((Date.now() - lastActivityRef.current) / 1000);
+      if (idleSec >= INACTIVITY_PAUSE_SEC) {
+        // Pausar por inatividade
+        return; // será tratado pelo useEffect abaixo
+      }
+      if (idleSec >= INACTIVITY_WARN_SEC) {
+        if (!warnStartRef.current) warnStartRef.current = Date.now();
+        const secsUntilPause = Math.max(0, INACTIVITY_PAUSE_SEC - idleSec);
+        setInactivityWarning(true);
+        setWarningCountdown(secsUntilPause);
+      } else {
+        if (inactivityWarning) {
+          setInactivityWarning(false);
+          setWarningCountdown(30);
+          warnStartRef.current = 0;
+        }
+      }
+    }, 1000);
+  }, [clearInactivityInterval, inactivityWarning]);
+
+  // ── Auto-pause quando inatividade atingir limite ─────────────────────────
+  React.useEffect(() => {
+    if (!inactivityWarning) return;
+    if (warningCountdown <= 0) {
+      // Disparar pausa
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      pauseSession();
+    }
+  }, [warningCountdown, inactivityWarning]); // eslint-disable-line
+
+  // ── Auto-encerrar quando pool esgotado ────────────────────────────────────
+  React.useEffect(() => {
+    if (!poolExhausted || status !== 'connected') return;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
+    consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
+    sessionAccumSecs.current = 0;
+    clearSessionInterval();
+    clearInactivityInterval();
+    disconnectWebRTC();
+    setStatus('error');
+    setErrorMsg(
+      userLevel === 'Novice'
+        ? 'Seus 30 min de Live Voice deste mês acabaram. Volta no mês que vem!'
+        : 'Your 30-min monthly allowance is up. See you next month!'
+    );
+  }, [poolExhausted]); // eslint-disable-line
+
+  // ── Disconnect WebRTC (sem fechar modal) ─────────────────────────────────
+  const disconnectWebRTC = React.useCallback(() => {
+    localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
+    localStreamRef.current = null;
+    dcRef.current?.close();
+    dcRef.current = null;
+    pcRef.current?.close();
+    pcRef.current = null;
+    stopRingTone();
+    InCallManager.stop();
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    charlotteSpeakingRef.current = false;
+    responseActiveRef.current    = false;
+    setCharlotteSpeaking(false);
+    setUserSpeaking(false);
+  }, [stopRingTone]);
+
+  // ── Pause por inatividade ─────────────────────────────────────────────────
+  const pauseSession = React.useCallback(() => {
+    const segSecs = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+    const totalSecs = sessionAccumSecs.current + segSecs;
+    // Salvar no DB (fire-and-forget)
+    consumeLiveVoiceSeconds(totalSecs).catch(console.warn);
+    sessionAccumSecs.current = 0;
+    clearSessionInterval();
+    clearInactivityInterval();
+    setInactivityWarning(false);
+    setWarningCountdown(30);
+    warnStartRef.current = 0;
+    disconnectWebRTC();
+    setIsPaused(true);
+    setStatus('disconnected');
+  }, [disconnectWebRTC, clearSessionInterval, clearInactivityInterval]);
+
+  // ── Connect via WebRTC ────────────────────────────────────────────────────
   const connect = React.useCallback(async () => {
     setStatus('connecting');
     setErrorMsg('');
+    setIsPaused(false);
+    setInactivityWarning(false);
+    setWarningCountdown(30);
 
     try {
-      // 1. Permissão de microfone
       const { granted } = await requestRecordingPermissionsAsync();
       if (!granted) {
         setErrorMsg(userLevel === 'Novice' ? 'Permissão de microfone negada' : 'Microphone permission denied');
@@ -329,40 +513,50 @@ export default function LiveVoiceModal({
         return;
       }
 
-      // 2. Ring tone enquanto busca o token (antes de getUserMedia para não conflitar com AVAudioSession)
       await startRingTone();
 
-      // 3. Ephemeral session token (servidor — API key nunca sai do backend)
+      // Passa o access token para validação server-side do pool
+      const { data: { session: authSession } } = await supabase.auth.getSession();
       const tokenRes = await fetch(`${API_BASE_URL}/api/realtime-token`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userLevel, userName }),
+        body: JSON.stringify({
+          userLevel,
+          userName,
+          accessToken: authSession?.access_token,
+        }),
       });
+      if (tokenRes.status === 403) {
+        const { error: serverErr } = await tokenRes.json().catch(() => ({ error: '' }));
+        if (serverErr === 'monthly_pool_exhausted') {
+          setPoolExhausted(true);
+          setStatus('error');
+          setErrorMsg(
+            userLevel === 'Novice'
+              ? 'Você usou seus 30 min de Live Voice deste mês. Volta no mês que vem!'
+              : "You've used your 30-min monthly Live Voice allowance. Come back next month!"
+          );
+          stopRingTone();
+          return;
+        }
+        throw new Error('Failed to get session token (403)');
+      }
       if (!tokenRes.ok) throw new Error('Failed to get session token');
       const { clientSecret } = await tokenRes.json();
       if (!clientSecret) throw new Error('No client secret returned');
 
-      // 4. Para ring tone antes de getUserMedia (evita conflito AVAudioSession)
       stopRingTone();
 
-      // 5. Stream de microfone local (WebRTC toma conta do AVAudioSession a partir daqui)
       const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
       localStreamRef.current = stream;
 
-      // 6. RTCPeerConnection
       const pc = new RTCPeerConnection();
       pcRef.current = pc;
 
-      // Adiciona track de áudio local (mic → OpenAI)
       stream.getTracks().forEach((track: any) => pc.addTrack(track, stream));
 
-      // Áudio remoto (Charlotte → speaker) é roteado automaticamente pelo WebRTC
-      pc.ontrack = () => {
-        // WebRTC toca o áudio remoto automaticamente no speaker
-        // O InCallManager já configurou o roteamento correto
-      };
+      pc.ontrack = () => {};
 
-      // 7. Data channel para eventos JSON (substitui WebSocket)
       const dc = pc.createDataChannel('oai-events');
       dcRef.current = dc;
 
@@ -370,7 +564,6 @@ export default function LiveVoiceModal({
         stopRingTone();
         setStatus('connected');
 
-        // Configura sessão: VAD, voz, instruções
         const greeting = getRandomGreeting(userLevel);
         dc.send(JSON.stringify({
           type: 'session.update',
@@ -390,16 +583,18 @@ export default function LiveVoiceModal({
           },
         }));
 
-        // Dispara saudação inicial
         setTimeout(() => {
           if (dcRef.current?.readyState === 'open') {
             dc.send(JSON.stringify({ type: 'response.create' }));
           }
         }, 500);
 
-        // InCallManager: configura speaker e modo de chamada
         InCallManager.start({ media: 'audio' });
         InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+
+        // Iniciar timers
+        startSessionTimer();
+        startInactivityTimer();
       };
 
       dc.onmessage = (event: any) => {
@@ -407,15 +602,13 @@ export default function LiveVoiceModal({
           const msg = JSON.parse(event.data);
 
           switch (msg.type) {
-            // Em WebRTC o áudio vai pela track — response.created é o sinal confiável
-            // de que Charlotte começou a responder
             case 'response.created':
               responseActiveRef.current = true;
+              lastActivityRef.current = Date.now(); // Charlotte respondeu → atividade
               if (!charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = true;
                 setCharlotteSpeaking(true);
                 setUserSpeaking(false);
-                // Muta mic para evitar echo com speakerphone
                 localStreamRef.current?.getAudioTracks()
                   .forEach((t: any) => { t.enabled = false; });
                 sendEvent({ type: 'input_audio_buffer.clear' });
@@ -423,7 +616,6 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.audio.delta':
-              // Fallback: caso o servidor envie este evento no modo WebRTC
               responseActiveRef.current = true;
               if (!charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = true;
@@ -437,7 +629,7 @@ export default function LiveVoiceModal({
 
             case 'response.done':
               responseActiveRef.current = false;
-              // Cooldown 900ms antes de reativar mic — deixa o eco dissipar
+              lastActivityRef.current = Date.now(); // Charlotte terminou → reset inatividade
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
@@ -452,11 +644,13 @@ export default function LiveVoiceModal({
               break;
 
             case 'input_audio_buffer.speech_started':
+              lastActivityRef.current = Date.now(); // Usuário falou → reset inatividade
               setUserSpeaking(true);
-              // Garante mic ativo (pode ter sido mutado pelo echo guard)
+              setInactivityWarning(false);
+              setWarningCountdown(30);
+              warnStartRef.current = 0;
               localStreamRef.current?.getAudioTracks()
                 .forEach((t: any) => { t.enabled = !isMutedRef.current; });
-              // Interrupção: Charlotte ainda falando → cancela resposta
               if (charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
@@ -492,7 +686,6 @@ export default function LiveVoiceModal({
         }
       };
 
-      // 8. SDP offer → OpenAI → SDP answer
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
@@ -516,8 +709,6 @@ export default function LiveVoiceModal({
       const answerSdp = await sdpRes.text();
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp } as any);
 
-      // Conexão estabelecida — data channel onopen dispara em seguida
-
     } catch (error: any) {
       stopRingTone();
       console.error('[LiveVoice] connect error:', error);
@@ -528,36 +719,43 @@ export default function LiveVoiceModal({
           : 'Could not connect. Please try again.'
       );
     }
-  }, [userLevel, userName, startRingTone, stopRingTone, sendEvent, applyAudioMode]);
+  }, [userLevel, userName, startRingTone, stopRingTone, sendEvent, applyAudioMode, startSessionTimer, startInactivityTimer]);
 
-  // ── Disconnect ─────────────────────────────────────────────────────────────
+  // ── Disconnect completo (fecha modal) ────────────────────────────────────
   const disconnect = React.useCallback(() => {
-    // Para mic local
+    clearSessionInterval();
+    clearInactivityInterval();
     localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
     localStreamRef.current = null;
-
-    // Fecha data channel e peer connection
     dcRef.current?.close();
     dcRef.current = null;
     pcRef.current?.close();
     pcRef.current = null;
-
-    // Para ring tone e InCallManager
     stopRingTone();
     InCallManager.stop();
-
-    // Reseta audio mode para playback normal após a chamada
     setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
-
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setStatus('disconnected');
     setCharlotteSpeaking(false);
     setUserSpeaking(false);
-  }, [stopRingTone]);
+    setIsPaused(false);
+    setInactivityWarning(false);
+    setWarningCountdown(30);
+    warnStartRef.current = 0;
+  }, [stopRingTone, clearSessionInterval, clearInactivityInterval]);
 
   const handleEndCall = React.useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    // Salvar segundos acumulados
+    const segSecs = sessionStartRef.current > 0
+      ? Math.floor((Date.now() - sessionStartRef.current) / 1000)
+      : 0;
+    const totalSecs = sessionAccumSecs.current + segSecs;
+    if (totalSecs > 0) {
+      consumeLiveVoiceSeconds(totalSecs).catch(console.warn);
+      sessionAccumSecs.current = 0;
+    }
     disconnect();
     onClose();
   }, [disconnect, onClose]);
@@ -582,18 +780,44 @@ export default function LiveVoiceModal({
     });
   }, []);
 
+  const handleResume = React.useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const remaining = await loadPool();
+    if (remaining > 0) {
+      connect();
+    }
+  }, [loadPool, connect]);
+
+  // ── Lifecycle: abrir/fechar modal ─────────────────────────────────────────
   React.useEffect(() => {
     if (isOpen) {
-      connect();
+      setStatus('idle');
+      setIsPaused(false);
+      setPoolExhausted(false);
+      setInactivityWarning(false);
+      setWarningCountdown(30);
+      sessionAccumSecs.current = 0;
+      warnStartRef.current = 0;
+      loadPool().then(remaining => {
+        if (remaining > 0) connect();
+      });
     } else {
+      // Salvar segundos ao fechar
+      if (sessionStartRef.current > 0 && status === 'connected') {
+        const segSecs = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+        const totalSecs = sessionAccumSecs.current + segSecs;
+        if (totalSecs > 0) {
+          consumeLiveVoiceSeconds(totalSecs).catch(console.warn);
+          sessionAccumSecs.current = 0;
+        }
+      }
       disconnect();
     }
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
 
-  // Android agora suportado via WebRTC (PCM nativo — sem problema de AAC)
-  // UI idêntica em iOS e Android
+  const poolMins = Math.ceil(poolRemaining / 60);
 
   return (
     <Modal
@@ -607,12 +831,12 @@ export default function LiveVoiceModal({
       <View style={{ flex: 1, backgroundColor: '#07071C', paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 24 }}>
 
-          {/* ── TOP: Nome + Timer ─────────────────────────────────── */}
+          {/* ── TOP: Nome + Timer + Pool badge ─────────────────────── */}
           <View style={{ alignItems: 'center', paddingTop: 8 }}>
             <AppText style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 4 }}>
               Charlotte
             </AppText>
-            {status === 'connected' && (
+            {status === 'connected' && !isPaused && (
               <AppText style={{ color: 'rgba(255,255,255,0.85)', fontSize: 15, letterSpacing: 2,
                 ...(Platform.OS === 'ios'
                   ? { fontVariant: ['tabular-nums'] }
@@ -625,32 +849,61 @@ export default function LiveVoiceModal({
                 {userLevel === 'Novice' ? 'Chamando...' : 'Calling...'}
               </AppText>
             )}
+            {isPaused && (
+              <AppText style={{ color: '#F97316', fontSize: 13, letterSpacing: 0.5 }}>
+                {userLevel === 'Novice' ? 'Pausado por inatividade' : 'Paused — inactive'}
+              </AppText>
+            )}
             {status === 'error' && (
               <View style={{ alignItems: 'center', gap: 8 }}>
-                <AppText style={{ color: '#ef4444', fontSize: 13, textAlign: 'center' }}>{errorMsg}</AppText>
-                <TouchableOpacity
-                  onPress={connect}
-                  style={{
-                    backgroundColor: '#A3FF3C', borderRadius: 20,
-                    paddingHorizontal: 20, paddingVertical: 8,
-                  }}
-                >
-                  <AppText style={{ color: '#07071C', fontSize: 13, fontWeight: '700' }}>
-                    {userLevel === 'Novice' ? 'Tentar novamente' : 'Try again'}
-                  </AppText>
-                </TouchableOpacity>
+                <AppText style={{ color: '#ef4444', fontSize: 13, textAlign: 'center', paddingHorizontal: 8 }}>
+                  {errorMsg}
+                </AppText>
+                {!poolExhausted && (
+                  <TouchableOpacity
+                    onPress={() => connect()}
+                    style={{
+                      backgroundColor: '#A3FF3C', borderRadius: 20,
+                      paddingHorizontal: 20, paddingVertical: 8,
+                    }}
+                  >
+                    <AppText style={{ color: '#07071C', fontSize: 13, fontWeight: '700' }}>
+                      {userLevel === 'Novice' ? 'Tentar novamente' : 'Try again'}
+                    </AppText>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            {poolLoading && status === 'idle' && (
+              <AppText style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>...</AppText>
+            )}
+            {/* Pool badge */}
+            {!poolLoading && !poolExhausted && poolRemaining < LIVE_VOICE_POOL_SECONDS && (
+              <View style={{
+                marginTop: 6,
+                backgroundColor: poolRemaining < 300 ? 'rgba(239,68,68,0.15)' : 'rgba(163,255,60,0.1)',
+                borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3,
+              }}>
+                <AppText style={{
+                  fontSize: 11, fontWeight: '600',
+                  color: poolRemaining < 300 ? '#ef4444' : 'rgba(163,255,60,0.7)',
+                }}>
+                  {poolRemaining < 300
+                    ? (userLevel === 'Novice' ? `${poolMins} min restante${poolMins !== 1 ? 's' : ''}` : `${poolMins} min left`)
+                    : (userLevel === 'Novice' ? `${poolMins} min restantes este mês` : `${poolMins} min left this month`)
+                  }
+                </AppText>
               </View>
             )}
           </View>
 
           {/* ── CENTER: Avatar + Wave ─────────────────────────────── */}
           <View style={{ alignItems: 'center', gap: 32 }}>
-            {/* Avatar com anel */}
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <Animated.View style={{
                 position: 'absolute',
                 width: 148, height: 148, borderRadius: 74,
-                borderWidth: 2, borderColor: ringColor,
+                borderWidth: 2, borderColor: isPaused ? '#F97316' : ringColor,
                 transform: [{ scale: ringScale }],
                 opacity: ringOpacity,
               }} />
@@ -658,85 +911,161 @@ export default function LiveVoiceModal({
                 position: 'absolute',
                 width: 132, height: 132, borderRadius: 66,
                 borderWidth: 1.5,
-                borderColor: status === 'connected' ? 'rgba(163,255,60,0.3)' : 'rgba(249,115,22,0.25)',
+                borderColor: isPaused
+                  ? 'rgba(249,115,22,0.25)'
+                  : status === 'connected'
+                    ? 'rgba(163,255,60,0.3)'
+                    : 'rgba(249,115,22,0.25)',
               }} />
               <Image
                 source={require('../../assets/charlotte-avatar.png')}
                 style={{
                   width: 120, height: 120, borderRadius: 60,
                   borderWidth: 3,
-                  borderColor: status === 'connected' ? '#A3FF3C' : '#F97316',
+                  borderColor: isPaused
+                    ? '#F97316'
+                    : status === 'connected'
+                      ? '#A3FF3C'
+                      : '#F97316',
+                  opacity: isPaused ? 0.6 : 1,
                 }}
                 resizeMode="cover"
               />
+              {isPaused && (
+                <View style={{
+                  position: 'absolute',
+                  backgroundColor: 'rgba(7,7,28,0.7)',
+                  width: 120, height: 120, borderRadius: 60,
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Pause size={36} color="#F97316" weight="fill" />
+                </View>
+              )}
             </View>
-
           </View>
 
-          {/* ── BOTTOM: Mute / End / Speaker ─────────────────────── */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 48 }}>
-            {/* Mute */}
-            <TouchableOpacity
-              onPress={handleMute}
-              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              accessibilityLabel={isMuted
-                ? (userLevel === 'Novice' ? 'Ativar microfone / Unmute' : 'Unmute microphone')
-                : (userLevel === 'Novice' ? 'Silenciar microfone / Mute' : 'Mute microphone')}
-              accessibilityRole="button"
-              style={{
-                width: 56, height: 56, borderRadius: 28,
-                backgroundColor: isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
-                borderWidth: 1,
-                borderColor: isMuted ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.12)',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {isMuted
-                ? <MicrophoneSlash size={22} color="#ef4444" weight="regular" />
-                : <Microphone     size={22} color="rgba(255,255,255,0.7)" weight="regular" />
-              }
-            </TouchableOpacity>
+          {/* ── BOTTOM: controles ou pausa ───────────────────────── */}
+          {isPaused ? (
+            /* ── Estado pausado ── */
+            <View style={{ alignItems: 'center', gap: 16 }}>
+              <AppText style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, textAlign: 'center' }}>
+                {userLevel === 'Novice'
+                  ? 'Chamada pausada. O timer não correu enquanto esteve ausente.'
+                  : 'Call paused. Timer stopped while you were away.'}
+              </AppText>
+              <View style={{ flexDirection: 'row', gap: 16 }}>
+                <TouchableOpacity
+                  onPress={handleResume}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 8,
+                    backgroundColor: '#A3FF3C', borderRadius: 28,
+                    paddingHorizontal: 28, paddingVertical: 14,
+                    shadowColor: '#A3FF3C', shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+                  }}
+                >
+                  <ArrowCounterClockwise size={20} color="#07071C" weight="bold" />
+                  <AppText style={{ color: '#07071C', fontSize: 15, fontWeight: '800' }}>
+                    {userLevel === 'Novice' ? 'Retomar' : 'Resume'}
+                  </AppText>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => { disconnect(); onClose(); }}
+                  style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: 'rgba(239,68,68,0.15)',
+                    borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <PhoneSlash size={22} color="#ef4444" weight="regular" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ) : (
+            /* ── Controles normais ── */
+            <View style={{ width: '100%', alignItems: 'center', gap: 16 }}>
+              {/* Banner de inatividade */}
+              {inactivityWarning && (
+                <View style={{
+                  backgroundColor: 'rgba(249,115,22,0.15)',
+                  borderRadius: 12, borderWidth: 1, borderColor: 'rgba(249,115,22,0.3)',
+                  paddingHorizontal: 20, paddingVertical: 10,
+                  alignItems: 'center',
+                }}>
+                  <AppText style={{ color: '#F97316', fontSize: 13, fontWeight: '700' }}>
+                    {userLevel === 'Novice'
+                      ? `Ainda está aí? Pausando em ${warningCountdown}s`
+                      : `Still there? Pausing in ${warningCountdown}s`}
+                  </AppText>
+                </View>
+              )}
 
-            {/* End call */}
-            <TouchableOpacity
-              onPress={handleEndCall}
-              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              accessibilityLabel={userLevel === 'Novice' ? 'Encerrar chamada / End call' : 'End call'}
-              accessibilityRole="button"
-              style={{
-                width: 68, height: 68, borderRadius: 34,
-                backgroundColor: '#ef4444',
-                alignItems: 'center', justifyContent: 'center',
-                shadowColor: '#ef4444',
-                shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: 0.5, shadowRadius: 12, elevation: 8,
-              }}
-            >
-              <PhoneSlash size={28} color="#fff" weight="fill" />
-            </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 48 }}>
+                {/* Mute */}
+                <TouchableOpacity
+                  onPress={handleMute}
+                  pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  accessibilityLabel={isMuted
+                    ? (userLevel === 'Novice' ? 'Ativar microfone / Unmute' : 'Unmute microphone')
+                    : (userLevel === 'Novice' ? 'Silenciar microfone / Mute' : 'Mute microphone')}
+                  accessibilityRole="button"
+                  style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
+                    borderWidth: 1,
+                    borderColor: isMuted ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.12)',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {isMuted
+                    ? <MicrophoneSlash size={22} color="#ef4444" weight="regular" />
+                    : <Microphone     size={22} color="rgba(255,255,255,0.7)" weight="regular" />
+                  }
+                </TouchableOpacity>
 
-            {/* Speaker / Ouvido */}
-            <TouchableOpacity
-              onPress={handleSpeakerToggle}
-              pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
-              accessibilityLabel={isSpeaker
-                ? (userLevel === 'Novice' ? 'Usar fone de ouvido / Switch to earpiece' : 'Switch to earpiece')
-                : (userLevel === 'Novice' ? 'Usar alto-falante / Switch to speaker' : 'Switch to speaker')}
-              accessibilityRole="button"
-              style={{
-                width: 56, height: 56, borderRadius: 28,
-                backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
-                borderWidth: 1,
-                borderColor: isSpeaker ? 'rgba(163,255,60,0.4)' : 'rgba(255,255,255,0.12)',
-                alignItems: 'center', justifyContent: 'center',
-              }}
-            >
-              {isSpeaker
-                ? <SpeakerHigh size={22} color="#A3FF3C" weight="regular" />
-                : <Ear        size={22} color="rgba(255,255,255,0.7)" weight="regular" />
-              }
-            </TouchableOpacity>
-          </View>
+                {/* End call */}
+                <TouchableOpacity
+                  onPress={handleEndCall}
+                  pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  accessibilityLabel={userLevel === 'Novice' ? 'Encerrar chamada / End call' : 'End call'}
+                  accessibilityRole="button"
+                  style={{
+                    width: 68, height: 68, borderRadius: 34,
+                    backgroundColor: '#ef4444',
+                    alignItems: 'center', justifyContent: 'center',
+                    shadowColor: '#ef4444',
+                    shadowOffset: { width: 0, height: 4 },
+                    shadowOpacity: 0.5, shadowRadius: 12, elevation: 8,
+                  }}
+                >
+                  <PhoneSlash size={28} color="#fff" weight="fill" />
+                </TouchableOpacity>
+
+                {/* Speaker / Ouvido */}
+                <TouchableOpacity
+                  onPress={handleSpeakerToggle}
+                  pressRetentionOffset={{ top: 20, bottom: 20, left: 20, right: 20 }}
+                  accessibilityLabel={isSpeaker
+                    ? (userLevel === 'Novice' ? 'Usar fone de ouvido / Switch to earpiece' : 'Switch to earpiece')
+                    : (userLevel === 'Novice' ? 'Usar alto-falante / Switch to speaker' : 'Switch to speaker')}
+                  accessibilityRole="button"
+                  style={{
+                    width: 56, height: 56, borderRadius: 28,
+                    backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
+                    borderWidth: 1,
+                    borderColor: isSpeaker ? 'rgba(163,255,60,0.4)' : 'rgba(255,255,255,0.12)',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {isSpeaker
+                    ? <SpeakerHigh size={22} color="#A3FF3C" weight="regular" />
+                    : <Ear        size={22} color="rgba(255,255,255,0.7)" weight="regular" />
+                  }
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
         </View>
       </View>
