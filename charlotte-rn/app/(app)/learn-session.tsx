@@ -15,6 +15,7 @@ import AnimatedXPBadge from '@/components/ui/AnimatedXPBadge';
 import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
+import { soundEngine } from '@/lib/soundEngine';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAudioRecorder, setAudioModeAsync, RecordingPresets } from 'expo-audio';
 import Constants from 'expo-constants';
@@ -574,6 +575,11 @@ export default function LearnSessionScreen() {
     if (next >= totalSteps) {
       await saveTopicComplete(level, moduleIndex, topicIndex);
       setIsComplete(true);
+      // 🎉 Celebração de conclusão: som + vibração tripla
+      soundEngine.play('daily_goal').catch(() => {});
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy), 120);
+      setTimeout(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success), 280);
     } else {
       setStepIdx(next);
     }

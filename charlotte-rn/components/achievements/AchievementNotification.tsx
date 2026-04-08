@@ -6,6 +6,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
   Lightning, Star, Trophy, Fire, Medal,
 } from 'phosphor-react-native';
@@ -19,6 +20,33 @@ function achievementSound(rarity: Achievement['rarity']): SoundName {
     case 'epic':      return 'achievement_epic';
     case 'rare':      return 'achievement_rare';
     default:          return 'achievement_common';
+  }
+}
+
+/** Padrão de vibração escalonado por raridade. */
+async function achievementHaptic(rarity: Achievement['rarity']): Promise<void> {
+  switch (rarity) {
+    case 'legendary':
+      // Três pulsos fortes em crescendo: Heavy → Heavy → Heavy (80ms entre eles)
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await new Promise(r => setTimeout(r, 80));
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      await new Promise(r => setTimeout(r, 80));
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      break;
+    case 'epic':
+      // Dois pulsos fortes
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      await new Promise(r => setTimeout(r, 100));
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      break;
+    case 'rare':
+      // Um pulso forte único
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+      break;
+    default:
+      // Common: pulso de sucesso suave
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 }
 
@@ -146,8 +174,9 @@ export default function AchievementNotification({ achievements, onDismiss, isPt 
     ringAnim.setValue(0);
     glowAnim.setValue(1);
 
-    // 🔊 Som baseado na raridade
+    // 🔊 Som + 📳 vibração sincronizados com a raridade
     soundEngine.play(achievementSound(current.rarity)).catch(() => {});
+    achievementHaptic(current.rarity).catch(() => {});
 
     // Entrance
     Animated.parallel([
