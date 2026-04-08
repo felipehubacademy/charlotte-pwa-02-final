@@ -40,7 +40,7 @@ export default function MobileOnlyWrapper({
     isPopup
   });
 
-  const isPublicPage = pathname === '/landing' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/privacidade' || pathname === '/termos';
+  const isPublicPage = pathname === '/' || pathname === '/landing' || pathname === '/forgot-password' || pathname === '/reset-password' || pathname === '/privacidade' || pathname === '/termos';
 
   // ✅ NOVO: Redirecionar mobile browser para /install (exceto se já estiver lá ou for páginas públicas)
   useEffect(() => {
