@@ -13,6 +13,7 @@ export interface AuthContextType {
   hasAccess: boolean;           // is_institutional OR active/trial subscription
   mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -149,6 +150,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) throw error;
   };
 
+  const signUp = async (email: string, password: string, name: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        // O trigger on_auth_user_created lê raw_user_meta_data->>'name'
+        // e grava na tabela charlotte_users.
+        data: { name },
+      },
+    });
+    if (error) throw error;
+  };
+
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
@@ -201,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasAccess,
       mustChangePassword,
       signIn,
+      signUp,
       signOut,
       resetPassword,
       refreshProfile,

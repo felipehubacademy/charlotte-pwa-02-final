@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, Eye, EyeSlash, CheckCircle, WarningCircle } from 'phosphor-react-native';
+import { Lock, Eye, EyeSlash, CheckCircle, WarningCircle, UserCircle } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
@@ -24,18 +24,26 @@ const C = {
 };
 
 export default function FirstAccessScreen() {
+  const [name, setName]                 = useState('');
   const [password, setPassword]         = useState('');
   const [confirm, setConfirm]           = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm]   = useState(false);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
+  const passwordRef                     = useRef<TextInput>(null);
   const confirmRef                      = useRef<TextInput>(null);
   const { session, refreshProfile, profile } = useAuth();
   const userEmail                            = session?.user?.email ?? '';
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
+  // Só pede nome se ainda não tem (usuário criado pelo admin sem nome)
+  const needsName = !profile?.name;
 
   const handleSave = async () => {
+    if (needsName && !name.trim()) {
+      setError(isPt ? 'Digite seu nome.' : 'Please enter your name.');
+      return;
+    }
     if (password.length < 8) {
       setError(isPt ? 'A senha deve ter pelo menos 8 caracteres.' : 'Password must be at least 8 characters.');
       return;
@@ -48,9 +56,11 @@ export default function FirstAccessScreen() {
     setLoading(true);
     try {
       if (session?.user?.id) {
+        const updates: Record<string, any> = { must_change_password: false };
+        if (needsName && name.trim()) updates.name = name.trim();
         const { error: dbErr } = await supabase
           .from('charlotte_users')
-          .update({ must_change_password: false })
+          .update(updates)
           .eq('id', session.user.id);
         if (dbErr) throw dbErr;
       }
@@ -121,10 +131,31 @@ export default function FirstAccessScreen() {
           {/* Fields */}
           <View style={{ gap: 12, marginBottom: 20 }}>
 
+            {/* Nome — só aparece se o usuário não tem nome ainda */}
+            {needsName && (
+              <View style={inputWrap}>
+                <UserCircle size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
+                <TextInput
+                  value={name}
+                  onChangeText={t => { setName(t); setError(null); }}
+                  placeholder={isPt ? 'Seu nome' : 'Your name'}
+                  placeholderTextColor={C.navyLight}
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  autoComplete="name"
+                  textContentType="name"
+                  returnKeyType="next"
+                  onSubmitEditing={() => passwordRef.current?.focus()}
+                  style={[inputStyle, { flex: 1 }]}
+                />
+              </View>
+            )}
+
             {/* Password */}
             <View style={inputWrap}>
               <Lock size={18} color={C.navyLight} weight="regular" style={{ marginRight: 10 }} />
               <TextInput
+                ref={passwordRef}
                 value={password}
                 onChangeText={t => { setPassword(t); setError(null); }}
                 placeholder={isPt ? 'Nova senha' : 'New password'}
