@@ -20,7 +20,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: 'com.hubacademy.charlotte',
     infoPlist: {
       NSMicrophoneUsageDescription:
-        'Charlotte usa o microfone para praticar conversação em inglês com IA.',
+        'Charlotte uses your microphone to practice English conversation with AI.',
 ITSAppUsesNonExemptEncryption: false,
       // Status bar: dark icons (time, wifi, battery) on light backgrounds
       UIViewControllerBasedStatusBarAppearance: false,

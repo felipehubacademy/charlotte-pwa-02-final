@@ -175,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (profile.is_institutional) return true;
     if (profile.subscription_status === 'active') return true;
     if (profile.subscription_status === 'trial') {
-      if (!profile.trial_ends_at) return true;
+      if (!profile.trial_ends_at) return false; // sem data de expiração = tratar como sem acesso (forçar refresh RevenueCat)
       return new Date(profile.trial_ends_at) > new Date();
     }
     return false;

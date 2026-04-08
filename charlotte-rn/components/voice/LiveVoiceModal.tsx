@@ -710,6 +710,11 @@ export default function LiveVoiceModal({
       await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp } as any);
 
     } catch (error: any) {
+      // Limpar recursos parcialmente alocados (mic, peer connection)
+      localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
+      localStreamRef.current = null;
+      dcRef.current?.close(); dcRef.current = null;
+      pcRef.current?.close(); pcRef.current = null;
       stopRingTone();
       console.error('[LiveVoice] connect error:', error);
       setStatus('error');

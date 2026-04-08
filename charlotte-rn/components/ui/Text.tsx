@@ -16,6 +16,7 @@ export function AppText({ children, className = '', style, ...props }: AppTextPr
     <Text
       className={`text-textPrimary ${className}`}
       style={style}
+      maxFontSizeMultiplier={1.3}
       {...props}
     >
       {children}

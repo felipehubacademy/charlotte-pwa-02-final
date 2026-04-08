@@ -762,6 +762,7 @@ export default function HomeScreen() {
 
   const fetchData = useCallback(async () => {
     if (!userId) return;
+    try {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const [prog, prac, achToday] = await Promise.all([
       supabase.from('charlotte_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
@@ -831,6 +832,9 @@ export default function HomeScreen() {
     if (!streakSoundPlayedRef.current && newData.streakDays > 0) {
       streakSoundPlayedRef.current = true;
       setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
+    }
+    } catch (e) {
+      console.warn('⚠️ fetchData error:', e);
     }
   }, [userId, level]);
 

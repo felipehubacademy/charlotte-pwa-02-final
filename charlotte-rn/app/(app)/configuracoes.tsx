@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, Platform, Linking, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -13,10 +13,19 @@ import {
   SignOut,
   ShieldCheck,
   CheckCircle,
+  FileText,
+  ShieldWarning,
+  ArrowsClockwise,
+  Trash,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
+import { restorePurchases } from '@/lib/purchases';
+import Constants from 'expo-constants';
+
+const API_BASE_URL =
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 // Light theme palette
 const C = {
@@ -113,6 +122,8 @@ function SectionTitle({ label }: { label: string }) {
 export default function ConfiguracoesScreen() {
   const { profile, signOut, refreshProfile } = useAuth();
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
+  const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [restoringPurchases, setRestoringPurchases] = React.useState(false);
 
   const handleRetakePlacementTest = () => {
     Alert.alert(
@@ -137,6 +148,81 @@ export default function ConfiguracoesScreen() {
       ]
     );
   };
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      isPt ? 'Excluir minha conta' : 'Delete my account',
+      isPt
+        ? 'Todos os seus dados serão excluídos permanentemente. Essa ação NÃO pode ser desfeita.'
+        : 'All your data will be permanently deleted. This action CANNOT be undone.',
+      [
+        { text: isPt ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: isPt ? 'Sim, excluir tudo' : 'Yes, delete everything',
+          style: 'destructive',
+          onPress: () => {
+            // Dupla confirmação
+            Alert.alert(
+              isPt ? 'Tem certeza?' : 'Are you sure?',
+              isPt
+                ? 'Última chance. Sua conta e todos os dados serão apagados para sempre.'
+                : 'Last chance. Your account and all data will be erased forever.',
+              [
+                { text: isPt ? 'Não, manter' : 'No, keep it', style: 'cancel' },
+                {
+                  text: isPt ? 'Excluir definitivamente' : 'Delete permanently',
+                  style: 'destructive',
+                  onPress: async () => {
+                    setDeletingAccount(true);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session?.access_token) throw new Error('No session');
+                      const res = await fetch(`${API_BASE_URL}/api/delete-account`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${session.access_token}`,
+                        },
+                      });
+                      if (!res.ok) throw new Error('Delete failed');
+                      await signOut();
+                    } catch (e: any) {
+                      console.error('Delete account error:', e);
+                      Alert.alert(
+                        isPt ? 'Erro' : 'Error',
+                        isPt ? 'Não foi possível excluir. Tente novamente ou entre em contato com o suporte.' : 'Could not delete. Try again or contact support.',
+                      );
+                    } finally {
+                      setDeletingAccount(false);
+                    }
+                  },
+                },
+              ]
+            );
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRestorePurchases = async () => {
+    setRestoringPurchases(true);
+    try {
+      await restorePurchases();
+      await refreshProfile();
+      Alert.alert(
+        isPt ? 'Compras restauradas' : 'Purchases restored',
+        isPt ? 'Sua assinatura foi atualizada.' : 'Your subscription has been updated.',
+      );
+    } catch (e: any) {
+      Alert.alert(
+        isPt ? 'Nenhuma compra encontrada' : 'No purchases found',
+        isPt ? 'Não encontramos compras anteriores para esta conta.' : 'No previous purchases found for this account.',
+      );
+    } finally {
+      setRestoringPurchases(false);
+    }
+  };
+
   const handleSignOut = () => {
     Alert.alert(
       isPt ? 'Sair da conta' : 'Sign out',
@@ -253,6 +339,32 @@ export default function ConfiguracoesScreen() {
           chevron
         />
 
+        {/* Assinatura */}
+        <SectionTitle label={isPt ? 'Assinatura' : 'Subscription'} />
+        <SettingRow
+          icon={restoringPurchases
+            ? <ActivityIndicator size={18} color={C.navyMid} />
+            : <ArrowsClockwise size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Restaurar compras' : 'Restore purchases'}
+          onPress={restoringPurchases ? undefined : handleRestorePurchases}
+          chevron
+        />
+
+        {/* Legal */}
+        <SectionTitle label="Legal" />
+        <SettingRow
+          icon={<ShieldWarning size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Política de Privacidade' : 'Privacy Policy'}
+          onPress={() => Linking.openURL('https://charlotte.hubacademybr.com/privacidade')}
+          chevron
+        />
+        <SettingRow
+          icon={<FileText size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Termos de Uso' : 'Terms of Use'}
+          onPress={() => Linking.openURL('https://charlotte.hubacademybr.com/termos')}
+          chevron
+        />
+
         {/* About */}
         <SectionTitle label={isPt ? 'Sobre' : 'About'} />
         <SettingRow
@@ -271,6 +383,15 @@ export default function ConfiguracoesScreen() {
           icon={<SignOut size={18} color={C.error} weight="duotone" />}
           label={isPt ? 'Sair da conta' : 'Sign out'}
           onPress={handleSignOut}
+          destructive
+          chevron
+        />
+        <SettingRow
+          icon={deletingAccount
+            ? <ActivityIndicator size={18} color={C.error} />
+            : <Trash size={18} color={C.error} weight="duotone" />}
+          label={isPt ? 'Excluir minha conta' : 'Delete my account'}
+          onPress={deletingAccount ? undefined : handleDeleteAccount}
           destructive
           chevron
         />
