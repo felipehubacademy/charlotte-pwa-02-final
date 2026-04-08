@@ -379,9 +379,9 @@ function Slide4() {
   }, []);
 
   const perks = [
-    'Acesso completo desde o primeiro dia',
+    'Mini-aulas narradas pela Charlotte',
     'Gramática, pronúncia e conversação ao vivo',
-    'Cancele quando quiser',
+    'Feedback em tempo real a cada resposta',
   ];
 
   return (
@@ -414,7 +414,7 @@ function Slide4() {
           fontSize: 14, color: C.navyLight, textAlign: 'center',
           marginBottom: 28, fontWeight: '600',
         }}>
-          7 dias grátis, depois R$ 19,90/mês.
+          Aprenda inglês do seu jeito, no seu ritmo.
         </AppText>
 
         {/* Perks */}
