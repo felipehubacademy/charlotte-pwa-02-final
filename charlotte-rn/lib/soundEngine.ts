@@ -26,7 +26,9 @@ export type SoundName =
   | 'achievement_epic'
   | 'achievement_legendary'
   | 'streak_alive'
-  | 'daily_goal';
+  | 'daily_goal'
+  | 'answer_correct'
+  | 'answer_wrong';
 
 // ── Síntese: nota com harmônicos + ADSR ──────────────────────────────────────
 
@@ -155,6 +157,20 @@ const MELODIES: Record<SoundName, Melody> = {
     { freq: NOTES.E5, durMs:  95, amp: 0.32, harmonics: 4, attackMs: 6, releaseMs: 35 },
     { freq: NOTES.G5, durMs:  95, amp: 0.35, harmonics: 4, attackMs: 6, releaseMs: 35 },
     { freq: NOTES.C6, durMs: 240, amp: 0.40, harmonics: 4, attackMs: 8, releaseMs:110 },
+  ],
+
+  // ── Answer correct: "ding-ding" rápido e ascendente ──────────────────────
+  // Mais curto e discreto que xp_gained — não compete com o feedback visual
+  answer_correct: [
+    { freq: NOTES.G5, durMs:  45, amp: 0.24, harmonics: 2, attackMs: 3, releaseMs: 22 },
+    { freq: NOTES.C6, durMs:  80, amp: 0.26, harmonics: 2, attackMs: 3, releaseMs: 45 },
+  ],
+
+  // ── Answer wrong: "bwomp" descendente, grave e curto ─────────────────────
+  // Deve comunicar "errado" sem ser punitivo — baixo, macio, breve
+  answer_wrong: [
+    { freq: NOTES.E4, durMs:  55, amp: 0.22, harmonics: 1, attackMs: 3, releaseMs: 28 },
+    { freq: NOTES.C4, durMs: 100, amp: 0.20, harmonics: 1, attackMs: 3, releaseMs: 60 },
   ],
 };
 
@@ -294,6 +310,8 @@ class SoundEngine {
       'achievement_legendary',
       'streak_alive',
       'daily_goal',
+      'answer_correct',
+      'answer_wrong',
     ];
     await Promise.all(names.map(n => this.getUri(n).catch(() => {})));
   }

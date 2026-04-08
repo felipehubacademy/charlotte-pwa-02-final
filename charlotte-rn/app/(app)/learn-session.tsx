@@ -408,6 +408,7 @@ export default function LearnSessionScreen() {
       setSessionXP(prev => prev + 8);
       saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: true, xpEarned: 8 });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      soundEngine.play('answer_correct').catch(() => {});
       Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
       return;
     }
@@ -422,8 +423,8 @@ export default function LearnSessionScreen() {
       setGStatus('submitted');
       setSessionXP(prev => prev + xp);
       saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: correct, xpEarned: xp });
-      if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      if (correct) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); soundEngine.play('answer_correct').catch(() => {}); }
+      else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); soundEngine.play('answer_wrong').catch(() => {}); }
       Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
       return;
     }
@@ -541,7 +542,12 @@ export default function LearnSessionScreen() {
         setSessionXP(prev => prev + xp);
         const exType = isShadowing ? 'shadowing' : 'repeat';
         saveExercise({ level, moduleIndex, topicIndex, exerciseType: exType, isCorrect: score >= 70, xpEarned: xp });
-        if (score >= 80) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        if (score >= 80) {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          soundEngine.play('answer_correct').catch(() => {});
+        } else {
+          soundEngine.play('answer_wrong').catch(() => {});
+        }
         Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
       }
       setPronStatus('result');
