@@ -43,6 +43,8 @@ import { getLiveVoiceStatus, getPoolForLevel } from '@/lib/liveVoiceUsage';
 import { soundEngine } from '@/lib/soundEngine';
 import { identifyUser, track } from '@/lib/analytics';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+import * as FileSystem from 'expo-file-system/legacy';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -757,6 +759,7 @@ export default function HomeScreen() {
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
+  const wowPlayedRef = useRef(false); // TTS welcome — toca uma vez por sessão
 
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
@@ -929,6 +932,11 @@ export default function HomeScreen() {
             GREETING_CACHE_KEY,
             JSON.stringify({ message: json.message, ts: Date.now() }),
           );
+          // 🎤 Momento wow: Charlotte fala a saudação via TTS (primeira vez por sessão)
+          if (!wowPlayedRef.current) {
+            wowPlayedRef.current = true;
+            playGreetingTTS(json.message).catch(() => {});
+          }
         }
       } catch {
         // Silently fail — dots will disappear, no message shown (acceptable)
@@ -937,6 +945,32 @@ export default function HomeScreen() {
       }
     })();
   }, [userId, name, level]); // eslint-disable-line
+
+  // ── TTS da saudação (momento wow) ─────────────────────────────
+  const playGreetingTTS = useCallback(async (text: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      if (!json.audio) return;
+      const uri = `${FileSystem.cacheDirectory}greeting_tts_${Date.now()}.mp3`;
+      await FileSystem.writeAsStringAsync(uri, json.audio, { encoding: FileSystem.EncodingType.Base64 });
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+        interruptionMode: 'mixWithOthers',
+        shouldRouteThroughEarpiece: false,
+      }).catch(() => {});
+      const player = createAudioPlayer({ uri });
+      player.play();
+      // Cleanup após 15s (saudação nunca dura tanto)
+      setTimeout(() => { try { player.pause(); player.remove(); } catch {} }, 15000);
+    } catch { /* silencioso */ }
+  }, []);
 
   const missions     = data ? buildMissions(data, level) : [];
   const doneMissions = missions.filter(m => m.completed).length;
