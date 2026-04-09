@@ -115,88 +115,121 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Phone mockup */}
-        <div className="phone-wrap" style={{ position: 'relative', alignSelf: 'flex-end' }}>
-          {/* Glow */}
+        {/* iPhone mockup */}
+        <div className="phone-wrap" style={{ position: 'relative', alignSelf: 'flex-end', display: 'flex', justifyContent: 'center' }}>
+
+          {/* glow beneath */}
           <div style={{
-            position: 'absolute', bottom: 0, left: '50%',
-            transform: 'translateX(-50%)',
-            width: 280, height: 60,
-            background: 'rgba(163,255,60,0.25)',
-            filter: 'blur(40px)',
-            borderRadius: '50%',
+            position: 'absolute', bottom: -20, left: '50%', transform: 'translateX(-50%)',
+            width: 200, height: 48, background: 'rgba(163,255,60,0.3)',
+            filter: 'blur(32px)', borderRadius: '50%',
           }} />
 
-          {/* Phone frame */}
+          {/* iPhone shell — 390×844 scaled to 260×564 (≈ iPhone 15 ratio) */}
           <div style={{
-            width: 320, margin: '0 auto',
-            background: '#fff',
-            borderRadius: 44,
-            border: '1px solid #EEEDF5',
-            boxShadow: '0 32px 80px rgba(22,21,58,0.14), 0 0 0 1px rgba(22,21,58,0.04)',
-            overflow: 'hidden',
+            width: 260, height: 564,
+            background: '#16153A',
+            borderRadius: 50,
+            padding: 10,
+            boxShadow: '0 40px 100px rgba(22,21,58,0.22), inset 0 0 0 1px rgba(255,255,255,0.08)',
+            position: 'relative',
           }}>
-            {/* Status bar */}
-            <div style={{ background: '#F4F3FA', padding: '14px 20px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <Image src="/images/charlotte-avatar.png" alt="Charlotte" width={36} height={36}
-                style={{ borderRadius: '50%', border: '2px solid #A3FF3C' }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: '#16153A' }}>Charlotte</div>
-                <div style={{ fontSize: 11, color: '#3D8800', fontWeight: 600 }}>online agora</div>
+            {/* Screen */}
+            <div style={{
+              width: '100%', height: '100%',
+              background: '#F4F3FA',
+              borderRadius: 42,
+              overflow: 'hidden',
+              display: 'flex', flexDirection: 'column',
+            }}>
+              {/* Dynamic Island */}
+              <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12, paddingBottom: 4, background: '#F4F3FA' }}>
+                <div style={{ width: 90, height: 28, background: '#16153A', borderRadius: 20 }} />
               </div>
-              {/* streak */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'rgba(251,146,60,0.12)', borderRadius: 20, padding: '4px 10px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="#EA580C"><path d="M12 2C8.5 8 6 11.5 6 15a6 6 0 0012 0c0-3.5-2.5-7-6-13z"/></svg>
-                <span style={{ fontSize: 12, fontWeight: 800, color: '#EA580C' }}>7</span>
-              </div>
-            </div>
 
-            {/* Chat */}
-            <div style={{ padding: '16px 16px 8px', display: 'flex', flexDirection: 'column', gap: 10, background: '#fff' }}>
-              {/* Charlotte msg */}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                <Image src="/images/charlotte-avatar.png" alt="" width={24} height={24} style={{ borderRadius: '50%', flexShrink: 0 }} />
-                <div style={{ background: '#F4F3FA', borderRadius: '14px 14px 14px 4px', padding: '10px 14px', maxWidth: 200 }}>
-                  <p style={{ fontSize: 13, color: '#16153A', lineHeight: 1.5 }}>
+              {/* App header */}
+              <div style={{ padding: '8px 14px 10px', display: 'flex', alignItems: 'center', gap: 8, background: '#F4F3FA' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
+                  {/* streak */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(251,146,60,0.12)', borderRadius: 14, padding: '3px 8px' }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#EA580C"><path d="M12 2C8.5 8 6 11.5 6 15a6 6 0 0012 0c0-3.5-2.5-7-6-13z"/></svg>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#EA580C' }}>7</span>
+                  </div>
+                  {/* XP */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 3, background: 'rgba(61,136,0,0.10)', borderRadius: 14, padding: '3px 8px' }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#3D8800"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#3D8800' }}>240</span>
+                  </div>
+                </div>
+                <div style={{ width: 28, height: 28, borderRadius: 8, background: 'rgba(22,21,58,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9896B8" strokeWidth="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+                </div>
+              </div>
+
+              {/* Charlotte greeting */}
+              <div style={{ padding: '8px 14px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <Image src="/images/charlotte-avatar.png" alt="" width={28} height={28}
+                  style={{ borderRadius: '50%', border: '1.5px solid #A3FF3C', flexShrink: 0, marginTop: 2 }} />
+                <div style={{ background: '#fff', borderRadius: '12px 12px 12px 3px', padding: '8px 12px', boxShadow: '0 1px 6px rgba(22,21,58,0.07)' }}>
+                  <p style={{ fontSize: 11, color: '#16153A', lineHeight: 1.5 }}>
                     How was your day? Tell me in English!
                   </p>
                 </div>
               </div>
 
               {/* User msg */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <div style={{ background: '#A3FF3C', borderRadius: '14px 14px 4px 14px', padding: '10px 14px', maxWidth: 200 }}>
-                  <p style={{ fontSize: 13, color: '#16153A', lineHeight: 1.5 }}>
-                    It was good. I learned a lot today.
-                  </p>
+              <div style={{ padding: '0 14px 8px', display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ background: '#A3FF3C', borderRadius: '12px 12px 3px 12px', padding: '8px 12px', maxWidth: '72%' }}>
+                  <p style={{ fontSize: 11, color: '#16153A', lineHeight: 1.5 }}>It was good. I learned a lot today.</p>
                 </div>
               </div>
 
               {/* Charlotte correction */}
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                <Image src="/images/charlotte-avatar.png" alt="" width={24} height={24} style={{ borderRadius: '50%', flexShrink: 0 }} />
-                <div style={{ background: '#F4F3FA', borderRadius: '14px 14px 14px 4px', padding: '10px 14px', maxWidth: 220 }}>
-                  <p style={{ fontSize: 13, color: '#16153A', lineHeight: 1.5 }}>
-                    Great! Try &ldquo;I&rsquo;ve learned&rdquo; — sounds more natural.
+              <div style={{ padding: '0 14px 8px', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <Image src="/images/charlotte-avatar.png" alt="" width={28} height={28}
+                  style={{ borderRadius: '50%', border: '1.5px solid #A3FF3C', flexShrink: 0, marginTop: 2 }} />
+                <div style={{ background: '#fff', borderRadius: '12px 12px 12px 3px', padding: '8px 12px', boxShadow: '0 1px 6px rgba(22,21,58,0.07)' }}>
+                  <p style={{ fontSize: 11, color: '#16153A', lineHeight: 1.5 }}>
+                    Great! Try &ldquo;I&rsquo;ve learned&rdquo; — more natural.
                   </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 6 }}>
-                    <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#F0FDE4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="8" height="8" viewBox="0 0 12 12" fill="#3D8800"><path d="M10 3L5 8.5 2 5.5"/></svg>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 5 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#F0FDE4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="7" height="7" viewBox="0 0 12 12" fill="none" stroke="#3D8800" strokeWidth="2"><polyline points="2,6 5,9 10,3"/></svg>
                     </div>
-                    <span style={{ fontSize: 10, color: '#3D8800', fontWeight: 700 }}>+5 XP</span>
+                    <span style={{ fontSize: 9, color: '#3D8800', fontWeight: 700 }}>+5 XP</span>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* XP bar */}
-            <div style={{ padding: '8px 16px 16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                <span style={{ fontSize: 11, color: '#9896B8', fontWeight: 600 }}>Progresso diário</span>
-                <span style={{ fontSize: 11, color: '#3D8800', fontWeight: 700 }}>2/3 missões</span>
+              {/* Divider */}
+              <div style={{ margin: '4px 14px', borderTop: '1px solid #EEEDF5' }} />
+
+              {/* XP progress */}
+              <div style={{ padding: '8px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ fontSize: 9, color: '#9896B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>XP de hoje</span>
+                  <span style={{ fontSize: 9, color: '#3D8800', fontWeight: 700 }}>40 / 100</span>
+                </div>
+                <div style={{ height: 4, background: '#EEEDF5', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{ width: '40%', height: '100%', background: '#A3FF3C', borderRadius: 2 }} />
+                </div>
               </div>
-              <div style={{ height: 5, background: '#F4F3FA', borderRadius: 3, overflow: 'hidden' }}>
-                <div style={{ width: '66%', height: '100%', background: '#A3FF3C', borderRadius: 3 }} />
+
+              {/* Mission card */}
+              <div style={{ margin: '0 14px', background: '#fff', borderRadius: 14, padding: '10px 12px', boxShadow: '0 1px 6px rgba(22,21,58,0.07)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: '#F0FDE4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3D8800" strokeWidth="2.5" strokeLinecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#16153A' }}>Escreva 7 mensagens</div>
+                  <div style={{ fontSize: 9, color: '#9896B8', marginTop: 1 }}>3 de 7 concluídas</div>
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 700, color: '#3D8800', background: '#F0FDE4', borderRadius: 8, padding: '2px 7px' }}>+28 XP</span>
+              </div>
+
+              {/* Home indicator */}
+              <div style={{ flex: 1, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 8 }}>
+                <div style={{ width: 100, height: 4, background: '#16153A', borderRadius: 2, opacity: 0.15 }} />
               </div>
             </div>
           </div>
