@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router';
+import { View } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { PaywallModal } from '@/components/auth/PaywallModal';
 import { XPToastProvider } from '@/components/ui/XPToastProvider';
@@ -10,9 +11,10 @@ export default function AppLayout() {
   const { isAuthenticated, profile } = useAuth();
 
   // AuthGuard in app/_layout.tsx handles all redirects at root level.
-  // app/index.tsx holds the branded LoadingScreen until session + profile are
-  // both ready, so by the time we render here profile is always non-null.
-  if (!isAuthenticated) return null;
+  // When the user signs out, isAuthenticated becomes false before AuthGuard
+  // can fire router.replace. Returning null here causes a blank white flash.
+  // Render a solid background instead so the transition is invisible.
+  if (!isAuthenticated) return <View style={{ flex: 1, backgroundColor: '#F4F3FA' }} />;
 
   return (
     <PaywallProvider>

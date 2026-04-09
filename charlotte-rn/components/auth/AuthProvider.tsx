@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { unstable_batchedUpdates } from 'react-native';
 import { Session } from '@supabase/supabase-js';
+import { router } from 'expo-router';
 import { supabase, UserProfile } from '@/lib/supabase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { initPurchases, identifyUser, resetUser } from '@/lib/purchases';
@@ -166,6 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    // Navigate immediately after sign-out so the user never sees the blank screen
+    // that occurs between isAuthenticated becoming false and AuthGuard firing.
+    router.replace('/(onboarding)' as any);
   };
 
   const refreshProfile = async () => {
