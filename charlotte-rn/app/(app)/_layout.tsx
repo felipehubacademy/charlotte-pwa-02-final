@@ -6,6 +6,7 @@ import { XPToastProvider } from '@/components/ui/XPToastProvider';
 import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
 import WelcomeModal from '@/components/ui/WelcomeModal';
 import { PaywallProvider } from '@/lib/paywallContext';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 
 export default function AppLayout() {
   const { isAuthenticated, profile } = useAuth();
@@ -17,6 +18,7 @@ export default function AppLayout() {
   if (!isAuthenticated) return <View style={{ flex: 1, backgroundColor: '#F4F3FA' }} />;
 
   return (
+    <AppErrorBoundary>
     <PaywallProvider>
     <XPToastProvider>
       <AchievementsProvider>
@@ -47,5 +49,6 @@ export default function AppLayout() {
       </AchievementsProvider>
     </XPToastProvider>
     </PaywallProvider>
+    </AppErrorBoundary>
   );
 }

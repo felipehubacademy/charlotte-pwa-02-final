@@ -47,9 +47,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     output: 'static',
     favicon: './assets/charlotte-avatar.png',
   },
+  updates: {
+    url: 'https://u.expo.dev/da14586b-2944-4150-b8ad-5ff7e32af6e2',
+    enabled: true,
+    fallbackToCacheTimeout: 0,
+    checkAutomatically: 'ON_LOAD',
+  },
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
   plugins: [
     'expo-router',
     'expo-secure-store',
+    'expo-updates',
     'expo-config-plugin-incall-manager',
     [
       'expo-splash-screen',
