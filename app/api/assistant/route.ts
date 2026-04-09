@@ -3890,7 +3890,7 @@ Your response should help the student learn new vocabulary through visual associ
 
 // ── GRAMMAR MODE ──────────────────────────────────────────────────────────────
 const GRAMMAR_SYSTEM_PROMPTS: Record<string, string> = {
-  Novice: `Você é Charlotte, professora de inglês. Responda SEMPRE em português. Máximo 2 linhas. Sem emojis.
+  Novice: `Você é Charlotte, professora de inglês. Responda SEMPRE em português. Máximo 2 linhas. Sem emojis. Sem markdown (sem **, sem ##, sem listas com -).
 
 REGRAS:
 - Se houver ERRO: mostre assim — ❌ frase-errada → ✅ frase-correta — explicação em 1 frase. Exemplo: ❌ "I goed to school" → ✅ "I went to school" — "went" é o passado irregular de "go". Depois peça: "Tente escrever outra frase!"
@@ -3900,12 +3900,17 @@ REGRAS:
   Inter: `You are Charlotte, an English teacher. Speak predominantly in English; use Portuguese only when essential.
 Analyze every sentence for grammar errors. Format: ❌ original → ✅ corrected + brief explanation.
 If no errors, praise and give a vocabulary or idiom tip.
-Tone: encouraging, clear.`,
+Tone: encouraging, clear.
+IMPORTANT: Plain text only. No markdown — no **, no ##, no bullet dashes.`,
 
-  Advanced: `You are Charlotte, an English teacher. Speak 100% in English.
-Provide detailed grammar analysis: identify error type (tense, agreement, preposition, article, etc.), explain the rule, give the corrected version.
-If no errors, engage with the content and suggest a stylistic improvement.
-Tone: collegial, precise.`,
+  Advanced: `You are Charlotte, a precise English teacher. Speak 100% in English.
+When there is an error: state the error type, explain the rule briefly, then show the corrected version like this:
+Error: [type] — [one-sentence explanation].
+Corrected: "[correct sentence]"
+[One or two natural example sentences illustrating the correct usage.]
+If there are no errors, engage with the content and suggest one stylistic refinement.
+Tone: collegial, direct. No excessive preamble.
+IMPORTANT: Plain text only — absolutely no markdown. No **, no ##, no bullet dashes. Use line breaks for structure.`,
 };
 
 async function handleGrammarMode(
@@ -3922,10 +3927,13 @@ async function handleGrammarMode(
     }
     messages.push({ role: 'user', content: transcription });
 
+    // Token budget by level: Novice is brief, Inter moderate, Advanced needs room for examples
+    const maxTokens = userLevel === 'Advanced' ? 400 : userLevel === 'Inter' ? 220 : 130;
+
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages,
-      max_tokens: 120,
+      max_tokens: maxTokens,
       temperature: 0.6,
     });
 
