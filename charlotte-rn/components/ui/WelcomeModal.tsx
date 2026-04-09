@@ -42,9 +42,9 @@ const GREETING_IDS_POOL: Record<string, string[]> = {
 };
 
 const SUBTITLE_FIRST: Record<string, string> = {
-  Novice:   'Seja muito bem-vindo!\nVamos aprender inglês juntos.',
-  Inter:    "Great to have you here!\nLet's learn English together.",
-  Advanced: "Welcome — let's do great things\ntogether.",
+  Novice:   'Aqui você fala inglês\nde verdade.',
+  Inter:    "Let's make every\nsession count.",
+  Advanced: "Let's take your English\nto the next level.",
 };
 
 const SUBTITLE_RETURNING: Record<string, string> = {
