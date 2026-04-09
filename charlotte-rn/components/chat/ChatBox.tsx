@@ -34,6 +34,7 @@ export interface Message {
   pronunciationData?: PronunciationData; // score card data
   isDemonstration?: boolean;             // Charlotte demonstrating a word via TTS
   isSeparator?: boolean;                 // Visual divider between history and current session
+  isExplainMore?: boolean;              // Response to an "Explain more" tap — hides the button
 }
 
 interface ChatBoxProps {
@@ -304,8 +305,8 @@ const MessageBubble: React.FC<{
               </TouchableOpacity>
             )}
 
-            {/* "Me explique melhor" — grammar mode, Charlotte messages only, not on greeting */}
-            {mode === 'grammar' && !!message.content && !!onExplainMore && message.id !== 'welcome-0' && (
+            {/* "Me explique melhor" — grammar mode, Charlotte messages only, not on greeting or explain-more responses */}
+            {mode === 'grammar' && !!message.content && !!onExplainMore && message.id !== 'welcome-0' && !message.isExplainMore && (
               <TouchableOpacity
                 onPress={() => onExplainMore(message.content)}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}

@@ -18,15 +18,16 @@ export default function GrammarScreen() {
   const userName  = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const userId    = profile?.id ?? '';
 
-  const { messages, isProcessing, sessionXP, totalXP, sendTextMessage } =
+  const { messages, isProcessing, sessionXP, totalXP, sendTextMessage, sendSilentMessage } =
     useChat({ userLevel, userName, userId, mode: 'grammar' });
 
   const handleExplainMore = React.useCallback((originalCorrection: string) => {
     const prompt = userLevel === 'Novice'
       ? 'Me explique melhor essa correção, com mais detalhes e exemplos em português.'
       : 'Please explain that correction in more detail, with examples.';
-    sendTextMessage(prompt);
-  }, [userLevel, sendTextMessage]);
+    // Silent: no user bubble shown, typing indicator appears directly
+    sendSilentMessage(prompt);
+  }, [userLevel, sendSilentMessage]);
 
   const [showStats, setShowStats]       = React.useState(false);
   const [achievements, setAchievements] = React.useState<Achievement[]>([]);

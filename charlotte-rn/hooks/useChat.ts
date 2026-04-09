@@ -257,7 +257,8 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
     async (
       parts: string[],
       technicalFeedback: string | undefined,
-      respondWithAudio = false
+      respondWithAudio = false,
+      extraProps: Partial<Message> = {}
     ) => {
       for (let i = 0; i < parts.length; i++) {
         if (i > 0) await delay(1500);
@@ -273,6 +274,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           audioDuration: undefined,
           timestamp: new Date(),
           technicalFeedback: i === 0 ? technicalFeedback : undefined,
+          ...extraProps,
         };
 
         setMessages(prev => [...prev, msg]);
@@ -349,6 +351,52 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       }
     },
     [isProcessing, addMessage, getAssistantResponse, deliverSequentially, userLevel, userName, userId, mode]
+  );
+
+  /**
+   * Sends a prompt silently — no user bubble added to the chat.
+   * Used by "Explain more": the user tap triggers the flow invisibly,
+   * Charlotte's typing indicator appears, and her response is marked
+   * isExplainMore:true so the "Explain more" button is hidden on it.
+   */
+  const sendSilentMessage = useCallback(
+    async (text: string) => {
+      if (!text.trim() || isProcessing) return;
+
+      setIsProcessing(true);
+      contextManagerRef.current.addMessage('user', text.trim(), 'text');
+
+      try {
+        const { feedback, technicalFeedback, xpAwarded } =
+          await getAssistantResponse(text.trim(), 'text');
+
+        contextManagerRef.current.addMessage('assistant', feedback, 'text');
+
+        const parts = splitIntoMultipleMessages(feedback, userLevel);
+        await deliverSequentially(parts, technicalFeedback, false, { isExplainMore: true });
+
+        saveChatMessage(userId, 'assistant', feedback, mode);
+
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        soundEngine.play('xp_gained').catch(() => {});
+        setSessionXP(prev => prev + xpAwarded);
+        setTotalXP(prev => {
+          const milestone = checkXPMilestone(prev, prev + xpAwarded);
+          if (milestone) sendXPMilestoneNotification(milestone);
+          return prev + xpAwarded;
+        });
+        if (userId) {
+          await savePractice(userId, 'text_message', xpAwarded);
+          setTimeout(() => checkForNewAchievements(), 1500);
+        }
+      } catch (error) {
+        console.error('sendSilentMessage error:', error);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } finally {
+        setIsProcessing(false);
+      }
+    },
+    [isProcessing, getAssistantResponse, deliverSequentially, userLevel, userId, mode]
   );
 
   /**
@@ -771,6 +819,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
     sessionXP,
     totalXP,
     sendTextMessage,
+    sendSilentMessage,
     sendAudioMessage,
   };
 }
