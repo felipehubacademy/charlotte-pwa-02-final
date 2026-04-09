@@ -92,10 +92,10 @@ export function inviteTemplate(opts: {
   email: string;
   tempPassword: string;
 }) {
-  const subject = `Seu acesso ao Charlotte est\u00e1 pronto`;
+  const subject = `Seu acesso ao Charlotte AI est\u00e1 pronto`;
   const html = base(`
     ${h1(`Ol&aacute;, ${opts.name}.`)}
-    ${p(`A equipe Hub Academy criou seu acesso ao Charlotte.<br>Voc&ecirc; j&aacute; pode entrar e come&ccedil;ar a praticar ingl&ecirc;s.`)}
+    ${p(`A equipe da Hub Academy criou seu acesso ao Charlotte AI.<br>Voc&ecirc; j&aacute; pode entrar e come&ccedil;ar a praticar ingl&ecirc;s.`)}
     ${meta([
       { label: 'Email', value: opts.email },
       { label: 'Senha tempor&aacute;ria', value: `<code style="font-family:monospace;background:#f5f5f7;padding:2px 8px;border-radius:4px;">${opts.tempPassword}</code>` },
