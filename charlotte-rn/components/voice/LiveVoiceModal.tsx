@@ -614,16 +614,18 @@ export default function LiveVoiceModal({
 
           switch (msg.type) {
             case 'response.audio.delta':
-              // First audio chunk arriving — mute mic immediately to prevent
-              // Charlotte's speaker output from looping back into the mic (echo).
+              // Charlotte started sending audio.
+              // Do NOT disable the mic — the user must be able to interrupt at any
+              // moment by speaking. InCallManager (call mode) provides AEC so
+              // Charlotte's speaker audio is suppressed before reaching the VAD.
+              // Echo protection is handled by the 700ms time-guard in speech_stopped
+              // and by create_response:false (VAD events can't auto-trigger responses).
               responseActiveRef.current = true;
               lastActivityRef.current = Date.now();
               if (!charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = true;
                 setCharlotteSpeaking(true);
                 setUserSpeaking(false);
-                localStreamRef.current?.getAudioTracks()
-                  .forEach((t: any) => { t.enabled = false; });
                 sendEvent({ type: 'input_audio_buffer.clear' });
               }
               break;
@@ -635,32 +637,30 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.audio.done':
-              // Last audio chunk sent to WebRTC — the audio is still buffered and
-              // playing for a short while. We use a small 500ms decay window so the
-              // user can speak again quickly. With create_response:false, even if the
-              // VAD picks up residual echo it can't auto-trigger a response — the
-              // time-guard in speech_stopped is the real protection.
+              // Last audio chunk delivered to WebRTC. A 500ms window lets the
+              // jitter buffer drain and room acoustics settle before we mark
+              // Charlotte as done and stamp lastCharlotteDoneRef (used by the
+              // 700ms guard in speech_stopped).
               responseActiveRef.current = false;
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
                 lastCharlotteDoneRef.current = Date.now();
-                localStreamRef.current?.getAudioTracks()
-                  .forEach((t: any) => { t.enabled = !isMutedRef.current; });
               }, 500);
               break;
 
             case 'input_audio_buffer.speech_started':
-              lastActivityRef.current = Date.now(); // Usuário falou → reset inatividade
+              // User spoke — could be an interruption while Charlotte is talking.
+              lastActivityRef.current = Date.now();
               setUserSpeaking(true);
               setInactivityWarning(false);
               setWarningCountdown(30);
               warnStartRef.current = 0;
-              localStreamRef.current?.getAudioTracks()
-                .forEach((t: any) => { t.enabled = !isMutedRef.current; });
               if (charlotteSpeakingRef.current) {
+                // Interrupt: cancel Charlotte's current response immediately.
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
+                lastCharlotteDoneRef.current = Date.now();
                 if (responseActiveRef.current) {
                   responseActiveRef.current = false;
                   sendEvent({ type: 'response.cancel' });
@@ -670,12 +670,13 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_stopped':
               setUserSpeaking(false);
-              // create_response:false — we trigger manually.
+              // create_response:false — trigger response manually.
               // Guards:
-              //   1. Charlotte must not be mid-response (charlotteSpeakingRef)
-              //   2. At least 700ms must have passed since her audio finished
-              //      (lastCharlotteDoneRef) — covers the case where mic re-opened
-              //      while she was still playing and the VAD caught tail echo.
+              //   1. Charlotte must not be mid-response (charlotteSpeakingRef).
+              //   2. >= 700ms since her audio finished (lastCharlotteDoneRef).
+              //      Filters tail-echo that the VAD catches right after she stops.
+              //      Real user speech (interruption handled above, or post-turn)
+              //      always has charlotteSpeakingRef=false AND > 700ms elapsed.
               if (!charlotteSpeakingRef.current) {
                 const msSinceDone = Date.now() - lastCharlotteDoneRef.current;
                 if (msSinceDone > 700) {
