@@ -260,7 +260,7 @@ export default function AdminPage() {
   };
 
   const openCreate = () => {
-    setForm({ email: '', password: '', name: '', charlotte_level: '', is_institutional: true, is_active: true, subscription_status: 'none', must_change_password: true });
+    setForm({ email: '', password: '', name: '', charlotte_level: '', is_institutional: true, is_active: true, subscription_status: 'none', must_change_password: true, placement_test_done: false });
     setError('');
     setModalMode('create');
   };
@@ -276,6 +276,7 @@ export default function AdminPage() {
       is_active: u.is_active,
       subscription_status: u.subscription_status,
       must_change_password: u.must_change_password,
+      placement_test_done: u.placement_test_done,
     });
     setError('');
     setModalMode('edit');
@@ -299,7 +300,17 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify({ email: form.email, password: form.password, name: form.name }),
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password,
+          name: form.name,
+          charlotte_level: form.charlotte_level || null,
+          is_institutional: form.is_institutional,
+          is_active: form.is_active,
+          subscription_status: form.subscription_status,
+          must_change_password: form.must_change_password,
+          placement_test_done: form.placement_test_done,
+        }),
       });
       const json = await res.json();
       if (json.error) { setError(json.error); return; }
@@ -322,6 +333,7 @@ export default function AdminPage() {
         is_active: form.is_active,
         subscription_status: form.subscription_status,
         must_change_password: form.must_change_password,
+        placement_test_done: form.placement_test_done,
       };
       if (form.email !== selectedUser.email) body.email = form.email;
       const res = await fetch('/api/admin/users', {
@@ -775,7 +787,7 @@ export default function AdminPage() {
                   </h2>
                   <p style={{ fontSize: 12, color: C.navyLight, margin: '4px 0 0' }}>
                     {modalMode === 'create'
-                      ? 'Acesso institucional, sem paywall'
+                      ? 'Novo usuario'
                       : selectedUser?.email}
                   </p>
                 </div>
@@ -815,120 +827,105 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {/* Fields only on edit */}
+                {/* Nivel + Plano */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div>
+                    <label style={labelStyle}>Nivel</label>
+                    <select style={selectStyle}
+                      value={form.charlotte_level}
+                      onChange={e => setForm(f => ({ ...f, charlotte_level: e.target.value }))}>
+                      <option value="">Nao definido</option>
+                      <option value="Novice">Novice</option>
+                      <option value="Inter">Intermediate</option>
+                      <option value="Advanced">Advanced</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Plano</label>
+                    <select style={selectStyle}
+                      value={form.subscription_status}
+                      onChange={e => setForm(f => ({ ...f, subscription_status: e.target.value }))}>
+                      <option value="none">Sem plano</option>
+                      <option value="trial">Trial</option>
+                      <option value="active">Assinante</option>
+                      <option value="expired">Expirado</option>
+                      <option value="cancelled">Cancelado</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* RevenueCat — edit only */}
                 {modalMode === 'edit' && (
-                  <>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                      {/* Nivel */}
-                      <div>
-                        <label style={labelStyle}>Nivel</label>
-                        <select style={selectStyle}
-                          value={form.charlotte_level}
-                          onChange={e => setForm(f => ({ ...f, charlotte_level: e.target.value }))}>
-                          <option value="">Nao definido</option>
-                          <option value="Novice">Novice</option>
-                          <option value="Inter">Intermediate</option>
-                          <option value="Advanced">Advanced</option>
-                        </select>
-                      </div>
-                      {/* Status */}
-                      <div>
-                        <label style={labelStyle}>Plano</label>
-                        <select style={selectStyle}
-                          value={form.subscription_status}
-                          onChange={e => setForm(f => ({ ...f, subscription_status: e.target.value }))}>
-                          <option value="none">Sem plano</option>
-                          <option value="trial">Trial</option>
-                          <option value="active">Assinante</option>
-                          <option value="expired">Expirado</option>
-                          <option value="cancelled">Cancelado</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* RevenueCat */}
-                    <div style={{
-                      backgroundColor: C.bg, border: `1px solid ${C.border}`,
-                      borderRadius: 10, padding: '12px 14px',
-                    }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: C.navyLight, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 8 }}>
-                        RevenueCat
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 11, color: C.navyLight, marginBottom: 2 }}>Customer ID (= User ID)</div>
-                          <div style={{
-                            fontSize: 12, fontWeight: 500, color: C.navyMid,
-                            fontFamily: 'monospace', overflow: 'hidden',
-                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                          }}>
-                            {selectedUser?.id}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                          <button
-                            type="button"
-                            title="Copiar ID"
-                            onClick={() => navigator.clipboard.writeText(selectedUser?.id ?? '')}
-                            style={{
-                              background: C.card, border: `1px solid ${C.border}`,
-                              borderRadius: 7, padding: '6px 10px', cursor: 'pointer',
-                              color: C.navyMid, fontSize: 12, fontWeight: 600,
-                              display: 'flex', alignItems: 'center', gap: 5,
-                            }}
-                          >
-                            {Icon.copy} Copiar
-                          </button>
-                          <a
-                            href={RC_CUSTOMER_URL(selectedUser?.id ?? '')}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              background: C.card, border: `1px solid ${C.border}`,
-                              borderRadius: 7, padding: '6px 10px', cursor: 'pointer',
-                              color: C.blue, fontSize: 12, fontWeight: 600,
-                              display: 'flex', alignItems: 'center', gap: 5,
-                              textDecoration: 'none',
-                            }}
-                          >
-                            {Icon.externalLink} Ver no RC
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Toggles */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      {[
-                        { key: 'is_institutional', label: 'Acesso institucional (sem paywall)' },
-                        { key: 'is_active',         label: 'Conta ativa' },
-                        { key: 'must_change_password', label: 'Exigir troca de senha no proximo login' },
-                      ].map(({ key, label }) => (
-                        <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, color: C.navyMid }}>
-                          <input
-                            type="checkbox"
-                            checked={!!form[key as keyof typeof form]}
-                            onChange={e => setForm(f => ({ ...f, [key]: e.target.checked }))}
-                            style={{ width: 16, height: 16, accentColor: C.navy, cursor: 'pointer' }}
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Info box (create only) */}
-                {modalMode === 'create' && (
                   <div style={{
-                    backgroundColor: C.blueBg, border: '1px solid #BFDBFE',
+                    backgroundColor: C.bg, border: `1px solid ${C.border}`,
                     borderRadius: 10, padding: '12px 14px',
-                    fontSize: 12, color: '#1D4ED8', lineHeight: 1.7,
                   }}>
-                    Acesso institucional automatico — sem paywall.<br />
-                    Nivel definido pelo placement test. Senha deve ser trocada no 1o login.
+                    <div style={{ fontSize: 11, fontWeight: 700, color: C.navyLight, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 8 }}>
+                      RevenueCat
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 11, color: C.navyLight, marginBottom: 2 }}>Customer ID (= User ID)</div>
+                        <div style={{
+                          fontSize: 12, fontWeight: 500, color: C.navyMid,
+                          fontFamily: 'monospace', overflow: 'hidden',
+                          textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {selectedUser?.id}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          title="Copiar ID"
+                          onClick={() => navigator.clipboard.writeText(selectedUser?.id ?? '')}
+                          style={{
+                            background: C.card, border: `1px solid ${C.border}`,
+                            borderRadius: 7, padding: '6px 10px', cursor: 'pointer',
+                            color: C.navyMid, fontSize: 12, fontWeight: 600,
+                            display: 'flex', alignItems: 'center', gap: 5,
+                          }}
+                        >
+                          {Icon.copy} Copiar
+                        </button>
+                        <a
+                          href={RC_CUSTOMER_URL(selectedUser?.id ?? '')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{
+                            background: C.card, border: `1px solid ${C.border}`,
+                            borderRadius: 7, padding: '6px 10px', cursor: 'pointer',
+                            color: C.blue, fontSize: 12, fontWeight: 600,
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          {Icon.externalLink} Ver no RC
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 )}
+
+                {/* Toggles */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {[
+                    { key: 'is_institutional',    label: 'Acesso institucional (sem paywall)' },
+                    { key: 'is_active',            label: 'Conta ativa' },
+                    { key: 'must_change_password', label: 'Exigir troca de senha no proximo login' },
+                    { key: 'placement_test_done',  label: 'Placement test concluido' },
+                  ].map(({ key, label }) => (
+                    <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, color: C.navyMid }}>
+                      <input
+                        type="checkbox"
+                        checked={!!form[key as keyof typeof form]}
+                        onChange={e => setForm(f => ({ ...f, [key]: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: C.navy, cursor: 'pointer' }}
+                      />
+                      {label}
+                    </label>
+                  ))}
+                </div>
 
                 {error && (
                   <div style={{ backgroundColor: C.redBg, border: '1px solid #FECACA', borderRadius: 8, padding: '10px 12px', color: C.red, fontSize: 13 }}>

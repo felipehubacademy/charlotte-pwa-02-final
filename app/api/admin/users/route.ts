@@ -55,7 +55,15 @@ export async function POST(req: NextRequest) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json();
-  const { email, password, name } = body;
+  const {
+    email, password, name,
+    charlotte_level       = null,
+    is_institutional      = true,
+    is_active             = true,
+    subscription_status   = 'none',
+    must_change_password  = true,
+    placement_test_done   = false,
+  } = body;
 
   if (!email || !password) {
     return NextResponse.json({ error: 'email e password são obrigatórios' }, { status: 400 });
@@ -67,7 +75,7 @@ export async function POST(req: NextRequest) {
     email,
     password,
     email_confirm: true,
-    user_metadata: { name: name || null, is_institutional: true },
+    user_metadata: { name: name || null, is_institutional },
   });
 
   if (authError) return NextResponse.json({ error: authError.message }, { status: 400 });
@@ -78,11 +86,12 @@ export async function POST(req: NextRequest) {
     .from('charlotte_users')
     .update({
       name:                 name || null,
-      is_institutional:     true,
-      must_change_password: true,
-      placement_test_done:  false,
-      is_active:            true,
-      charlotte_level:      null,
+      is_institutional,
+      must_change_password,
+      placement_test_done,
+      is_active,
+      charlotte_level:      charlotte_level || null,
+      subscription_status,
     })
     .eq('id', userId);
 
@@ -109,7 +118,7 @@ export async function PATCH(req: NextRequest) {
   const allowed = [
     'name', 'charlotte_level', 'is_institutional',
     'is_active', 'subscription_status', 'trial_ends_at',
-    'must_change_password',
+    'must_change_password', 'placement_test_done',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
