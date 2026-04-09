@@ -946,7 +946,7 @@ class SupabaseService {
             achievement_type: achievement.type || 'general',
             achievement_name: title, // ✅ Campo correto na tabela
             achievement_description: description, // ✅ Campo correto na tabela
-            achievement_code: achievement.code || `manual-${Date.now()}`, // ✅ Campo correto na tabela
+            achievement_code: achievement.code || title.toLowerCase().replace(/[^a-z0-9]+/g, '_'), // determinístico por título
             category: achievement.category || 'general', // ✅ Campo correto na tabela
             badge_icon: icon, // ✅ Campo correto na tabela
             badge_color: achievement.badge_color || '#4CAF50', // ✅ Campo correto na tabela

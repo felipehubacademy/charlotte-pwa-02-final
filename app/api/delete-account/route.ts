@@ -1,9 +1,9 @@
 // app/api/delete-account/route.ts
-// Exclui a conta do usuário permanentemente.
-// Apple App Store exige que o app ofereça esta funcionalidade.
+// Exclui a conta do usuario permanentemente.
+// Apple App Store exige que o app oferea esta funcionalidade.
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,58 +13,61 @@ export async function POST(request: NextRequest) {
     }
     const accessToken = authHeader.slice(7);
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = getSupabaseAdmin();
 
-    if (!supabaseUrl || !serviceKey) {
-      console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY');
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-    }
-
-    const supabase = createClient(supabaseUrl, serviceKey);
-
-    // 1. Verificar o token do usuário
+    // 1. Verificar o token do usuario
     const { data: { user }, error: authErr } = await supabase.auth.getUser(accessToken);
     if (authErr || !user) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
 
     const userId = user.id;
-    console.log(`🗑️ Deleting account for user: ${userId} (${user.email})`);
+    console.log(`Deleting account for user: ${userId} (${user.email})`);
 
-    // 2. Limpar dados Charlotte (cascade do auth.users cuida do resto via FK)
-    // Mas vamos ser explícitos para tabelas que possam não ter ON DELETE CASCADE
-    const tables = [
-      'charlotte.practices',
-      'charlotte.progress',
-      'charlotte.leaderboard_cache',
-      'charlotte.users',
-      'chat_messages',
-      'user_achievements',
-    ];
-
-    for (const table of tables) {
-      const { error } = await supabase.from(table).delete().eq('user_id', userId);
-      if (error && !error.message.includes('does not exist')) {
-        console.warn(`⚠️ Error deleting from ${table}:`, error.message);
-      }
+    // 2. Limpar dados das tabelas do schema charlotte
+    //    Usa .schema('charlotte').from() — notacao correta para o Supabase JS client.
+    //    Se o banco tiver ON DELETE CASCADE configurado no auth.users,
+    //    o deleteUser() abaixo ja cuida de tudo — estas chamadas sao best-effort.
+    const charlotteTables = ['practices', 'progress', 'leaderboard_cache'];
+    for (const table of charlotteTables) {
+      const { error } = await supabase
+        .schema('charlotte')
+        .from(table)
+        .delete()
+        .eq('user_id', userId);
+      if (error) console.warn(`Cleanup warning (charlotte.${table}):`, error.message);
     }
 
-    // charlotte.users usa 'id' como PK, não 'user_id'
-    await supabase.from('charlotte.users').delete().eq('id', userId).catch(() => {});
+    // charlotte.users usa 'id' como PK, nao 'user_id'
+    const { error: usersErr } = await supabase
+      .schema('charlotte')
+      .from('users')
+      .delete()
+      .eq('id', userId);
+    if (usersErr) console.warn('Cleanup warning (charlotte.users):', usersErr.message);
 
-    // 3. Deletar o usuário do auth
+    // 3. Limpar dados das tabelas do schema public
+    const publicTables = ['chat_messages', 'user_achievements'];
+    for (const table of publicTables) {
+      const { error } = await supabase
+        .from(table)
+        .delete()
+        .eq('user_id', userId);
+      if (error) console.warn(`Cleanup warning (${table}):`, error.message);
+    }
+
+    // 4. Deletar o usuario do auth (cascata cuida do resto via FK)
     const { error: deleteErr } = await supabase.auth.admin.deleteUser(userId);
     if (deleteErr) {
-      console.error('❌ Failed to delete auth user:', deleteErr.message);
+      console.error('Failed to delete auth user:', deleteErr.message);
       return NextResponse.json({ error: 'Failed to delete account' }, { status: 500 });
     }
 
-    console.log(`✅ Account deleted successfully: ${userId}`);
+    console.log(`Account deleted successfully: ${userId}`);
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error('❌ Delete account error:', error);
+    console.error('Delete account error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

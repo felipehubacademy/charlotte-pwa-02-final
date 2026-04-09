@@ -809,7 +809,7 @@ export default function LearnSessionScreen() {
                   fontWeight: currentStep.exercise.type === 'read_answer' ? '700' : '500',
                   color: C.navy,
                   lineHeight: currentStep.exercise.type === 'read_answer' ? 26 : 34,
-                  marginBottom: (currentStep.exercise.type === 'multiple_choice' || currentStep.exercise.type === 'word_bank') ? 28 : (gStatus === 'answering' ? 0 : 20),
+                  marginBottom: (currentStep.exercise.type === 'multiple_choice' || (currentStep.exercise.type as string) === 'word_bank') ? 28 : (gStatus === 'answering' ? 0 : 20),
                 }}>
                   {currentStep.exercise.type === 'read_answer' ? currentStep.exercise.question : currentStep.exercise.sentence}
                 </AppText>

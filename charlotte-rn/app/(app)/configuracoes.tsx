@@ -403,8 +403,8 @@ export default function ConfiguracoesScreen() {
           </>
         )}
 
-        {/* Uso */}
-        {voiceUsage !== null && voiceUsage.poolTotal > 0 && (
+        {/* Uso — só para Inter e Advanced (Novice não tem Live Voice) */}
+        {voiceUsage !== null && voiceUsage.poolTotal > 0 && profile?.charlotte_level !== 'Novice' && (
           <>
             <SectionTitle label={isPt ? 'Uso' : 'Usage'} />
             <View style={{

@@ -81,7 +81,7 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
   useEffect(() => {
     if (!visible) return;
 
-    const ids = GREETING_IDS[userLevel] ?? GREETING_IDS.Inter;
+    const ids = GREETING_IDS[userLevel ?? 'Novice'] ?? GREETING_IDS.Novice;
     const pick = ids[Math.floor(Math.random() * ids.length)];
     greetingIdRef.current = pick;
 
@@ -216,20 +216,6 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
           onPress={handleDismiss}
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}
         >
-          {/* Charlotte badge */}
-          <Animated.View style={{ opacity: fadeAnim, marginBottom: 8 }}>
-            <View style={{
-              backgroundColor: '#A3FF3C',
-              borderRadius: 8,
-              paddingHorizontal: 12,
-              paddingVertical: 4,
-            }}>
-              <AppText style={{ color: '#16153A', fontSize: 13, fontWeight: '800', letterSpacing: -0.3 }}>
-                Charlotte
-              </AppText>
-            </View>
-          </Animated.View>
-
           {/* Avatar com ring pulsante */}
           <Animated.View style={{
             transform: [{ scale: scaleAnim }],
@@ -265,7 +251,7 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
               textAlign: 'center',
               lineHeight: 22,
             }}>
-              {firstName}, {SUBTITLE[userLevel] ?? SUBTITLE.Inter}
+              {firstName}, {SUBTITLE[userLevel ?? 'Novice'] ?? SUBTITLE.Novice}
             </AppText>
           </Animated.View>
 

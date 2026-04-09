@@ -101,6 +101,12 @@ export default function Index() {
   // This prevents the intermediate (isAuthenticated=true, profile=null) state
   // from ever reaching /(app)/_layout.tsx and triggering the dot-spinner loop.
   if (isLoading || (isAuthenticated && profile === null)) return <LoadingScreen />;
-  if (isAuthenticated) return <Redirect href="/(app)" />;
-  return <Redirect href="/(auth)/login" />;
+
+  // Not authenticated — go to login.
+  if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
+
+  // Authenticated with profile — AuthGuard in _layout.tsx handles all routing
+  // (first-access, placement-test, or home). Do NOT redirect here to avoid
+  // racing with AuthGuard's router.replace() calls.
+  return <LoadingScreen />;
 }

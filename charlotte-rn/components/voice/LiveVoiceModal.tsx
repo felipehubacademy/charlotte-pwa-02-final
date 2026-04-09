@@ -550,11 +550,7 @@ export default function LiveVoiceModal({
       stopRingTone();
 
       const stream = await mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl:  true,
-        },
+        audio: true,
         video: false,
       });
       localStreamRef.current = stream;
