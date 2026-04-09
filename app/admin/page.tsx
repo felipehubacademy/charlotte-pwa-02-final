@@ -61,6 +61,11 @@ const C = {
   shadowLg:    '0 20px 60px rgba(22,21,58,0.14)',
 };
 
+// ── RevenueCat ────────────────────────────────────────────────────────────────
+// app_user_id no RevenueCat = id do usuario no Supabase (via Purchases.logIn(userId))
+const RC_CUSTOMER_URL = (userId: string) =>
+  `https://app.revenuecat.com/customers?app_user_id=${encodeURIComponent(userId)}`;
+
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 
 const Icon = {
@@ -126,6 +131,17 @@ const Icon = {
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
       <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  ),
+  externalLink: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+      <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+    </svg>
+  ),
+  copy: (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
     </svg>
   ),
 };
@@ -827,6 +843,57 @@ export default function AdminPage() {
                           <option value="expired">Expirado</option>
                           <option value="cancelled">Cancelado</option>
                         </select>
+                      </div>
+                    </div>
+
+                    {/* RevenueCat */}
+                    <div style={{
+                      backgroundColor: C.bg, border: `1px solid ${C.border}`,
+                      borderRadius: 10, padding: '12px 14px',
+                    }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: C.navyLight, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 8 }}>
+                        RevenueCat
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 11, color: C.navyLight, marginBottom: 2 }}>Customer ID (= User ID)</div>
+                          <div style={{
+                            fontSize: 12, fontWeight: 500, color: C.navyMid,
+                            fontFamily: 'monospace', overflow: 'hidden',
+                            textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          }}>
+                            {selectedUser?.id}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            title="Copiar ID"
+                            onClick={() => navigator.clipboard.writeText(selectedUser?.id ?? '')}
+                            style={{
+                              background: C.card, border: `1px solid ${C.border}`,
+                              borderRadius: 7, padding: '6px 10px', cursor: 'pointer',
+                              color: C.navyMid, fontSize: 12, fontWeight: 600,
+                              display: 'flex', alignItems: 'center', gap: 5,
+                            }}
+                          >
+                            {Icon.copy} Copiar
+                          </button>
+                          <a
+                            href={RC_CUSTOMER_URL(selectedUser?.id ?? '')}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              background: C.card, border: `1px solid ${C.border}`,
+                              borderRadius: 7, padding: '6px 10px', cursor: 'pointer',
+                              color: C.blue, fontSize: 12, fontWeight: 600,
+                              display: 'flex', alignItems: 'center', gap: 5,
+                              textDecoration: 'none',
+                            }}
+                          >
+                            {Icon.externalLink} Ver no RC
+                          </a>
+                        </div>
                       </div>
                     </div>
 
