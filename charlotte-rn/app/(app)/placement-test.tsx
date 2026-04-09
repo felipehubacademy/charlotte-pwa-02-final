@@ -446,6 +446,17 @@ export default function PlacementTestScreen() {
         })
         .eq('id', userId);
       if (error) throw error;
+
+      // Dispara email de boas-vindas em background (fire-and-forget).
+      // Nao bloqueia o fluxo — se falhar, nao afeta o usuario.
+      const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+      if (accessToken) {
+        fetch(`${API_BASE_URL}/api/auth/welcome`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }).catch(e => console.warn('[PlacementTest] welcome email error:', e));
+      }
+
       await refreshProfile();
       setPhase('result');
     } catch (e: any) {
