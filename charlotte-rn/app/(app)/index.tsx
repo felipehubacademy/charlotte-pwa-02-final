@@ -32,7 +32,9 @@ import {
   Headphones,
 } from 'phosphor-react-native';
 import * as SecureStore from 'expo-secure-store';
+import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
+import { useXPToast } from '@/components/ui/XPToastProvider';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { AppText } from '@/components/ui/Text';
 import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
@@ -762,6 +764,7 @@ export default function HomeScreen() {
   // eslint-disable-next-line @typescript-eslint/no-shadow
   const C = T;
   const isOnline = useNetworkStatus();
+  const { triggerToast } = useXPToast();
 
   // Trial badge — days remaining for non-institutional users on trial
   const trialDaysLeft = useMemo(() => {
@@ -786,6 +789,8 @@ export default function HomeScreen() {
   const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
   const greetingLevelRef   = useRef<string>('');
+  // Tracks weekly challenge rewards already granted this session to prevent double-credit
+  const weeklyRewardedRef  = useRef<Set<string>>(new Set());
 
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
@@ -927,9 +932,46 @@ export default function HomeScreen() {
         weekly.weeklyMessages, weekly.weeklyXP,
         data?.streakDays ?? 0, weekly.weeklyLessons, weekly.weeklyAudios,
       );
+
+      // ── Weekly challenge completion celebration & XP credit ───────────────
+      if (state.completed) {
+        const rewardKey = `weekly_reward_${state.challenge.id}_${state.weekStart}`;
+        if (!weeklyRewardedRef.current.has(rewardKey)) {
+          weeklyRewardedRef.current.add(rewardKey);
+
+          // Check DB to avoid crediting again after app restart
+          const { data: existing } = await supabase
+            .from('charlotte_practices')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('practice_type', rewardKey)
+            .maybeSingle();
+
+          if (!existing) {
+            // Credit XP
+            const { error } = await supabase.from('charlotte_practices').insert({
+              user_id:       userId,
+              practice_type: rewardKey,
+              xp_earned:     state.challenge.xpReward,
+            });
+
+            if (!error) {
+              // Celebrate!
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              setTimeout(() => {
+                soundEngine.play('achievement_rare').catch(() => {});
+                triggerToast(state.challenge.xpReward);
+              }, 300);
+            } else {
+              weeklyRewardedRef.current.delete(rewardKey); // rollback
+            }
+          }
+        }
+      }
+
       setWeeklyState(state);
     } catch { /* silencioso */ }
-  }, [userId, data?.streakDays]);
+  }, [userId, data?.streakDays, triggerToast]);
 
   useEffect(() => {
     if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); }
