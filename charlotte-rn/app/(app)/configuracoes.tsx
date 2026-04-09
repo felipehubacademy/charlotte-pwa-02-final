@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, ScrollView, TouchableOpacity, Alert, Platform, Linking, ActivityIndicator } from 'react-native';
+import { View, ScrollView, TouchableOpacity, Alert, Platform, Linking, ActivityIndicator, Image } from 'react-native';
+import AvatarCropModal from '@/components/ui/AvatarCropModal';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -13,15 +14,18 @@ import {
   SignOut,
   ShieldCheck,
   CheckCircle,
+  Microphone,
   FileText,
   ShieldWarning,
   ArrowsClockwise,
   Trash,
+  PencilSimple,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { restorePurchases } from '@/lib/purchases';
+import { getLiveVoiceStatus, LiveVoiceStatus } from '@/lib/liveVoiceUsage';
 import Constants from 'expo-constants';
 
 const API_BASE_URL =
@@ -122,8 +126,16 @@ function SectionTitle({ label }: { label: string }) {
 export default function ConfiguracoesScreen() {
   const { profile, signOut, refreshProfile } = useAuth();
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
-  const [deletingAccount, setDeletingAccount] = React.useState(false);
+  const [deletingAccount, setDeletingAccount]     = React.useState(false);
   const [restoringPurchases, setRestoringPurchases] = React.useState(false);
+  const [voiceUsage, setVoiceUsage]               = React.useState<LiveVoiceStatus | null>(null);
+  const [showAvatarModal, setShowAvatarModal]     = React.useState(false);
+
+  React.useEffect(() => {
+    getLiveVoiceStatus(profile?.charlotte_level ?? undefined)
+      .then(setVoiceUsage)
+      .catch(() => {});
+  }, [profile?.charlotte_level]);
 
   const handleRetakePlacementTest = () => {
     Alert.alert(
@@ -295,14 +307,40 @@ export default function ConfiguracoesScreen() {
           gap: 14,
           ...C.shadow,
         }}>
-          <View style={{
-            width: 52, height: 52, borderRadius: 26,
-            backgroundColor: 'rgba(163,255,60,0.10)',
-            borderWidth: 2, borderColor: C.green,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <User size={26} color={C.greenDark} weight="duotone" />
-          </View>
+          {/* Avatar with pencil badge */}
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setShowAvatarModal(true)}
+            style={{ position: 'relative' }}
+          >
+            <View style={{
+              width: 58, height: 58, borderRadius: 29,
+              backgroundColor: 'rgba(163,255,60,0.10)',
+              borderWidth: 2, borderColor: C.green,
+              alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
+            }}>
+              {profile?.avatar_url ? (
+                <Image
+                  source={{ uri: profile.avatar_url }}
+                  style={{ width: 58, height: 58 }}
+                />
+              ) : (
+                <User size={26} color={C.greenDark} weight="duotone" />
+              )}
+            </View>
+            {/* Pencil badge */}
+            <View style={{
+              position: 'absolute', bottom: 0, right: 0,
+              width: 20, height: 20, borderRadius: 10,
+              backgroundColor: C.navy,
+              alignItems: 'center', justifyContent: 'center',
+              borderWidth: 1.5, borderColor: C.card,
+            }}>
+              <PencilSimple size={10} color="#FFF" weight="fill" />
+            </View>
+          </TouchableOpacity>
+
           <View style={{ flex: 1 }}>
             <AppText style={{ color: C.navy, fontWeight: '700', fontSize: 15 }} numberOfLines={1}>
               {profile?.name ?? profile?.email?.split('@')[0] ?? '—'}
@@ -312,6 +350,17 @@ export default function ConfiguracoesScreen() {
             </AppText>
           </View>
         </View>
+
+        <AvatarCropModal
+          isOpen={showAvatarModal}
+          onClose={() => setShowAvatarModal(false)}
+          userId={profile?.id ?? ''}
+          currentAvatarUrl={profile?.avatar_url}
+          onSaved={(url) => {
+            setShowAvatarModal(false);
+            refreshProfile();
+          }}
+        />
 
         {/* Account */}
         <SectionTitle label={isPt ? 'Conta' : 'Account'} />
@@ -351,6 +400,57 @@ export default function ConfiguracoesScreen() {
               onPress={restoringPurchases ? undefined : handleRestorePurchases}
               chevron
             />
+          </>
+        )}
+
+        {/* Uso */}
+        {voiceUsage !== null && voiceUsage.poolTotal > 0 && (
+          <>
+            <SectionTitle label={isPt ? 'Uso' : 'Usage'} />
+            <View style={{
+              backgroundColor: C.card, borderRadius: 14, borderWidth: 1,
+              borderColor: C.border, padding: 14, marginBottom: 6, ...C.shadow,
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                <View style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  backgroundColor: 'rgba(163,255,60,0.12)',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Microphone size={18} color={C.greenDark} weight="duotone" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText style={{ fontSize: 14, fontWeight: '600', color: C.navy }}>
+                    {isPt ? 'Live Voice este mês' : 'Live Voice this month'}
+                  </AppText>
+                  <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>
+                    {`${Math.ceil(voiceUsage.secondsUsed / 60)} / ${Math.floor(voiceUsage.poolTotal / 60)} min ${isPt ? 'utilizados' : 'used'}`}
+                  </AppText>
+                </View>
+                <AppText style={{
+                  fontSize: 13, fontWeight: '700',
+                  color: voiceUsage.secondsRemaining < 120 ? C.error : C.greenDark,
+                }}>
+                  {`${Math.ceil(voiceUsage.secondsRemaining / 60)} min`}
+                </AppText>
+              </View>
+              {/* Progress bar */}
+              <View style={{ height: 5, backgroundColor: 'rgba(22,21,58,0.07)', borderRadius: 3, overflow: 'hidden' }}>
+                <View style={{
+                  height: 5, borderRadius: 3,
+                  backgroundColor: voiceUsage.secondsRemaining < 60 ? C.error
+                    : voiceUsage.secondsRemaining < 120 ? '#F97316'
+                    : C.greenDark,
+                  width: `${Math.min(100, (voiceUsage.secondsUsed / voiceUsage.poolTotal) * 100)}%` as `${number}%`,
+                }} />
+              </View>
+              <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 6 }}>
+                {isPt
+                  ? `Renova em 1/${String(new Date().getMonth() + 2).padStart(2,'0')}`
+                  : `Resets ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('en', { month: 'short', day: 'numeric' })}`
+                }
+              </AppText>
+            </View>
           </>
         )}
 

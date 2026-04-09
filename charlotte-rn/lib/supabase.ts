@@ -141,4 +141,5 @@ export interface UserProfile {
   must_change_password: boolean;
   live_voice_seconds_used: number;      // segundos usados no mês corrente
   live_voice_reset_date:   string | null; // 'YYYY-MM-01'
+  avatar_url?: string | null;
 }
