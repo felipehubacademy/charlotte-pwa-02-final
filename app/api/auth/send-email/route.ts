@@ -54,8 +54,10 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
 
   // Verificar assinatura Standard Webhooks
+  // standardwebhooks so reconhece o prefixo "whsec_", nao "v1,whsec_"
+  const whSecret = HOOK_SECRET.startsWith('v1,') ? HOOK_SECRET.slice(3) : HOOK_SECRET;
   try {
-    const wh = new Webhook(HOOK_SECRET);
+    const wh = new Webhook(whSecret);
     wh.verify(rawBody, {
       'webhook-id':        req.headers.get('webhook-id')        ?? '',
       'webhook-timestamp': req.headers.get('webhook-timestamp') ?? '',
