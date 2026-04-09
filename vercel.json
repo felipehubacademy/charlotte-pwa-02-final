@@ -1,14 +1,6 @@
 {
   "crons": [
     {
-      "path": "/api/notifications/scheduler",
-      "schedule": "0 14 * * *"
-    },
-    {
-      "path": "/api/notifications/scheduler",
-      "schedule": "0 21 * * *"
-    },
-    {
       "path": "/api/cron/trial",
       "schedule": "0 11 * * *"
     }
