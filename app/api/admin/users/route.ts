@@ -1,6 +1,6 @@
 /**
  * app/api/admin/users/route.ts
- * Admin API for listing and creating charlotte users.
+ * Admin API — list, create, update and delete charlotte users.
  * Protected by ADMIN_SECRET env var.
  */
 
@@ -20,7 +20,6 @@ export async function GET(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  // Users
   const { data: users, error } = await supabase
     .from('charlotte_users')
     .select('*')
@@ -28,7 +27,6 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Stats
   const total         = users?.length ?? 0;
   const institutional = users?.filter(u => u.is_institutional).length ?? 0;
   const subscribers   = users?.filter(u => u.subscription_status === 'active').length ?? 0;
@@ -39,10 +37,9 @@ export async function GET(req: NextRequest) {
     return new Date(u.trial_ends_at) < new Date();
   }).length ?? 0;
 
-  // Growth: users created in last 30 days vs previous 30 days
-  const now   = new Date();
-  const d30   = new Date(now); d30.setDate(d30.getDate() - 30);
-  const d60   = new Date(now); d60.setDate(d60.getDate() - 60);
+  const now    = new Date();
+  const d30    = new Date(now); d30.setDate(d30.getDate() - 30);
+  const d60    = new Date(now); d60.setDate(d60.getDate() - 60);
   const last30 = users?.filter(u => new Date(u.created_at) >= d30).length ?? 0;
   const prev30 = users?.filter(u => new Date(u.created_at) >= d60 && new Date(u.created_at) < d30).length ?? 0;
   const growthPct = prev30 === 0 ? null : Math.round(((last30 - prev30) / prev30) * 100);
@@ -66,7 +63,6 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  // 1. Create auth user — always institutional, must change password on first login
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -78,8 +74,6 @@ export async function POST(req: NextRequest) {
 
   const userId = authData.user.id;
 
-  // 2. O trigger on_auth_user_created já criou a linha em charlotte.users.
-  //    Apenas atualizamos os campos extras — sem upsert/insert na view.
   const { error: profileError } = await supabase
     .from('charlotte_users')
     .update({
@@ -88,15 +82,74 @@ export async function POST(req: NextRequest) {
       must_change_password: true,
       placement_test_done:  false,
       is_active:            true,
-      charlotte_level:      null, // definido no placement test
+      charlotte_level:      null,
     })
     .eq('id', userId);
 
   if (profileError) {
-    // Rollback auth user se o update falhar
     await supabase.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
 
   return NextResponse.json({ success: true, userId });
+}
+
+// ── PATCH /api/admin/users — update a user ────────────────────────────────────
+export async function PATCH(req: NextRequest) {
+  if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const body = await req.json();
+  const { id, ...fields } = body;
+
+  if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });
+
+  const supabase = getSupabaseAdmin();
+
+  // Allowed editable fields
+  const allowed = [
+    'name', 'charlotte_level', 'is_institutional',
+    'is_active', 'subscription_status', 'trial_ends_at',
+    'must_change_password',
+  ];
+  const updates: Record<string, unknown> = {};
+  for (const key of allowed) {
+    if (key in fields) updates[key] = fields[key];
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: 'Nenhum campo válido para atualizar' }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from('charlotte_users')
+    .update(updates)
+    .eq('id', id);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Update email via auth admin if provided
+  if (fields.email) {
+    const { error: emailError } = await supabase.auth.admin.updateUserById(id, { email: fields.email });
+    if (emailError) return NextResponse.json({ error: emailError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}
+
+// ── DELETE /api/admin/users — delete a user ───────────────────────────────────
+export async function DELETE(req: NextRequest) {
+  if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const body = await req.json();
+  const { id } = body;
+
+  if (!id) return NextResponse.json({ error: 'id é obrigatório' }, { status: 400 });
+
+  const supabase = getSupabaseAdmin();
+
+  // Deleting auth user cascades to charlotte.users via ON DELETE CASCADE
+  const { error } = await supabase.auth.admin.deleteUser(id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  return NextResponse.json({ success: true });
 }

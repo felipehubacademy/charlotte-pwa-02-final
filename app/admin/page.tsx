@@ -2,7 +2,7 @@
 
 /**
  * app/admin/page.tsx
- * Charlotte Admin Dashboard — light theme (matches charlotte.hubacademybr.com)
+ * Charlotte Admin Dashboard — professional user management
  * Protected by ADMIN_SECRET (entered once, stored in sessionStorage).
  */
 
@@ -35,6 +35,8 @@ interface Stats {
   growthPct: number | null;
 }
 
+type ModalMode = 'create' | 'edit' | 'delete' | null;
+
 // ── Palette ───────────────────────────────────────────────────────────────────
 
 const C = {
@@ -44,6 +46,7 @@ const C = {
   navyMid:     '#4B4A72',
   navyLight:   '#9896B8',
   navyGhost:   'rgba(22,21,58,0.05)',
+  navyGhost2:  'rgba(22,21,58,0.08)',
   border:      'rgba(22,21,58,0.08)',
   green:       '#A3FF3C',
   greenDark:   '#3D8800',
@@ -55,48 +58,158 @@ const C = {
   red:         '#EF4444',
   redBg:       '#FEF2F2',
   shadow:      '0 1px 3px rgba(22,21,58,0.08), 0 1px 2px rgba(22,21,58,0.04)',
+  shadowLg:    '0 20px 60px rgba(22,21,58,0.14)',
+};
+
+// ── SVG Icons ─────────────────────────────────────────────────────────────────
+
+const Icon = {
+  users: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  building: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+    </svg>
+  ),
+  checkCircle: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+    </svg>
+  ),
+  clock: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  ),
+  trendUp: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>
+    </svg>
+  ),
+  search: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  ),
+  edit: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+  ),
+  trash: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>
+  ),
+  refresh: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+    </svg>
+  ),
+  plus: (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  ),
+  close: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  ),
+  warning: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+      <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  ),
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function statusBadge(u: User) {
-  if (u.is_institutional) return { label: 'Institucional', bg: C.blueBg,   color: C.blue,      border: '#BFDBFE' };
-  if (u.subscription_status === 'active') return { label: 'Assinante',   bg: C.greenBg,  color: C.greenDark, border: '#BBF7D0' };
+  if (u.is_institutional) return { label: 'Institucional', bg: C.blueBg,    color: C.blue,      border: '#BFDBFE' };
+  if (u.subscription_status === 'active')
+                          return { label: 'Assinante',     bg: C.greenBg,   color: C.greenDark, border: '#BBF7D0' };
   if (u.subscription_status === 'trial') {
     const expired = u.trial_ends_at ? new Date(u.trial_ends_at) < new Date() : true;
-    if (expired) return { label: 'Trial expirado', bg: C.redBg,    color: C.red,       border: '#FECACA' };
-    const days = u.trial_ends_at ? Math.ceil((new Date(u.trial_ends_at).getTime() - Date.now()) / 86400000) : 0;
-    return { label: `Trial • ${days}d`, bg: C.orangeBg, color: C.orange,    border: '#FED7AA' };
+    if (expired) return   { label: 'Trial expirado', bg: C.redBg,    color: C.red,       border: '#FECACA' };
+    const days = u.trial_ends_at
+      ? Math.ceil((new Date(u.trial_ends_at).getTime() - Date.now()) / 86400000)
+      : 0;
+    return                { label: `Trial · ${days}d`, bg: C.orangeBg, color: C.orange,  border: '#FED7AA' };
   }
-  return { label: 'Sem plano', bg: C.navyGhost, color: C.navyLight, border: C.border };
+  return                  { label: 'Sem plano',    bg: C.navyGhost, color: C.navyLight, border: C.border };
 }
 
 function levelLabel(level: User['charlotte_level']) {
-  if (!level) return { text: '—', color: C.navyLight };
-  if (level === 'Novice')   return { text: 'Novice',       color: '#7C3AED' };
-  if (level === 'Inter')    return { text: 'Intermediate', color: C.blue };
-  if (level === 'Advanced') return { text: 'Advanced',     color: C.greenDark };
-  return { text: level, color: C.navyLight };
+  if (!level)              return { text: '—',            color: C.navyLight };
+  if (level === 'Novice')  return { text: 'Novice',       color: '#7C3AED' };
+  if (level === 'Inter')   return { text: 'Intermediate', color: C.blue };
+  if (level === 'Advanced')return { text: 'Advanced',     color: C.greenDark };
+  return                          { text: level,          color: C.navyLight };
 }
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function StatCard({ label, value, sub, color, icon }: {
+  label: string; value: string | number; sub?: string;
+  color: string; icon: React.ReactNode;
+}) {
+  return (
+    <div style={{
+      backgroundColor: C.card,
+      border: `1px solid ${C.border}`,
+      borderRadius: 14,
+      padding: '20px 22px',
+      boxShadow: C.shadow,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 14,
+      }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: C.navyLight, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+          {label}
+        </span>
+        <span style={{ color: C.navyLight, opacity: 0.7 }}>{icon}</span>
+      </div>
+      <div style={{ fontSize: 30, fontWeight: 900, color, letterSpacing: '-0.5px', lineHeight: 1 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: C.navyLight, marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
-  const [secret, setSecret]       = useState('');
-  const [authed, setAuthed]       = useState(false);
-  const [loading, setLoading]     = useState(false);
-  const [users, setUsers]         = useState<User[]>([]);
-  const [stats, setStats]         = useState<Stats | null>(null);
-  const [error, setError]         = useState('');
-  const [search, setSearch]       = useState('');
-  const [filter, setFilter]       = useState<'all' | 'institutional' | 'subscriber' | 'trial' | 'none'>('all');
-  const [showModal, setShowModal] = useState(false);
-  const [saving, setSaving]       = useState(false);
-  const [form, setForm]           = useState({ email: '', password: '', name: '' });
+  const [secret, setSecret]         = useState('');
+  const [authed, setAuthed]         = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [users, setUsers]           = useState<User[]>([]);
+  const [stats, setStats]           = useState<Stats | null>(null);
+  const [error, setError]           = useState('');
+  const [search, setSearch]         = useState('');
+  const [filter, setFilter]         = useState<'all' | 'institutional' | 'subscriber' | 'trial' | 'none'>('all');
+  const [modalMode, setModalMode]   = useState<ModalMode>(null);
+  const [selectedUser, setSelected] = useState<User | null>(null);
+  const [saving, setSaving]         = useState(false);
+  const [form, setForm]             = useState({
+    email: '', password: '', name: '',
+    charlotte_level: '' as string,
+    is_institutional: true,
+    is_active: true,
+    subscription_status: 'none' as string,
+    must_change_password: true,
+  });
 
   useEffect(() => {
     const s = sessionStorage.getItem('admin_secret');
@@ -130,29 +243,102 @@ export default function AdminPage() {
     setAuthed(true);
   };
 
+  const openCreate = () => {
+    setForm({ email: '', password: '', name: '', charlotte_level: '', is_institutional: true, is_active: true, subscription_status: 'none', must_change_password: true });
+    setError('');
+    setModalMode('create');
+  };
+
+  const openEdit = (u: User) => {
+    setSelected(u);
+    setForm({
+      email: u.email,
+      password: '',
+      name: u.name ?? '',
+      charlotte_level: u.charlotte_level ?? '',
+      is_institutional: u.is_institutional,
+      is_active: u.is_active,
+      subscription_status: u.subscription_status,
+      must_change_password: u.must_change_password,
+    });
+    setError('');
+    setModalMode('edit');
+  };
+
+  const openDelete = (u: User) => {
+    setSelected(u);
+    setModalMode('delete');
+  };
+
+  const closeModal = () => {
+    setModalMode(null);
+    setSelected(null);
+    setError('');
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaving(true);
-    setError('');
+    setSaving(true); setError('');
     try {
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ email: form.email, password: form.password, name: form.name }),
       });
       const json = await res.json();
       if (json.error) { setError(json.error); return; }
-      setShowModal(false);
-      setForm({ email: '', password: '', name: '' });
+      closeModal();
       fetchData(secret);
-    } catch {
-      setError('Erro ao criar usuário.');
-    } finally {
-      setSaving(false);
-    }
+    } catch { setError('Erro ao criar usuário.'); }
+    finally   { setSaving(false); }
   };
 
-  // ── Login screen ────────────────────────────────────────────────────────────
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    setSaving(true); setError('');
+    try {
+      const body: Record<string, unknown> = {
+        id: selectedUser.id,
+        name: form.name || null,
+        charlotte_level: form.charlotte_level || null,
+        is_institutional: form.is_institutional,
+        is_active: form.is_active,
+        subscription_status: form.subscription_status,
+        must_change_password: form.must_change_password,
+      };
+      if (form.email !== selectedUser.email) body.email = form.email;
+      const res = await fetch('/api/admin/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (json.error) { setError(json.error); return; }
+      closeModal();
+      fetchData(secret);
+    } catch { setError('Erro ao atualizar usuário.'); }
+    finally   { setSaving(false); }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedUser) return;
+    setSaving(true); setError('');
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', 'x-admin-secret': secret },
+        body: JSON.stringify({ id: selectedUser.id }),
+      });
+      const json = await res.json();
+      if (json.error) { setError(json.error); return; }
+      closeModal();
+      fetchData(secret);
+    } catch { setError('Erro ao excluir usuário.'); }
+    finally   { setSaving(false); }
+  };
+
+  // ── Login screen ─────────────────────────────────────────────────────────────
 
   if (!authed) {
     return (
@@ -164,7 +350,7 @@ export default function AdminPage() {
         <div style={{
           width: 380, backgroundColor: C.card,
           borderRadius: 20, border: `1px solid ${C.border}`,
-          boxShadow: C.shadow, padding: 40,
+          boxShadow: C.shadowLg, padding: 40,
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 32 }}>
             <Image src="/images/charlotte-avatar.png" alt="Charlotte" width={36} height={36}
@@ -203,12 +389,13 @@ export default function AdminPage() {
     );
   }
 
-  // ── Filtered users ─────────────────────────────────────────────────────────
+  // ── Filtered list ─────────────────────────────────────────────────────────────
 
   const filtered = users.filter(u => {
+    const q = search.toLowerCase();
     const matchSearch = !search
-      || u.email.toLowerCase().includes(search.toLowerCase())
-      || (u.name ?? '').toLowerCase().includes(search.toLowerCase());
+      || u.email.toLowerCase().includes(q)
+      || (u.name ?? '').toLowerCase().includes(q);
     const matchFilter =
       filter === 'all'           ? true :
       filter === 'institutional' ? u.is_institutional :
@@ -219,7 +406,7 @@ export default function AdminPage() {
     return matchSearch && matchFilter;
   });
 
-  // ── Shared input style ─────────────────────────────────────────────────────
+  // ── Shared styles ─────────────────────────────────────────────────────────────
 
   const inputStyle: React.CSSProperties = {
     backgroundColor: C.bg, border: `1px solid ${C.border}`,
@@ -233,7 +420,15 @@ export default function AdminPage() {
     marginBottom: 6, display: 'block',
   };
 
-  // ── Dashboard ───────────────────────────────────────────────────────────────
+  const selectStyle: React.CSSProperties = {
+    ...inputStyle,
+    appearance: 'none', cursor: 'pointer',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239896B8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 12px center',
+    paddingRight: 36,
+  };
+
+  // ── Dashboard ─────────────────────────────────────────────────────────────────
 
   return (
     <div style={{
@@ -242,7 +437,7 @@ export default function AdminPage() {
       color: C.navy,
     }}>
 
-      {/* ── Header ── */}
+      {/* Header */}
       <header style={{
         borderBottom: `1px solid ${C.border}`,
         padding: '0 32px',
@@ -262,62 +457,54 @@ export default function AdminPage() {
             padding: '2px 8px', marginLeft: 4,
           }}>Admin</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={() => fetchData(secret)} style={{
-            backgroundColor: 'transparent', border: `1px solid ${C.border}`,
-            color: C.navyMid, fontSize: 13, padding: '7px 14px',
-            borderRadius: 8, cursor: 'pointer',
-          }}>
-            ↻ Atualizar
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => fetchData(secret)}
+            title="Atualizar"
+            style={{
+              backgroundColor: 'transparent', border: `1px solid ${C.border}`,
+              color: C.navyMid, fontSize: 13, padding: '7px 14px',
+              borderRadius: 8, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            {Icon.refresh} Atualizar
           </button>
-          <button onClick={() => setShowModal(true)} style={{
-            backgroundColor: C.navy, color: '#fff',
-            fontWeight: 700, fontSize: 13,
-            padding: '8px 18px', borderRadius: 8,
-            border: 'none', cursor: 'pointer',
-          }}>
-            + Novo usuário
+          <button
+            onClick={openCreate}
+            style={{
+              backgroundColor: C.navy, color: '#fff',
+              fontWeight: 700, fontSize: 13,
+              padding: '8px 16px', borderRadius: 8,
+              border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            {Icon.plus} Novo usuário
           </button>
         </div>
       </header>
 
-      <main style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px' }}>
 
-        {/* ── Stats cards ── */}
+        {/* Stats */}
         {stats && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 32 }}>
-            {[
-              { label: 'Total de alunos',   value: stats.total,         accent: C.navy,      icon: '👥' },
-              { label: 'Institucionais',    value: stats.institutional,  accent: C.blue,      icon: '🏛' },
-              { label: 'Assinantes',        value: stats.subscribers,    accent: C.greenDark, icon: '✅' },
-              { label: 'Em trial',          value: stats.onTrial,        accent: C.orange,    icon: '⏳' },
-              {
-                label: 'Novos (30 dias)',
-                value: stats.growthPct !== null
-                  ? `${stats.growthPct > 0 ? '+' : ''}${stats.growthPct}%`
-                  : `+${stats.last30}`,
-                sub: `${stats.last30} cadastros`,
-                accent: C.greenDark,
-                icon: '📈',
-              },
-            ].map(s => (
-              <div key={s.label} style={{
-                backgroundColor: C.card,
-                border: `1px solid ${C.border}`,
-                borderRadius: 16,
-                padding: '20px 20px 18px',
-                boxShadow: C.shadow,
-              }}>
-                <div style={{ fontSize: 20, marginBottom: 10 }}>{s.icon}</div>
-                <div style={{ fontSize: 28, fontWeight: 900, color: s.accent, letterSpacing: '-0.5px', lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: 12, color: C.navyLight, marginTop: 6, fontWeight: 500 }}>{s.label}</div>
-                {s.sub && <div style={{ fontSize: 11, color: C.navyLight, marginTop: 2, opacity: 0.7 }}>{s.sub}</div>}
-              </div>
-            ))}
+            <StatCard label="Total de alunos"   value={stats.total}         color={C.navy}      icon={Icon.users} />
+            <StatCard label="Institucionais"    value={stats.institutional}  color={C.blue}      icon={Icon.building} />
+            <StatCard label="Assinantes"        value={stats.subscribers}    color={C.greenDark} icon={Icon.checkCircle} />
+            <StatCard label="Em trial"          value={stats.onTrial}        color={C.orange}    icon={Icon.clock} />
+            <StatCard
+              label="Novos (30 dias)"
+              value={stats.growthPct !== null ? `${stats.growthPct > 0 ? '+' : ''}${stats.growthPct}%` : `+${stats.last30}`}
+              sub={`${stats.last30} cadastros`}
+              color={C.greenDark}
+              icon={Icon.trendUp}
+            />
           </div>
         )}
 
-        {/* ── Filters + search ── */}
+        {/* Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
           <div style={{ position: 'relative' }}>
             <input
@@ -325,39 +512,36 @@ export default function AdminPage() {
               placeholder="Buscar por nome ou email..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{ ...inputStyle, width: 260, paddingLeft: 36 }}
+              style={{ ...inputStyle, width: 280, paddingLeft: 38 }}
             />
-            <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
-              width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.navyLight} strokeWidth="2">
-              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
+            <span style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: C.navyLight, pointerEvents: 'none' }}>
+              {Icon.search}
+            </span>
           </div>
-
           <div style={{ display: 'flex', gap: 6 }}>
             {(['all', 'institutional', 'subscriber', 'trial', 'none'] as const).map(f => {
               const active = filter === f;
               return (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  style={{
-                    backgroundColor: active ? C.navy : C.card,
-                    color: active ? '#fff' : C.navyMid,
-                    fontWeight: active ? 700 : 500,
-                    fontSize: 13, padding: '7px 14px', borderRadius: 8,
-                    border: `1px solid ${active ? C.navy : C.border}`,
-                    cursor: 'pointer', transition: 'all 0.15s',
-                  }}
-                >
+                <button key={f} onClick={() => setFilter(f)} style={{
+                  backgroundColor: active ? C.navy : C.card,
+                  color: active ? '#fff' : C.navyMid,
+                  fontWeight: active ? 700 : 500,
+                  fontSize: 13, padding: '7px 14px', borderRadius: 8,
+                  border: `1px solid ${active ? C.navy : C.border}`,
+                  cursor: 'pointer',
+                }}>
                   {{ all: 'Todos', institutional: 'Institucional', subscriber: 'Assinante', trial: 'Trial', none: 'Sem plano' }[f]}
                 </button>
               );
             })}
           </div>
+          <div style={{ marginLeft: 'auto', fontSize: 13, color: C.navyLight }}>
+            {filtered.length} {filtered.length === 1 ? 'usuário' : 'usuários'}
+          </div>
         </div>
 
-        {/* ── Error ── */}
-        {error && (
+        {/* Error banner */}
+        {error && !modalMode && (
           <div style={{
             backgroundColor: C.redBg, border: `1px solid #FECACA`,
             borderRadius: 10, padding: '12px 16px',
@@ -365,9 +549,11 @@ export default function AdminPage() {
           }}>{error}</div>
         )}
 
-        {/* ── Table ── */}
+        {/* Table */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 80, color: C.navyLight }}>Carregando...</div>
+          <div style={{ textAlign: 'center', padding: 80, color: C.navyLight, fontSize: 14 }}>
+            Carregando...
+          </div>
         ) : (
           <div style={{
             backgroundColor: C.card,
@@ -379,12 +565,12 @@ export default function AdminPage() {
             {/* Table header */}
             <div style={{
               display: 'grid',
-              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
-              padding: '12px 20px',
+              gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
+              padding: '11px 20px',
               borderBottom: `1px solid ${C.border}`,
               backgroundColor: C.bg,
             }}>
-              {['Aluno', 'Nível', 'Status', 'Cadastro', 'Placement'].map(h => (
+              {['Aluno', 'Nivel', 'Status', 'Cadastro', 'Placement', ''].map(h => (
                 <div key={h} style={{
                   fontSize: 11, fontWeight: 700, color: C.navyLight,
                   letterSpacing: '0.6px', textTransform: 'uppercase',
@@ -394,7 +580,7 @@ export default function AdminPage() {
 
             {/* Rows */}
             {filtered.length === 0 ? (
-              <div style={{ padding: 48, textAlign: 'center', color: C.navyLight, fontSize: 14 }}>
+              <div style={{ padding: 56, textAlign: 'center', color: C.navyLight, fontSize: 14 }}>
                 Nenhum usuário encontrado.
               </div>
             ) : (
@@ -406,26 +592,30 @@ export default function AdminPage() {
                     key={u.id}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
-                      padding: '14px 20px',
+                      gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
+                      padding: '13px 20px',
                       borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
                       alignItems: 'center',
+                      transition: 'background 0.1s',
                     }}
+                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = C.bg)}
+                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
                   >
                     {/* Aluno */}
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: C.navy }}>{u.name ?? '—'}</div>
+                      <div style={{ fontWeight: 600, fontSize: 14, color: C.navy }}>
+                        {u.name ?? <span style={{ color: C.navyLight, fontWeight: 400 }}>Sem nome</span>}
+                      </div>
                       <div style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>{u.email}</div>
                     </div>
 
-                    {/* Nível */}
+                    {/* Nivel */}
                     <div style={{ fontSize: 13, fontWeight: 600, color: lvl.color }}>{lvl.text}</div>
 
                     {/* Status */}
                     <div>
                       <span style={{
-                        backgroundColor: badge.bg,
-                        color: badge.color,
+                        backgroundColor: badge.bg, color: badge.color,
                         border: `1px solid ${badge.border}`,
                         borderRadius: 20, padding: '3px 10px',
                         fontSize: 12, fontWeight: 600,
@@ -438,126 +628,270 @@ export default function AdminPage() {
                     <div style={{ fontSize: 13, color: C.navyMid }}>{fmtDate(u.created_at)}</div>
 
                     {/* Placement */}
-                    <div>
-                      <span style={{
-                        fontSize: 12, fontWeight: 600,
-                        color: u.placement_test_done ? C.greenDark : C.navyLight,
-                      }}>
-                        {u.placement_test_done ? '✓ Feito' : 'Pendente'}
-                      </span>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: u.placement_test_done ? C.greenDark : C.navyLight }}>
+                      {u.placement_test_done ? 'Feito' : 'Pendente'}
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => openEdit(u)}
+                        title="Editar"
+                        style={{
+                          background: 'transparent', border: `1px solid ${C.border}`,
+                          borderRadius: 7, padding: '6px 8px',
+                          cursor: 'pointer', color: C.navyMid,
+                          display: 'flex', alignItems: 'center',
+                        }}
+                      >
+                        {Icon.edit}
+                      </button>
+                      <button
+                        onClick={() => openDelete(u)}
+                        title="Excluir"
+                        style={{
+                          background: 'transparent', border: `1px solid #FECACA`,
+                          borderRadius: 7, padding: '6px 8px',
+                          cursor: 'pointer', color: C.red,
+                          display: 'flex', alignItems: 'center',
+                        }}
+                      >
+                        {Icon.trash}
+                      </button>
                     </div>
                   </div>
                 );
               })
             )}
-
-            {/* Footer */}
-            {filtered.length > 0 && (
-              <div style={{
-                padding: '12px 20px',
-                borderTop: `1px solid ${C.border}`,
-                backgroundColor: C.bg,
-                fontSize: 12, color: C.navyLight,
-              }}>
-                {filtered.length} {filtered.length === 1 ? 'usuário' : 'usuários'} {filter !== 'all' ? 'filtrados' : 'no total'}
-              </div>
-            )}
           </div>
         )}
       </main>
 
-      {/* ── Create user modal ──────────────────────────────────────────────────── */}
-      {showModal && (
+      {/* ── Modals ────────────────────────────────────────────────────────────── */}
+
+      {modalMode && (
         <div
+          onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
           style={{
             position: 'fixed', inset: 0,
-            backgroundColor: 'rgba(22,21,58,0.4)',
+            backgroundColor: 'rgba(22,21,58,0.45)',
             backdropFilter: 'blur(4px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 200, padding: 24,
           }}
-          onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
         >
-          <div style={{
-            backgroundColor: C.card,
-            border: `1px solid ${C.border}`,
-            borderRadius: 20,
-            padding: 36,
-            width: '100%', maxWidth: 460,
-            maxHeight: '90vh', overflowY: 'auto',
-            boxShadow: '0 20px 60px rgba(22,21,58,0.18)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
-              <div>
-                <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: C.navy }}>Novo usuário</h2>
-                <p style={{ fontSize: 12, color: C.navyLight, margin: '4px 0 0' }}>Acesso institucional, sem paywall</p>
-              </div>
-              <button onClick={() => setShowModal(false)} style={{
-                background: C.navyGhost, border: 'none',
-                color: C.navyMid, cursor: 'pointer',
-                width: 32, height: 32, borderRadius: 8,
-                fontSize: 18, lineHeight: 1,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>×</button>
-            </div>
-
-            <form onSubmit={handleCreate} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              <div>
-                <label style={labelStyle}>Nome completo</label>
-                <input style={inputStyle} type="text" placeholder="Ex: Ana Souza"
-                  value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+          {/* ── DELETE confirmation ── */}
+          {modalMode === 'delete' && selectedUser && (
+            <div style={{
+              backgroundColor: C.card, border: `1px solid ${C.border}`,
+              borderRadius: 20, padding: 36,
+              width: '100%', maxWidth: 420,
+              boxShadow: C.shadowLg,
+            }}>
+              <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
+                <div style={{
+                  width: 44, height: 44, borderRadius: 12,
+                  backgroundColor: C.redBg, border: '1px solid #FECACA',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: C.red, flexShrink: 0,
+                }}>
+                  {Icon.warning}
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: C.navy }}>Excluir usuário</h2>
+                  <p style={{ fontSize: 13, color: C.navyLight, margin: '4px 0 0', lineHeight: 1.5 }}>
+                    Esta acao e irreversivel. Todos os dados de{' '}
+                    <strong style={{ color: C.navy }}>{selectedUser.name ?? selectedUser.email}</strong>{' '}
+                    serao apagados permanentemente.
+                  </p>
+                </div>
               </div>
 
-              <div>
-                <label style={labelStyle}>Email <span style={{ color: C.red }}>*</span></label>
-                <input style={inputStyle} type="email" placeholder="aluno@email.com"
-                  value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} required />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Senha temporária <span style={{ color: C.red }}>*</span></label>
-                <input style={inputStyle} type="password" placeholder="Mínimo 8 caracteres"
-                  value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} required minLength={8} />
-              </div>
-
-              {/* Info */}
               <div style={{
-                backgroundColor: C.blueBg, border: '1px solid #BFDBFE',
-                borderRadius: 10, padding: '12px 14px',
-                fontSize: 12, color: '#1D4ED8', lineHeight: 1.7,
+                backgroundColor: C.bg, border: `1px solid ${C.border}`,
+                borderRadius: 10, padding: '12px 14px', marginBottom: 20,
               }}>
-                <strong>Institucional automático</strong> — acesso completo sem paywall.<br />
-                Nível definido após o placement test. Senha deve ser trocada no 1º login.
+                <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{selectedUser.name ?? '—'}</div>
+                <div style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>{selectedUser.email}</div>
               </div>
 
               {error && (
-                <div style={{
-                  backgroundColor: C.redBg, border: '1px solid #FECACA',
-                  borderRadius: 8, padding: '10px 12px',
-                  color: C.red, fontSize: 13,
-                }}>{error}</div>
+                <div style={{ backgroundColor: C.redBg, border: '1px solid #FECACA', borderRadius: 8, padding: '10px 12px', color: C.red, fontSize: 13, marginBottom: 16 }}>
+                  {error}
+                </div>
               )}
 
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button type="button" onClick={() => setShowModal(false)} style={{
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={closeModal} style={{
                   flex: 1, backgroundColor: C.bg, border: `1px solid ${C.border}`,
-                  color: C.navyMid, fontSize: 14, padding: '13px',
+                  color: C.navyMid, fontSize: 14, padding: '12px',
                   borderRadius: 10, cursor: 'pointer',
                 }}>
                   Cancelar
                 </button>
-                <button type="submit" disabled={saving} style={{
-                  flex: 2, backgroundColor: C.navy, color: '#fff',
-                  fontWeight: 700, fontSize: 14, padding: '13px',
+                <button onClick={handleDelete} disabled={saving} style={{
+                  flex: 1, backgroundColor: C.red, color: '#fff',
+                  fontWeight: 700, fontSize: 14, padding: '12px',
                   borderRadius: 10, border: 'none',
                   cursor: saving ? 'not-allowed' : 'pointer',
                   opacity: saving ? 0.7 : 1,
                 }}>
-                  {saving ? 'Criando...' : 'Criar usuário'}
+                  {saving ? 'Excluindo...' : 'Excluir'}
                 </button>
               </div>
-            </form>
-          </div>
+            </div>
+          )}
+
+          {/* ── CREATE / EDIT form ── */}
+          {(modalMode === 'create' || modalMode === 'edit') && (
+            <div style={{
+              backgroundColor: C.card, border: `1px solid ${C.border}`,
+              borderRadius: 20, padding: 36,
+              width: '100%', maxWidth: 520,
+              maxHeight: '90vh', overflowY: 'auto',
+              boxShadow: C.shadowLg,
+            }}>
+              {/* Modal header */}
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+                <div>
+                  <h2 style={{ fontSize: 18, fontWeight: 800, margin: 0, color: C.navy }}>
+                    {modalMode === 'create' ? 'Novo usuário' : 'Editar usuário'}
+                  </h2>
+                  <p style={{ fontSize: 12, color: C.navyLight, margin: '4px 0 0' }}>
+                    {modalMode === 'create'
+                      ? 'Acesso institucional, sem paywall'
+                      : selectedUser?.email}
+                  </p>
+                </div>
+                <button onClick={closeModal} style={{
+                  background: C.navyGhost, border: 'none',
+                  color: C.navyMid, cursor: 'pointer',
+                  width: 32, height: 32, borderRadius: 8,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  {Icon.close}
+                </button>
+              </div>
+
+              <form onSubmit={modalMode === 'create' ? handleCreate : handleEdit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Nome */}
+                <div>
+                  <label style={labelStyle}>Nome completo</label>
+                  <input style={inputStyle} type="text" placeholder="Ex: Ana Souza"
+                    value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                </div>
+
+                {/* Email */}
+                <div>
+                  <label style={labelStyle}>Email <span style={{ color: C.red }}>*</span></label>
+                  <input style={inputStyle} type="email" placeholder="aluno@email.com" required
+                    value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                </div>
+
+                {/* Senha — only on create */}
+                {modalMode === 'create' && (
+                  <div>
+                    <label style={labelStyle}>Senha temporária <span style={{ color: C.red }}>*</span></label>
+                    <input style={inputStyle} type="password" placeholder="Minimo 8 caracteres"
+                      value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                      required minLength={8} />
+                  </div>
+                )}
+
+                {/* Fields only on edit */}
+                {modalMode === 'edit' && (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      {/* Nivel */}
+                      <div>
+                        <label style={labelStyle}>Nivel</label>
+                        <select style={selectStyle}
+                          value={form.charlotte_level}
+                          onChange={e => setForm(f => ({ ...f, charlotte_level: e.target.value }))}>
+                          <option value="">Nao definido</option>
+                          <option value="Novice">Novice</option>
+                          <option value="Inter">Intermediate</option>
+                          <option value="Advanced">Advanced</option>
+                        </select>
+                      </div>
+                      {/* Status */}
+                      <div>
+                        <label style={labelStyle}>Plano</label>
+                        <select style={selectStyle}
+                          value={form.subscription_status}
+                          onChange={e => setForm(f => ({ ...f, subscription_status: e.target.value }))}>
+                          <option value="none">Sem plano</option>
+                          <option value="trial">Trial</option>
+                          <option value="active">Assinante</option>
+                          <option value="expired">Expirado</option>
+                          <option value="cancelled">Cancelado</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Toggles */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {[
+                        { key: 'is_institutional', label: 'Acesso institucional (sem paywall)' },
+                        { key: 'is_active',         label: 'Conta ativa' },
+                        { key: 'must_change_password', label: 'Exigir troca de senha no proximo login' },
+                      ].map(({ key, label }) => (
+                        <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13, color: C.navyMid }}>
+                          <input
+                            type="checkbox"
+                            checked={!!form[key as keyof typeof form]}
+                            onChange={e => setForm(f => ({ ...f, [key]: e.target.checked }))}
+                            style={{ width: 16, height: 16, accentColor: C.navy, cursor: 'pointer' }}
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Info box (create only) */}
+                {modalMode === 'create' && (
+                  <div style={{
+                    backgroundColor: C.blueBg, border: '1px solid #BFDBFE',
+                    borderRadius: 10, padding: '12px 14px',
+                    fontSize: 12, color: '#1D4ED8', lineHeight: 1.7,
+                  }}>
+                    Acesso institucional automatico — sem paywall.<br />
+                    Nivel definido pelo placement test. Senha deve ser trocada no 1o login.
+                  </div>
+                )}
+
+                {error && (
+                  <div style={{ backgroundColor: C.redBg, border: '1px solid #FECACA', borderRadius: 8, padding: '10px 12px', color: C.red, fontSize: 13 }}>
+                    {error}
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                  <button type="button" onClick={closeModal} style={{
+                    flex: 1, backgroundColor: C.bg, border: `1px solid ${C.border}`,
+                    color: C.navyMid, fontSize: 14, padding: '13px',
+                    borderRadius: 10, cursor: 'pointer',
+                  }}>
+                    Cancelar
+                  </button>
+                  <button type="submit" disabled={saving} style={{
+                    flex: 2, backgroundColor: C.navy, color: '#fff',
+                    fontWeight: 700, fontSize: 14, padding: '13px',
+                    borderRadius: 10, border: 'none',
+                    cursor: saving ? 'not-allowed' : 'pointer',
+                    opacity: saving ? 0.7 : 1,
+                  }}>
+                    {saving
+                      ? (modalMode === 'create' ? 'Criando...' : 'Salvando...')
+                      : (modalMode === 'create' ? 'Criar usuário' : 'Salvar alteracoes')}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
         </div>
       )}
     </div>
