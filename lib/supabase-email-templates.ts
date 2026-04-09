@@ -98,7 +98,7 @@ export const resetPassword = base(`
 // Subject: Seu link de acesso — Charlotte
 export const magicLink = base(`
   ${h1('Seu link de acesso.')}
-  ${p('Clique abaixo para entrar no Charlotte.<br>O link expira em 1 hora.')}
+  ${p('Clique abaixo para entrar no Charlotte AI.<br>O link expira em 1 hora.')}
   ${btn('Entrar no Charlotte', '{{ .ConfirmationURL }}')}
   ${note('Se voc&ecirc; n&atilde;o solicitou este link, ignore este email.')}
 `);
