@@ -13,6 +13,8 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   hasAccess: boolean;           // is_institutional OR active/trial subscription
   mustChangePassword: boolean;
+  isFreshLogin: boolean;        // true when SIGNED_IN fired (real login, not app resume)
+  clearFreshLogin: () => void;  // call after welcome modal is shown
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -26,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFreshLogin, setIsFreshLogin] = useState(false);
 
   usePushNotifications(session?.user?.id);
 
@@ -36,7 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[AuthProvider] fetchProfile start for:', userId);
     const queryPromise = supabase
       .from('charlotte_users')
-      .select('id, email, name, charlotte_level, placement_test_done, is_institutional, is_active, subscription_status, trial_ends_at, must_change_password')
+      .select('id, email, name, charlotte_level, placement_test_done, first_welcome_done, is_institutional, is_active, subscription_status, trial_ends_at, must_change_password')
       .eq('id', userId)
       .single();
 
@@ -102,6 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearTimeout(hardTimeout);
           markResolved();
           return;
+        }
+
+        if (event === 'SIGNED_IN') {
+          setIsFreshLogin(true);
         }
 
         if (event === 'USER_UPDATED') {
@@ -210,6 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const mustChangePassword = profile?.must_change_password === true;
 
+  const clearFreshLogin = () => setIsFreshLogin(false);
+
   return (
     <AuthContext.Provider value={{
       session,
@@ -218,6 +227,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!session,
       hasAccess,
       mustChangePassword,
+      isFreshLogin,
+      clearFreshLogin,
       signIn,
       signUp,
       signOut,

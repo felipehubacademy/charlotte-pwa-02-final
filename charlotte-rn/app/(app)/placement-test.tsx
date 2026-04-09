@@ -820,17 +820,21 @@ function ResultScreen({
           </AppText>
         </View>
 
-        {/* White sheet — scroll content only, no CTA inside */}
+        {/* White sheet */}
         <View style={{ flex: 1, backgroundColor: C.card, borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 28, paddingBottom: 16 }}
+            contentContainerStyle={{
+              paddingHorizontal: 28, paddingTop: 28,
+              paddingBottom: insets.bottom + 16,
+              flexGrow: 1,
+            }}
           >
             <AppText style={{ fontSize: 15, color: C.navyMid, lineHeight: 24, marginBottom: 24 }}>
               {meta.description}
             </AppText>
 
-            {/* Charlotte quote — same style as question screen */}
+            {/* Charlotte quote */}
             <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 0 }}>
               <CharlotteAvatar size="xs" />
               <View style={{
@@ -862,10 +866,11 @@ function ResultScreen({
                 </AppText>
               </View>
             )}
-          </ScrollView>
 
-          {/* CTA fixed at bottom — same pattern as Verificar */}
-          <View style={{ paddingHorizontal: 24, paddingBottom: insets.bottom + 16, paddingTop: 12 }}>
+            {/* Spacer empurra CTA para baixo quando conteudo e curto */}
+            <View style={{ flex: 1, minHeight: 32 }} />
+
+            {/* CTA */}
             <TouchableOpacity
               onPress={onFinish}
               activeOpacity={0.85}
@@ -877,8 +882,7 @@ function ResultScreen({
               <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
               <ArrowRight size={18} color={C.navy} weight="bold" />
             </TouchableOpacity>
-          </View>
-
+          </ScrollView>
         </View>
 
       </Animated.View>

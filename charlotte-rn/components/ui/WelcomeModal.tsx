@@ -1,34 +1,53 @@
 // components/ui/WelcomeModal.tsx
-// Modal fullscreen de boas-vindas — exibido UMA VEZ após o primeiro login.
-// Charlotte fala uma saudação com karaokê sincronizado (word-by-word highlight).
+// Modal de boas-vindas — exibido a cada LOGIN real (SIGNED_IN), nunca na abertura do app.
+//
+// Primeiro acesso (first_welcome_done = false):
+//   Novice    → audio PT-BR de primeiro acesso (novice_first_01)
+//   Inter/Adv → audio EN de primeiro acesso (inter_first_01)
+//
+// Acessos seguintes (first_welcome_done = true):
+//   Pool aleatório do nivel atual (novice_01..04 / inter_01..04 / advanced_01..04)
+//
+// Persistencia: coluna first_welcome_done em charlotte_users (nao mais SecureStore).
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, TouchableOpacity, Animated, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { AppText } from './Text';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
-
-// Key is per-user so a new account on a device that already had the app
-// still sees the welcome modal (Keychain persists through reinstalls on iOS).
-const welcomeKey = (userId: string) => `charlotte_welcome_done_v2_${userId}`;
 
 // ── Greeting data ────────────────────────────────────────────────────────────
 
 interface WordTiming { word: string; start: number; end: number; }
 
-const GREETING_IDS: Record<string, string[]> = {
+// Primeiro acesso — um audio especifico por nivel
+const GREETING_IDS_FIRST: Record<string, string> = {
+  Novice:   'novice_first_01',
+  Inter:    'inter_first_01',
+  Advanced: 'inter_first_01',  // Advanced usa o mesmo audio ingles do Inter
+};
+
+// Logins subsequentes — pool aleatorio
+const GREETING_IDS_POOL: Record<string, string[]> = {
   Novice:   ['novice_01', 'novice_02', 'novice_03', 'novice_04'],
   Inter:    ['inter_01', 'inter_02', 'inter_03', 'inter_04'],
   Advanced: ['advanced_01', 'advanced_02', 'advanced_03', 'advanced_04'],
 };
 
-const SUBTITLE: Record<string, string> = {
+const SUBTITLE_FIRST: Record<string, string> = {
+  Novice:   'Seja muito bem-vindo!\nVamos aprender inglês juntos.',
+  Inter:    "Great to have you here!\nLet's learn English together.",
+  Advanced: "Great to have you here!\nLet's learn English together.",
+};
+
+const SUBTITLE_RETURNING: Record<string, string> = {
   Novice:   'estou aqui pra te ajudar\na falar inglês de verdade.',
   Inter:    "I'm here to help you\nspeak English for real.",
   Advanced: "I'm here to help you\nspeak English for real.",
@@ -44,13 +63,16 @@ interface WelcomeModalProps {
 }
 
 export default function WelcomeModal({ userId, userLevel, userName, isInstitutional = false }: WelcomeModalProps) {
-  const insets = useSafeAreaInsets();
-  const [visible, setVisible] = useState(false);
-  const [timings, setTimings] = useState<WordTiming[]>([]);
-  const [currentTime, setCurrentTime] = useState(-1); // -1 = not started
+  const insets         = useSafeAreaInsets();
+  const { isFreshLogin, clearFreshLogin, profile } = useAuth();
 
-  const isPt = userLevel === 'Novice';
-  const firstName = userName.split(' ')[0] ?? userName;
+  const [visible, setVisible]         = useState(false);
+  const [timings, setTimings]         = useState<WordTiming[]>([]);
+  const [currentTime, setCurrentTime] = useState(-1);
+  const [isFirstAccess, setIsFirstAccess] = useState(false);
+
+  const isPt       = userLevel === 'Novice';
+  const firstName  = userName.split(' ')[0] ?? userName;
 
   const fadeAnim     = useRef(new Animated.Value(0)).current;
   const scaleAnim    = useRef(new Animated.Value(0.8)).current;
@@ -58,32 +80,35 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
   const ringAnim     = useRef(new Animated.Value(1)).current;
   const playerRef    = useRef<AudioPlayer | null>(null);
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
-  const greetingIdRef = useRef('');
 
-  // ── Check if already seen (per-user key) ─────────────────────
+  // Mostrar apenas em logins reais (SIGNED_IN), nunca na abertura do app
   useEffect(() => {
-    SecureStore.getItemAsync(welcomeKey(userId))
-      .then(val => { if (val !== 'done') setVisible(true); })
-      .catch(() => setVisible(true));
-  }, [userId]);
+    if (!isFreshLogin || !profile) return;
+    const first = !profile.first_welcome_done;
+    setIsFirstAccess(first);
+    setVisible(true);
+  }, [isFreshLogin, profile]);
 
-  // ── Poll player time for karaoke ──────────────────────────────
+  // Poll player time for karaoke
   useEffect(() => {
     pollRef.current = setInterval(() => {
       if (playerRef.current?.playing) {
         setCurrentTime(playerRef.current.currentTime ?? 0);
       }
-    }, 40); // 25fps for smooth highlight
+    }, 40);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  // ── Load + play on visible ────────────────────────────────────
+  // Load + play on visible
   useEffect(() => {
     if (!visible) return;
 
-    const ids = GREETING_IDS[userLevel ?? 'Novice'] ?? GREETING_IDS.Novice;
-    const pick = ids[Math.floor(Math.random() * ids.length)];
-    greetingIdRef.current = pick;
+    const id = isFirstAccess
+      ? GREETING_IDS_FIRST[userLevel ?? 'Novice']
+      : (() => {
+          const pool = GREETING_IDS_POOL[userLevel ?? 'Novice'] ?? GREETING_IDS_POOL.Novice;
+          return pool[Math.floor(Math.random() * pool.length)];
+        })();
 
     // Entrance animation
     Animated.parallel([
@@ -99,15 +124,12 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
       ).start();
     });
 
-    // Load audio + timings in parallel
-    loadAndPlay(pick).catch(() => {});
+    loadAndPlay(id).catch(() => {});
   }, [visible]); // eslint-disable-line
 
   const loadAndPlay = async (id: string) => {
     try {
-      const baseUrl = `${API_BASE_URL}/tts/greetings/${id}`;
-
-      // Download audio + timings in parallel
+      const baseUrl   = `${API_BASE_URL}/tts/greetings/${id}`;
       const audioUri  = `${FileSystem.cacheDirectory}welcome_${id}.mp3`;
       const timingUri = `${FileSystem.cacheDirectory}welcome_${id}.json`;
 
@@ -118,23 +140,17 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
 
       const downloads: Promise<void>[] = [];
       if (!audioInfo.exists) {
-        downloads.push(
-          FileSystem.downloadAsync(`${baseUrl}.mp3`, audioUri).then(() => {})
-        );
+        downloads.push(FileSystem.downloadAsync(`${baseUrl}.mp3`, audioUri).then(() => {}));
       }
       if (!timingInfo.exists) {
-        downloads.push(
-          FileSystem.downloadAsync(`${baseUrl}.json`, timingUri).then(() => {})
-        );
+        downloads.push(FileSystem.downloadAsync(`${baseUrl}.json`, timingUri).then(() => {}));
       }
       if (downloads.length > 0) await Promise.all(downloads);
 
-      // Parse timings
       const rawJson = await FileSystem.readAsStringAsync(timingUri);
       const wordTimings: WordTiming[] = JSON.parse(rawJson);
       setTimings(wordTimings);
 
-      // Play audio
       await setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: true,
@@ -163,34 +179,36 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
       Animated.timing(scaleAnim, { toValue: 0.9, duration: 250, useNativeDriver: true }),
     ]).start(() => {
       setVisible(false);
-      SecureStore.setItemAsync(welcomeKey(userId), 'done').catch(() => {});
+      clearFreshLogin();
+
+      // Marca primeiro acesso como visto no banco (fire-and-forget)
+      if (isFirstAccess) {
+        supabase
+          .from('charlotte_users')
+          .update({ first_welcome_done: true })
+          .eq('id', userId)
+          .then(() => {}, () => {});
+      }
     });
   };
 
   if (!visible) return null;
 
   // ── Karaoke rendering ─────────────────────────────────────────
+  const subtitle = isFirstAccess
+    ? SUBTITLE_FIRST[userLevel ?? 'Novice']
+    : `${firstName}, ${SUBTITLE_RETURNING[userLevel ?? 'Novice'] ?? SUBTITLE_RETURNING.Novice}`;
+
   const renderKaraoke = () => {
     if (timings.length === 0) return null;
-
     return (
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' }}>
         {timings.map((w, i) => {
           const isActive = currentTime >= 0 && w.start <= currentTime && currentTime < w.end;
           const isSpoken = currentTime >= 0 && w.end <= currentTime;
           const color    = isActive ? '#A3FF3C' : isSpoken ? '#FFFFFF' : 'rgba(255,255,255,0.25)';
-
           return (
-            <AppText
-              key={i}
-              style={{
-                fontSize: 28,
-                fontWeight: '800',
-                color,
-                lineHeight: 40,
-                letterSpacing: -0.3,
-              }}
-            >
+            <AppText key={i} style={{ fontSize: 28, fontWeight: '800', color, lineHeight: 40, letterSpacing: -0.3 }}>
               {w.word}{' '}
             </AppText>
           );
@@ -217,10 +235,7 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
           style={{ flex: 1, alignItems: 'center', justifyContent: 'center', width: '100%' }}
         >
           {/* Avatar com ring pulsante */}
-          <Animated.View style={{
-            transform: [{ scale: scaleAnim }],
-            marginBottom: 36,
-          }}>
+          <Animated.View style={{ transform: [{ scale: scaleAnim }], marginBottom: 36 }}>
             <Animated.View style={{
               position: 'absolute',
               width: 168, height: 168, borderRadius: 84,
@@ -230,49 +245,33 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
             }} />
             <Image
               source={require('../../assets/charlotte-avatar.png')}
-              style={{
-                width: 140, height: 140, borderRadius: 70,
-                borderWidth: 3, borderColor: '#A3FF3C',
-              }}
+              style={{ width: 140, height: 140, borderRadius: 70, borderWidth: 3, borderColor: '#A3FF3C' }}
               resizeMode="cover"
             />
           </Animated.View>
 
-          {/* Karaoke greeting text */}
+          {/* Karaoke greeting */}
           <Animated.View style={{ opacity: textFadeAnim, alignItems: 'center', minHeight: 90 }}>
             {renderKaraoke()}
           </Animated.View>
 
           {/* Subtitle */}
           <Animated.View style={{ opacity: textFadeAnim, marginTop: 16 }}>
-            <AppText style={{
-              color: 'rgba(255,255,255,0.45)',
-              fontSize: 15,
-              textAlign: 'center',
-              lineHeight: 22,
-            }}>
-              {firstName}, {SUBTITLE[userLevel ?? 'Novice'] ?? SUBTITLE.Novice}
+            <AppText style={{ color: 'rgba(255,255,255,0.45)', fontSize: 15, textAlign: 'center', lineHeight: 22 }}>
+              {subtitle}
             </AppText>
           </Animated.View>
 
-          {/* Trial badge — só para não-institucionais */}
+          {/* Trial badge — so para nao-institucionais */}
           {!isInstitutional && (
-            <Animated.View style={{
-              position: 'absolute',
-              bottom: insets.bottom + 72,
-              opacity: textFadeAnim,
-              alignItems: 'center',
-            }}>
+            <Animated.View style={{ position: 'absolute', bottom: insets.bottom + 72, opacity: textFadeAnim, alignItems: 'center' }}>
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
                 backgroundColor: 'rgba(163,255,60,0.12)',
                 borderRadius: 20, borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)',
                 paddingHorizontal: 16, paddingVertical: 8,
               }}>
-                <View style={{
-                  width: 7, height: 7, borderRadius: 4,
-                  backgroundColor: '#A3FF3C',
-                }} />
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#A3FF3C' }} />
                 <AppText style={{ color: '#A3FF3C', fontSize: 13, fontWeight: '700' }}>
                   {isPt ? '7 dias grátis ativados' : '7-day free trial activated'}
                 </AppText>
@@ -281,16 +280,8 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
           )}
 
           {/* Tap hint */}
-          <Animated.View style={{
-            position: 'absolute',
-            bottom: insets.bottom + 40,
-            opacity: textFadeAnim,
-          }}>
-            <AppText style={{
-              color: 'rgba(255,255,255,0.2)',
-              fontSize: 13,
-              letterSpacing: 0.5,
-            }}>
+          <Animated.View style={{ position: 'absolute', bottom: insets.bottom + 40, opacity: textFadeAnim }}>
+            <AppText style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13, letterSpacing: 0.5 }}>
               {isPt ? 'toque para continuar' : 'tap to continue'}
             </AppText>
           </Animated.View>

@@ -139,6 +139,7 @@ export interface UserProfile {
   subscription_status: 'none' | 'trial' | 'active' | 'expired' | 'cancelled';
   trial_ends_at: string | null;   // ISO timestamp
   must_change_password: boolean;
+  first_welcome_done: boolean;          // true after first-access welcome shown
   live_voice_seconds_used: number;      // segundos usados no mês corrente
   live_voice_reset_date:   string | null; // 'YYYY-MM-01'
   avatar_url?: string | null;
