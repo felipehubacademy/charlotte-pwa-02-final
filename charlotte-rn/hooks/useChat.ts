@@ -57,7 +57,7 @@ function delay(ms: number) {
 /** Persist a practice event to charlotte_practices (fires DB trigger → charlotte_progress + charlotte_leaderboard_cache). */
 async function savePractice(
   userId: string,
-  practiceType: 'text_message' | 'audio_message',
+  practiceType: 'text_message' | 'audio_message' | 'grammar_message',
   xpEarned: number,
 ): Promise<void> {
   const { error } = await supabase.from('charlotte_practices').insert({
@@ -331,7 +331,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           return prev + xpAwarded;
         });
         if (userId) {
-          await savePractice(userId, 'text_message', xpAwarded);
+          await savePractice(userId, mode === 'grammar' ? 'grammar_message' : 'text_message', xpAwarded);
           // Poll for new achievements after DB trigger has time to run
           setTimeout(() => checkForNewAchievements(), 1500);
         }
@@ -386,7 +386,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           return prev + xpAwarded;
         });
         if (userId) {
-          await savePractice(userId, 'text_message', xpAwarded);
+          await savePractice(userId, mode === 'grammar' ? 'grammar_message' : 'text_message', xpAwarded);
           setTimeout(() => checkForNewAchievements(), 1500);
         }
       } catch (error) {
