@@ -192,7 +192,9 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           isSeparator: true,
         };
 
-        setMessages([...historyMsgs, separator]);
+        // Prepend welcome message so Charlotte's opening always shows at the top
+        // of the conversation (even when returning to prior history).
+        setMessages([buildWelcome(mode, userLevel, userName), ...historyMsgs, separator]);
       });
   }, [userId, mode]); // eslint-disable-line react-hooks/exhaustive-deps
 

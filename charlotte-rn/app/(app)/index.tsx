@@ -789,10 +789,13 @@ export default function HomeScreen() {
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
   const rewardSeedLoadedRef = React.useRef(false);
+  // Prevent concurrent fetchData calls (race condition → double mission grants)
+  const isFetchingRef = React.useRef(false);
   // streakSoundPlayed: uses module-level var so it survives component remounts
 
   const fetchData = useCallback(async () => {
-    if (!userId) return;
+    if (!userId || isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const [prog, prac, achToday] = await Promise.all([
@@ -882,6 +885,8 @@ export default function HomeScreen() {
           });
         }
       }
+    } finally {
+      isFetchingRef.current = false;
     }
   }, [userId, level]);
 
@@ -972,6 +977,7 @@ export default function HomeScreen() {
             firstName: name.split(' ')[0] ?? name,
             streak:    data?.streakDays ?? 0,
             todayXP:   data?.todayXP   ?? 0,
+            totalXP:   data?.totalXP   ?? 0,
             dailyGoal: DAILY_XP_GOAL,
             hour:      new Date().getHours(),
             level,
