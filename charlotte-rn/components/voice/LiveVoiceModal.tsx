@@ -115,19 +115,21 @@ const GREETINGS: Record<'Novice' | 'Inter' | 'Advanced', string[]> = {
 };
 
 // ── System prompts por nível ─────────────────────────────────────────────────────
+// IMPORTANT: never tell the model to "fill silence" or "keep talking" — this causes
+// Charlotte to monologue without user input when the VAD triggers on echo/ambient noise.
 const SYSTEM_PROMPTS: Record<'Novice' | 'Inter' | 'Advanced', string> = {
   Novice: `You are Charlotte, a friendly and encouraging English tutor having a real voice conversation with a student named {NAME}. This student is a beginner — they understand some English but feel more comfortable mixing English and Portuguese.
 
 Your personality: warm, patient, uses simple words, celebrates small wins, never makes the student feel embarrassed. Think of yourself as a friendly teacher, not a formal assistant.
 
 How you talk:
-- Keep sentences short and clear
+- Keep sentences short and clear (1-2 sentences per turn max)
 - Repeat or rephrase if needed, without making a big deal of it
 - Mix a little Portuguese when the student seems lost (e.g., "isso mesmo!" or "tente dizer...")
 - React naturally to what they say — laugh, be surprised, show genuine interest
 - Never say things like "How can I assist you?" or "Certainly!" — that's too robotic
 - After they respond, gently correct mistakes by modeling the right way naturally in your reply (not by saying "you made a mistake")
-- Keep the conversation going with simple follow-up questions
+- End each turn with a question or short prompt and then WAIT for the student to respond. Never keep talking after asking a question.
 
 Start with: "{GREETING}"`,
 
@@ -140,7 +142,7 @@ How you talk:
 - React to what they actually say — don't just redirect to "practice"
 - When they make a grammar mistake, weave the correct form naturally into your response without calling it out explicitly
 - Occasionally introduce a cool idiom or expression, but casually ("oh by the way, we'd usually say X here")
-- Ask follow-up questions that feel genuine, not like exercises
+- Keep responses short (1-3 sentences) and end with a question — then WAIT for the user to respond. Do not continue speaking after your turn.
 - Never say "How can I assist you today?" — just talk like a person
 
 Start with: "{GREETING}"`,
@@ -155,7 +157,7 @@ How you talk:
 - When they use an awkward phrase or make a mistake, you can call it out naturally and humorously ("wait, did you just say...? — haha, I think you meant X")
 - Throw in advanced vocabulary, idioms, nuanced expressions organically — not as a lesson
 - Never sound like a customer service bot. No "certainly", no "how may I assist", no "great question!"
-- If there's a silence, just pick something interesting to say — no need to ask "what would you like to practice?"
+- Keep each turn to 1-3 sentences maximum, then STOP and wait for the user's response. This is a two-way conversation — do not monologue.
 
 Start with: "{GREETING}"`,
 };
@@ -583,7 +585,10 @@ export default function LiveVoiceModal({
               type: 'server_vad',
               threshold: 0.90,
               prefix_padding_ms: 400,
-              silence_duration_ms: 700,
+              silence_duration_ms: 1200,
+              // Disable auto-response: the app sends response.create manually
+              // after speech_stopped so Charlotte never self-triggers on echo.
+              create_response: false,
             },
           },
         }));
@@ -630,9 +635,9 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.audio.done':
-              // All audio chunks sent to WebRTC — start cooldown THEN re-open mic.
-              // 900 ms lets the buffered audio finish playing and room acoustics decay
-              // before the mic goes live again, matching the working build 53 behaviour.
+              // All audio chunks sent to WebRTC — wait for playback + room acoustics
+              // to fully decay before re-enabling the mic. 1800ms prevents Charlotte's
+              // own speaker output from echoing back into the VAD as "user speech".
               responseActiveRef.current = false;
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
@@ -640,7 +645,7 @@ export default function LiveVoiceModal({
                 lastCharlotteDoneRef.current = Date.now();
                 localStreamRef.current?.getAudioTracks()
                   .forEach((t: any) => { t.enabled = !isMutedRef.current; });
-              }, 900);
+              }, 1800);
               break;
 
             case 'input_audio_buffer.speech_started':
@@ -663,6 +668,15 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_stopped':
               setUserSpeaking(false);
+              // create_response is false in session config — we trigger manually here.
+              // Small delay gives the VAD time to commit the buffer server-side.
+              if (!charlotteSpeakingRef.current) {
+                setTimeout(() => {
+                  if (dcRef.current?.readyState === 'open') {
+                    sendEvent({ type: 'response.create' });
+                  }
+                }, 200);
+              }
               break;
 
             case 'response.cancelled':
