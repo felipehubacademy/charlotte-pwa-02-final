@@ -6,7 +6,6 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import * as Updates from 'expo-updates';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { useAuth } from '@/hooks/useAuth';
 // OfflineBanner desativado temporariamente — reimplementar com @react-native-community/netinfo
@@ -80,24 +79,12 @@ function AuthGuard() {
   return null;
 }
 
-async function checkForOTAUpdate() {
-  try {
-    if (!Updates.isEmbeddedLaunch) return; // já rodando update OTA, não checar de novo
-    const result = await Updates.checkForUpdateAsync();
-    if (result.isAvailable) {
-      await Updates.fetchUpdateAsync();
-      await Updates.reloadAsync(); // aplica o update e reinicia o app
-    }
-  } catch {
-    // Sem internet ou servidor indisponível — continua com bundle atual
-  }
-}
-
 export default function RootLayout() {
   useEffect(() => {
     SplashScreen.hideAsync();
-    // Checa por OTA update em background ao abrir o app
-    checkForOTAUpdate();
+    // expo-updates cuida automaticamente dos checks via checkAutomatically: 'ON_LOAD'
+    // configurado em app.config.ts — updates são baixados em background e aplicados
+    // na próxima abertura do app, sem código manual necessário aqui.
   }, []);
 
   return (
