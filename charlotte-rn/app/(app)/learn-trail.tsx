@@ -55,7 +55,7 @@ const LEVEL_COLOR: Record<TrailLevel, string> = {
 
 export default function LearnTrailScreen() {
   const { profile } = useAuth();
-  const level = (profile?.charlotte_level ?? 'Inter') as TrailLevel;
+  const level = (profile?.charlotte_level ?? 'Novice') as TrailLevel;
   const userId = profile?.id;
   const isPortuguese = level === 'Novice';
 

@@ -329,7 +329,7 @@ const GRAMMAR_TOTAL = GRAMMAR_SEQUENCE.length; // 36
 export default function LearnGrammarScreen() {
   const { profile } = useAuth();
   const userId    = profile?.id;
-  const userLevel = (profile?.charlotte_level ?? 'Inter') as string;
+  const userLevel = (profile?.charlotte_level ?? 'Novice') as string;
   const baseTotalXP = useTotalXP(userId);
 
   const [showStats, setShowStats]           = useState(false);

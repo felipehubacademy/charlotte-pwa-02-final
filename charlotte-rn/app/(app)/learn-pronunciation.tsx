@@ -166,7 +166,7 @@ const TYPE_LABELS: Record<ExerciseType, string> = {
 export default function LearnPronunciationScreen() {
   const { profile } = useAuth();
   const userId    = profile?.id;
-  const userLevel = (profile?.charlotte_level ?? 'Inter') as string;
+  const userLevel = (profile?.charlotte_level ?? 'Novice') as string;
   const baseTotalXP = useTotalXP(userId);
   const [showStats, setShowStats] = useState(false);
 

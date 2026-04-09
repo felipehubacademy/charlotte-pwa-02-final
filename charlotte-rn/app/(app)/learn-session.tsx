@@ -171,13 +171,13 @@ function ScoreBar({ label, score }: { label: string; score: number }) {
 // ── Main screen ────────────────────────────────────────────────
 export default function LearnSessionScreen() {
   const params      = useLocalSearchParams<{ level: string; moduleIndex: string; topicIndex: string; reviewId?: string }>();
-  const level       = (params.level ?? 'Inter') as TrailLevel;
+  const level       = (params.level ?? 'Novice') as TrailLevel;
   const moduleIndex = parseInt(params.moduleIndex ?? '0', 10);
   const topicIndex  = parseInt(params.topicIndex  ?? '0', 10);
 
   const { profile } = useAuth();
   const userId      = profile?.id;
-  const userLevel   = (profile?.charlotte_level ?? 'Inter') as string;
+  const userLevel   = (profile?.charlotte_level ?? 'Novice') as string;
   const isPortuguese = userLevel === 'Novice';
   const baseTotalXP = useTotalXP(userId);
   const [showStats, setShowStats] = useState(false);
