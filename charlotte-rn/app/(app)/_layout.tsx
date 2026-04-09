@@ -21,6 +21,7 @@ export default function AppLayout() {
       <PaywallModal />
       {profile && (
         <WelcomeModal
+          userId={profile.id}
           userLevel={profile.charlotte_level}
           userName={profile.name ?? profile.email?.split('@')[0] ?? 'Student'}
           isInstitutional={profile.is_institutional}

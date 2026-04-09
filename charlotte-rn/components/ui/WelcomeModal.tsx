@@ -14,7 +14,9 @@ import { AppText } from './Text';
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
-const WELCOME_DONE_KEY = 'charlotte_welcome_done_v1';
+// Key is per-user so a new account on a device that already had the app
+// still sees the welcome modal (Keychain persists through reinstalls on iOS).
+const welcomeKey = (userId: string) => `charlotte_welcome_done_v2_${userId}`;
 
 // ── Greeting data ────────────────────────────────────────────────────────────
 
@@ -35,12 +37,13 @@ const SUBTITLE: Record<string, string> = {
 // ── Component ────────────────────────────────────────────────────────────────
 
 interface WelcomeModalProps {
+  userId: string;
   userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName: string;
   isInstitutional?: boolean;
 }
 
-export default function WelcomeModal({ userLevel, userName, isInstitutional = false }: WelcomeModalProps) {
+export default function WelcomeModal({ userId, userLevel, userName, isInstitutional = false }: WelcomeModalProps) {
   const insets = useSafeAreaInsets();
   const [visible, setVisible] = useState(false);
   const [timings, setTimings] = useState<WordTiming[]>([]);
@@ -57,12 +60,12 @@ export default function WelcomeModal({ userLevel, userName, isInstitutional = fa
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
   const greetingIdRef = useRef('');
 
-  // ── Check if already seen ─────────────────────────────────────
+  // ── Check if already seen (per-user key) ─────────────────────
   useEffect(() => {
-    SecureStore.getItemAsync(WELCOME_DONE_KEY)
+    SecureStore.getItemAsync(welcomeKey(userId))
       .then(val => { if (val !== 'done') setVisible(true); })
       .catch(() => setVisible(true));
-  }, []);
+  }, [userId]);
 
   // ── Poll player time for karaoke ──────────────────────────────
   useEffect(() => {
@@ -160,7 +163,7 @@ export default function WelcomeModal({ userLevel, userName, isInstitutional = fa
       Animated.timing(scaleAnim, { toValue: 0.9, duration: 250, useNativeDriver: true }),
     ]).start(() => {
       setVisible(false);
-      SecureStore.setItemAsync(WELCOME_DONE_KEY, 'done').catch(() => {});
+      SecureStore.setItemAsync(welcomeKey(userId), 'done').catch(() => {});
     });
   };
 
