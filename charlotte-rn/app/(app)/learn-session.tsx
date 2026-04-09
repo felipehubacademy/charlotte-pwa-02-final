@@ -734,7 +734,7 @@ export default function LearnSessionScreen() {
                   <AppText style={{ fontSize: 14, color: accent, fontWeight: '700' }}>
                     {currentStep.exercise.type === 'multiple_choice' ? (isPortuguese ? 'Escolha a opção correta para completar a frase.'    : 'Choose the correct option to complete the sentence.')
                       : currentStep.exercise.type === 'word_bank'      ? (isPortuguese ? 'Toque na palavra correta para preencher o espaço.' : 'Tap the correct word to fill the blank.')
-                      : currentStep.exercise.type === 'fill_gap'       ? (isPortuguese ? 'Toque na lacuna e digite a palavra que falta.'     : 'Tap the blank and type the missing word.')
+                      : currentStep.exercise.type === 'fill_gap'       ? (isPortuguese ? 'Digite a palavra que falta na lacuna.'            : 'Type the missing word in the blank.')
                       : currentStep.exercise.type === 'fix_error'      ? (isPortuguese ? 'Encontre o erro e reescreva a frase corretamente.'  : 'Find the mistake and rewrite the sentence correctly.')
                       : currentStep.exercise.type === 'word_order'     ? (isPortuguese ? 'Toque nas palavras abaixo para montar a frase na ordem correta.' : 'Tap the words below to build the sentence in the correct order.')
                       : currentStep.exercise.type === 'short_write'    ? (isPortuguese ? 'Escreva sua resposta em inglês. Depois, veja o exemplo.' : 'Write your answer in English. Then see the model answer.')
@@ -755,7 +755,7 @@ export default function LearnSessionScreen() {
 
               {/* Sentence / Question */}
               {(currentStep.exercise.type === 'fill_gap' || currentStep.exercise.type === 'word_bank') ? (
-                /* ── Fill-gap & Word-bank: sentence with inline gap (nested Text = true inline flow) ── */
+                /* ── Fill-gap & Word-bank: sentence with inline gap ── */
                 (() => {
                   const GAP = '_____';
                   const sentence = currentStep.exercise.sentence ?? '';
@@ -765,35 +765,54 @@ export default function LearnSessionScreen() {
                   const gapColor = gStatus === 'submitted' ? (isCorrect ? C.green : C.red) : accent;
                   const gapAnswer = userAnswer || '______';
                   const isWordBank = currentStep.exercise.type === 'word_bank';
+                  const isFillGapAnswering = !isWordBank && gStatus === 'answering';
+                  // Approximate width: 14px per char, min 72, max 240
+                  const inputWidth = userAnswer.length > 0
+                    ? Math.min(userAnswer.length * 14 + 16, 240)
+                    : 72;
                   return (
                     <View style={{ marginBottom: isWordBank ? 24 : 16 }}>
-                      {/* Single Text component — nested Text = true inline, no flex-item wrapping */}
-                      <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34 }}>
-                        {before}
-                        <AppText style={{ fontSize: 22, fontWeight: '700', color: gapColor, textDecorationLine: 'underline' }}>
-                          {gapAnswer}
+                      {isFillGapAnswering ? (
+                        /* Inline TextInput as the gap — no separate box below */
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                          {before.length > 0 && (
+                            <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34 }}>
+                              {before}
+                            </AppText>
+                          )}
+                          <TextInput
+                            value={userAnswer}
+                            onChangeText={setUserAnswer}
+                            autoFocus
+                            autoCorrect={false}
+                            autoCapitalize="none"
+                            returnKeyType="done"
+                            onSubmitEditing={handleGrammarSubmit}
+                            style={{
+                              fontSize: 22, fontWeight: '700', color: accent,
+                              borderBottomWidth: 2.5, borderBottomColor: accent,
+                              width: inputWidth,
+                              height: 36,
+                              paddingHorizontal: 4,
+                              paddingVertical: 0,
+                              marginBottom: Platform.OS === 'android' ? 0 : 2,
+                            }}
+                          />
+                          {after.length > 0 && (
+                            <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34 }}>
+                              {after}
+                            </AppText>
+                          )}
+                        </View>
+                      ) : (
+                        /* Submitted state or word_bank: nested Text with coloured gap */
+                        <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34 }}>
+                          {before}
+                          <AppText style={{ fontSize: 22, fontWeight: '700', color: gapColor, textDecorationLine: 'underline' }}>
+                            {gapAnswer}
+                          </AppText>
+                          {after}
                         </AppText>
-                        {after}
-                      </AppText>
-                      {/* Fill-gap only: separate input below sentence */}
-                      {!isWordBank && gStatus === 'answering' && (
-                        <TextInput
-                          value={userAnswer}
-                          onChangeText={setUserAnswer}
-                          autoFocus
-                          autoCorrect={false}
-                          autoCapitalize="none"
-                          returnKeyType="done"
-                          onSubmitEditing={handleGrammarSubmit}
-                          style={{
-                            marginTop: 20,
-                            fontSize: 18, fontWeight: '700', color: accent,
-                            borderWidth: 2, borderColor: accent, borderRadius: 12,
-                            paddingHorizontal: 16, paddingVertical: 12,
-                          }}
-                          placeholder={isPortuguese ? 'Digite a palavra...' : 'Type the word...'}
-                          placeholderTextColor={C.navyLight}
-                        />
                       )}
                     </View>
                   );
