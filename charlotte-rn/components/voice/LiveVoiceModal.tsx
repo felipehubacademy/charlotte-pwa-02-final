@@ -580,7 +580,7 @@ export default function LiveVoiceModal({
             voice: 'coral',
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            max_response_output_tokens: 150,
+            max_response_output_tokens: 80,
             turn_detection: {
               type: 'server_vad',
               threshold: 0.90,
@@ -635,9 +635,11 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.audio.done':
-              // All audio chunks sent to WebRTC — wait for playback + room acoustics
-              // to fully decay before re-enabling the mic. 1800ms prevents Charlotte's
-              // own speaker output from echoing back into the VAD as "user speech".
+              // Last audio chunk sent to WebRTC — the audio is still buffered and
+              // playing for a short while. We use a small 500ms decay window so the
+              // user can speak again quickly. With create_response:false, even if the
+              // VAD picks up residual echo it can't auto-trigger a response — the
+              // time-guard in speech_stopped is the real protection.
               responseActiveRef.current = false;
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
@@ -645,7 +647,7 @@ export default function LiveVoiceModal({
                 lastCharlotteDoneRef.current = Date.now();
                 localStreamRef.current?.getAudioTracks()
                   .forEach((t: any) => { t.enabled = !isMutedRef.current; });
-              }, 1800);
+              }, 500);
               break;
 
             case 'input_audio_buffer.speech_started':
@@ -668,14 +670,21 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_stopped':
               setUserSpeaking(false);
-              // create_response is false in session config — we trigger manually here.
-              // Small delay gives the VAD time to commit the buffer server-side.
+              // create_response:false — we trigger manually.
+              // Guards:
+              //   1. Charlotte must not be mid-response (charlotteSpeakingRef)
+              //   2. At least 700ms must have passed since her audio finished
+              //      (lastCharlotteDoneRef) — covers the case where mic re-opened
+              //      while she was still playing and the VAD caught tail echo.
               if (!charlotteSpeakingRef.current) {
-                setTimeout(() => {
-                  if (dcRef.current?.readyState === 'open') {
-                    sendEvent({ type: 'response.create' });
-                  }
-                }, 200);
+                const msSinceDone = Date.now() - lastCharlotteDoneRef.current;
+                if (msSinceDone > 700) {
+                  setTimeout(() => {
+                    if (dcRef.current?.readyState === 'open') {
+                      sendEvent({ type: 'response.create' });
+                    }
+                  }, 150);
+                }
               }
               break;
 
