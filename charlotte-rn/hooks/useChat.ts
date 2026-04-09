@@ -554,8 +554,8 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         if (shouldDemo && pronunciationData) {
           let demoText = '';
 
-          // Path b — semantic correction takes priority: demo the INTENDED word
-          if (semanticCorrections.length > 0) {
+          // Path b — semantic correction only when Azure found NO mispronounced words
+          if (semanticCorrections.length > 0 && mispronounced.length === 0) {
             const correctWords = semanticCorrections.map(c => c.likely);
             try {
               const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
@@ -567,11 +567,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
                 const sentJson = await sentRes.json();
                 const sentences: string[] = sentJson.sentences ?? [];
                 if (sentences.length > 0) {
-                  demoText = sentences
-                    .map((s, i) =>
-                      `You said "${semanticCorrections[i].heard}" — did you mean "${correctWords[i]}"? Here's how: ${s}`
-                    )
-                    .join('  ');
+                  demoText = sentences.join('  ');
                 }
               }
             } catch (e) {
@@ -600,9 +596,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
                   const sentJson = await sentRes.json();
                   const sentences: string[] = sentJson.sentences ?? [];
                   if (sentences.length > 0) {
-                    demoText = sentences
-                      .map((s, i) => `Here's how to say "${demoWords[i]}": ${s}`)
-                      .join('  ');
+                    demoText = sentences.join('  ');
                   }
                 }
               } catch (e) {

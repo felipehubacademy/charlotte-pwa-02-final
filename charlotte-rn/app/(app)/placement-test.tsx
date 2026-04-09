@@ -4,7 +4,18 @@
 // Charlotte guides the user in first-person throughout (like Duolingo's Duo).
 //
 // Flow:
-//   Intro  → Q1–Q10 Grammar → (optional Listening) → Result
+//   Intro  → Q1–Q15 Grammar → (optional Listening x1 or x2) → Result
+//
+// Scoring (15 grammar):
+//   ≤5  correct → Novice  (no listening)
+//   ≤11 correct → Inter   (1 listening: LISTENING_INTER)
+//   12+ correct → Advanced (2 listenings: INTER then ADVANCED; both must pass)
+//
+// Listening modifiers:
+//   Inter  listening correct  → Inter   | wrong → Novice
+//   Advanced both correct     → Advanced
+//   Advanced one wrong        → Inter
+//   Advanced both wrong       → Novice
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -14,7 +25,6 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 import {
   Headphones, Play, Pause, ArrowRight, CheckCircle, XCircle,
@@ -149,11 +159,42 @@ const GRAMMAR: GrammarQ[] = [
     options: ['we had entered', 'had we entered', 'we entered', 'did we enter'],
     correctIndex: 1,
   },
+  // ── Extra questions (Q11–Q15) ── added for better calibration ────────────────
+  {
+    kind: 'grammar', id: 11, difficulty: 'Intermediate',
+    question: 'She told me she ___ to the conference the following day.',
+    options: ['is coming', 'was coming', 'has come', 'will come'],
+    correctIndex: 1,
+  },
+  {
+    kind: 'grammar', id: 12, difficulty: 'Intermediate',
+    question: 'You ___ told her the truth earlier — now it\'s too late to fix it.',
+    options: ['should have', 'must have', 'would have', 'had better'],
+    correctIndex: 0,
+  },
+  {
+    kind: 'grammar', id: 13, difficulty: 'Advanced',
+    question: 'If they ___ better safety protocols, the accident never would have happened.',
+    options: ['implement', 'implemented', 'had implemented', 'would implement'],
+    correctIndex: 2,
+  },
+  {
+    kind: 'grammar', id: 14, difficulty: 'Advanced',
+    question: '___ the lack of communication that caused the project to collapse, not the budget.',
+    options: ['It was', 'There was', 'What was', 'It had been'],
+    correctIndex: 0,
+  },
+  {
+    kind: 'grammar', id: 15, difficulty: 'Expert',
+    question: 'The treaty stipulates that every signatory ___ annual progress reports to the council.',
+    options: ['submits', 'submit', 'submitted', 'must submit'],
+    correctIndex: 1,
+  },
 ];
 
 // ── Listening questions ───────────────────────────────────────────────────────
 const LISTENING_INTER: ListeningQ = {
-  kind: 'listening', id: 11, forLevel: 'Inter',
+  kind: 'listening', id: 20, forLevel: 'Inter',
   audioText:
     "Hi, my name is Sarah. I moved to London about a year ago for work. " +
     "At first, I found it quite difficult to understand different accents, " +
@@ -172,7 +213,7 @@ const LISTENING_INTER: ListeningQ = {
 };
 
 const LISTENING_ADVANCED: ListeningQ = {
-  kind: 'listening', id: 12, forLevel: 'Advanced',
+  kind: 'listening', id: 21, forLevel: 'Advanced',
   audioText:
     "The recent surge in artificial intelligence adoption has sparked considerable debate among economists. " +
     "While proponents argue that automation will ultimately create more jobs than it displaces — " +
@@ -194,17 +235,17 @@ const LISTENING_ADVANCED: ListeningQ = {
 // ── Level logic ───────────────────────────────────────────────────────────────
 type Level = 'Novice' | 'Inter' | 'Advanced';
 
+// 15 grammar questions — stricter thresholds
 function grammarLevel(score: number): Level {
-  if (score <= 3) return 'Novice';
-  if (score <= 6) return 'Inter';
-  return 'Advanced';
+  if (score <= 5)  return 'Novice';   // ≤33%
+  if (score <= 11) return 'Inter';    // ≤73%
+  return 'Advanced';                  // 12+ (≥80%)
 }
 
-function applyListening(level: Level, correct: boolean): Level {
-  if (correct) return level;
-  if (level === 'Advanced') return 'Inter';
-  if (level === 'Inter')    return 'Novice';
-  return 'Novice';
+// For Inter: 1 listening — correct=Inter, wrong=Novice
+// For Advanced: 2 listenings (INTER then ADVANCED) — handled in finalize()
+function applyListeningInter(correct: boolean): Level {
+  return correct ? 'Inter' : 'Novice';
 }
 
 const LEVEL_META: Record<Level, {
@@ -278,32 +319,20 @@ export default function PlacementTestScreen() {
     slideIn();
   };
 
+  // Static pre-generated audio hosted on Vercel — instant load, no TTS call at runtime
+  const STATIC_AUDIO: Record<number, string> = {
+    20: `${API_BASE_URL}/audio/placement_inter.mp3`,
+    21: `${API_BASE_URL}/audio/placement_advanced.mp3`,
+  };
+
   useEffect(() => {
     if (phase !== 'test') return;
     const q = queue[qIndex];
     if (!q || q.kind !== 'listening') return;
-    setAudioUri(null);
-    setAudioLoading(true);
     stopAudio();
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/tts`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: q.audioText }),
-        });
-        if (!res.ok) throw new Error('TTS failed');
-        const data = await res.json();
-        if (!data.audio || cancelled) return;
-        const uri = `${FileSystem.cacheDirectory}placement_tts_${q.id}.mp3`;
-        await FileSystem.writeAsStringAsync(uri, data.audio, { encoding: 'base64' as any });
-        if (!cancelled) setAudioUri(uri);
-      } catch { /* silently fail */ } finally {
-        if (!cancelled) setAudioLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
+    const uri = STATIC_AUDIO[q.id] ?? null;
+    setAudioUri(uri);
+    setAudioLoading(false);
   }, [phase, qIndex, queue]);
 
   // Select only — no auto-advance (Duolingo style)
@@ -336,9 +365,12 @@ export default function PlacementTestScreen() {
           .slice(0, GRAMMAR.length)
           .filter((ans, i) => ans === GRAMMAR[i].correctIndex).length;
         const prelim = grammarLevel(grammarScore);
+        // Advanced → 2 listenings (INTER first, then ADVANCED)
+        // Inter    → 1 listening  (INTER only)
+        // Novice   → no listening
         const extra: ListeningQ[] =
-          prelim === 'Inter'    ? [LISTENING_INTER] :
-          prelim === 'Advanced' ? [LISTENING_ADVANCED] : [];
+          prelim === 'Advanced' ? [LISTENING_INTER, LISTENING_ADVANCED] :
+          prelim === 'Inter'    ? [LISTENING_INTER] : [];
         const newQueue = [...GRAMMAR, ...extra];
         setQueue(newQueue);
         setAnswers(newAnswers);
@@ -365,13 +397,30 @@ export default function PlacementTestScreen() {
     const grammarScore = finalAnswers
       .slice(0, GRAMMAR.length)
       .filter((ans, i) => ans === GRAMMAR[i].correctIndex).length;
-    let finalLevel: Level = grammarLevel(grammarScore);
-    const listeningQ = finalQueue.find(q => q.kind === 'listening') as ListeningQ | undefined;
-    if (listeningQ) {
-      const listeningIdx    = finalQueue.indexOf(listeningQ);
-      const listeningAnswer = finalAnswers[listeningIdx];
-      finalLevel = applyListening(finalLevel, listeningAnswer === listeningQ.correctIndex);
+    const prelim = grammarLevel(grammarScore);
+
+    const listeningQs = finalQueue.filter(q => q.kind === 'listening') as ListeningQ[];
+
+    let finalLevel: Level = prelim;
+
+    if (prelim === 'Inter' && listeningQs.length >= 1) {
+      // Inter track: 1 listening — pass=Inter, fail=Novice
+      const lq  = listeningQs[0];
+      const ans = finalAnswers[finalQueue.indexOf(lq)];
+      finalLevel = applyListeningInter(ans === lq.correctIndex);
+
+    } else if (prelim === 'Advanced' && listeningQs.length >= 2) {
+      // Advanced track: both listenings must pass
+      const interQ    = listeningQs.find(q => q.forLevel === 'Inter')!;
+      const advQ      = listeningQs.find(q => q.forLevel === 'Advanced')!;
+      const interPass = finalAnswers[finalQueue.indexOf(interQ)] === interQ.correctIndex;
+      const advPass   = finalAnswers[finalQueue.indexOf(advQ)]   === advQ.correctIndex;
+
+      if (interPass && advPass)   finalLevel = 'Advanced';
+      else if (interPass || advPass) finalLevel = 'Inter';
+      else                           finalLevel = 'Novice';
     }
+
     setLevel(finalLevel);
     setAnswers(finalAnswers);
     setPhase('saving');
@@ -420,9 +469,8 @@ export default function PlacementTestScreen() {
   const currentQ = queue[qIndex];
   if (!currentQ) return null;
 
-  const displayTotal   = qIndex < GRAMMAR.length ? GRAMMAR.length : queue.length;
-  const displayCurrent = qIndex + 1;
-  const progress       = displayCurrent / displayTotal;
+  const displayTotal = qIndex < GRAMMAR.length ? GRAMMAR.length : queue.length;
+  const progress     = (qIndex + 1) / displayTotal;
 
   const currentIsCorrect = selected !== null && selected === currentQ.correctIndex;
   const feedbackTranslateY = feedbackAnim.interpolate({ inputRange: [0, 1], outputRange: [300, 0] });
