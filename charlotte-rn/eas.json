@@ -35,6 +35,7 @@
     },
     "testflight": {
       "distribution": "store",
+      "channel": "production",
       "autoIncrement": true,
       "ios": {
         "simulator": false
