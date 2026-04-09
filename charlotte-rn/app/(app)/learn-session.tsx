@@ -445,8 +445,13 @@ export default function LearnSessionScreen() {
       isCorrect: correct, xpEarned: xp,
     });
 
-    if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    if (correct) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      soundEngine.play('answer_correct').catch(() => {});
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      soundEngine.play('answer_wrong').catch(() => {});
+    }
     Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
   };
 
