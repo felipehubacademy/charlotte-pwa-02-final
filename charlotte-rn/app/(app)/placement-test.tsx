@@ -34,6 +34,8 @@ import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
+import { soundEngine } from '@/lib/soundEngine';
+import * as Haptics from 'expo-haptics';
 
 const SCREEN_W     = Dimensions.get('window').width;
 const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -346,6 +348,14 @@ export default function PlacementTestScreen() {
     if (selected === null) return;
     setLocked(true);
     setVerified(true);
+    const isCorrect = selected === currentQ.correctIndex;
+    if (isCorrect) {
+      soundEngine.play('answer_correct');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      soundEngine.play('answer_wrong');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
     Animated.spring(feedbackAnim, { toValue: 1, friction: 8, tension: 60, useNativeDriver: true }).start();
   };
 
