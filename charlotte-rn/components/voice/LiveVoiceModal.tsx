@@ -549,7 +549,14 @@ export default function LiveVoiceModal({
 
       stopRingTone();
 
-      const stream = await mediaDevices.getUserMedia({ audio: true, video: false });
+      const stream = await mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl:  true,
+        },
+        video: false,
+      });
       localStreamRef.current = stream;
 
       const pc = new RTCPeerConnection();
@@ -578,9 +585,9 @@ export default function LiveVoiceModal({
             max_response_output_tokens: 150,
             turn_detection: {
               type: 'server_vad',
-              threshold: 0.95,
-              prefix_padding_ms: 600,
-              silence_duration_ms: 800,
+              threshold: 0.90,
+              prefix_padding_ms: 400,
+              silence_duration_ms: 700,
             },
           },
         }));
@@ -605,21 +612,11 @@ export default function LiveVoiceModal({
           const msg = JSON.parse(event.data);
 
           switch (msg.type) {
-            case 'response.created':
-              responseActiveRef.current = true;
-              lastActivityRef.current = Date.now(); // Charlotte respondeu → atividade
-              if (!charlotteSpeakingRef.current) {
-                charlotteSpeakingRef.current = true;
-                setCharlotteSpeaking(true);
-                setUserSpeaking(false);
-                localStreamRef.current?.getAudioTracks()
-                  .forEach((t: any) => { t.enabled = false; });
-                sendEvent({ type: 'input_audio_buffer.clear' });
-              }
-              break;
-
             case 'response.audio.delta':
+              // First audio chunk arriving — mute mic immediately to prevent
+              // Charlotte's speaker output from looping back into the mic (echo).
               responseActiveRef.current = true;
+              lastActivityRef.current = Date.now();
               if (!charlotteSpeakingRef.current) {
                 charlotteSpeakingRef.current = true;
                 setCharlotteSpeaking(true);
@@ -631,8 +628,16 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.done':
+              // Lifecycle complete — reset flag only (audio may still be playing).
               responseActiveRef.current = false;
-              lastActivityRef.current = Date.now(); // Charlotte terminou → reset inatividade
+              lastActivityRef.current = Date.now();
+              break;
+
+            case 'response.audio.done':
+              // All audio chunks sent to WebRTC — start cooldown THEN re-open mic.
+              // 900 ms lets the buffered audio finish playing and room acoustics decay
+              // before the mic goes live again, matching the working build 53 behaviour.
+              responseActiveRef.current = false;
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
@@ -640,10 +645,6 @@ export default function LiveVoiceModal({
                 localStreamRef.current?.getAudioTracks()
                   .forEach((t: any) => { t.enabled = !isMutedRef.current; });
               }, 900);
-              break;
-
-            case 'response.audio.done':
-              responseActiveRef.current = false;
               break;
 
             case 'input_audio_buffer.speech_started':
@@ -889,22 +890,15 @@ export default function LiveVoiceModal({
             {poolLoading && status === 'idle' && (
               <AppText style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>...</AppText>
             )}
-            {/* Pool restante — texto discreto, sem pill/fundo */}
-            {!poolLoading && !poolExhausted && poolRemaining < levelPool && (
+            {/* Aviso crítico apenas quando < 2 min — sem exibir créditos no header */}
+            {!poolLoading && !poolExhausted && poolRemaining < 120 && (
               <AppText style={{
-                marginTop: 5,
-                fontSize: 12,
-                fontWeight: '400',
-                letterSpacing: 0.2,
-                color: poolRemaining < 60
-                  ? '#ef4444'                       // vermelho só < 1 min (urgente)
-                  : poolRemaining < 120
-                    ? 'rgba(249,115,22,0.85)'        // laranja < 2 min
-                    : 'rgba(255,255,255,0.30)',       // branco muted — informativo
+                marginTop: 5, fontSize: 12, fontWeight: '500', letterSpacing: 0.2,
+                color: poolRemaining < 60 ? '#ef4444' : 'rgba(249,115,22,0.85)',
               }}>
                 {userLevel === 'Novice'
-                  ? `${poolMins} min restante${poolMins !== 1 ? 's' : ''} este mês`
-                  : `${poolMins} min left this month`}
+                  ? `${poolMins} min restante${poolMins !== 1 ? 's' : ''}`
+                  : `${poolMins} min left`}
               </AppText>
             )}
           </View>
@@ -1023,7 +1017,7 @@ export default function LiveVoiceModal({
                     : (userLevel === 'Novice' ? 'Silenciar microfone / Mute' : 'Mute microphone')}
                   accessibilityRole="button"
                   style={{
-                    width: 56, height: 56, borderRadius: 28,
+                    width: 64, height: 64, borderRadius: 32,
                     backgroundColor: isMuted ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)',
                     borderWidth: 1,
                     borderColor: isMuted ? 'rgba(239,68,68,0.4)' : 'rgba(255,255,255,0.12)',
@@ -1031,8 +1025,8 @@ export default function LiveVoiceModal({
                   }}
                 >
                   {isMuted
-                    ? <MicrophoneSlash size={22} color="#ef4444" weight="regular" />
-                    : <Microphone     size={22} color="rgba(255,255,255,0.7)" weight="regular" />
+                    ? <MicrophoneSlash size={24} color="#ef4444" weight="regular" />
+                    : <Microphone     size={24} color="rgba(255,255,255,0.7)" weight="regular" />
                   }
                 </TouchableOpacity>
 
@@ -1043,7 +1037,7 @@ export default function LiveVoiceModal({
                   accessibilityLabel={userLevel === 'Novice' ? 'Encerrar chamada / End call' : 'End call'}
                   accessibilityRole="button"
                   style={{
-                    width: 68, height: 68, borderRadius: 34,
+                    width: 64, height: 64, borderRadius: 32,
                     backgroundColor: '#ef4444',
                     alignItems: 'center', justifyContent: 'center',
                     shadowColor: '#ef4444',
@@ -1051,7 +1045,7 @@ export default function LiveVoiceModal({
                     shadowOpacity: 0.5, shadowRadius: 12, elevation: 8,
                   }}
                 >
-                  <PhoneSlash size={28} color="#fff" weight="fill" />
+                  <PhoneSlash size={26} color="#fff" weight="fill" />
                 </TouchableOpacity>
 
                 {/* Speaker / Ouvido */}
@@ -1063,7 +1057,7 @@ export default function LiveVoiceModal({
                     : (userLevel === 'Novice' ? 'Usar alto-falante / Switch to speaker' : 'Switch to speaker')}
                   accessibilityRole="button"
                   style={{
-                    width: 56, height: 56, borderRadius: 28,
+                    width: 64, height: 64, borderRadius: 32,
                     backgroundColor: isSpeaker ? 'rgba(163,255,60,0.15)' : 'rgba(255,255,255,0.08)',
                     borderWidth: 1,
                     borderColor: isSpeaker ? 'rgba(163,255,60,0.4)' : 'rgba(255,255,255,0.12)',
@@ -1071,8 +1065,8 @@ export default function LiveVoiceModal({
                   }}
                 >
                   {isSpeaker
-                    ? <SpeakerHigh size={22} color="#A3FF3C" weight="regular" />
-                    : <Ear        size={22} color="rgba(255,255,255,0.7)" weight="regular" />
+                    ? <SpeakerHigh size={24} color="#A3FF3C" weight="regular" />
+                    : <Ear        size={24} color="rgba(255,255,255,0.7)" weight="regular" />
                   }
                 </TouchableOpacity>
               </View>
