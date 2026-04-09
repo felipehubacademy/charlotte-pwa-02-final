@@ -114,7 +114,7 @@ export function welcomeSubscriberTemplate(opts: {
   level: string;
   trialEndsAt: string;
 }) {
-  const subject = `Bem-vindo ao Charlotte, ${opts.name}`;
+  const subject = `Bem-vindo ao Charlotte AI, ${opts.name}`;
   const html = base(`
     ${h1(`Bem-vindo, ${opts.name}.`)}
     ${p(`Seu teste gratuito est&aacute; ativo.<br>Voc&ecirc; tem <strong style="color:#1d1d1f;">7 dias de acesso completo</strong> para praticar ingl&ecirc;s.`)}
