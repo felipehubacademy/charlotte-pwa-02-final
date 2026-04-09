@@ -1,17 +1,15 @@
 import '../global.css';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack, usePathname } from 'expo-router';
 import { router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import * as SecureStore from 'expo-secure-store';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { useAuth } from '@/hooks/useAuth';
 // OfflineBanner desativado temporariamente — reimplementar com @react-native-community/netinfo
 // import { OfflineBanner } from '@/components/ui/OfflineBanner';
-import { ONBOARDING_KEY } from './(onboarding)/index';
 import { soundEngine } from '@/lib/soundEngine';
 import { ThemeProvider, useTheme } from '@/lib/theme';
 
@@ -30,15 +28,7 @@ function AuthGuard() {
   const { isAuthenticated, isLoading, mustChangePassword, profile, refreshProfile } = useAuth();
   const lastRoute = useRef<string | null>(null);
   const retryCount = useRef(0);
-  const [onboardingDone, setOnboardingDone] = useState<boolean | null>(null);
   const pathname = usePathname();
-
-  // Check onboarding flag once on mount
-  useEffect(() => {
-    SecureStore.getItemAsync(ONBOARDING_KEY)
-      .then((val: string | null) => setOnboardingDone(val === 'done'))
-      .catch(() => setOnboardingDone(false));
-  }, []);
 
   // If auth resolved but profile fetch failed, retry up to 5 times with backoff.
   useEffect(() => {
@@ -54,17 +44,12 @@ function AuthGuard() {
 
   useEffect(() => {
     if (isLoading) return;
-    if (onboardingDone === null) return; // still reading AsyncStorage
     if (isAuthenticated && profile === null) return; // wait for profile
 
     let target: string;
-    if (!onboardingDone) {
-      // Show onboarding on first launch regardless of auth state.
-      // After completing, goToLogin() redirects to /(auth)/login which then
-      // redirects authenticated users straight into the app.
+    if (!isAuthenticated) {
+      // Não logado → sempre vai para o onboarding, sem exceção.
       target = '/(onboarding)';
-    } else if (!isAuthenticated) {
-      target = '/(auth)/login';
     } else if (mustChangePassword) {
       target = '/(app)/first-access';
     } else if (profile && !profile.placement_test_done) {
@@ -89,7 +74,7 @@ function AuthGuard() {
     if (lastRoute.current === target) return;
     lastRoute.current = target;
     router.replace(target as any);
-  }, [isLoading, isAuthenticated, mustChangePassword, profile, profile?.placement_test_done, onboardingDone, pathname]);
+  }, [isLoading, isAuthenticated, mustChangePassword, profile, profile?.placement_test_done, pathname]);
 
   return null;
 }
