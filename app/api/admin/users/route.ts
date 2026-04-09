@@ -78,24 +78,21 @@ export async function POST(req: NextRequest) {
 
   const userId = authData.user.id;
 
-  // 2. Upsert charlotte_users — level set by placement test, institutional + must_change_password automatic
+  // 2. O trigger on_auth_user_created já criou a linha em charlotte.users.
+  //    Apenas atualizamos os campos extras — sem upsert/insert na view.
   const { error: profileError } = await supabase
     .from('charlotte_users')
-    .upsert({
-      id: userId,
-      email,
-      name: name || null,
-      is_institutional: true,
-      charlotte_level: 'Novice',
+    .update({
+      name:                 name || null,
+      is_institutional:     true,
       must_change_password: true,
-      subscription_status: 'none',
-      trial_ends_at: null,
-      is_active: true,
-      placement_test_done: false,
-    }, { onConflict: 'id' });
+      placement_test_done:  false,
+      is_active:            true,
+    })
+    .eq('id', userId);
 
   if (profileError) {
-    // Rollback auth user if profile fails
+    // Rollback auth user se o update falhar
     await supabase.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: profileError.message }, { status: 500 });
   }
