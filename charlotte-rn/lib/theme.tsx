@@ -92,10 +92,12 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Dark mode desativado — app desenhado exclusivamente em light theme.
-  // Quando dark mode estiver totalmente implementado em todos os componentes, reativar.
+  const scheme = useColorScheme();
+  const isDark = scheme === 'dark';
+  const colors = isDark ? darkColors : lightColors;
+
   return (
-    <ThemeContext.Provider value={{ colors: lightColors, isDark: false }}>
+    <ThemeContext.Provider value={{ colors, isDark }}>
       {children}
     </ThemeContext.Provider>
   );

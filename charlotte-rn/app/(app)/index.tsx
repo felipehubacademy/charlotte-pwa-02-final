@@ -56,17 +56,17 @@ const API_BASE_URL =
 // Ensures the streak sound plays at most once per app launch.
 let _streakSoundPlayedThisSession = false;
 
-// ── Light theme palette ───────────────────────────────────────
+// Palette estática usada apenas em constantes de módulo (fora do componente)
 const C = {
-  bg:         '#F4F3FA',   // page background — off-white with lavender tint
-  card:       '#FFFFFF',   // card surface
-  navy:       '#16153A',   // primary text / UI color
-  navyMid:    '#4B4A72',   // secondary text
-  navyLight:  '#9896B8',   // placeholder / muted
-  navyGhost:  'rgba(22,21,58,0.06)',   // subtle borders / dividers
-  green:      '#A3FF3C',   // accent fill (bars, badges, active)
-  greenDark:  '#3D8800',   // green text on white
-  greenBg:    '#F0FFD9',   // green tint background
+  bg:         '#F4F3FA',
+  card:       '#FFFFFF',
+  navy:       '#16153A',
+  navyMid:    '#4B4A72',
+  navyLight:  '#9896B8',
+  navyGhost:  'rgba(22,21,58,0.06)',
+  green:      '#A3FF3C',
+  greenDark:  '#3D8800',
+  greenBg:    '#F0FFD9',
   blue:       '#60A5FA',
   blueBg:     '#EFF6FF',
   pink:       '#F472B6',
@@ -758,6 +758,9 @@ export default function HomeScreen() {
   const name   = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const config = LEVEL_CONFIG[level];
   const { colors: T, isDark } = useTheme();
+  // Dentro do componente, C = T para que todos os estilos respondam ao dark mode
+  // eslint-disable-next-line @typescript-eslint/no-shadow
+  const C = T;
   const isOnline = useNetworkStatus();
 
   // Trial badge — days remaining for non-institutional users on trial
