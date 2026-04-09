@@ -107,7 +107,7 @@ export const magicLink = base(`
 // Subject: Confirme seu novo email — Charlotte
 export const emailChange = base(`
   ${h1('Confirme seu novo email.')}
-  ${p('Clique abaixo para confirmar a troca do seu endere&ccedil;o de email no Charlotte.')}
+  ${p('Clique abaixo para confirmar a troca do seu endere&ccedil;o de email no Charlotte AI.')}
   ${btn('Confirmar novo email', '{{ .ConfirmationURL }}')}
   ${note('Se voc&ecirc; n&atilde;o solicitou esta altera&ccedil;&atilde;o, entre em contato com a equipe Hub Academy imediatamente.')}
 `);
