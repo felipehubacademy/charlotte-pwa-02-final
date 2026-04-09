@@ -80,7 +80,7 @@ function note(text: string): string {
 // Subject: Confirme seu email — Charlotte
 export const confirmSignup = base(`
   ${h1('Confirme seu email.')}
-  ${p('Clique no bot&atilde;o abaixo para confirmar seu endere&ccedil;o de email e ativar sua conta Charlotte.')}
+  ${p('Clique no bot&atilde;o abaixo para confirmar seu endere&ccedil;o de email e ativar sua conta no Charlotte AI.')}
   ${btn('Confirmar email', '{{ .ConfirmationURL }}')}
   ${note('Se voc&ecirc; n&atilde;o criou uma conta no Charlotte, ignore este email.')}
 `);
