@@ -6,6 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { sendEmail } from '@/lib/microsoft-graph-email-service';
+import { inviteTemplate } from '@/lib/email-templates';
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? '';
 
@@ -98,6 +100,12 @@ export async function POST(req: NextRequest) {
   if (profileError) {
     await supabase.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: profileError.message }, { status: 500 });
+  }
+
+  // Envia email de convite (fire-and-forget — nao bloqueia resposta)
+  if (email && name) {
+    const { subject, html } = inviteTemplate({ name, email, tempPassword: password });
+    sendEmail({ to: email, subject, html }).catch(() => {});
   }
 
   return NextResponse.json({ success: true, userId });

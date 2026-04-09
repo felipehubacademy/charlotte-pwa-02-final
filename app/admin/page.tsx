@@ -225,6 +225,7 @@ export default function AdminPage() {
     is_active: true,
     subscription_status: 'none' as string,
     must_change_password: true,
+    placement_test_done: false,
   });
 
   useEffect(() => {
