@@ -1,102 +1,97 @@
 [
   {
-    "word": "Hey",
+    "word": "Hey!",
     "start": 0,
-    "end": 0.221
+    "end": 0.464
   },
   {
-    "word": "there!",
-    "start": 0.267,
-    "end": 0.662
-  },
-  {
-    "word": "Welcome",
-    "start": 0.871,
-    "end": 1.207
+    "word": "Great",
+    "start": 0.58,
+    "end": 0.789
   },
   {
     "word": "to",
-    "start": 1.231,
-    "end": 1.277
+    "start": 0.824,
+    "end": 0.871
   },
   {
-    "word": "Charlotte.",
-    "start": 1.324,
-    "end": 1.939
-  },
-  {
-    "word": "I'm",
-    "start": 2.38,
-    "end": 2.543
-  },
-  {
-    "word": "really",
-    "start": 2.624,
-    "end": 2.891
-  },
-  {
-    "word": "looking",
-    "start": 2.926,
-    "end": 3.158
-  },
-  {
-    "word": "forward",
-    "start": 3.204,
-    "end": 3.437
-  },
-  {
-    "word": "to",
-    "start": 3.471,
-    "end": 3.518
-  },
-  {
-    "word": "working",
-    "start": 3.564,
-    "end": 3.831
-  },
-  {
-    "word": "with",
-    "start": 3.866,
-    "end": 3.982
+    "word": "have",
+    "start": 0.917,
+    "end": 1.045
   },
   {
     "word": "you",
-    "start": 4.029,
-    "end": 4.145
+    "start": 1.08,
+    "end": 1.149
+  },
+  {
+    "word": "here.",
+    "start": 1.207,
+    "end": 1.533
+  },
+  {
+    "word": "Let's",
+    "start": 1.741,
+    "end": 1.939
+  },
+  {
+    "word": "get",
+    "start": 1.974,
+    "end": 2.09
+  },
+  {
+    "word": "started",
+    "start": 2.136,
+    "end": 2.531
   },
   {
     "word": "—",
-    "start": 4.354,
-    "end": 4.4
+    "start": 2.705,
+    "end": 2.786
+  },
+  {
+    "word": "I",
+    "start": 2.961,
+    "end": 3.007
+  },
+  {
+    "word": "think",
+    "start": 3.088,
+    "end": 3.216
   },
   {
     "word": "we're",
-    "start": 4.725,
-    "end": 4.969
+    "start": 3.251,
+    "end": 3.379
   },
   {
     "word": "going",
-    "start": 5.004,
-    "end": 5.201
+    "start": 3.402,
+    "end": 3.541
   },
   {
     "word": "to",
-    "start": 5.248,
-    "end": 5.294
+    "start": 3.576,
+    "end": 3.622
   },
   {
-    "word": "do",
-    "start": 5.352,
-    "end": 5.515
+    "word": "work",
+    "start": 3.657,
+    "end": 3.82
   },
   {
-    "word": "great",
-    "start": 5.642,
-    "end": 6.026
+    "word": "really",
+    "start": 3.936,
+    "end": 4.214
   },
   {
-    "word": "things.",
-    "start": 6.084,
-    "end": 6.92
+    "word": "well",
+    "start": 4.261,
+    "end": 4.423
+  },
+  {
+    "word": "together.",
+    "start": 4.481,
+    "end": 5.201
   }
 ]
