@@ -88,6 +88,7 @@ export async function POST(req: NextRequest) {
       must_change_password: true,
       placement_test_done:  false,
       is_active:            true,
+      charlotte_level:      null, // definido no placement test
     })
     .eq('id', userId);
 
