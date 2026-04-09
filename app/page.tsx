@@ -130,7 +130,7 @@ export default function Page() {
             width: 260, height: 564,
             background: '#16153A',
             borderRadius: 50,
-            padding: 10,
+            padding: 7,
             boxShadow: '0 40px 100px rgba(22,21,58,0.22), inset 0 0 0 1px rgba(255,255,255,0.08)',
             position: 'relative',
           }}>
