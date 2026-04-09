@@ -586,15 +586,16 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         }
 
         // ── 5b. Demo TTS ────────────────────────────────────────────────────────
-        // Strategy: always demo the user's OWN sentence via Charlotte's TTS.
-        // This is far more educational than random new sentences because:
-        //   - the user hears exactly how THEIR sentence should sound
-        //   - prosody/rhythm issues (intonation, stress) are demonstrated in full context
-        //   - all mispronounced words are covered at once, not just 1-2
+        // Always demo the user's OWN sentence via Charlotte's TTS.
         //
-        // Exception — semantic/minimal-pair error (path b): the user said a
-        // DIFFERENT word than intended (e.g. "world" vs "word"), so we demo the
-        // CORRECT word in a new sentence instead of the original.
+        // Path a / c (mispronounced words or prosody): play the original sentence
+        // as-is — the user hears how THEIR sentence should sound with correct
+        // stress, intonation and word pronunciation.
+        //
+        // Path b (semantic/minimal-pair): the user said the wrong word (e.g. "world"
+        // instead of "word"). Substitute each wrong word with the correct one in the
+        // original sentence so the user hears the same context with the fix applied.
+        // e.g. "I heard the world" → "I heard the word"
         const lowProsody = pronunciationData != null &&
           (pronunciationData.prosodyScore ?? 100) < 82;
 
@@ -607,25 +608,20 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           );
 
         if (shouldDemo && pronunciationData) {
-          let demoText = '';
+          let demoText = transcription?.trim() ?? '';
 
-          if (semanticCorrections.length > 0 && mispronounced.length === 0) {
-            // Path b — minimal-pair error: demo the correct word in a new sentence
-            const correctWords = semanticCorrections.map(c => c.likely);
-            try {
-              const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ words: correctWords }),
-              });
-              if (sentRes.ok) {
-                const sentJson = await sentRes.json();
-                const sentences: string[] = sentJson.sentences ?? [];
-                if (sentences.length > 0) demoText = sentences.join('  ');
-              }
-            } catch (e) {
-              console.warn('⚠️ demo-sentence (semantic) failed, skipping:', e);
+          if (semanticCorrections.length > 0 && mispronounced.length === 0 && demoText) {
+            // Path b — replace each wrongly-heard word with the correct one
+            // using a case-insensitive whole-word substitution so sentence
+            // structure is preserved.
+            let corrected = demoText;
+            for (const { heard, likely } of semanticCorrections) {
+              corrected = corrected.replace(
+                new RegExp(`\\b${heard}\\b`, 'gi'),
+                likely
+              );
             }
+            demoText = corrected;
           }
 
           // Path a / c — mispronounced words or prosody: demo the user's own
