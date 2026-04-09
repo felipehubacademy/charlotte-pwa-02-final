@@ -9,7 +9,7 @@ import { PaywallProvider } from '@/lib/paywallContext';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 
 export default function AppLayout() {
-  const { isAuthenticated, profile } = useAuth();
+  const { isAuthenticated, profile, mustChangePassword } = useAuth();
 
   // AuthGuard in app/_layout.tsx handles all redirects at root level.
   // When the user signs out, isAuthenticated becomes false before AuthGuard
@@ -23,7 +23,7 @@ export default function AppLayout() {
     <XPToastProvider>
       <AchievementsProvider>
       <PaywallModal />
-      {profile && (
+      {profile && !mustChangePassword && profile.placement_test_done && (
         <WelcomeModal
           userId={profile.id}
           userLevel={profile.charlotte_level}

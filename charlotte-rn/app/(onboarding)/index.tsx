@@ -448,8 +448,16 @@ export default function OnboardingScreen() {
   const screenO = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(screenO, { toValue: 1, duration: 300, useNativeDriver: true }).start();
-    setReady(true);
+    // Se o usuário já viu o onboarding antes (logout normal), vai direto ao login.
+    // Se nunca viu (nova instalação), mostra os slides.
+    SecureStore.getItemAsync(ONBOARDING_KEY).then(val => {
+      if (val === 'done') {
+        router.replace('/(auth)/login');
+      } else {
+        Animated.timing(screenO, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+        setReady(true);
+      }
+    });
   }, []);
 
   const onScroll = (e: any) => {
