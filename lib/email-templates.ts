@@ -1,8 +1,8 @@
 // lib/email-templates.ts
-// Templates HTML para todos os emails transacionais do Charlotte.
-// Design: plain, clean, sem fundos escuros.
+// Templates HTML — Apple-style: clean, centered, generous whitespace.
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://charlotte.hubacademybr.com';
+const APP_URL    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://charlotte.hubacademybr.com';
+const AVATAR_URL = 'https://charlotte-pwa-02-final.vercel.app/charlotte-avatar.png';
 
 function base(content: string): string {
   return `<!DOCTYPE html>
@@ -11,28 +11,35 @@ function base(content: string): string {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 </head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;color:#1a1a1a;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="padding:48px 16px;">
-    <tr><td align="center">
-      <table width="520" cellpadding="0" cellspacing="0">
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1d1d1f;-webkit-font-smoothing:antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0">
+    <tr><td align="center" style="padding:48px 24px 64px;">
+      <table width="480" cellpadding="0" cellspacing="0">
 
-        <!-- Logo -->
+        <!-- Avatar -->
         <tr>
-          <td style="padding-bottom:40px;">
-            <p style="margin:0;font-size:18px;font-weight:800;color:#16153A;letter-spacing:-0.3px;">Charlotte</p>
+          <td align="center" style="padding-bottom:32px;">
+            <img src="${AVATAR_URL}" width="80" height="80"
+              style="border-radius:50%;display:block;"
+              alt="Charlotte" />
           </td>
         </tr>
 
-        <!-- Body -->
+        <!-- Content -->
+        <tr><td>${content}</td></tr>
+
+        <!-- Divider -->
         <tr>
-          <td>${content}</td>
+          <td style="padding:48px 0 32px;">
+            <hr style="border:none;border-top:1px solid #e5e5e5;margin:0;" />
+          </td>
         </tr>
 
         <!-- Footer -->
         <tr>
-          <td style="padding-top:48px;border-top:1px solid #f0f0f0;margin-top:48px;">
-            <p style="margin:0;font-size:12px;color:#999;line-height:1.7;">
-              Hub Academy &mdash; Charlotte AI<br>
+          <td align="center">
+            <p style="margin:0;font-size:12px;color:#86868b;line-height:1.7;">
+              Charlotte &mdash; Hub Academy<br>
               Este &eacute; um email autom&aacute;tico. N&atilde;o responda a esta mensagem.
             </p>
           </td>
@@ -45,40 +52,40 @@ function base(content: string): string {
 </html>`;
 }
 
+function h1(text: string): string {
+  return `<p style="margin:0 0 16px;font-size:28px;font-weight:700;color:#1d1d1f;line-height:1.2;text-align:center;letter-spacing:-0.3px;">${text}</p>`;
+}
+
+function p(text: string, centered = true): string {
+  const align = centered ? 'center' : 'left';
+  return `<p style="margin:0 0 16px;font-size:17px;color:#515154;line-height:1.6;text-align:${align};">${text}</p>`;
+}
+
+function meta(rows: { label: string; value: string }[]): string {
+  const rowsHtml = rows.map(r =>
+    `<tr>
+      <td style="padding:12px 0;font-size:14px;color:#86868b;border-bottom:1px solid #f2f2f2;width:140px;">${r.label}</td>
+      <td style="padding:12px 0;font-size:14px;color:#1d1d1f;border-bottom:1px solid #f2f2f2;font-weight:500;">${r.value}</td>
+    </tr>`
+  ).join('');
+  return `<table cellpadding="0" cellspacing="0" style="width:100%;margin:28px 0;">${rowsHtml}</table>`;
+}
+
 function btn(text: string, url: string): string {
-  return `<table cellpadding="0" cellspacing="0" style="margin:32px 0 0;">
+  return `<table cellpadding="0" cellspacing="0" style="margin:32px auto 0;text-align:center;">
     <tr>
-      <td style="background:#A3FF3C;border-radius:8px;">
-        <a href="${url}" style="display:inline-block;padding:12px 24px;font-size:14px;font-weight:700;color:#16153A;text-decoration:none;">${text}</a>
+      <td align="center" style="background:#A3FF3C;border-radius:980px;">
+        <a href="${url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#1d1d1f;text-decoration:none;letter-spacing:-0.1px;">${text}</a>
       </td>
     </tr>
   </table>`;
 }
 
-function card(rows: { label: string; value: string }[]): string {
-  const rowsHtml = rows.map(r =>
-    `<tr>
-      <td style="padding:8px 0;font-size:13px;color:#666;border-bottom:1px solid #f5f5f5;">
-        <strong style="color:#1a1a1a;display:inline-block;width:140px;">${r.label}</strong>${r.value}
-      </td>
-    </tr>`
-  ).join('');
-  return `<table cellpadding="0" cellspacing="0" style="width:100%;margin:24px 0;border-top:1px solid #f5f5f5;">${rowsHtml}</table>`;
-}
-
-function h1(text: string): string {
-  return `<p style="margin:0 0 20px;font-size:22px;font-weight:800;color:#16153A;line-height:1.3;">${text}</p>`;
-}
-
-function p(text: string): string {
-  return `<p style="margin:0 0 16px;font-size:15px;color:#444;line-height:1.7;">${text}</p>`;
-}
-
 function note(text: string): string {
-  return `<p style="margin:24px 0 0;font-size:13px;color:#999;line-height:1.6;">${text}</p>`;
+  return `<p style="margin:24px 0 0;font-size:13px;color:#86868b;line-height:1.6;text-align:center;">${text}</p>`;
 }
 
-// ── 1. Convite institucional (admin criou pelo dashboard) ─────────────────────
+// ── 1. Convite institucional ───────────────────────────────────────────────────
 
 export function inviteTemplate(opts: {
   name: string;
@@ -87,20 +94,20 @@ export function inviteTemplate(opts: {
 }) {
   const subject = `Seu acesso ao Charlotte est\u00e1 pronto`;
   const html = base(`
-    ${h1(`Ol&aacute;, ${opts.name} &mdash; seu acesso est&aacute; pronto.`)}
-    ${p(`A equipe Hub Academy criou seu acesso ao <strong>Charlotte</strong>. Voc&ecirc; j&aacute; pode entrar e come&ccedil;ar a praticar ingl&ecirc;s.`)}
-    ${card([
+    ${h1(`Ol&aacute;, ${opts.name}.`)}
+    ${p(`A equipe Hub Academy criou seu acesso ao Charlotte.<br>Voc&ecirc; j&aacute; pode entrar e come&ccedil;ar a praticar ingl&ecirc;s.`)}
+    ${meta([
       { label: 'Email', value: opts.email },
-      { label: 'Senha tempor&aacute;ria', value: `<code style="background:#f5f5f5;padding:2px 8px;border-radius:4px;font-family:monospace;">${opts.tempPassword}</code>` },
+      { label: 'Senha tempor&aacute;ria', value: `<code style="font-family:monospace;background:#f5f5f7;padding:2px 8px;border-radius:4px;">${opts.tempPassword}</code>` },
     ])}
-    ${p(`No primeiro acesso voc&ecirc; ser&aacute; solicitado a criar uma nova senha.`)}
+    ${p(`No primeiro acesso voc&ecirc; ser&aacute; solicitado<br>a criar uma nova senha.`)}
     ${btn('Acessar o Charlotte', APP_URL)}
     ${note(`D&uacute;vidas? Fale com a equipe Hub Academy.`)}
   `);
   return { subject, html };
 }
 
-// ── 2. Boas-vindas subscriber (cadastro pelo app) ─────────────────────────────
+// ── 2. Boas-vindas subscriber ──────────────────────────────────────────────────
 
 export function welcomeSubscriberTemplate(opts: {
   name: string;
@@ -110,18 +117,18 @@ export function welcomeSubscriberTemplate(opts: {
   const subject = `Bem-vindo ao Charlotte, ${opts.name}`;
   const html = base(`
     ${h1(`Bem-vindo, ${opts.name}.`)}
-    ${p(`Seu teste gratuito do <strong>Charlotte</strong> est&aacute; ativo. Voc&ecirc; tem <strong>7 dias de acesso completo</strong> para praticar ingl&ecirc;s.`)}
-    ${card([
+    ${p(`Seu teste gratuito est&aacute; ativo.<br>Voc&ecirc; tem <strong style="color:#1d1d1f;">7 dias de acesso completo</strong> para praticar ingl&ecirc;s.`)}
+    ${meta([
       { label: 'N&iacute;vel', value: opts.level },
       { label: 'Acesso gratuito at&eacute;', value: opts.trialEndsAt },
     ])}
     ${btn('Come&ccedil;ar agora', APP_URL)}
-    ${note(`Aproveite ao m&aacute;ximo &mdash; converse com a Charlotte, fa&ccedil;a li&ccedil;&otilde;es e acompanhe seu progresso.`)}
+    ${note(`Converse com a Charlotte, fa&ccedil;a li&ccedil;&otilde;es<br>e acompanhe seu progresso.`)}
   `);
   return { subject, html };
 }
 
-// ── 3. Redefinicao de senha ───────────────────────────────────────────────────
+// ── 3. Redefinicao de senha ────────────────────────────────────────────────────
 
 export function resetPasswordTemplate(opts: {
   name: string;
@@ -129,15 +136,15 @@ export function resetPasswordTemplate(opts: {
 }) {
   const subject = `Redefini\u00e7\u00e3o de senha \u2014 Charlotte`;
   const html = base(`
-    ${h1(`Redefini&ccedil;&atilde;o de senha`)}
-    ${p(`Ol&aacute;, ${opts.name}. Recebemos uma solicita&ccedil;&atilde;o para redefinir a senha da sua conta Charlotte.`)}
+    ${h1(`Redefini&ccedil;&atilde;o<br>de senha`)}
+    ${p(`Ol&aacute;, ${opts.name}. Recebemos uma solicita&ccedil;&atilde;o para<br>redefinir a senha da sua conta Charlotte.`)}
     ${btn('Criar nova senha', opts.resetUrl)}
-    ${note(`Este link expira em <strong>1 hora</strong>. Se voc&ecirc; n&atilde;o solicitou a redefini&ccedil;&atilde;o, ignore este email &mdash; sua senha permanece a mesma.`)}
+    ${note(`Este link expira em <strong>1 hora</strong>.<br>Se voc&ecirc; n&atilde;o solicitou, ignore este email &mdash; sua senha permanece a mesma.`)}
   `);
   return { subject, html };
 }
 
-// ── 4. Trial expirando (2 dias antes) ────────────────────────────────────────
+// ── 4. Trial expirando ─────────────────────────────────────────────────────────
 
 export function trialExpiringTemplate(opts: {
   name: string;
@@ -145,25 +152,23 @@ export function trialExpiringTemplate(opts: {
 }) {
   const subject = `Seu acesso gratuito expira em 2 dias`;
   const html = base(`
-    ${h1(`Seu per&iacute;odo gratuito est&aacute; acabando.`)}
-    ${p(`Ol&aacute;, ${opts.name}. Seu acesso gratuito ao Charlotte expira em <strong>${opts.expiresAt}</strong>.`)}
-    ${p(`Para continuar praticando sem interrup&ccedil;&atilde;o, assine agora.`)}
+    ${h1(`Seu per&iacute;odo gratuito<br>est&aacute; acabando.`)}
+    ${p(`Ol&aacute;, ${opts.name}. Seu acesso gratuito expira em <strong style="color:#1d1d1f;">${opts.expiresAt}</strong>.<br>Assine agora para continuar praticando.`)}
     ${btn('Assinar o Charlotte', APP_URL)}
-    ${note(`D&uacute;vidas sobre os planos? Fale com a equipe Hub Academy.`)}
+    ${note(`D&uacute;vidas? Fale com a equipe Hub Academy.`)}
   `);
   return { subject, html };
 }
 
-// ── 5. Assinatura cancelada / expirada ────────────────────────────────────────
+// ── 5. Assinatura encerrada ────────────────────────────────────────────────────
 
 export function subscriptionExpiredTemplate(opts: {
   name: string;
 }) {
   const subject = `Sua assinatura Charlotte foi encerrada`;
   const html = base(`
-    ${h1(`Sentimos sua falta, ${opts.name}.`)}
-    ${p(`Sua assinatura do Charlotte foi encerrada e o acesso ao app foi suspenso.`)}
-    ${p(`Quando quiser voltar, &eacute; s&oacute; reativar &mdash; seu hist&oacute;rico de progresso fica salvo.`)}
+    ${h1(`Sentimos sua falta,<br>${opts.name}.`)}
+    ${p(`Sua assinatura foi encerrada e o acesso ao app foi suspenso.<br>Seu hist&oacute;rico de progresso fica salvo.`)}
     ${btn('Reativar acesso', APP_URL)}
     ${note(`A Charlotte est&aacute; aqui quando voc&ecirc; quiser voltar.`)}
   `);
