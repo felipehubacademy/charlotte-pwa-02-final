@@ -18,6 +18,11 @@ const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'tts', 'greetings');
 // Inter + Advanced: EN
 
 const GREETINGS: { level: string; id: string; text: string }[] = [
+  // Primeiro acesso — audio especifico por nivel
+  { level: 'novice', id: 'novice_first_01', text: 'Oi! Seja bem-vindo ao Charlotte! Que bom ter você aqui. Vamos aprender inglês juntos?' },
+  { level: 'inter',    id: 'inter_first_01',    text: "Hey! Welcome to Charlotte! I'm so glad you're here. Let's learn English together!" },
+  { level: 'advanced', id: 'advanced_first_01', text: "Hey there! Welcome to Charlotte. I'm really looking forward to working with you — we're going to do great things." },
+
   // Novice (PT-BR)
   { level: 'novice', id: 'novice_01', text: 'Oi! Que bom te ver! Bora praticar?' },
   { level: 'novice', id: 'novice_02', text: 'Oi! Estou te esperando. Vamos lá!' },

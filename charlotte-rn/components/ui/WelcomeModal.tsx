@@ -31,7 +31,7 @@ interface WordTiming { word: string; start: number; end: number; }
 const GREETING_IDS_FIRST: Record<string, string> = {
   Novice:   'novice_first_01',
   Inter:    'inter_first_01',
-  Advanced: 'inter_first_01',  // Advanced usa o mesmo audio ingles do Inter
+  Advanced: 'advanced_first_01',
 };
 
 // Logins subsequentes — pool aleatorio
@@ -44,7 +44,7 @@ const GREETING_IDS_POOL: Record<string, string[]> = {
 const SUBTITLE_FIRST: Record<string, string> = {
   Novice:   'Seja muito bem-vindo!\nVamos aprender inglês juntos.',
   Inter:    "Great to have you here!\nLet's learn English together.",
-  Advanced: "Great to have you here!\nLet's learn English together.",
+  Advanced: "Welcome — let's do great things\ntogether.",
 };
 
 const SUBTITLE_RETURNING: Record<string, string> = {

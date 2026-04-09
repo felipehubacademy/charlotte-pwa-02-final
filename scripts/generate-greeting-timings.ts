@@ -24,6 +24,11 @@ interface WordTiming {
 }
 
 const GREETINGS: { id: string; text: string }[] = [
+  // Primeiro acesso
+  { id: 'novice_first_01', text: 'Oi! Seja bem-vindo ao Charlotte! Que bom ter você aqui. Vamos aprender inglês juntos?' },
+  { id: 'inter_first_01',    text: "Hey! Welcome to Charlotte! I'm so glad you're here. Let's learn English together!" },
+  { id: 'advanced_first_01', text: "Hey there! Welcome to Charlotte. I'm really looking forward to working with you — we're going to do great things." },
+
   { id: 'novice_01', text: 'Oi! Que bom te ver! Bora praticar?' },
   { id: 'novice_02', text: 'Oi! Estou te esperando. Vamos lá!' },
   { id: 'novice_03', text: 'Ei, que bom que voltou! Bora pro inglês?' },

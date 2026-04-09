@@ -1,0 +1,67 @@
+[
+  {
+    "word": "Hey!",
+    "start": 0,
+    "end": 0.546
+  },
+  {
+    "word": "Welcome",
+    "start": 0.929,
+    "end": 1.254
+  },
+  {
+    "word": "to",
+    "start": 1.277,
+    "end": 1.324
+  },
+  {
+    "word": "Charlotte!",
+    "start": 1.37,
+    "end": 1.846
+  },
+  {
+    "word": "I'm",
+    "start": 2.055,
+    "end": 2.194
+  },
+  {
+    "word": "so",
+    "start": 2.276,
+    "end": 2.485
+  },
+  {
+    "word": "glad",
+    "start": 2.543,
+    "end": 2.728
+  },
+  {
+    "word": "you're",
+    "start": 2.763,
+    "end": 2.914
+  },
+  {
+    "word": "here.",
+    "start": 2.937,
+    "end": 3.251
+  },
+  {
+    "word": "Let's",
+    "start": 3.425,
+    "end": 3.634
+  },
+  {
+    "word": "learn",
+    "start": 3.669,
+    "end": 3.82
+  },
+  {
+    "word": "English",
+    "start": 3.855,
+    "end": 4.087
+  },
+  {
+    "word": "together!",
+    "start": 4.122,
+    "end": 4.83
+  }
+]
