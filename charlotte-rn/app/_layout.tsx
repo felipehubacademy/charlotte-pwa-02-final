@@ -25,7 +25,7 @@ soundEngine.preload().catch(() => {});
  * nested layouts which cause "not found" errors.
  */
 function AuthGuard() {
-  const { isAuthenticated, isLoading, mustChangePassword, profile, refreshProfile } = useAuth();
+  const { isAuthenticated, isLoading, mustChangePassword, isPasswordRecovery, profile, refreshProfile } = useAuth();
   const lastRoute = useRef<string | null>(null);
   const retryCount = useRef(0);
   const pathname = usePathname();
@@ -50,6 +50,9 @@ function AuthGuard() {
     if (!isAuthenticated) {
       // Não logado → sempre vai para o onboarding, sem exceção.
       target = '/(onboarding)';
+    } else if (isPasswordRecovery) {
+      // Usuário clicou no link de redefinição de senha — vai direto para a tela de nova senha.
+      target = '/(auth)/reset-password';
     } else if (mustChangePassword) {
       target = '/(app)/first-access';
     } else if (profile && !profile.placement_test_done) {
@@ -60,7 +63,8 @@ function AuthGuard() {
       // navigate into the app. Skip if already inside (app) to avoid clobbering navigation.
       const onAuthScreen = pathname === '/' ||
         pathname.includes('login') || pathname.includes('onboarding') ||
-        pathname.includes('forgot') || pathname.includes('callback');
+        pathname.includes('forgot') || pathname.includes('callback') ||
+        pathname.includes('reset-password');
       if (!onAuthScreen) {
         lastRoute.current = null;
         return; // already in app — don't redirect
@@ -74,7 +78,7 @@ function AuthGuard() {
     if (lastRoute.current === target) return;
     lastRoute.current = target;
     router.replace(target as any);
-  }, [isLoading, isAuthenticated, mustChangePassword, profile, profile?.placement_test_done, pathname]);
+  }, [isLoading, isAuthenticated, mustChangePassword, isPasswordRecovery, profile, profile?.placement_test_done, pathname]);
 
   return null;
 }

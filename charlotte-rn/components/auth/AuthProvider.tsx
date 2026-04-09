@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { unstable_batchedUpdates } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { supabase, UserProfile } from '@/lib/supabase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { initPurchases, identifyUser, resetUser } from '@/lib/purchases';
@@ -14,7 +15,9 @@ export interface AuthContextType {
   hasAccess: boolean;           // is_institutional OR active/trial subscription
   mustChangePassword: boolean;
   isFreshLogin: boolean;        // true when SIGNED_IN fired (real login, not app resume)
+  isPasswordRecovery: boolean;  // true when app opened via password reset email link
   clearFreshLogin: () => void;  // call after welcome modal is shown
+  clearPasswordRecovery: () => void; // call after reset-password screen handled
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -24,16 +27,54 @@ export interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Parse hash fragment tokens from a deep link URL (e.g. charlotte://auth/callback#access_token=...&type=recovery)
+function parseHashParams(url: string): Record<string, string> {
+  const hashIndex = url.indexOf('#');
+  if (hashIndex === -1) return {};
+  return Object.fromEntries(new URLSearchParams(url.slice(hashIndex + 1)));
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isFreshLogin, setIsFreshLogin] = useState(false);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
 
   usePushNotifications(session?.user?.id);
 
   // Initialise RevenueCat SDK once on mount (idempotent)
   useEffect(() => { initPurchases(); }, []);
+
+  // ── Deep link handler: password reset email ────────────────────────────────
+  // Supabase redirects to charlotte://auth/callback#access_token=...&type=recovery
+  // after verifying the token_hash. Since detectSessionInUrl=false, we must parse
+  // the URL ourselves, call setSession(), and flag the recovery flow.
+  useEffect(() => {
+    const handleUrl = async (url: string) => {
+      const params = parseHashParams(url);
+      if (params.type !== 'recovery') return;
+      if (!params.access_token || !params.refresh_token) return;
+
+      console.log('[AuthProvider] Recovery deep link detected — setting session');
+      const { error } = await supabase.auth.setSession({
+        access_token:  params.access_token,
+        refresh_token: params.refresh_token,
+      });
+      if (error) {
+        console.error('[AuthProvider] setSession (recovery) error:', error.message);
+      } else {
+        setIsPasswordRecovery(true);
+      }
+    };
+
+    // Cold start: app launched from the email link
+    Linking.getInitialURL().then(url => { if (url) handleUrl(url); });
+
+    // Warm start: app already open, link opened via OS
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
 
   const fetchProfile = async (userId: string): Promise<UserProfile | null> => {
     console.log('[AuthProvider] fetchProfile start for:', userId);
@@ -109,6 +150,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (event === 'SIGNED_IN') {
           setIsFreshLogin(true);
+        }
+
+        if (event === 'PASSWORD_RECOVERY') {
+          // Fired when detectSessionInUrl=true. Guard here as well in case the
+          // flag is ever enabled, so the recovery screen always shows.
+          setIsPasswordRecovery(true);
+          setSession(session);
+          clearTimeout(hardTimeout);
+          markResolved();
+          return;
         }
 
         if (event === 'USER_UPDATED') {
@@ -218,6 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mustChangePassword = profile?.must_change_password === true;
 
   const clearFreshLogin = () => setIsFreshLogin(false);
+  const clearPasswordRecovery = () => setIsPasswordRecovery(false);
 
   return (
     <AuthContext.Provider value={{
@@ -228,7 +280,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       hasAccess,
       mustChangePassword,
       isFreshLogin,
+      isPasswordRecovery,
       clearFreshLogin,
+      clearPasswordRecovery,
       signIn,
       signUp,
       signOut,
