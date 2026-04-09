@@ -52,7 +52,9 @@ function AuthGuard() {
       target = '/(onboarding)';
     } else if (mustChangePassword) {
       target = '/(app)/first-access';
-    } else if (profile && !profile.placement_test_done) {
+    } else if (profile && !profile.placement_test_done && !profile.charlotte_level) {
+      // Only force placement test if BOTH: flag is false AND level not set.
+      // If admin already set the level in dashboard, skip placement test.
       target = '/(app)/placement-test';
     } else if (isAuthenticated && profile) {
       // Auth is fully ready. If still on login/onboarding (edge case: INITIAL_SESSION
