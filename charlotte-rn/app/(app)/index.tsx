@@ -55,7 +55,8 @@ const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
 
 // Module-level flag — persists for the entire JS session even if component remounts.
-// Ensures the streak sound plays at most once per app launch.
+// Combined with a SecureStore date-check so the sound plays at most ONCE PER DAY,
+// not on every app open.
 let _streakSoundPlayedThisSession = false;
 
 // Palette estática usada apenas em constantes de módulo (fora do componente)
@@ -868,10 +869,21 @@ export default function HomeScreen() {
     }
     setData(newData);
 
-    // 🔊 Som de streak — toca UMA VEZ por app session quando há streak ativo
+    // 🔊 Som de streak — toca UMA VEZ POR DIA quando há streak ativo.
+    // Usa SecureStore para persistir a data do último toque, garantindo que
+    // múltiplas aberturas do app no mesmo dia não disparem o som de novo.
     if (!_streakSoundPlayedThisSession && newData.streakDays > 0) {
-      _streakSoundPlayedThisSession = true;
-      setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
+      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const streakKey = `streak_sound_played_${userId}`;
+      SecureStore.getItemAsync(streakKey).then(lastPlayed => {
+        if (lastPlayed !== today) {
+          _streakSoundPlayedThisSession = true;
+          SecureStore.setItemAsync(streakKey, today).catch(() => {});
+          setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
+        } else {
+          _streakSoundPlayedThisSession = true; // skip but mark so we don't check again
+        }
+      }).catch(() => {});
     }
     // Cache para uso offline
     cacheHomeData({ ...newData, cachedAt: Date.now() }).catch(() => {});
