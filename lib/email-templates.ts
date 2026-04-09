@@ -154,7 +154,7 @@ export function trialExpiringTemplate(opts: {
   const html = base(`
     ${h1(`Seu per&iacute;odo gratuito<br>est&aacute; acabando.`)}
     ${p(`Ol&aacute;, ${opts.name}. Seu acesso gratuito expira em <strong style="color:#1d1d1f;">${opts.expiresAt}</strong>.<br>Assine agora para continuar praticando.`)}
-    ${btn('Assinar o Charlotte', APP_URL)}
+    ${btn('Assinar o Charlotte AI', APP_URL)}
     ${note(`D&uacute;vidas? Fale com a equipe Hub Academy.`)}
   `);
   return { subject, html };
