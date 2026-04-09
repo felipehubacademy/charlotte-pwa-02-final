@@ -943,7 +943,7 @@ export default function HomeScreen() {
       const state = getWeeklyChallenge(
         weekly.weeklyMessages, weekly.weeklyXP,
         data?.streakDays ?? 0, weekly.weeklyLessons, weekly.weeklyAudios,
-        weekly.weeklyGrammarMessages, userLevel,
+        weekly.weeklyGrammarMessages, level,
       );
 
       // ── Weekly challenge completion celebration & XP credit ───────────────
