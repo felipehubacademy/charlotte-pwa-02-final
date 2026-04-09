@@ -551,8 +551,16 @@ export default function LiveVoiceModal({
 
       stopRingTone();
 
+      // echoCancellation removes Charlotte's speaker output from the mic signal
+      // before it reaches the server VAD — this is the correct way to prevent
+      // Charlotte from "hearing herself". noiseSuppression and autoGainControl
+      // improve speech quality on mobile.
       const stream = await mediaDevices.getUserMedia({
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
         video: false,
       });
       localStreamRef.current = stream;
