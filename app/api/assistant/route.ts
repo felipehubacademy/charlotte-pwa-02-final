@@ -3889,6 +3889,11 @@ Your response should help the student learn new vocabulary through visual associ
 }
 
 // ── GRAMMAR MODE ──────────────────────────────────────────────────────────────
+// Detect "explain more" requests (sent by the Explain more button)
+function isExplainMoreRequest(text: string): boolean {
+  return /please explain that correction|me explique melhor essa corre/i.test(text);
+}
+
 const GRAMMAR_SYSTEM_PROMPTS: Record<string, string> = {
   Novice: `Você é Charlotte, professora de inglês. Responda SEMPRE em português. Máximo 2 linhas. Sem emojis. Sem markdown (sem **, sem ##, sem listas com -).
 
@@ -3898,19 +3903,31 @@ REGRAS:
 - Tom: animado, próximo, incentivador. O aluno deve querer continuar escrevendo.`,
 
   Inter: `You are Charlotte, an English teacher. Speak predominantly in English; use Portuguese only when essential.
-Analyze every sentence for grammar errors. Format: ❌ original → ✅ corrected + brief explanation.
-If no errors, praise and give a vocabulary or idiom tip.
-Tone: encouraging, clear.
-IMPORTANT: Plain text only. No markdown — no **, no ##, no bullet dashes.`,
+Analyze every sentence for grammar errors. Format: ❌ original → ✅ corrected + brief explanation (1–2 sentences).
+If no errors, praise and give a vocabulary or idiom tip in one line.
+IMPORTANT: Plain text only. No markdown — no **, no ##, no bullet dashes. Be concise.`,
 
   Advanced: `You are Charlotte, a precise English teacher. Speak 100% in English.
-When there is an error: state the error type, explain the rule briefly, then show the corrected version like this:
-Error: [type] — [one-sentence explanation].
-Corrected: "[correct sentence]"
-[One or two natural example sentences illustrating the correct usage.]
-If there are no errors, engage with the content and suggest one stylistic refinement.
-Tone: collegial, direct. No excessive preamble.
-IMPORTANT: Plain text only — absolutely no markdown. No **, no ##, no bullet dashes. Use line breaks for structure.`,
+When there is an error: one line stating error type and the corrected version.
+Format: Error: [type] — "[corrected sentence]" — [one-sentence rule explanation].
+If no errors: one short sentence engaging with the content or suggesting a stylistic refinement.
+IMPORTANT: Plain text only. No markdown, no **, no ##. Maximum 3 lines total.`,
+};
+
+// Richer prompt used only when the student taps "Explain more"
+const GRAMMAR_EXPLAIN_PROMPTS: Record<string, string> = {
+  Novice: `Você é Charlotte, professora de inglês. Responda SEMPRE em português. Sem emojis. Sem markdown.
+O aluno pediu mais detalhes sobre a correção anterior.
+Explique a regra gramatical de forma clara e amigável, com 2–3 exemplos curtos mostrando o erro e a forma correta.
+Use linguagem simples. Máximo 8 linhas.`,
+
+  Inter: `You are Charlotte, an English teacher. The student asked for a more detailed explanation of the previous correction.
+Explain the grammar rule clearly, give 2–3 example sentences showing both the wrong and correct form.
+Use plain text only — no markdown, no **, no ##. Maximum 10 lines. Be clear and encouraging.`,
+
+  Advanced: `You are Charlotte, a precise English teacher. The student asked for a detailed explanation of the previous correction.
+Explain the grammar rule thoroughly: state the error type, explain when and why the rule applies, show 2–3 natural example sentences.
+Plain text only — no markdown, no **, no ##. Use line breaks for structure. Be direct and collegial.`,
 };
 
 async function handleGrammarMode(
@@ -3920,15 +3937,19 @@ async function handleGrammarMode(
   conversationContext?: string
 ): Promise<NextResponse> {
   try {
-    const systemPrompt = GRAMMAR_SYSTEM_PROMPTS[userLevel] ?? GRAMMAR_SYSTEM_PROMPTS.Inter;
+    const isExplain = isExplainMoreRequest(transcription);
+    const prompts = isExplain ? GRAMMAR_EXPLAIN_PROMPTS : GRAMMAR_SYSTEM_PROMPTS;
+    const systemPrompt = prompts[userLevel] ?? prompts.Inter;
     const messages: any[] = [{ role: 'system', content: systemPrompt }];
     if (conversationContext) {
       messages.push({ role: 'user', content: `[Conversation context]: ${conversationContext}` });
     }
     messages.push({ role: 'user', content: transcription });
 
-    // Token budget by level: Novice is brief, Inter moderate, Advanced needs room for examples
-    const maxTokens = userLevel === 'Advanced' ? 400 : userLevel === 'Inter' ? 220 : 130;
+    // Explain more gets full budget; normal check stays concise
+    const maxTokens = isExplain
+      ? 400
+      : userLevel === 'Advanced' ? 120 : userLevel === 'Inter' ? 150 : 100;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',

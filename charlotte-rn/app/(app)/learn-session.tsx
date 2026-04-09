@@ -749,21 +749,29 @@ export default function LearnSessionScreen() {
               )}
 
               {/* Sentence / Question */}
-              {currentStep.exercise.type === 'fill_gap' ? (
-                /* ── Fill-gap: lacuna inline na frase ── */
+              {(currentStep.exercise.type === 'fill_gap' || currentStep.exercise.type === 'word_bank') ? (
+                /* ── Fill-gap & Word-bank: sentence with inline gap (nested Text = true inline flow) ── */
                 (() => {
                   const GAP = '_____';
                   const sentence = currentStep.exercise.sentence ?? '';
                   const parts    = sentence.split(GAP);
                   const before   = parts[0] ?? '';
                   const after    = parts[1] ?? '';
-                  const textStyle = { fontSize: 22, fontWeight: '500' as const, color: C.navy, lineHeight: 34 };
+                  const gapColor = gStatus === 'submitted' ? (isCorrect ? C.green : C.red) : accent;
+                  const gapAnswer = userAnswer || '______';
+                  const isWordBank = currentStep.exercise.type === 'word_bank';
                   return (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 20 }}>
-                      {before.length > 0 && (
-                        <AppText style={textStyle}>{before}</AppText>
-                      )}
-                      {gStatus === 'answering' ? (
+                    <View style={{ marginBottom: isWordBank ? 24 : 16 }}>
+                      {/* Single Text component — nested Text = true inline, no flex-item wrapping */}
+                      <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34 }}>
+                        {before}
+                        <AppText style={{ fontSize: 22, fontWeight: '700', color: gapColor, textDecorationLine: 'underline' }}>
+                          {gapAnswer}
+                        </AppText>
+                        {after}
+                      </AppText>
+                      {/* Fill-gap only: separate input below sentence */}
+                      {!isWordBank && gStatus === 'answering' && (
                         <TextInput
                           value={userAnswer}
                           onChangeText={setUserAnswer}
@@ -772,29 +780,15 @@ export default function LearnSessionScreen() {
                           autoCapitalize="none"
                           returnKeyType="done"
                           onSubmitEditing={handleGrammarSubmit}
-                          placeholderTextColor={accent + '80'}
-                          placeholder="___"
                           style={{
-                            fontSize: 22, fontWeight: '700', color: accent,
-                            borderBottomWidth: 2.5, borderBottomColor: accent,
-                            minWidth: 72, paddingHorizontal: 6, paddingBottom: 2,
-                            lineHeight: 34,
+                            marginTop: 20,
+                            fontSize: 18, fontWeight: '700', color: accent,
+                            borderWidth: 2, borderColor: accent, borderRadius: 12,
+                            paddingHorizontal: 16, paddingVertical: 12,
                           }}
+                          placeholder={isPortuguese ? 'Digite a palavra...' : 'Type the word...'}
+                          placeholderTextColor={C.navyLight}
                         />
-                      ) : (
-                        /* Estado submetido — mostra resposta com cor de certo/errado */
-                        <AppText style={{
-                          fontSize: 22, fontWeight: '700',
-                          color: isCorrect ? C.green : C.red,
-                          borderBottomWidth: 2,
-                          borderBottomColor: isCorrect ? C.green : C.red,
-                          paddingHorizontal: 4,
-                        }}>
-                          {userAnswer || '___'}
-                        </AppText>
-                      )}
-                      {after.length > 0 && (
-                        <AppText style={textStyle}>{after}</AppText>
                       )}
                     </View>
                   );
@@ -858,48 +852,30 @@ export default function LearnSessionScreen() {
                 </View>
               )}
 
-              {/* Word bank */}
+              {/* Word bank — chips only, selected word appears inline in sentence above */}
               {currentStep.exercise.type === 'word_bank' && gStatus === 'answering' && (
-                <View>
-                  <TouchableOpacity
-                    onPress={() => userAnswer && setUserAnswer('')}
-                    activeOpacity={userAnswer ? 0.7 : 1}
-                    style={{
-                      borderRadius: 12, borderWidth: 2,
-                      borderColor: userAnswer ? accent : C.border,
-                      backgroundColor: userAnswer ? accentBg : 'transparent',
-                      paddingVertical: 14, paddingHorizontal: 18,
-                      minHeight: 52, alignItems: 'center', justifyContent: 'center', marginBottom: 24,
-                    }}
-                  >
-                    {userAnswer
-                      ? <AppText style={{ fontSize: 17, fontWeight: '700', color: accent }}>{userAnswer}</AppText>
-                      : <AppText style={{ fontSize: 14, color: C.navyLight }}>{isPortuguese ? 'toque em uma palavra abaixo' : 'tap a word below'}</AppText>
-                    }
-                  </TouchableOpacity>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-                    {shuffledChoices.map((chip, i) => {
-                      const used = chip === userAnswer;
-                      return (
-                        <TouchableOpacity
-                          key={i}
-                          onPress={() => setUserAnswer(used ? '' : chip)}
-                          style={{
-                            paddingHorizontal: 20, paddingVertical: 13,
-                            borderRadius: 12, borderWidth: 1.5,
-                            borderColor: used ? C.border : C.navy,
-                            backgroundColor: used ? C.ghost : C.card,
-                            opacity: used ? 0.45 : 1,
-                          }}
-                        >
-                          {isPortuguese
-                            ? <TranslatableText text={chip} style={{ fontSize: 16, fontWeight: '700', color: used ? C.navyLight : C.navy }} />
-                            : <AppText style={{ fontSize: 16, fontWeight: '700', color: used ? C.navyLight : C.navy }}>{chip}</AppText>
-                          }
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+                  {shuffledChoices.map((chip, i) => {
+                    const used = chip === userAnswer;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        onPress={() => setUserAnswer(used ? '' : chip)}
+                        style={{
+                          paddingHorizontal: 20, paddingVertical: 13,
+                          borderRadius: 12, borderWidth: 1.5,
+                          borderColor: used ? accent : C.navy,
+                          backgroundColor: used ? accentBg : C.card,
+                          opacity: used ? 0.7 : 1,
+                        }}
+                      >
+                        {isPortuguese
+                          ? <TranslatableText text={chip} style={{ fontSize: 16, fontWeight: '700', color: used ? accent : C.navy }} />
+                          : <AppText style={{ fontSize: 16, fontWeight: '700', color: used ? accent : C.navy }}>{chip}</AppText>
+                        }
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               )}
 
