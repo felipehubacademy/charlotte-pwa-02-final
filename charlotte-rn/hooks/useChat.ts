@@ -585,27 +585,32 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           }
         }
 
-        // ── 5b. Demo TTS — mispronounced words, minimal-pair errors, OR low prosody ────
-        // Three independent paths:
-        //   a) Specific weak words found (Azure accuracy < 82) → always demo
-        //   b) Semantic / minimal-pair error → demo the CORRECT intended word
-        //   c) Prosody-only issue (no flagged words) → demo when overall < 88
+        // ── 5b. Demo TTS ────────────────────────────────────────────────────────
+        // Strategy: always demo the user's OWN sentence via Charlotte's TTS.
+        // This is far more educational than random new sentences because:
+        //   - the user hears exactly how THEIR sentence should sound
+        //   - prosody/rhythm issues (intonation, stress) are demonstrated in full context
+        //   - all mispronounced words are covered at once, not just 1-2
+        //
+        // Exception — semantic/minimal-pair error (path b): the user said a
+        // DIFFERENT word than intended (e.g. "world" vs "word"), so we demo the
+        // CORRECT word in a new sentence instead of the original.
         const lowProsody = pronunciationData != null &&
           (pronunciationData.prosodyScore ?? 100) < 82;
 
         const shouldDemo =
           pronunciationData != null &&
           (
-            mispronounced.length > 0 ||                                        // path a
-            semanticCorrections.length > 0 ||                                  // path b
-            (lowProsody && pronunciationData.pronunciationScore < 88)           // path c
+            mispronounced.length > 0 ||
+            semanticCorrections.length > 0 ||
+            (lowProsody && pronunciationData.pronunciationScore < 88)
           );
 
         if (shouldDemo && pronunciationData) {
           let demoText = '';
 
-          // Path b — semantic correction only when Azure found NO mispronounced words
           if (semanticCorrections.length > 0 && mispronounced.length === 0) {
+            // Path b — minimal-pair error: demo the correct word in a new sentence
             const correctWords = semanticCorrections.map(c => c.likely);
             try {
               const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
@@ -616,43 +621,17 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
               if (sentRes.ok) {
                 const sentJson = await sentRes.json();
                 const sentences: string[] = sentJson.sentences ?? [];
-                if (sentences.length > 0) {
-                  demoText = sentences.join('  ');
-                }
+                if (sentences.length > 0) demoText = sentences.join('  ');
               }
             } catch (e) {
               console.warn('⚠️ demo-sentence (semantic) failed, skipping:', e);
             }
           }
 
-          // Path a / c — accuracy or prosody issues: demo weak/content words
-          if (!demoText) {
-            let demoWords = mispronounced.slice(0, 2);
-            if (demoWords.length === 0 && transcription) {
-              // prosody-only path: pick content words from transcription
-              demoWords = transcription
-                .split(/\s+/)
-                .filter(w => w.length > 3)
-                .slice(0, 2);
-            }
-            if (demoWords.length > 0) {
-              try {
-                const sentRes = await fetch(`${API_BASE_URL}/api/demo-sentence`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ words: demoWords }),
-                });
-                if (sentRes.ok) {
-                  const sentJson = await sentRes.json();
-                  const sentences: string[] = sentJson.sentences ?? [];
-                  if (sentences.length > 0) {
-                    demoText = sentences.join('  ');
-                  }
-                }
-              } catch (e) {
-                console.warn('⚠️ demo-sentence fetch failed, skipping demo:', e);
-              }
-            }
+          // Path a / c — mispronounced words or prosody: demo the user's own
+          // sentence so they hear exactly how it should sound.
+          if (!demoText && transcription) {
+            demoText = transcription.trim();
           }
 
           if (demoText) {
