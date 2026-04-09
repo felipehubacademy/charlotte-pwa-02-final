@@ -47,10 +47,10 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
-    <key>NSFaceIDUsageDescription</key>
-    <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSCameraUsageDescription</key>
     <string>Charlotte may use your camera for video during live conversation sessions.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>Charlotte uses your microphone to practice English conversation with AI.</string>
     <key>NSUserActivityTypes</key>

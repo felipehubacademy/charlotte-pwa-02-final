@@ -15,6 +15,7 @@ interface GreetingRequest {
   firstName: string;
   streak: number;
   todayXP: number;
+  totalXP: number;     // 0 = brand new user, never done anything
   dailyGoal: number;
   hour: number;        // 0–23 local hour (sent by client)
   level: 'Novice' | 'Inter' | 'Advanced';
@@ -28,20 +29,25 @@ function systemPrompt(level: string): string {
 }
 
 function userPrompt(req: GreetingRequest): string {
-  const { firstName, streak, todayXP, dailyGoal, hour, level } = req;
+  const { firstName, streak, todayXP, totalXP, dailyGoal, hour, level } = req;
   const timeOfDay = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
   const xpLeft = Math.max(0, dailyGoal - todayXP);
   const goalMet = todayXP >= dailyGoal;
+  const isNewUser = (totalXP ?? 0) === 0;
 
   const ctx: string[] = [
     `Student name: ${firstName}`,
     `Time of day: ${timeOfDay}`,
-    `Current streak: ${streak} day${streak !== 1 ? 's' : ''}`,
-    goalMet
-      ? `XP today: ${todayXP} — daily goal already met!`
-      : todayXP > 0
-        ? `XP earned today: ${todayXP} (${xpLeft} XP left to hit the daily goal)`
-        : `No XP earned yet today`,
+    isNewUser
+      ? `This is their FIRST TIME using the app — brand new student, no previous sessions.`
+      : `Current streak: ${streak} day${streak !== 1 ? 's' : ''}`,
+    isNewUser
+      ? `Welcome them warmly as a new student. Do NOT say anything about restarting, coming back, or resuming.`
+      : goalMet
+        ? `XP today: ${todayXP} — daily goal already met!`
+        : todayXP > 0
+          ? `XP earned today: ${todayXP} (${xpLeft} XP left to hit the daily goal)`
+          : `No XP earned yet today`,
   ];
 
   if (level === 'Novice') {

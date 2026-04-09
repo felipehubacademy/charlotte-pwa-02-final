@@ -304,8 +304,8 @@ const MessageBubble: React.FC<{
               </TouchableOpacity>
             )}
 
-            {/* "Me explique melhor" — grammar mode, Charlotte messages only */}
-            {mode === 'grammar' && !!message.content && !!onExplainMore && (
+            {/* "Me explique melhor" — grammar mode, Charlotte messages only, not on greeting */}
+            {mode === 'grammar' && !!message.content && !!onExplainMore && message.id !== 'welcome-0' && (
               <TouchableOpacity
                 onPress={() => onExplainMore(message.content)}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}

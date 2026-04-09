@@ -58,7 +58,10 @@ function AuthGuard() {
     if (isAuthenticated && profile === null) return; // wait for profile
 
     let target: string;
-    if (!isAuthenticated && !onboardingDone) {
+    if (!onboardingDone) {
+      // Show onboarding on first launch regardless of auth state.
+      // After completing, goToLogin() redirects to /(auth)/login which then
+      // redirects authenticated users straight into the app.
       target = '/(onboarding)';
     } else if (!isAuthenticated) {
       target = '/(auth)/login';

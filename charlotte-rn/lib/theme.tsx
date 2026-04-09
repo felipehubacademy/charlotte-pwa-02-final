@@ -92,9 +92,11 @@ const ThemeContext = createContext<ThemeContextValue>({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const scheme = useColorScheme();
-  const isDark = scheme === 'dark';
-  const colors = isDark ? darkColors : lightColors;
+  // Dark mode disabled — full implementation planned for future release.
+  // When re-enabling: restore `const scheme = useColorScheme();` and
+  // set `isDark = scheme === 'dark'` and `colors = isDark ? darkColors : lightColors`.
+  const isDark = false;
+  const colors = lightColors;
 
   return (
     <ThemeContext.Provider value={{ colors, isDark }}>
