@@ -785,6 +785,7 @@ export default function HomeScreen() {
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
   const greetingFetchedRef = useRef(false);
+  const greetingLevelRef   = useRef<string>('');
 
   // Track which mission rewards were already granted today (persisted in charlotte_practices)
   const rewardedMissionsRef = React.useRef<Set<string>>(new Set());
@@ -949,11 +950,19 @@ export default function HomeScreen() {
   // On open: if ts is recent (< GREETING_TTL_MS) reuse the message.
   // After 2h away → generate a fresh, contextual greeting.
   const GREETING_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-  const GREETING_CACHE_KEY = `ai_greeting_v2_${userId}`;
+  // Key includes level so a level change (e.g. Novice → Advanced after placement
+  // test) always fetches a fresh greeting in the correct language.
+  const GREETING_CACHE_KEY = `ai_greeting_v3_${userId}_${level}`;
 
   useEffect(() => {
+    // Re-fetch if level changed (e.g. after placement test Novice → Advanced)
+    if (greetingLevelRef.current && greetingLevelRef.current !== level) {
+      greetingFetchedRef.current = false;
+      setAiGreeting(null);
+    }
     if (!userId || !name || greetingFetchedRef.current) return;
     greetingFetchedRef.current = true;
+    greetingLevelRef.current = level;
 
     (async () => {
       try {
