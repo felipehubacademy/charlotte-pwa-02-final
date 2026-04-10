@@ -607,16 +607,6 @@ const MISSION_POOL: MissionTemplate[] = [
     getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 2)} / 2 ${isPt ? 'dias' : 'days'}`,
   },
   {
-    id: 'streak_5',
-    label: isPt => isPt ? 'Sequência de 5 dias' : '5-day streak',
-    sub:   isPt => isPt ? 'Consistência é tudo!' : 'Consistency is everything!',
-    xpReward: 50, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
-    icon: <Fire size={22} color={C.orange} weight="fill" />,
-    getCompleted:     d => d.streakDays >= 5 && d.todayXP > 0,
-    getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 5, 1) : Math.min(d.streakDays / 5, 0.9),
-    getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 5)} / 5 ${isPt ? 'dias' : 'days'}`,
-  },
-  {
     id: 'streak_10',
     label: isPt => isPt ? 'Sequência de 10 dias' : '10-day streak',
     sub:   isPt => isPt ? 'Você está no caminho certo!' : 'You\'re on a roll!',
@@ -702,7 +692,7 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 const MISSION_FAMILIES: Record<string, string[]> = {
   messages: ['messages_3', 'messages_5', 'messages_10', 'messages_20'],
   xp:       ['xp_20', 'xp_50', 'xp_100'],
-  streak:   ['streak_2', 'streak_5', 'streak_10'],
+  streak:   ['streak_2', 'streak_10'],
   text:     ['text_3', 'text_7'],
   audio:    ['audio_1', 'audio_3', 'audio_5'],
 };
@@ -1000,15 +990,10 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [fetchData]);
 
-  // ── AI Greeting — regenerates after 2h of inactivity ───────
-  // Cache: SecureStore stores { message, ts } per user.
-  // On open: if ts is recent (< GREETING_TTL_MS) reuse the message.
-  // After 2h away → generate a fresh, contextual greeting.
-  const GREETING_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-  // Key includes level so a level change (e.g. Novice → Advanced after placement
-  // test) always fetches a fresh greeting in the correct language.
-  const GREETING_CACHE_KEY = `ai_greeting_v3_${userId}_${level}`;
-
+  // ── AI Greeting — always fresh on every app open ────────────
+  // No cache: a new contextual greeting is fetched every time the home
+  // screen mounts (cold/warm start). greetingFetchedRef prevents double-
+  // fetching within the same session (e.g. navigation back to home).
   useEffect(() => {
     // Re-fetch if level changed (e.g. after placement test Novice → Advanced)
     if (greetingLevelRef.current && greetingLevelRef.current !== level) {
@@ -1021,19 +1006,6 @@ export default function HomeScreen() {
 
     (async () => {
       try {
-        // Check timestamp-based cache
-        const raw = await SecureStore.getItemAsync(GREETING_CACHE_KEY);
-        if (raw) {
-          const parsed: { message: string; ts: number } = JSON.parse(raw);
-          const age = Date.now() - parsed.ts;
-          if (age < GREETING_TTL_MS && parsed.message) {
-            setAiGreeting(parsed.message);
-            setGreetingLoading(false);
-            return;
-          }
-        }
-
-        // Stale or missing — fetch a fresh greeting
         const res = await fetch(`${API_BASE_URL}/api/greeting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1049,13 +1021,7 @@ export default function HomeScreen() {
         });
         if (!res.ok) { setGreetingLoading(false); return; }
         const json = await res.json();
-        if (json.message) {
-          setAiGreeting(json.message);
-          await SecureStore.setItemAsync(
-            GREETING_CACHE_KEY,
-            JSON.stringify({ message: json.message, ts: Date.now() }),
-          );
-        }
+        if (json.message) setAiGreeting(json.message);
       } catch {
         // Silently fail — dots will disappear, no message shown (acceptable)
       } finally {

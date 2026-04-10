@@ -808,17 +808,17 @@ function buildWelcome(mode: ChatMode, userLevel: string, userName: string): Mess
     grammar: {
       Advanced: `Hi ${firstName}! Let's sharpen your grammar. Type a sentence and I'll give you a detailed analysis.`,
       Inter: `Hi ${firstName}! Send me a sentence in English and I'll help you improve your grammar.`,
-      Novice: `Olá ${firstName}! Escreva uma frase em inglês e eu vou analisar sua gramática. Pode ser simples! 😊`,
+      Novice: `Olá ${firstName}! Escreva uma frase em inglês e eu vou analisar sua gramática. Pode ser simples!`,
     },
     pronunciation: {
       Advanced: `Hi ${firstName}! Let's work on your pronunciation. Hold the mic and say something — I'll analyze stress, intonation, and fluency.`,
       Inter: `Hi ${firstName}! Hold the mic button and say something in English. I'll check your pronunciation and give you tips!`,
-      Novice: `Olá ${firstName}! Segure o botão do microfone e fale em inglês. Vou analisar sua pronúncia! 🎤`,
+      Novice: `Olá ${firstName}! Segure o botão do microfone e fale em inglês. Vou analisar sua pronúncia!`,
     },
     chat: {
-      Advanced: `Hey ${firstName}! Ready to practice? What's on your mind today? 😊`,
-      Inter: `Hi ${firstName}! Great to see you. Let's practice some English today! 😊`,
-      Novice: `Olá ${firstName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir! 😊`,
+      Advanced: `Hey ${firstName}! Ready to practice? What's on your mind today?`,
+      Inter: `Hi ${firstName}! Great to see you. Let's practice some English today!`,
+      Novice: `Olá ${firstName}! Vamos praticar inglês juntos hoje? Pode escrever em português se preferir!`,
     },
   };
   return {

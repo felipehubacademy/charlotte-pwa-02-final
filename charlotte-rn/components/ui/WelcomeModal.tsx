@@ -4,21 +4,30 @@
 // Primeiro acesso (first_welcome_done = false):
 //   Novice    → audio PT-BR de primeiro acesso (novice_first_01)
 //   Inter/Adv → audio EN de primeiro acesso (inter_first_01)
+//   Exibe sempre, independente do dia (1x na vida).
 //
 // Acessos seguintes (first_welcome_done = true):
 //   Pool aleatório do nivel atual (novice_01..04 / inter_01..04 / advanced_01..04)
+//   Exibe no máximo 1x por dia (AsyncStorage guarda a data da última exibição).
 //
-// Persistencia: coluna first_welcome_done em charlotte_users (nao mais SecureStore).
+// Persistencia: coluna first_welcome_done em charlotte_users + AsyncStorage (data).
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, View, TouchableOpacity, Animated, Image, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { AppText } from './Text';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+
+// Returns "YYYY-MM-DD" in local timezone
+function todayDateKey(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -81,13 +90,34 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
   const playerRef    = useRef<AudioPlayer | null>(null);
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Mostrar apenas em logins reais (SIGNED_IN), nunca na abertura do app
+  // Mostrar apenas em logins reais (SIGNED_IN), nunca na abertura do app.
+  // - Primeiro acesso: sempre (1x na vida).
+  // - Acessos seguintes: no maximo 1x por dia (compara data atual com AsyncStorage).
   useEffect(() => {
     if (!isFreshLogin || !profile) return;
     const first = !profile.first_welcome_done;
-    setIsFirstAccess(first);
-    setVisible(true);
-  }, [isFreshLogin, profile]);
+    if (first) {
+      // Primeira vez na vida — exibe sempre
+      setIsFirstAccess(true);
+      setVisible(true);
+      return;
+    }
+    // Retornando — verifica se ja mostrou hoje
+    const LAST_SHOWN_KEY = `welcome_last_shown_${userId}`;
+    SecureStore.getItemAsync(LAST_SHOWN_KEY).then(lastDate => {
+      if (lastDate === todayDateKey()) {
+        // Ja exibiu hoje — nao mostrar de novo; apenas limpa o flag de login
+        clearFreshLogin();
+        return;
+      }
+      setIsFirstAccess(false);
+      setVisible(true);
+    }).catch(() => {
+      // Em caso de erro, exibe normalmente
+      setIsFirstAccess(false);
+      setVisible(true);
+    });
+  }, [isFreshLogin, profile]); // eslint-disable-line
 
   // Poll player time for karaoke
   useEffect(() => {
@@ -181,13 +211,17 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
       setVisible(false);
       clearFreshLogin();
 
-      // Marca primeiro acesso como visto no banco (fire-and-forget)
       if (isFirstAccess) {
+        // Marca primeiro acesso como visto no banco (fire-and-forget)
         supabase
           .from('charlotte_users')
           .update({ first_welcome_done: true })
           .eq('id', userId)
           .then(() => {}, () => {});
+      } else {
+        // Salva data de hoje para nao mostrar de novo até amanhã
+        const LAST_SHOWN_KEY = `welcome_last_shown_${userId}`;
+        SecureStore.setItemAsync(LAST_SHOWN_KEY, todayDateKey()).catch(() => {});
       }
     });
   };
