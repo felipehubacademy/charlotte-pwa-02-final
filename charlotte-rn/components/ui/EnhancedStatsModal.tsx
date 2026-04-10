@@ -4,57 +4,63 @@ import {
   View,
   TouchableOpacity,
   ScrollView,
-  Animated,
   Platform,
 } from 'react-native';
 import {
   ChartBar, Trophy, Medal, Lightning, Star, Fire, Microphone,
-  PencilLine, GraduationCap, Sun, Moon, CalendarCheck,
-  HourglassMedium, Warning, X, RocketLaunch, Target,
+  PencilLine, GraduationCap, Sun, CalendarCheck,
+  HourglassMedium, Warning, X, RocketLaunch, Target, ShareNetwork,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
 import LevelLeaderboard from '@/components/leaderboard/LevelLeaderboard';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
-import { ShareNetwork } from 'phosphor-react-native';
 
-// ── Light theme ───────────────────────────────────────────────
+// ── Design system — mirrors the home screen palette exactly ──────
 const C = {
-  overlay:    'rgba(22,21,58,0.45)',
-  sheet:      '#FFFFFF',
-  bg:         '#F4F3FA',
-  navy:       '#16153A',
-  navyMid:    '#4B4A72',
-  navyLight:  '#9896B8',
-  border:     'rgba(22,21,58,0.07)',
-  green:      '#A3FF3C',
-  greenDark:  '#3D8800',
-  greenBg:    '#F0FFD9',
-  handle:     'rgba(22,21,58,0.15)',
+  overlay:     'rgba(22,21,58,0.50)',
+  sheet:       '#FFFFFF',
+  bg:          '#F4F3FA',
+  navy:        '#16153A',
+  navyMid:     '#4B4A72',
+  navyLight:   '#9896B8',
+  ghost:       'rgba(22,21,58,0.06)',
+  border:      'rgba(22,21,58,0.10)',
+  gold:        '#D97706',
+  goldBg:      '#FFFBEB',
+  green:       '#3D8800',
+  greenBg:     '#F0FFD9',
+  limeGreen:   '#A3FF3C',
+  violet:      '#7C3AED',
+  violetBg:    '#F5F3FF',
+  handle:      'rgba(22,21,58,0.18)',
 };
 
-const cardStyle = {
-  backgroundColor: C.bg,
-  borderRadius: 16,
+// Level accent — same mapping as learn-trail
+const LEVEL_COLOR: Record<string, string> = {
+  Novice:   '#D97706',
+  Inter:    '#7C3AED',
+  Advanced: '#0F766E',
+};
+
+const shadow = Platform.select({
+  ios:     { shadowColor: 'rgba(22,21,58,0.10)', shadowOpacity: 1, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } },
+  android: { elevation: 2 },
+});
+
+// White card on bg — matches home card pattern
+const card = {
+  backgroundColor: C.sheet,
+  borderRadius: 20,
   padding: 16,
   borderWidth: 1,
   borderColor: C.border,
   marginBottom: 10,
+  ...shadow,
 };
-
-const shadow = Platform.select({
-  ios: { shadowColor: 'rgba(22,21,58,0.06)', shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
-  android: { elevation: 2 },
-});
 
 type TabType = 'stats' | 'achievements' | 'leaderboard';
-
-const TAB_ICONS: Record<TabType, (color: string) => React.ReactNode> = {
-  stats:        (c) => <ChartBar size={15} color={c} weight="duotone" />,
-  achievements: (c) => <Trophy  size={15} color={c} weight="duotone" />,
-  leaderboard:  (c) => <Medal   size={15} color={c} weight="duotone" />,
-};
 
 const RARITY_COLORS: Record<string, string> = {
   common:    '#22C55E',
@@ -63,20 +69,19 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: '#EAB308',
 };
 
-// Map achievement category to a Phosphor icon
-function AchievementIcon({ category, rarity, size = 22 }: { category: string; rarity: string; size?: number }) {
+function AchievementIcon({ category, rarity, size = 20 }: { category: string; rarity: string; size?: number }) {
   const color = RARITY_COLORS[rarity] ?? '#22C55E';
   switch (category) {
     case 'xp':
-    case 'xp_milestone': return <Lightning    size={size} color={color} weight="duotone" />;
-    case 'streak':       return <Fire         size={size} color={color} weight="duotone" />;
-    case 'audio':        return <Microphone   size={size} color={color} weight="duotone" />;
+    case 'xp_milestone': return <Lightning     size={size} color={color} weight="fill" />;
+    case 'streak':       return <Fire          size={size} color={color} weight="fill" />;
+    case 'audio':        return <Microphone    size={size} color={color} weight="fill" />;
     case 'grammar':
-    case 'text':         return <PencilLine   size={size} color={color} weight="duotone" />;
-    case 'learn':        return <GraduationCap size={size} color={color} weight="duotone" />;
-    case 'habit':        return <Sun          size={size} color={color} weight="duotone" />;
-    case 'consistency':  return <CalendarCheck size={size} color={color} weight="duotone" />;
-    default:             return <Star         size={size} color={color} weight="duotone" />;
+    case 'text':         return <PencilLine    size={size} color={color} weight="fill" />;
+    case 'learn':        return <GraduationCap size={size} color={color} weight="fill" />;
+    case 'habit':        return <Sun           size={size} color={color} weight="fill" />;
+    case 'consistency':  return <CalendarCheck size={size} color={color} weight="fill" />;
+    default:             return <Star          size={size} color={color} weight="fill" />;
   }
 }
 
@@ -105,18 +110,19 @@ export default function EnhancedStatsModal({
   isOpen, onClose, sessionXP, totalXP, userId, userLevel = 'Inter', userName,
 }: EnhancedStatsModalProps) {
   const isPortuguese = userLevel === 'Novice';
+  const accent = LEVEL_COLOR[userLevel] ?? C.violet;
+
   const [activeTab, setActiveTab] = React.useState<TabType>('stats');
   const [leaderboardKey, setLeaderboardKey] = React.useState(0);
-  const [realData, setRealData]   = React.useState<RealData>({
-    streak: 0, totalPractices: 0, todayXP: 0, freshTotalXP: 0, recentActivity: [], achievements: [], loading: true, error: null,
+  const [realData, setRealData] = React.useState<RealData>({
+    streak: 0, totalPractices: 0, todayXP: 0, freshTotalXP: 0,
+    recentActivity: [], achievements: [], loading: true, error: null,
   });
-  const tabAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     if (isOpen && userId) loadData();
   }, [isOpen, userId]);
 
-  // Refresh leaderboard each time the tab is opened
   React.useEffect(() => {
     if (activeTab === 'leaderboard') setLeaderboardKey(k => k + 1);
   }, [activeTab]);
@@ -128,18 +134,14 @@ export default function EnhancedStatsModal({
       const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
       const [statsRes, historyRes, todayPracticesRes, achievementsRes, todayAchievementsRes] = await Promise.all([
         supabase.from('charlotte_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
-        // Last 10 RN practices (excluding achievement/mission rewards — shown separately)
         supabase.from('charlotte_practices').select('practice_type,xp_earned,created_at')
           .eq('user_id', userId)
           .not('practice_type', 'like', 'achievement_reward_%')
           .order('created_at', { ascending: false }).limit(10),
-        // Today's XP from practices
         supabase.from('charlotte_practices').select('xp_earned')
           .eq('user_id', userId).gte('created_at', todayStart.toISOString()),
-        // All achievements for Conquistas tab
         supabase.from('user_achievements').select('*').eq('user_id', userId)
           .order('earned_at', { ascending: false }).limit(50),
-        // Today's achievements for Atividade Recente + Hoje XP bonus
         supabase.from('user_achievements').select('achievement_name,xp_bonus,earned_at,category,rarity')
           .eq('user_id', userId)
           .gte('earned_at', todayStart.toISOString())
@@ -147,25 +149,22 @@ export default function EnhancedStatsModal({
       ]);
 
       const typeLabels: Record<string, string> = {
-        text_message:     isPortuguese ? 'Conversa por texto' : 'Text Chat',
-        audio_message:    isPortuguese ? 'Conversa por voz'   : 'Voice Chat',
-        live_voice:       isPortuguese ? 'Conversa ao vivo'   : 'Live Conversation',
-        pronunciation:    isPortuguese ? 'Pronúncia'          : 'Pronunciation',
-        grammar:          isPortuguese ? 'Gramática'          : 'Grammar',
-        learn_exercise:   isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail',
-        image_recognition: isPortuguese ? 'Prática' : 'Practice',
+        text_message:      isPortuguese ? 'Conversa por texto'      : 'Text Chat',
+        audio_message:     isPortuguese ? 'Conversa por voz'        : 'Voice Chat',
+        live_voice:        isPortuguese ? 'Conversa ao vivo'        : 'Live Conversation',
+        pronunciation:     isPortuguese ? 'Pronuncia'               : 'Pronunciation',
+        grammar:           isPortuguese ? 'Gramatica'               : 'Grammar',
+        learn_exercise:    isPortuguese ? 'Trilha de Aprendizado'   : 'Learning Trail',
+        image_recognition: isPortuguese ? 'Pratica'                 : 'Practice',
       };
       const getActivityLabel = (type: string) => {
-        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';
-        return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
+        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missao Concluida' : 'Mission Complete';
+        return typeLabels[type] ?? (isPortuguese ? 'Pratica' : 'Practice');
       };
 
-      // Today XP = practices + achievement bonuses earned today
       const todayPracticesXP   = (todayPracticesRes.data ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
       const todayAchievementXP = (todayAchievementsRes.data ?? []).reduce((s: number, a: any) => s + (a.xp_bonus ?? 0), 0);
-      const todayXPsum         = todayPracticesXP + todayAchievementXP;
 
-      // Build recent activity: practices + today's achievements merged and sorted by time
       const practiceRows: RecentActivity[] = (historyRes.data ?? []).map((p: any) => ({
         type:          getActivityLabel(p.practice_type),
         xp:            p.xp_earned ?? 0,
@@ -187,7 +186,7 @@ export default function EnhancedStatsModal({
       setRealData({
         streak:         statsRes.data?.streak_days ?? 0,
         totalPractices: historyRes.data?.length    ?? 0,
-        todayXP:        todayXPsum,
+        todayXP:        todayPracticesXP + todayAchievementXP,
         freshTotalXP:   statsRes.data?.total_xp   ?? totalXP,
         recentActivity,
         achievements: (achievementsRes.data ?? []).map((a: any) => ({
@@ -207,14 +206,6 @@ export default function EnhancedStatsModal({
     }
   };
 
-  const handleTabChange = (tab: TabType) => {
-    setActiveTab(tab);
-    Animated.timing(tabAnim, { toValue: 0, duration: 0, useNativeDriver: true }).start(() =>
-      Animated.timing(tabAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start()
-    );
-  };
-
-  // Use freshTotalXP from DB (loaded in loadData) to avoid stale prop after achievement bonuses
   const displayTotalXP = realData.loading ? totalXP : realData.freshTotalXP;
   const level       = calculateLevel(displayTotalXP);
   const xpForCurr   = Math.pow(level - 1, 2) * 50;
@@ -228,86 +219,118 @@ export default function EnhancedStatsModal({
     { id: 'leaderboard',  label: isPortuguese ? 'Ranking' : 'Rank' },
   ];
 
-  // ── Stats tab ─────────────────────────────────────────────
+  const TAB_ICONS: Record<TabType, (active: boolean) => React.ReactNode> = {
+    stats:        (a) => <ChartBar size={15} color={a ? '#FFF' : C.navyLight} weight="fill" />,
+    achievements: (a) => <Trophy   size={15} color={a ? '#FFF' : C.navyLight} weight="fill" />,
+    leaderboard:  (a) => <Medal    size={15} color={a ? '#FFF' : C.navyLight} weight="fill" />,
+  };
 
+  // ── Stats tab ──────────────────────────────────────────────────
   const renderStats = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
 
       {/* Level progress card */}
-      <View style={[cardStyle, shadow]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-          <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '700', letterSpacing: 0.8, textTransform: 'uppercase' }}>
-            {isPortuguese ? 'Nível Atual' : 'Current Level'}
-          </AppText>
-          <View style={{ backgroundColor: C.greenBg, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
-            <AppText style={{ color: C.greenDark, fontSize: 11, fontWeight: '700' }}>{userLevel}</AppText>
+      <View style={card}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{
+              width: 36, height: 36, borderRadius: 10,
+              backgroundColor: accent + '18',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Star size={18} color={accent} weight="fill" />
+            </View>
+            <View>
+              <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
+                {isPortuguese ? 'Nivel Atual' : 'Current Level'}
+              </AppText>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>
+                {isPortuguese ? 'Nivel' : 'Level'} {level}
+              </AppText>
+            </View>
+          </View>
+          <View style={{ backgroundColor: accent + '15', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, borderColor: accent + '30' }}>
+            <AppText style={{ color: accent, fontSize: 11, fontWeight: '800' }}>{userLevel}</AppText>
           </View>
         </View>
-        <AppText style={{ color: C.navy, fontSize: 26, fontWeight: '800', marginBottom: 12 }}>
-          {isPortuguese ? 'Nível' : 'Level'} {level}
-        </AppText>
-        <View style={{ height: 8, backgroundColor: C.border, borderRadius: 4, marginBottom: 8, overflow: 'hidden' }}>
-          <View style={{ width: `${progress}%`, height: '100%', backgroundColor: C.green, borderRadius: 4 }} />
+        <View style={{ height: 6, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
+          <View style={{ width: `${progress}%` as `${number}%`, height: '100%', backgroundColor: accent, borderRadius: 3 }} />
         </View>
-        <AppText style={{ color: C.navyLight, fontSize: 12 }}>
+        <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '600' }}>
           {xpRemaining > 0
-            ? `${xpRemaining.toLocaleString()} XP ${isPortuguese ? 'para próximo nível' : 'to next level'}`
-            : isPortuguese ? 'Nível máximo!' : 'Max level!'}
+            ? `${xpRemaining.toLocaleString()} XP ${isPortuguese ? 'para o proximo nivel' : 'to next level'}`
+            : (isPortuguese ? 'Nivel maximo!' : 'Max level!')}
         </AppText>
       </View>
 
-      {/* Stats grid row 1 */}
-      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 0 }}>
-        <StatCard icon={<Lightning size={22} color={C.greenDark} weight="duotone" />}
-          label={isPortuguese ? 'Hoje' : 'Today'} value={`+${realData.todayXP}`} unit="XP" />
-        <StatCard icon={<Star size={22} color="#D97706" weight="duotone" />}
-          label="Total" value={displayTotalXP.toLocaleString()} unit="XP" />
+      {/* Stat grid */}
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+        <StatCard
+          icon={<Lightning size={18} color={accent} weight="fill" />}
+          iconBg={accent + '15'}
+          label={isPortuguese ? 'Hoje' : 'Today'}
+          value={`+${realData.todayXP}`}
+          unit="XP"
+        />
+        <StatCard
+          icon={<Star size={18} color="#D97706" weight="fill" />}
+          iconBg="#FFFBEB"
+          label="Total"
+          value={displayTotalXP.toLocaleString()}
+          unit="XP"
+        />
       </View>
-
-      {/* Stats grid row 2 */}
-      <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, marginBottom: 0 }}>
-        <StatCard icon={<Fire size={22} color="#EA580C" weight="duotone" />}
-          label={isPortuguese ? 'Sequência' : 'Streak'} value={String(realData.streak)}
-          unit={isPortuguese ? 'dias' : 'days'} />
-        <StatCard icon={<ChartBar size={22} color="#2563EB" weight="duotone" />}
-          label="Total" value={String(realData.totalPractices)}
-          unit={isPortuguese ? 'práticas' : 'practices'} />
+      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+        <StatCard
+          icon={<Fire size={18} color="#EA580C" weight="fill" />}
+          iconBg="rgba(234,88,12,0.10)"
+          label={isPortuguese ? 'Sequencia' : 'Streak'}
+          value={String(realData.streak)}
+          unit={isPortuguese ? 'dias' : 'days'}
+        />
+        <StatCard
+          icon={<ChartBar size={18} color="#2563EB" weight="fill" />}
+          iconBg="rgba(37,99,235,0.10)"
+          label="Total"
+          value={String(realData.totalPractices)}
+          unit={isPortuguese ? 'praticas' : 'practices'}
+        />
       </View>
 
       {/* Recent activity */}
-      <View style={[cardStyle, { marginTop: 10 }, shadow]}>
-        <AppText style={{ color: C.navyMid, fontSize: 13, fontWeight: '700', marginBottom: 12 }}>
+      <View style={card}>
+        <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
           {isPortuguese ? 'Atividade Recente' : 'Recent Activity'}
         </AppText>
         {realData.recentActivity.length > 0 ? (
           realData.recentActivity.map((a, i) => (
             <View key={i} style={{
               flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-              paddingVertical: 9,
+              paddingVertical: 10,
               borderBottomWidth: i < realData.recentActivity.length - 1 ? 1 : 0,
               borderBottomColor: C.border,
             }}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  {a.isMission     && <Target size={13} color="#D97706" weight="fill" />}
-                  {a.isAchievement && <Trophy size={13} color="#A855F7" weight="fill" />}
+                  {a.isMission     && <Target size={12} color="#D97706" weight="fill" />}
+                  {a.isAchievement && <Trophy size={12} color="#A855F7" weight="fill" />}
                   <AppText style={{ color: C.navy, fontSize: 13, fontWeight: '600' }}>{a.type}</AppText>
                 </View>
-                <AppText style={{ color: C.navyLight, fontSize: 11, marginTop: 1 }}>
+                <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '500', marginTop: 2 }}>
                   {a.timestamp.toLocaleDateString([], { day: '2-digit', month: 'short' })}
                   {' · '}
                   {a.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </AppText>
               </View>
-              <View style={{ backgroundColor: C.greenBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
-                <AppText style={{ color: C.greenDark, fontSize: 13, fontWeight: '800' }}>+{a.xp}</AppText>
+              <View style={{ backgroundColor: C.greenBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(61,136,0,0.15)' }}>
+                <AppText style={{ color: C.green, fontSize: 12, fontWeight: '800' }}>+{a.xp}</AppText>
               </View>
             </View>
           ))
         ) : (
-          <View style={{ alignItems: 'center', paddingVertical: 20 }}>
-            <RocketLaunch size={36} color={C.navyLight} weight="duotone" />
-            <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 10 }}>
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <RocketLaunch size={32} color={C.navyLight} weight="fill" />
+            <AppText style={{ color: C.navyLight, fontSize: 13, fontWeight: '500', marginTop: 10 }}>
               {isPortuguese ? 'Nenhuma atividade ainda' : 'No activity yet'}
             </AppText>
           </View>
@@ -316,14 +339,12 @@ export default function EnhancedStatsModal({
     </ScrollView>
   );
 
-  // ── Achievements tab ──────────────────────────────────────
-
+  // ── Achievements tab ───────────────────────────────────────────
   const renderAchievements = () => (
-    <ScrollView showsVerticalScrollIndicator={false}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
       {realData.achievements.length > 0 ? (
         realData.achievements.map((ach: any, i) => (
-          <View key={ach.id ?? i} style={[cardStyle, shadow, {
-            marginBottom: 8,
+          <View key={ach.id ?? i} style={[card, {
             borderLeftWidth: 3,
             borderLeftColor: RARITY_COLORS[ach.rarity] ?? '#22C55E',
           }]}>
@@ -337,17 +358,21 @@ export default function EnhancedStatsModal({
               </View>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                  <AppText style={{ color: C.navy, fontWeight: '700', fontSize: 14, flex: 1, marginRight: 8 }}>
+                  <AppText style={{ color: C.navy, fontWeight: '800', fontSize: 13, flex: 1, marginRight: 8 }}>
                     {ach.title}
                   </AppText>
                   {ach.xpBonus > 0 && (
-                    <AppText style={{ color: C.greenDark, fontSize: 12, fontWeight: '800' }}>+{ach.xpBonus} XP</AppText>
+                    <AppText style={{ color: C.green, fontSize: 12, fontWeight: '800' }}>+{ach.xpBonus} XP</AppText>
                   )}
                 </View>
-                <AppText style={{ color: C.navyMid, fontSize: 12, marginBottom: 4 }}>{ach.description}</AppText>
+                <AppText style={{ color: C.navyMid, fontSize: 12, fontWeight: '500', marginBottom: 6 }}>
+                  {ach.description}
+                </AppText>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <AppText style={{ color: C.navyLight, fontSize: 11 }}>{ach.earnedAt.toLocaleDateString()}</AppText>
-                  <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: `${RARITY_COLORS[ach.rarity] ?? '#22C55E'}20` }}>
+                  <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '500' }}>
+                    {ach.earnedAt.toLocaleDateString()}
+                  </AppText>
+                  <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: `${RARITY_COLORS[ach.rarity] ?? '#22C55E'}18` }}>
                     <AppText style={{ fontSize: 10, fontWeight: '700', color: RARITY_COLORS[ach.rarity] ?? '#22C55E', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                       {ach.rarity}
                     </AppText>
@@ -359,11 +384,11 @@ export default function EnhancedStatsModal({
         ))
       ) : (
         <View style={{ alignItems: 'center', paddingVertical: 60 }}>
-          <Trophy size={52} color={C.navyLight} weight="duotone" />
-          <AppText style={{ color: C.navyMid, fontSize: 16, fontWeight: '600', marginTop: 16, marginBottom: 6 }}>
+          <Trophy size={48} color={C.navyLight} weight="fill" />
+          <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800', marginTop: 16, marginBottom: 6 }}>
             {isPortuguese ? 'Nenhuma conquista ainda' : 'No achievements yet'}
           </AppText>
-          <AppText style={{ color: C.navyLight, fontSize: 13, textAlign: 'center' }}>
+          <AppText style={{ color: C.navyLight, fontSize: 13, fontWeight: '500', textAlign: 'center' }}>
             {isPortuguese ? 'Continue praticando!' : 'Keep practicing to unlock your first!'}
           </AppText>
         </View>
@@ -371,22 +396,23 @@ export default function EnhancedStatsModal({
     </ScrollView>
   );
 
-  // ── Content dispatcher ────────────────────────────────────
-
+  // ── Content dispatcher ─────────────────────────────────────────
   const renderContent = () => {
     if (realData.loading) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <HourglassMedium size={36} color={C.navyLight} weight="fill" />
-          <AppText style={{ color: C.navyLight, fontSize: 14 }}>Loading...</AppText>
+          <HourglassMedium size={32} color={C.navyLight} weight="fill" />
+          <AppText style={{ color: C.navyLight, fontSize: 13, fontWeight: '500' }}>
+            {isPortuguese ? 'Carregando...' : 'Loading...'}
+          </AppText>
         </View>
       );
     }
     if (realData.error) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-          <Warning size={32} color="#DC2626" weight="fill" />
-          <AppText style={{ color: '#DC2626', fontSize: 14 }}>{realData.error}</AppText>
+          <Warning size={28} color="#DC2626" weight="fill" />
+          <AppText style={{ color: '#DC2626', fontSize: 13 }}>{realData.error}</AppText>
         </View>
       );
     }
@@ -397,15 +423,14 @@ export default function EnhancedStatsModal({
     }
   };
 
-  // ── Modal ─────────────────────────────────────────────────
-
+  // ── Modal ──────────────────────────────────────────────────────
   return (
-    <Modal visible={isOpen} animationType="fade" transparent statusBarTranslucent>
-      <View style={{ flex: 1, backgroundColor: C.overlay }} onTouchEnd={onClose}>
+    <Modal visible={isOpen} animationType="slide" transparent statusBarTranslucent>
+      <View style={{ flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' }} onTouchEnd={onClose}>
         <View
           style={{
-            flex: 1, marginTop: 60,
-            backgroundColor: C.sheet,
+            height: '90%',
+            backgroundColor: C.bg,
             borderTopLeftRadius: 28, borderTopRightRadius: 28,
             borderTopWidth: 1, borderColor: C.border,
             overflow: 'hidden',
@@ -413,60 +438,79 @@ export default function EnhancedStatsModal({
           onTouchEnd={e => e.stopPropagation()}
         >
           {/* Drag handle */}
-          <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: C.handle }} />
+          <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 2 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: C.handle }} />
           </View>
 
           {/* Header */}
           <View style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12,
+            paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14,
             borderBottomWidth: 1, borderBottomColor: C.border,
+            backgroundColor: C.bg,
           }}>
-            <AppText style={{ color: C.navy, fontSize: 20, fontWeight: '800' }}>
-              {isPortuguese ? 'Seu Progresso' : 'Your Progress'}
-            </AppText>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View>
+              <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
+                Charlotte
+              </AppText>
+              <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
+                {isPortuguese ? 'Seu Progresso' : 'Your Progress'}
+              </AppText>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <TouchableOpacity
                 onPress={() => {
                   if (realData.streak > 0) shareStreak(realData.streak, isPortuguese);
                   else shareXP(realData.freshTotalXP || totalXP, isPortuguese);
                 }}
-                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(163,255,60,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)' }}
+                style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  backgroundColor: C.sheet,
+                  alignItems: 'center', justifyContent: 'center',
+                  borderWidth: 1, borderColor: C.border,
+                }}
               >
-                <ShareNetwork size={14} color={C.greenDark} weight="bold" />
+                <ShareNetwork size={16} color={C.navyMid} weight="fill" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={onClose}
-                style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.border }}
+                style={{
+                  width: 34, height: 34, borderRadius: 10,
+                  backgroundColor: C.sheet,
+                  alignItems: 'center', justifyContent: 'center',
+                  borderWidth: 1, borderColor: C.border,
+                }}
               >
-                <X size={14} color={C.navyMid} weight="bold" />
+                <X size={16} color={C.navyMid} weight="bold" />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Tabs */}
           <View style={{
-            flexDirection: 'row', marginHorizontal: 20, marginTop: 14, marginBottom: 16,
-            backgroundColor: C.bg, borderRadius: 14, padding: 4,
+            flexDirection: 'row', marginHorizontal: 20, marginTop: 16, marginBottom: 16,
+            backgroundColor: C.sheet, borderRadius: 14, padding: 4,
             borderWidth: 1, borderColor: C.border,
+            ...shadow,
           }}>
             {TABS.map(tab => {
               const isActive = activeTab === tab.id;
-              const iconColor = isActive ? C.navy : C.navyLight;
               return (
                 <TouchableOpacity
                   key={tab.id}
-                  onPress={() => handleTabChange(tab.id)}
+                  onPress={() => setActiveTab(tab.id)}
                   style={{
                     flex: 1, flexDirection: 'row', alignItems: 'center',
                     justifyContent: 'center', paddingVertical: 9,
                     borderRadius: 10, gap: 5,
-                    backgroundColor: isActive ? C.green : 'transparent',
+                    backgroundColor: isActive ? C.navy : 'transparent',
                   }}
                 >
-                  {TAB_ICONS[tab.id](iconColor)}
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: iconColor }}>
+                  {TAB_ICONS[tab.id](isActive)}
+                  <AppText style={{
+                    fontSize: 12, fontWeight: '700',
+                    color: isActive ? '#FFFFFF' : C.navyLight,
+                  }}>
                     {tab.label}
                   </AppText>
                 </TouchableOpacity>
@@ -474,7 +518,7 @@ export default function EnhancedStatsModal({
             })}
           </View>
 
-          {/* Content */}
+          {/* Content — bg matches app page background */}
           <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 24 }}>
             {renderContent()}
           </View>
@@ -484,18 +528,39 @@ export default function EnhancedStatsModal({
   );
 }
 
-// ── Stat card ─────────────────────────────────────────────────
-
-function StatCard({ icon, label, value, unit }: { icon: React.ReactNode; label: string; value: string; unit: string }) {
+// ── Stat card ──────────────────────────────────────────────────────
+function StatCard({
+  icon, iconBg, label, value, unit,
+}: {
+  icon: React.ReactNode; iconBg: string;
+  label: string; value: string; unit: string;
+}) {
   return (
-    <View style={[cardStyle, { flex: 1 }, Platform.select({
-      ios: { shadowColor: 'rgba(22,21,58,0.06)', shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
-      android: { elevation: 2 },
-    })]}>
-      {icon}
-      <AppText style={{ color: '#9896B8', fontSize: 11, marginTop: 8, marginBottom: 2 }}>{label}</AppText>
-      <AppText style={{ color: '#16153A', fontSize: 22, fontWeight: '800' }}>{value}</AppText>
-      <AppText style={{ color: '#9896B8', fontSize: 11 }}>{unit}</AppText>
+    <View style={[{ flex: 1 }, {
+      backgroundColor: '#FFFFFF',
+      borderRadius: 20, padding: 14,
+      borderWidth: 1, borderColor: 'rgba(22,21,58,0.10)',
+      marginBottom: 0,
+      ...Platform.select({
+        ios:     { shadowColor: 'rgba(22,21,58,0.10)', shadowOpacity: 1, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } },
+        android: { elevation: 2 },
+      }),
+    }]}>
+      <View style={{
+        width: 34, height: 34, borderRadius: 10,
+        backgroundColor: iconBg,
+        alignItems: 'center', justifyContent: 'center',
+        marginBottom: 10,
+      }}>
+        {icon}
+      </View>
+      <AppText style={{ color: '#9896B8', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+        {label}
+      </AppText>
+      <AppText style={{ color: '#16153A', fontSize: 22, fontWeight: '900', letterSpacing: -0.5 }}>
+        {value}
+      </AppText>
+      <AppText style={{ color: '#9896B8', fontSize: 11, fontWeight: '500' }}>{unit}</AppText>
     </View>
   );
 }
