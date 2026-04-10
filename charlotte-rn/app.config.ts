@@ -22,7 +22,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       NSMicrophoneUsageDescription:
         'Charlotte uses your microphone to practice English conversation with AI.',
       NSCameraUsageDescription:
-        'Charlotte may use your camera for video during live conversation sessions.',
+        'Charlotte uses your camera so you can set a profile photo.',
+      NSPhotoLibraryUsageDescription:
+        'Charlotte uses your photo library so you can set a profile photo.',
       ITSAppUsesNonExemptEncryption: false,
       // Status bar: dark icons (time, wifi, battery) on light backgrounds
       UIViewControllerBasedStatusBarAppearance: false,

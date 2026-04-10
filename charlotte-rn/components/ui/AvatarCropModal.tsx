@@ -95,7 +95,7 @@ export default function AvatarCropModal({
   const pickFromLibrary = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Allow access to your photo library to pick a photo.');
+      Alert.alert('Permissao necessaria', 'Permita o acesso a galeria para escolher uma foto.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -111,7 +111,7 @@ export default function AvatarCropModal({
   const pickFromCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission required', 'Allow camera access to take a photo.');
+      Alert.alert('Permissao necessaria', 'Permita o acesso a camera para tirar uma foto.');
       return;
     }
     const result = await ImagePicker.launchCameraAsync({
@@ -216,13 +216,14 @@ export default function AvatarCropModal({
       if (dbError) throw dbError;
 
       onSaved(publicUrl);
+      handleClose();
     } catch (err: any) {
       console.error('Avatar upload error:', err);
-      Alert.alert('Upload failed', err?.message ?? 'Could not save your photo. Please try again.');
+      Alert.alert('Erro', err?.message ?? 'Nao foi possivel salvar a foto. Tente novamente.');
     } finally {
       setUploading(false);
     }
-  }, [imageUri, imageSize, userId, onSaved]);
+  }, [imageUri, imageSize, userId, onSaved, handleClose]);
 
   // ── Reset on close ──────────────────────────────────────────────────────────
   const handleClose = useCallback(() => {
@@ -260,9 +261,9 @@ export default function AvatarCropModal({
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.headerBtn} disabled={uploading}>
-            <AppText style={[styles.headerBtnText, { color: C.navyMid }]}>Cancel</AppText>
+            <AppText style={[styles.headerBtnText, { color: C.navyMid }]}>Cancelar</AppText>
           </TouchableOpacity>
-          <AppText style={styles.headerTitle}>Profile Photo</AppText>
+          <AppText style={styles.headerTitle}>Foto do perfil</AppText>
           {phase === 'crop' ? (
             <TouchableOpacity
               onPress={handleSave}
@@ -271,7 +272,7 @@ export default function AvatarCropModal({
             >
               {uploading
                 ? <ActivityIndicator size="small" color={C.navy} />
-                : <AppText style={[styles.headerBtnText, { color: C.navy, fontWeight: '700' }]}>Save</AppText>
+                : <AppText style={[styles.headerBtnText, { color: C.navy, fontWeight: '700' }]}>Salvar</AppText>
               }
             </TouchableOpacity>
           ) : (
@@ -296,24 +297,24 @@ export default function AvatarCropModal({
                 </View>
               )}
 
-              <AppText style={styles.pickTitle}>Choose a photo</AppText>
+              <AppText style={styles.pickTitle}>Escolha uma foto</AppText>
               <AppText style={styles.pickSubtitle}>
-                Pick from your library or take a new photo.{'\n'}
-                You can crop and zoom before saving.
+                Escolha da galeria ou tire uma nova foto.{'\n'}
+                Voce pode recortar e dar zoom antes de salvar.
               </AppText>
 
               <TouchableOpacity style={styles.pickButton} onPress={pickFromLibrary}>
-                <AppText style={styles.pickButtonText}>Choose from Library</AppText>
+                <AppText style={styles.pickButtonText}>Escolher da galeria</AppText>
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.pickButton, styles.pickButtonSecondary]} onPress={pickFromCamera}>
-                <AppText style={[styles.pickButtonText, { color: C.navy }]}>Take a Photo</AppText>
+                <AppText style={[styles.pickButtonText, { color: C.navy }]}>Tirar uma foto</AppText>
               </TouchableOpacity>
             </View>
           ) : (
             /* ── Crop phase ─────────────────────────────────── */
             <View style={styles.cropContainer}>
-              <AppText style={styles.cropHint}>Drag or pinch to adjust</AppText>
+              <AppText style={styles.cropHint}>Arraste ou use dois dedos para ajustar</AppText>
 
               {/* Circular crop frame */}
               <View style={styles.cropFrame} {...panResponder.panHandlers}>
@@ -366,7 +367,7 @@ export default function AvatarCropModal({
                 onPress={() => setPhase('pick')}
                 disabled={uploading}
               >
-                <AppText style={styles.changePhotoText}>Change photo</AppText>
+                <AppText style={styles.changePhotoText}>Trocar foto</AppText>
               </TouchableOpacity>
 
               {uploading && (
