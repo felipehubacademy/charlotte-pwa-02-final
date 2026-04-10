@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system/legacy';
+import { readAsStringAsync } from 'expo-file-system/legacy';
 import { supabase } from '@/lib/supabase';
 import { AppText } from '@/components/ui/Text';
 
@@ -221,8 +221,8 @@ export default function AvatarCropModal({
       // unreliable for file:// URIs on iOS in production builds).
       const path = `${userId}/avatar.jpg`;
 
-      const base64 = await FileSystem.readAsStringAsync(manipulated.uri, {
-        encoding: FileSystem.EncodingType.Base64,
+      const base64 = await readAsStringAsync(manipulated.uri, {
+        encoding: 'base64',
       });
 
       // atob is available in React Native 0.72+ (Hermes)
