@@ -1085,13 +1085,15 @@ export default function HomeScreen() {
     {
       mode: 'live' as const,
       title: 'Live Voice',
-      sub: hasLive && liveVoiceRemaining !== null
-        ? liveVoiceRemaining <= 0
-          ? (isPortuguese ? '0 min este mês' : '0 min this month')
-          : (isPortuguese
-              ? `${Math.ceil(liveVoiceRemaining / 60)} min restantes`
-              : `${Math.ceil(liveVoiceRemaining / 60)} min left`)
-        : '',
+      sub: (() => {
+        if (!hasLive || liveVoiceRemaining === null) return '';
+        const totalSec = getPoolForLevel(level);
+        const totalMin = Math.floor(totalSec / 60);
+        const usedSec  = Math.max(0, totalSec - liveVoiceRemaining);
+        const usedMin  = Math.ceil(usedSec / 60);
+        // Format: "2/30 min" (used/total) — same in PT and EN
+        return `${usedMin}/${totalMin} min`;
+      })(),
       accentColor: C.orange,
       accentBg: 'rgba(255,107,53,0.10)',
       icon: <Phone size={26} color={hasLive ? C.orange : C.navyLight} weight="bold" />,
