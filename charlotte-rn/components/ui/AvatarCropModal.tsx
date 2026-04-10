@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Modal,
@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
+import * as FileSystem from 'expo-file-system';
 import { supabase } from '@/lib/supabase';
 import { AppText } from '@/components/ui/Text';
 
@@ -91,35 +92,72 @@ export default function AvatarCropModal({
     })
   ).current;
 
+  // ── Reset on close ──────────────────────────────────────────────────────────
+  // Declared BEFORE handleSave to avoid closure ordering issues.
+  const handleClose = useCallback(() => {
+    setImageUri(null);
+    setImageSize(null);
+    setPhase('pick');
+    panOffset.current   = { x: 0, y: 0 };
+    scaleOffset.current = 1;
+    pan.setValue({ x: 0, y: 0 });
+    scale.setValue(1);
+    onClose();
+  }, [onClose, pan, scale]);
+
+  // Stable ref so handleSave can call the latest handleClose without dep issues
+  const handleCloseRef = useRef(handleClose);
+  useEffect(() => { handleCloseRef.current = handleClose; }, [handleClose]);
+
   // ── Pick image ──────────────────────────────────────────────────────────────
   const pickFromLibrary = useCallback(async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissao necessaria', 'Permita o acesso a galeria para escolher uma foto.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 1,
-    });
-    if (!result.canceled && result.assets.length > 0) {
-      const asset = result.assets[0];
-      loadImage(asset.uri, asset.width, asset.height);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // 'limited' (iOS 14+ partial access) still allows picking — only block 'denied'
+      if (status === 'denied') {
+        Alert.alert(
+          'Permissao necessaria',
+          'Permita o acesso a galeria nas Configuracoes do iPhone > Charlotte.'
+        );
+        return;
+      }
+      // Small delay: lets the Modal fully present before the native picker opens
+      await new Promise(r => setTimeout(r, 100));
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+      });
+      if (!result.canceled && result.assets.length > 0) {
+        const asset = result.assets[0];
+        loadImage(asset.uri, asset.width ?? 0, asset.height ?? 0);
+      }
+    } catch (err: any) {
+      console.error('[AvatarCropModal] pickFromLibrary error:', err);
+      Alert.alert('Erro', 'Nao foi possivel abrir a galeria. Tente novamente.');
     }
   }, []);
 
   const pickFromCamera = useCallback(async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissao necessaria', 'Permita o acesso a camera para tirar uma foto.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      quality: 1,
-    });
-    if (!result.canceled && result.assets.length > 0) {
-      const asset = result.assets[0];
-      loadImage(asset.uri, asset.width, asset.height);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permissao necessaria',
+          'Permita o acesso a camera nas Configuracoes do iPhone > Charlotte.'
+        );
+        return;
+      }
+      await new Promise(r => setTimeout(r, 100));
+      const result = await ImagePicker.launchCameraAsync({
+        quality: 1,
+      });
+      if (!result.canceled && result.assets.length > 0) {
+        const asset = result.assets[0];
+        loadImage(asset.uri, asset.width ?? 0, asset.height ?? 0);
+      }
+    } catch (err: any) {
+      console.error('[AvatarCropModal] pickFromCamera error:', err);
+      Alert.alert('Erro', 'Nao foi possivel abrir a camera. Tente novamente.');
     }
   }, []);
 
@@ -131,7 +169,8 @@ export default function AvatarCropModal({
     scale.setValue(1);
 
     setImageUri(uri);
-    setImageSize({ width: w, height: h });
+    // If dimensions are missing (rare), fall back to square — crop math won't break
+    setImageSize({ width: w || 1000, height: h || 1000 });
     setPhase('crop');
   };
 
@@ -152,8 +191,6 @@ export default function AvatarCropModal({
       const currentScale = scaleOffset.current;
 
       // The image origin (top-left) in crop-area coordinates:
-      // The image is centred, then panned, then scaled around centre.
-      // originX = (CROP_SIZE - displayedW) / 2 + panX
       const originX = (CROP_SIZE - displayedW * currentScale) / 2 + currentPanX;
       const originY = (CROP_SIZE - displayedH * currentScale) / 2 + currentPanY;
 
@@ -184,15 +221,25 @@ export default function AvatarCropModal({
       );
 
       // --- Upload to Supabase Storage ---
+      // Use expo-file-system to read as base64, then convert to Uint8Array.
+      // This is the reliable approach in React Native (fetch().blob() can be
+      // unreliable for file:// URIs on iOS in production builds).
       const path = `${userId}/avatar.jpg`;
 
-      // Fetch as blob
-      const fetchResponse = await fetch(manipulated.uri);
-      const blob          = await fetchResponse.blob();
+      const base64 = await FileSystem.readAsStringAsync(manipulated.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // atob is available in React Native 0.72+ (Hermes)
+      const binaryStr = atob(base64);
+      const bytes = new Uint8Array(binaryStr.length);
+      for (let i = 0; i < binaryStr.length; i++) {
+        bytes[i] = binaryStr.charCodeAt(i);
+      }
 
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, blob, {
+        .upload(path, bytes, {
           contentType: 'image/jpeg',
           upsert: true,
         });
@@ -216,26 +263,14 @@ export default function AvatarCropModal({
       if (dbError) throw dbError;
 
       onSaved(publicUrl);
-      handleClose();
+      handleCloseRef.current();
     } catch (err: any) {
-      console.error('Avatar upload error:', err);
+      console.error('[AvatarCropModal] upload error:', err);
       Alert.alert('Erro', err?.message ?? 'Nao foi possivel salvar a foto. Tente novamente.');
     } finally {
       setUploading(false);
     }
-  }, [imageUri, imageSize, userId, onSaved, handleClose]);
-
-  // ── Reset on close ──────────────────────────────────────────────────────────
-  const handleClose = useCallback(() => {
-    setImageUri(null);
-    setImageSize(null);
-    setPhase('pick');
-    panOffset.current   = { x: 0, y: 0 };
-    scaleOffset.current = 1;
-    pan.setValue({ x: 0, y: 0 });
-    scale.setValue(1);
-    onClose();
-  }, [onClose, pan, scale]);
+  }, [imageUri, imageSize, userId, onSaved]);
 
   // ── Compute image display size for crop view ────────────────────────────────
   const imageDisplayStyle = imageSize
@@ -293,7 +328,7 @@ export default function AvatarCropModal({
                 />
               ) : (
                 <View style={styles.avatarPlaceholder}>
-                  <AppText style={styles.avatarPlaceholderText}>No photo yet</AppText>
+                  <AppText style={styles.avatarPlaceholderText}>Sem foto</AppText>
                 </View>
               )}
 
@@ -314,7 +349,7 @@ export default function AvatarCropModal({
           ) : (
             /* ── Crop phase ─────────────────────────────────── */
             <View style={styles.cropContainer}>
-              <AppText style={styles.cropHint}>Arraste ou use dois dedos para ajustar</AppText>
+              <AppText style={styles.cropHint}>Arraste ou use os botoes para ajustar</AppText>
 
               {/* Circular crop frame */}
               <View style={styles.cropFrame} {...panResponder.panHandlers}>
@@ -346,7 +381,7 @@ export default function AvatarCropModal({
                     Animated.spring(scale, { toValue: next, useNativeDriver: false }).start();
                   }}
                 >
-                  <AppText style={styles.zoomBtnText}>−</AppText>
+                  <AppText style={styles.zoomBtnText}>-</AppText>
                 </TouchableOpacity>
                 <AppText style={styles.zoomLabel}>Zoom</AppText>
                 <TouchableOpacity
@@ -373,7 +408,7 @@ export default function AvatarCropModal({
               {uploading && (
                 <View style={styles.uploadingOverlay}>
                   <ActivityIndicator size="large" color={C.green} />
-                  <AppText style={styles.uploadingText}>Saving…</AppText>
+                  <AppText style={styles.uploadingText}>Salvando...</AppText>
                 </View>
               )}
             </View>
