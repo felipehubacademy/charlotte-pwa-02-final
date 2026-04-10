@@ -101,7 +101,7 @@ export function inviteTemplate(opts: {
       { label: 'Senha tempor&aacute;ria', value: `<code style="font-family:monospace;background:#f5f5f7;padding:2px 8px;border-radius:4px;">${opts.tempPassword}</code>` },
     ])}
     ${p(`No primeiro acesso voc&ecirc; ser&aacute; solicitado<br>a criar uma nova senha.`)}
-    ${btn('Acessar o Charlotte', APP_URL)}
+    ${btn('Acessar o Charlotte AI', APP_URL)}
     ${note(`D&uacute;vidas? Fale com a equipe Hub Academy.`)}
   `);
   return { subject, html };
