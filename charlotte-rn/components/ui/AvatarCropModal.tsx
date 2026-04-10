@@ -112,17 +112,12 @@ export default function AvatarCropModal({
   // ── Pick image ──────────────────────────────────────────────────────────────
   const pickFromLibrary = useCallback(async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      // 'limited' (iOS 14+ partial access) still allows picking — only block 'denied'
-      if (status === 'denied') {
-        Alert.alert(
-          'Permissao necessaria',
-          'Permita o acesso a galeria nas Configuracoes do iPhone > Charlotte.'
-        );
-        return;
-      }
-      // Small delay: lets the Modal fully present before the native picker opens
-      await new Promise(r => setTimeout(r, 100));
+      // expo-image-picker v15+ uses PHPickerViewController on iOS which does NOT
+      // require explicit photo library permission — the system handles access
+      // internally. Calling requestMediaLibraryPermissionsAsync() here triggered
+      // a legacy permission flow that crashed when launched inside a fullScreen Modal.
+      // Delay lets the Modal fully settle before the native picker presents on top.
+      await new Promise(r => setTimeout(r, 350));
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         quality: 1,
