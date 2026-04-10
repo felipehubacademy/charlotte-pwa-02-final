@@ -425,7 +425,7 @@ export default function EnhancedStatsModal({
 
   // ── Modal ──────────────────────────────────────────────────────
   return (
-    <Modal visible={isOpen} animationType="slide" transparent statusBarTranslucent>
+    <Modal visible={isOpen} animationType="fade" transparent statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: C.overlay, justifyContent: 'flex-end' }} onTouchEnd={onClose}>
         <View
           style={{
