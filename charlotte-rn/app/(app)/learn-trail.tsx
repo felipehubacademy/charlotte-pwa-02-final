@@ -228,7 +228,7 @@ export default function LearnTrailScreen() {
                         alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
                         {introLocked
-                          ? <Lock size={18} color={C.navyLight} weight="bold" />
+                          ? <Lock size={18} color={C.lockGray} weight="fill" />
                           : done
                             ? <CheckCircle size={20} color={C.green} weight="fill" />
                             : <BookOpen size={18} color={accent} weight="fill" />
@@ -276,7 +276,9 @@ export default function LearnTrailScreen() {
                 {mod.topics.map((topic, tIdx) => {
                   const complete = isTopicComplete(mIdx, tIdx);
                   const current  = isCurrent(mIdx, tIdx);
-                  const locked   = isLocked(mIdx, tIdx);
+                  // First topic of every module stays locked until the module mini-lesson is done
+                  const miniLessonRequired = tIdx === 0 && !(introDone[mIdx] ?? false);
+                  const locked   = miniLessonRequired || isLocked(mIdx, tIdx);
                   const hasContent = topicHasContent(level, mIdx, tIdx);
 
                   // If locked and no content, show coming soon
