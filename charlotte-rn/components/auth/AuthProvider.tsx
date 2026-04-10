@@ -53,19 +53,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleUrl = async (url: string) => {
       const params = parseHashParams(url);
-      if (params.type !== 'recovery') return;
       if (!params.access_token || !params.refresh_token) return;
 
-      console.log('[AuthProvider] Recovery deep link detected — setting session');
+      console.log('[AuthProvider] Deep link detected — type:', params.type);
       const { error } = await supabase.auth.setSession({
         access_token:  params.access_token,
         refresh_token: params.refresh_token,
       });
       if (error) {
-        console.error('[AuthProvider] setSession (recovery) error:', error.message);
-      } else {
+        console.error('[AuthProvider] setSession deep link error:', error.message);
+        return;
+      }
+
+      if (params.type === 'recovery') {
         setIsPasswordRecovery(true);
       }
+      // For type=signup / type=magiclink, setSession above is enough —
+      // onAuthStateChange fires SIGNED_IN and the user is logged in normally.
     };
 
     // Cold start: app launched from the email link
@@ -217,6 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // O trigger on_auth_user_created lê raw_user_meta_data->>'name'
         // e grava na tabela charlotte_users.
         data: { name },
+        // Redirect back to the app after email confirmation
+        emailRedirectTo: 'charlotte://auth/callback',
       },
     });
     if (error) throw error;

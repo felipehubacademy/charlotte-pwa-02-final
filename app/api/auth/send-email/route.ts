@@ -16,7 +16,9 @@ import {
 
 const HOOK_SECRET  = process.env.SUPABASE_HOOK_SECRET ?? '';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-const APP_URL      = process.env.NEXT_PUBLIC_APP_URL ?? 'https://charlotte.hubacademybr.com';
+// Default redirect: deep link opens the mobile app after email verification.
+// The scheme 'charlotte://' is registered in app.config.ts (scheme: 'charlotte').
+const DEFAULT_REDIRECT = 'charlotte://auth/callback';
 
 // ── URL de confirmacao ────────────────────────────────────────────────────────
 const ACTION_TYPE_MAP: Record<string, string> = {
@@ -32,7 +34,7 @@ const ACTION_TYPE_MAP: Record<string, string> = {
 function buildConfirmationUrl(emailData: Record<string, string>): string {
   const base       = emailData.site_url || SUPABASE_URL;
   const type       = ACTION_TYPE_MAP[emailData.email_action_type] ?? emailData.email_action_type;
-  const redirectTo = emailData.redirect_to || APP_URL;
+  const redirectTo = emailData.redirect_to || DEFAULT_REDIRECT;
   const url        = new URL(`${base}/auth/v1/verify`);
   url.searchParams.set('token',       emailData.token_hash ?? '');
   url.searchParams.set('type',        type);
