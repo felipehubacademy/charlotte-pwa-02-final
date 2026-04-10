@@ -211,11 +211,11 @@ export default function LearnTrailScreen() {
                       activeOpacity={introLocked ? 1 : 0.75}
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 14,
-                        backgroundColor: introLocked ? C.bg : done ? C.card : accent + '0E',
+                        backgroundColor: done ? C.card : introLocked ? C.card : accent + '0E',
                         borderRadius: 14, padding: 14,
-                        borderWidth: 1.5,
+                        borderWidth: introLocked ? 1 : 1.5,
                         borderColor: introLocked ? C.border : done ? C.border : accent + '35',
-                        opacity: introLocked ? 0.52 : 1,
+                        opacity: introLocked ? 0.55 : 1,
                         ...shadow,
                       }}
                     >
@@ -283,7 +283,7 @@ export default function LearnTrailScreen() {
 
                   // If locked and no content, show coming soon
                   const comingSoon = locked && !hasContent;
-                  const canTap = (current || complete) && hasContent;
+                  const canTap = !locked && (current || complete) && hasContent;
 
                   return (
                     <TouchableOpacity
@@ -292,10 +292,10 @@ export default function LearnTrailScreen() {
                       activeOpacity={canTap ? 0.75 : 1}
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 14,
-                        backgroundColor: current ? accent + '0E' : C.card,
+                        backgroundColor: !locked && current ? accent + '0E' : C.card,
                         borderRadius: 14, padding: 14,
-                        borderWidth: current ? 1.5 : 1,
-                        borderColor: current ? accent + '50' : C.border,
+                        borderWidth: !locked && current ? 1.5 : 1,
+                        borderColor: !locked && current ? accent + '50' : C.border,
                         opacity: locked ? 0.55 : 1,
                         ...shadow,
                       }}
@@ -303,7 +303,7 @@ export default function LearnTrailScreen() {
                       {/* Status icon */}
                       <View style={{
                         width: 36, height: 36, borderRadius: 10,
-                        backgroundColor: complete ? C.greenBg : current ? accent + '18' : C.ghost,
+                        backgroundColor: complete ? C.greenBg : (!locked && current) ? accent + '18' : C.ghost,
                         alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
                         {complete ? (
@@ -319,7 +319,7 @@ export default function LearnTrailScreen() {
                       <View style={{ flex: 1 }}>
                         <AppText style={{
                           fontSize: 13, fontWeight: current ? '700' : '600',
-                          color: complete ? C.navyMid : current ? C.navy : locked ? C.navyLight : C.navy,
+                          color: locked ? C.navyLight : complete ? C.navyMid : current ? C.navy : C.navy,
                           lineHeight: 18,
                         }}>
                           {topic.title}
@@ -365,7 +365,7 @@ export default function LearnTrailScreen() {
                       </View>
 
                       {/* CTA arrow — "Iniciar" se current e não completo, "Rever" se current e já feito */}
-                      {current && hasContent && !complete && (
+                      {!locked && current && hasContent && !complete && (
                         <View style={{
                           backgroundColor: accent, borderRadius: 10,
                           paddingHorizontal: 12, paddingVertical: 8,
@@ -375,7 +375,7 @@ export default function LearnTrailScreen() {
                           <CaretRight size={12} color="#FFF" weight="bold" />
                         </View>
                       )}
-                      {complete && current && hasContent && (
+                      {!locked && complete && current && hasContent && (
                         <View style={{
                           backgroundColor: 'transparent', borderRadius: 10,
                           paddingHorizontal: 12, paddingVertical: 8,
