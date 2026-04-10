@@ -512,6 +512,7 @@ interface MissionTemplate {
   accentBg:   string;
   icon:    React.ReactElement;
   levels: 'all' | 'pronunciation'; // 'pronunciation' = only Inter/Advanced
+  eligible?:        (d: HomeData) => boolean; // if absent, always eligible
   getCompleted:     (d: HomeData) => boolean;
   getProgress:      (d: HomeData) => number;
   getProgressLabel: (d: HomeData, isPt: boolean) => string;
@@ -602,6 +603,8 @@ const MISSION_POOL: MissionTemplate[] = [
     sub:   isPt => isPt ? 'Pratique hoje e mantenha a sequência!' : 'Practice today and keep it going!',
     xpReward: 20, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
     icon: <Fire size={22} color={C.orange} weight="fill" />,
+    // Only appears when the user is 1 step away (streak >= 1) — completable today
+    eligible:         d => d.streakDays >= 1,
     getCompleted:     d => d.streakDays >= 2 && d.todayXP > 0,
     getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 2, 1) : Math.min(d.streakDays / 2, 0.9),
     getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 2)} / 2 ${isPt ? 'dias' : 'days'}`,
@@ -612,6 +615,8 @@ const MISSION_POOL: MissionTemplate[] = [
     sub:   isPt => isPt ? 'Você está no caminho certo!' : 'You\'re on a roll!',
     xpReward: 80, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
     icon: <Fire size={22} color={C.orange} weight="fill" />,
+    // Only appears when the user is 1 step away (streak >= 9) — completable today
+    eligible:         d => d.streakDays >= 9,
     getCompleted:     d => d.streakDays >= 10 && d.todayXP > 0,
     getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 10, 1) : Math.min(d.streakDays / 10, 0.9),
     getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 10)} / 10 ${isPt ? 'dias' : 'days'}`,
@@ -717,7 +722,12 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
   const selected: MissionTemplate[] = [];
   for (const family of eligibleFamilies) {
     if (selected.length === 3) break;
-    const candidates = MISSION_POOL.filter(t => MISSION_FAMILIES[family].includes(t.id));
+    // Filter by family membership AND by data-driven eligibility (e.g. streak threshold)
+    const candidates = MISSION_POOL.filter(t =>
+      MISSION_FAMILIES[family].includes(t.id) &&
+      (!t.eligible || t.eligible(data))
+    );
+    if (candidates.length === 0) continue; // skip family — no completable mission today
     const shuffledCandidates = seededShuffle(candidates, dayNum + lvlOff + family.length);
     if (shuffledCandidates[0]) selected.push(shuffledCandidates[0]);
   }
