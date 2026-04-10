@@ -63,6 +63,7 @@ let _streakSoundPlayedThisSession = false;
 // Resets only when the app process is killed (true cold start).
 let _greetingFetchedThisSession = false;
 let _greetingLevelThisSession   = '';
+let _greetingTextThisSession    = ''; // cached text — restored immediately on remount
 
 // Palette estática usada apenas em constantes de módulo (fora do componente)
 const C = {
@@ -1003,19 +1004,27 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [fetchData]);
 
-  // ── AI Greeting — always fresh on every app open ────────────
-  // No cache: a new contextual greeting is fetched every time the home
-  // screen mounts (cold/warm start). greetingFetchedRef prevents double-
-  // fetching within the same session (e.g. navigation back to home).
-  // Waits for `data` to be loaded so totalXP/streak are accurate before
-  // calling the API — prevents "first session" message for returning users.
+  // ── AI Greeting ─────────────────────────────────────────────
+  // Fetched once per cold start (new JS process). Module-level vars prevent
+  // re-fetches when navigating back to home within the same session.
+  // Cached text is restored immediately on remount so there are no dots.
   useEffect(() => {
-    // Re-fetch if level changed (e.g. after placement test Novice → Advanced)
+    // Reset if level changed (e.g. after placement test)
     if (_greetingLevelThisSession && _greetingLevelThisSession !== level) {
       _greetingFetchedThisSession = false;
+      _greetingTextThisSession    = '';
       setAiGreeting(null);
     }
-    if (!userId || !name || !data || _greetingFetchedThisSession) return;
+
+    // Restore cached greeting immediately on remount (no dots on navigation)
+    if (_greetingTextThisSession) {
+      setAiGreeting(_greetingTextThisSession);
+      setGreetingLoading(false);
+      return;
+    }
+
+    // Wait for userId + name; data is used for context but not a blocker
+    if (!userId || !name || _greetingFetchedThisSession) return;
     _greetingFetchedThisSession = true;
     _greetingLevelThisSession   = level;
 
@@ -1025,25 +1034,31 @@ export default function HomeScreen() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            firstName: name.split(' ')[0] ?? name,
-            streak:    data?.streakDays ?? 0,
-            todayXP:   data?.todayXP   ?? 0,
-            totalXP:   data?.totalXP   ?? 0,
-            dailyGoal: DAILY_XP_GOAL,
-            hour:      new Date().getHours(),
+            firstName:       name.split(' ')[0] ?? name,
+            streak:          data?.streakDays ?? 0,
+            todayXP:         data?.todayXP   ?? 0,
+            totalXP:         data?.totalXP   ?? 0,
+            dailyGoal:       DAILY_XP_GOAL,
+            hour:            new Date().getHours(),
             level,
+            // first_welcome_done is set after onboarding — reliable "new user" signal
+            // independent of XP/data timing; avoids false "first session" messages
+            isNewUser:       !(profile?.first_welcome_done ?? false),
           }),
         });
         if (!res.ok) { setGreetingLoading(false); return; }
         const json = await res.json();
-        if (json.message) setAiGreeting(json.message);
+        if (json.message) {
+          _greetingTextThisSession = json.message;
+          setAiGreeting(json.message);
+        }
       } catch {
-        // Silently fail — dots will disappear, no message shown (acceptable)
+        // Silently fail
       } finally {
         setGreetingLoading(false);
       }
     })();
-  }, [userId, name, level, data]); // eslint-disable-line
+  }, [userId, name, level, data, profile]); // eslint-disable-line
 
   const missions     = data ? buildMissions(data, level) : [];
   const doneMissions = missions.filter(m => m.completed).length;

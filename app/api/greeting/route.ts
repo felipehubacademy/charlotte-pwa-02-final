@@ -1,6 +1,6 @@
 // app/api/greeting/route.ts
-// Generates a short, personalised home-screen greeting via GPT-4o-mini.
-// Called once per day per user; client caches the result in SecureStore.
+// Generates a short, punchy home-screen greeting via GPT-4o-mini.
+// Charlotte personality: direct, warm, real — never generic, never verbose.
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
@@ -15,45 +15,44 @@ interface GreetingRequest {
   firstName: string;
   streak: number;
   todayXP: number;
-  totalXP: number;     // 0 = brand new user, never done anything
+  totalXP: number;
   dailyGoal: number;
-  hour: number;        // 0–23 local hour (sent by client)
+  hour: number;           // 0–23 local hour
   level: 'Novice' | 'Inter' | 'Advanced';
+  isNewUser?: boolean;    // from profile.first_welcome_done — reliable flag
 }
 
-function systemPrompt(level: string): string {
-  if (level === 'Novice') {
-    return `You are Charlotte, a warm and encouraging English teacher. You are greeting a Brazilian student (beginner level) at the start of their practice session. Write a short, natural greeting in Brazilian Portuguese (1–2 sentences max). Be personal, warm, motivating. Use the provided context (name, streak, XP today, time of day) to make it feel real and specific. Never use emoji. Never be generic. Sound like a real teacher who knows the student.`;
-  }
-  return `You are Charlotte, a friendly and sharp English coach. You are greeting an English learner at the start of their practice session. Write a short, natural greeting in English (1–2 sentences max). Be personal, encouraging, and direct. Use the provided context (name, streak, XP today, time of day) to make it specific. Never use emoji. Sound like a real coach who knows the student.`;
-}
+function buildPrompt(req: GreetingRequest): { system: string; user: string } {
+  const { firstName, streak, todayXP, totalXP, dailyGoal, hour, level, isNewUser } = req;
 
-function userPrompt(req: GreetingRequest): string {
-  const { firstName, streak, todayXP, totalXP, dailyGoal, hour, level } = req;
   const timeOfDay = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
-  const xpLeft = Math.max(0, dailyGoal - todayXP);
-  const goalMet = todayXP >= dailyGoal;
-  const isNewUser = (totalXP ?? 0) === 0;
+  const goalMet   = todayXP >= dailyGoal;
+  const xpLeft    = Math.max(0, dailyGoal - todayXP);
+  const newUser   = isNewUser ?? (totalXP === 0 && streak === 0);
 
-  const ctx: string[] = [
-    `Student name: ${firstName}`,
-    `Time of day: ${timeOfDay}`,
-    isNewUser
-      ? `This is their FIRST TIME using the app — brand new student, no previous sessions.`
-      : `Current streak: ${streak} day${streak !== 1 ? 's' : ''}`,
-    isNewUser
-      ? `Welcome them warmly as a new student. Do NOT say anything about restarting, coming back, or resuming.`
-      : goalMet
-        ? `XP today: ${todayXP} — daily goal already met!`
-        : todayXP > 0
-          ? `XP earned today: ${todayXP} (${xpLeft} XP left to hit the daily goal)`
-          : `No XP earned yet today`,
-  ];
+  // ── System prompt ────────────────────────────────────────────────────────
+  const system = level === 'Novice'
+    ? `Voce e Charlotte, professora de ingles com personalidade: direta, animada, real. Escreva UMA frase de recepcao em portugues brasileiro — curta, com personalidade, encorajadora. Estilo: como uma amiga que te conhece e quer que voce arrase. Nunca use emoji. Nunca seja generica. Nunca diga "sessao" nem "app". Seja natural e especifica ao contexto.`
+    : `You are Charlotte — sharp, warm, direct. Write ONE punchy welcome message in English. Style: like a cool coach who actually knows the student. No emoji. No generic phrases. Never say "session" or "app". Use the context to make it feel personal and real.`;
 
-  if (level === 'Novice') {
-    return `Context:\n${ctx.join('\n')}\n\nWrite the greeting in Brazilian Portuguese. Keep it to 1–2 sentences. Be specific about something from the context.`;
+  // ── User prompt (context) ─────────────────────────────────────────────────
+  const ctx: string[] = [`Name: ${firstName}`, `Time: ${timeOfDay}`];
+
+  if (newUser) {
+    ctx.push('This is their very first time here. Welcome them like it is the start of something great. Do not mention streaks or XP.');
+  } else if (goalMet) {
+    ctx.push(`Streak: ${streak} day${streak !== 1 ? 's' : ''}. Daily goal already crushed (${todayXP} XP). Acknowledge the win.`);
+  } else if (todayXP > 0) {
+    ctx.push(`Streak: ${streak} day${streak !== 1 ? 's' : ''}. ${todayXP} XP earned today, ${xpLeft} XP left to hit the goal. Push them gently.`);
+  } else if (streak > 1) {
+    ctx.push(`Streak: ${streak} days. No XP yet today. Motivate them to keep the streak alive.`);
+  } else {
+    ctx.push(`No XP yet today. Short motivational nudge.`);
   }
-  return `Context:\n${ctx.join('\n')}\n\nWrite the greeting in English. Keep it to 1–2 sentences. Be specific about something from the context.`;
+
+  const user = `${ctx.join(' | ')}\n\nWrite the greeting now. ONE sentence only. Max 20 words.`;
+
+  return { system, user };
 }
 
 export async function POST(request: NextRequest) {
@@ -69,13 +68,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    const { system, user } = buildPrompt(body);
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      max_tokens: 80,
-      temperature: 0.9,
+      max_tokens: 60,
+      temperature: 0.85,
       messages: [
-        { role: 'system', content: systemPrompt(level) },
-        { role: 'user',   content: userPrompt(body) },
+        { role: 'system', content: system },
+        { role: 'user',   content: user },
       ],
     });
 

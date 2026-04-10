@@ -223,6 +223,7 @@ export default function LiveVoiceModal({
   const [conversationTurns, setConversationTurns] = React.useState<ConversationTurn[]>([]);
   const [showTranscript, setShowTranscript]       = React.useState(false);
   const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
+  const wasConnectedRef     = React.useRef(false); // tracks if call ever reached connected state
 
   // ── WebRTC refs ────────────────────────────────────────────────────────────
   const pcRef             = React.useRef<InstanceType<typeof RTCPeerConnection> | null>(null);
@@ -589,6 +590,7 @@ export default function LiveVoiceModal({
       dc.onopen = () => {
         stopRingTone();
         setStatus('connected');
+        wasConnectedRef.current = true;
 
         const greeting = getRandomGreeting(userLevel);
         dc.send(JSON.stringify({
@@ -651,7 +653,8 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.text.delta':
-              // Accumulate Charlotte's text response for the transcript
+              // Accumulate Charlotte's text for the transcript
+              // delta field confirmed in Realtime API spec; fallback to empty string
               charlotteTextAccRef.current += (msg.delta ?? '');
               break;
 
@@ -829,16 +832,22 @@ export default function LiveVoiceModal({
       consumeLiveVoiceSeconds(totalSecs).catch(console.warn);
       sessionAccumSecs.current = 0;
     }
+    // Flush any accumulated Charlotte text before disconnecting
+    if (charlotteTextAccRef.current.trim()) {
+      setConversationTurns(prev => [
+        ...prev,
+        { role: 'assistant', text: charlotteTextAccRef.current.trim() },
+      ]);
+      charlotteTextAccRef.current = '';
+    }
+    const wasConnected = wasConnectedRef.current;
     disconnect();
-    // Show transcript if there is at least one turn; otherwise close directly
-    setConversationTurns(prev => {
-      if (prev.length > 0) {
-        setShowTranscript(true);
-      } else {
-        onClose();
-      }
-      return prev;
-    });
+    // Always show transcript if call was ever connected (even if empty — helps debug)
+    if (wasConnected) {
+      setShowTranscript(true);
+    } else {
+      onClose();
+    }
   }, [disconnect, onClose]);
 
   const handleMute = React.useCallback(() => {
@@ -880,6 +889,7 @@ export default function LiveVoiceModal({
       setShowTranscript(false);
       setConversationTurns([]);
       charlotteTextAccRef.current = '';
+      wasConnectedRef.current = false;
       sessionAccumSecs.current = 0;
       warnStartRef.current = 0;
       loadPool().then(remaining => {
@@ -949,9 +959,11 @@ export default function LiveVoiceModal({
             showsVerticalScrollIndicator={false}
           >
             {conversationTurns.length === 0 ? (
-              <View style={{ alignItems: 'center', paddingTop: 60 }}>
-                <AppText style={{ color: '#9896B8', fontSize: 14 }}>
-                  {userLevel === 'Novice' ? 'Nenhuma fala transcrita.' : 'No speech transcribed.'}
+              <View style={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 24 }}>
+                <AppText style={{ color: '#9896B8', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+                  {userLevel === 'Novice'
+                    ? 'Transcricao nao disponivel para esta chamada.'
+                    : 'No transcript available for this call.'}
                 </AppText>
               </View>
             ) : (
