@@ -190,47 +190,65 @@ export default function LearnTrailScreen() {
                   const intro = MODULE_INTROS[level]?.[mIdx];
                   if (!intro) return null;
                   const done = introDone[mIdx] ?? false;
+
+                  // Lock mini-lesson for module N>0 until all topics in module N-1 are done.
+                  // Module 0 is always accessible (entry point).
+                  const introLocked = mIdx > 0 && (() => {
+                    const prevMod = modules[mIdx - 1];
+                    if (!prevMod) return false;
+                    return prevMod.topics.some((_, tIdx) => !isTopicComplete(mIdx - 1, tIdx));
+                  })();
+
                   return (
                     <TouchableOpacity
-                      onPress={() => router.push({
-                        pathname: '/(app)/learn-intro',
-                        params: { level, moduleIndex: String(mIdx), topicIndex: '0' },
-                      })}
-                      activeOpacity={0.75}
+                      onPress={() => {
+                        if (introLocked) return;
+                        router.push({
+                          pathname: '/(app)/learn-intro',
+                          params: { level, moduleIndex: String(mIdx), topicIndex: '0' },
+                        });
+                      }}
+                      activeOpacity={introLocked ? 1 : 0.75}
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 14,
-                        backgroundColor: done ? C.card : accent + '0E',
+                        backgroundColor: introLocked ? C.bg : done ? C.card : accent + '0E',
                         borderRadius: 14, padding: 14,
                         borderWidth: 1.5,
-                        borderColor: done ? C.border : accent + '35',
+                        borderColor: introLocked ? C.border : done ? C.border : accent + '35',
+                        opacity: introLocked ? 0.52 : 1,
                         ...shadow,
                       }}
                     >
                       {/* Icon */}
                       <View style={{
                         width: 36, height: 36, borderRadius: 10,
-                        backgroundColor: done ? C.greenBg : accent + '20',
+                        backgroundColor: introLocked
+                          ? 'rgba(22,21,58,0.05)'
+                          : done ? C.greenBg : accent + '20',
                         alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                       }}>
-                        {done
-                          ? <CheckCircle size={20} color={C.green} weight="fill" />
-                          : <BookOpen size={18} color={accent} weight="fill" />
+                        {introLocked
+                          ? <Lock size={18} color={C.navyLight} weight="bold" />
+                          : done
+                            ? <CheckCircle size={20} color={C.green} weight="fill" />
+                            : <BookOpen size={18} color={accent} weight="fill" />
                         }
                       </View>
 
                       {/* Title + tag */}
                       <View style={{ flex: 1 }}>
-                        <AppText style={{ fontSize: 13, fontWeight: '700', color: C.navy, lineHeight: 18 }}>
+                        <AppText style={{ fontSize: 13, fontWeight: '700', color: introLocked ? C.navyLight : C.navy, lineHeight: 18 }}>
                           {intro.title}
                         </AppText>
                         <View style={{ flexDirection: 'row', gap: 6, marginTop: 5 }}>
                           <View style={{
-                            backgroundColor: accent + '15', borderRadius: 6,
+                            backgroundColor: introLocked ? 'rgba(22,21,58,0.05)' : accent + '15',
+                            borderRadius: 6,
                             paddingHorizontal: 7, paddingVertical: 3,
                             flexDirection: 'row', alignItems: 'center', gap: 3,
                           }}>
-                            <BookOpen size={11} color={accent} weight="fill" />
-                            <AppText style={{ fontSize: 10, fontWeight: '700', color: accent }}>
+                            <BookOpen size={11} color={introLocked ? C.navyLight : accent} weight="fill" />
+                            <AppText style={{ fontSize: 10, fontWeight: '700', color: introLocked ? C.navyLight : accent }}>
                               Mini-lesson · {intro.slides.length} slides
                             </AppText>
                           </View>
@@ -238,17 +256,19 @@ export default function LearnTrailScreen() {
                       </View>
 
                       {/* CTA */}
-                      <View style={{
-                        backgroundColor: done ? 'transparent' : accent,
-                        borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
-                        borderWidth: done ? 1 : 0, borderColor: accent + '40',
-                        flexDirection: 'row', alignItems: 'center', gap: 4,
-                      }}>
-                        <AppText style={{ fontSize: 12, fontWeight: '800', color: done ? accent : '#FFF' }}>
-                          {done ? (isPortuguese ? 'Rever' : 'Review') : (isPortuguese ? 'Começar' : 'Start')}
-                        </AppText>
-                        <CaretRight size={12} color={done ? accent : '#FFF'} weight="bold" />
-                      </View>
+                      {!introLocked && (
+                        <View style={{
+                          backgroundColor: done ? 'transparent' : accent,
+                          borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+                          borderWidth: done ? 1 : 0, borderColor: accent + '40',
+                          flexDirection: 'row', alignItems: 'center', gap: 4,
+                        }}>
+                          <AppText style={{ fontSize: 12, fontWeight: '800', color: done ? accent : '#FFF' }}>
+                            {done ? (isPortuguese ? 'Rever' : 'Review') : (isPortuguese ? 'Começar' : 'Start')}
+                          </AppText>
+                          <CaretRight size={12} color={done ? accent : '#FFF'} weight="bold" />
+                        </View>
+                      )}
                     </TouchableOpacity>
                   );
                 })()}

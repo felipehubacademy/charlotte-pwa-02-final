@@ -137,8 +137,8 @@ export default function ChatInputBar({
     const res = await stopRecording();
     if (res && res.duration >= 1) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setPreviewUri(res.uri);
-      setPreviewDur(res.duration);
+      // Send immediately on release — no preview step
+      if (onSendAudio) onSendAudio(res.uri, res.duration);
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     }
