@@ -28,8 +28,6 @@ import { restorePurchases } from '@/lib/purchases';
 import { getLiveVoiceStatus, LiveVoiceStatus } from '@/lib/liveVoiceUsage';
 import Constants from 'expo-constants';
 import * as Updates from 'expo-updates';
-import * as SecureStore from 'expo-secure-store';
-const CRASH_KEY = '__last_js_crash__';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -133,14 +131,10 @@ export default function ConfiguracoesScreen() {
   const [restoringPurchases, setRestoringPurchases] = React.useState(false);
   const [voiceUsage, setVoiceUsage]               = React.useState<LiveVoiceStatus | null>(null);
   const [showAvatarModal, setShowAvatarModal]     = React.useState(false);
-  const [lastCrash, setLastCrash]                 = React.useState<string | null>(null);
-
   React.useEffect(() => {
     getLiveVoiceStatus(profile?.charlotte_level ?? undefined)
       .then(setVoiceUsage)
       .catch(() => {});
-    // Load last crash for diagnostics
-    SecureStore.getItemAsync(CRASH_KEY).then(v => setLastCrash(v)).catch(() => {});
   }, [profile?.charlotte_level]);
 
   const handleRetakePlacementTest = () => {
@@ -501,16 +495,10 @@ export default function ConfiguracoesScreen() {
         />
 
         {/* Version footer */}
-        <View style={{ paddingVertical: 32, alignItems: 'center', paddingHorizontal: 24 }}>
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
           <AppText style={{ fontSize: 11, color: C.navyLight, letterSpacing: 0.2 }}>
             {`Charlotte AI v${Constants.expoConfig?.version ?? '—'} · ${Updates.updateId ? Updates.updateId.slice(0, 8) : 'dev'}`}
           </AppText>
-          {lastCrash ? (
-            <AppText style={{ fontSize: 10, color: C.error, marginTop: 6, textAlign: 'center', lineHeight: 14 }}
-              numberOfLines={4}>
-              {lastCrash}
-            </AppText>
-          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
