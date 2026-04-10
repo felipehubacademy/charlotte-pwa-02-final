@@ -73,7 +73,7 @@ export default function LearnTrailScreen() {
     Promise.all(
       Object.keys(levelIntros).map(async (k) => {
         const mIdx = parseInt(k, 10);
-        const val = await SecureStore.getItemAsync(`intro_done_${level}_${mIdx}`);
+        const val = await SecureStore.getItemAsync(`intro_done_${userId}_${level}_${mIdx}`);
         return [mIdx, val === '1'] as [number, boolean];
       })
     ).then(results => setIntroDone(Object.fromEntries(results)));

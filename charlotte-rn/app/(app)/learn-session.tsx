@@ -774,9 +774,9 @@ export default function LearnSessionScreen() {
                     <View style={{ marginBottom: isWordBank ? 24 : 16 }}>
                       {isFillGapAnswering ? (
                         /* Inline TextInput as the gap — no separate box below */
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'flex-end', rowGap: 0 }}>
                           {before.length > 0 && (
-                            <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34 }}>
+                            <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 36 }}>
                               {before}
                             </AppText>
                           )}
@@ -795,11 +795,10 @@ export default function LearnSessionScreen() {
                               height: 36,
                               paddingHorizontal: 4,
                               paddingVertical: 0,
-                              marginBottom: Platform.OS === 'android' ? 0 : 2,
                             }}
                           />
                           {after.length > 0 && (
-                            <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 34 }}>
+                            <AppText style={{ fontSize: 22, fontWeight: '500', color: C.navy, lineHeight: 36 }}>
                               {after}
                             </AppText>
                           )}

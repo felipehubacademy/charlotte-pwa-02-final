@@ -24,6 +24,7 @@ import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { MODULE_INTROS } from '@/data/moduleIntros';
 import { TrailLevel } from '@/data/curriculum';
+import { useAuth } from '@/hooks/useAuth';
 
 // ── Config ─────────────────────────────────────────────────────
 const API_BASE_URL =
@@ -71,6 +72,8 @@ export default function LearnIntroScreen() {
   const slides      = intro?.slides ?? [];
   const isPortuguese = level === 'Novice';
   const C           = buildPalette(level);
+  const { session } = useAuth();
+  const userId      = session?.user?.id ?? '';
 
   const [slideIdx,     setSlideIdx]     = useState(0);
   const [audioLoading, setAudioLoading] = useState(false);
@@ -239,7 +242,7 @@ export default function LearnIntroScreen() {
       goToSlide(slideIdx + 1);
     } else {
       // Mark intro as done when finishing the last slide
-      SecureStore.setItemAsync(`intro_done_${level}_${mIdx}`, '1').catch(() => {});
+      SecureStore.setItemAsync(`intro_done_${userId}_${level}_${mIdx}`, '1').catch(() => {});
       goToSession();
     }
   }, [slideIdx, slides.length, goToSlide, goToSession, level, mIdx]);

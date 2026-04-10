@@ -49,6 +49,10 @@ function goToLogin() {
   router.replace('/(auth)/login');
 }
 
+function goToSignup() {
+  router.replace('/(auth)/signup');
+}
+
 // ── Dot indicator ─────────────────────────────────────────────────────────────
 
 function Dots({ total, active }: { total: number; active: number }) {
@@ -462,12 +466,14 @@ export default function OnboardingScreen() {
     if (slide < TOTAL - 1) {
       scrollRef.current?.scrollTo({ x: (slide + 1) * W, animated: true });
     } else {
+      // Last slide "Começar" → create account
       await markOnboardingDone();
-      goToLogin();
+      goToSignup();
     }
   };
 
   const skip = async () => {
+    // "Já tenho uma conta" → login
     await markOnboardingDone();
     goToLogin();
   };

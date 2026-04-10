@@ -888,8 +888,7 @@ function ResultScreen({
               </View>
             )}
 
-            {/* Spacer empurra CTA para baixo quando conteudo e curto */}
-            <View style={{ flex: 1, minHeight: 32 }} />
+            <View style={{ height: 32 }} />
 
             {/* CTA */}
             <TouchableOpacity
