@@ -83,7 +83,7 @@ export default function SignupScreen() {
           {/* ── Branding ── */}
           <View style={{ alignItems: 'center', marginBottom: 36 }}>
             <View style={{
-              width: 88, height: 88, borderRadius: 44,
+              width: 100, height: 100, borderRadius: 50,
               borderWidth: 3, borderColor: C.green,
               overflow: 'hidden', marginBottom: 16,
               backgroundColor: C.card,

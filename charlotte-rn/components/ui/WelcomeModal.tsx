@@ -13,7 +13,7 @@
 // Persistencia: coluna first_welcome_done em charlotte_users + AsyncStorage (data).
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, View, TouchableOpacity, Animated, Image, Platform } from 'react-native';
+import { Modal, View, TouchableOpacity, Animated, Image, Platform, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -253,6 +253,8 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
 
   return (
     <Modal visible transparent animationType="none" statusBarTranslucent>
+      {/* Force light status bar icons on the dark modal background */}
+      <StatusBar barStyle="light-content" />
       <Animated.View style={{
         flex: 1,
         backgroundColor: '#07071C',
