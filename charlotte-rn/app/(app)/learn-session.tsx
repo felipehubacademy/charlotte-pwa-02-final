@@ -532,16 +532,17 @@ export default function LearnSessionScreen() {
           return;
         }
 
-        // Shadowing & repeat require the user to actually speak.
+        // All pronunciation exercises require the user to actually speak.
         // Azure returns low but non-zero scores for near-silence.
         // Enforce a minimum completeness threshold so staying silent
         // or muttering a single word can't pass the exercise.
-        const isShadowing = currentStep.phrase.type === 'shadowing';
-        const isRepeat    = currentStep.phrase.type === 'repeat';
-        if ((isShadowing || isRepeat) && completeness < 35) {
+        if (completeness < 35) {
           setPronStatus('retry');
           return;
         }
+
+        const isShadowing = currentStep.phrase.type === 'shadowing';
+        const isRepeat    = currentStep.phrase.type === 'repeat';
 
         setAssessmentResult(data.result);
         setSessionScores(prev => [...prev, score]);

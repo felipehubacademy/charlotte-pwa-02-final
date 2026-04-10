@@ -1051,7 +1051,7 @@ export default function HomeScreen() {
   const modeCards: ModeCard[] = [
     {
       mode: 'grammar' as const,
-      title: 'Grammar',
+      title: isPortuguese ? 'Gram\u00e1tica' : 'Grammar',
       sub: '',
       route: '/(app)/grammar' as const,
       accentColor: C.greenDark,
@@ -1062,7 +1062,7 @@ export default function HomeScreen() {
     },
     {
       mode: 'pronunciation' as const,
-      title: 'Pronunciation',
+      title: isPortuguese ? 'Pron\u00fancia' : 'Pronunciation',
       sub: '',
       route: '/(app)/pronunciation' as const,
       accentColor: C.blue,

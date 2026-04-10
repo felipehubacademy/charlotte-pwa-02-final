@@ -71,7 +71,7 @@ const CHALLENGE_POOL: WeeklyChallenge[] = [
   },
   {
     id: 'grammar_20',
-    title: { pt: 'Gram\u00e1tico', en: 'Grammar Star' },
+    title: { pt: 'Gram\u00e1tica', en: 'Grammar Star' },
     sub:   { pt: 'Envie 20 frases no modo Gram\u00e1tica', en: 'Send 20 sentences in Grammar mode' },
     target: 20, unit: { pt: 'frases', en: 'sentences' },
     xpReward: 90, color: '#D97706', bgColor: '#FFFBEB',
