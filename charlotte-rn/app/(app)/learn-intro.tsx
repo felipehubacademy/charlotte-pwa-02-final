@@ -233,7 +233,7 @@ export default function LearnIntroScreen() {
     router.back();
   }, []);
 
-  const handleNext = useCallback(() => {
+  const handleNext = useCallback(async () => {
     if (slideIdx < slides.length - 1) {
       subRef.current?.remove();
       subRef.current = null;
@@ -241,8 +241,8 @@ export default function LearnIntroScreen() {
       try { playerRef.current?.pause(); } catch {}
       goToSlide(slideIdx + 1);
     } else {
-      // Mark intro as done when finishing the last slide
-      SecureStore.setItemAsync(`intro_done_${userId}_${level}_${mIdx}`, '1').catch(() => {});
+      // Await the write so learn-trail's useFocusEffect reads the updated value
+      await SecureStore.setItemAsync(`intro_done_${userId}_${level}_${mIdx}`, '1').catch(() => {});
       goToSession();
     }
   }, [slideIdx, slides.length, goToSlide, goToSession, level, mIdx]);
