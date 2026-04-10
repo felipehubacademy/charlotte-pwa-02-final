@@ -427,12 +427,6 @@ export default function ConfiguracoesScreen() {
                     {`${Math.ceil(voiceUsage.secondsUsed / 60)} / ${Math.floor(voiceUsage.poolTotal / 60)} min ${isPt ? 'utilizados' : 'used'}`}
                   </AppText>
                 </View>
-                <AppText style={{
-                  fontSize: 13, fontWeight: '700',
-                  color: voiceUsage.secondsRemaining < 120 ? C.error : C.greenDark,
-                }}>
-                  {`${Math.ceil(voiceUsage.secondsRemaining / 60)} min`}
-                </AppText>
               </View>
               {/* Progress bar */}
               <View style={{ height: 5, backgroundColor: 'rgba(22,21,58,0.07)', borderRadius: 3, overflow: 'hidden' }}>
