@@ -466,8 +466,30 @@ export default function AdminPage() {
       color: C.navy,
     }}>
 
+      <style>{`
+        @media (max-width: 768px) {
+          .admin-header { padding: 0 16px !important; height: auto !important; min-height: 60px; flex-wrap: wrap; gap: 8px; padding-top: 10px !important; padding-bottom: 10px !important; }
+          .admin-header-actions { gap: 6px !important; }
+          .admin-header-actions button, .admin-header-actions a { font-size: 12px !important; padding: 8px 10px !important; min-height: 44px; }
+          .admin-main { padding: 20px 14px !important; }
+          .admin-stats-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .admin-toolbar { flex-direction: column !important; align-items: stretch !important; gap: 10px !important; }
+          .admin-search-wrap { width: 100% !important; }
+          .admin-search-wrap input { width: 100% !important; }
+          .admin-filters { flex-wrap: wrap !important; gap: 6px !important; }
+          .admin-filters button { font-size: 12px !important; padding: 8px 10px !important; min-height: 44px; }
+          .admin-count { margin-left: 0 !important; }
+          .admin-table-wrap { display: none !important; }
+          .admin-user-cards { display: flex !important; }
+          .admin-modal-box { padding: 20px !important; border-radius: 14px !important; max-height: 95vh !important; }
+          .admin-modal-overlay { padding: 10px !important; align-items: flex-end !important; }
+          .admin-form-grid { grid-template-columns: 1fr !important; }
+        }
+        .admin-user-cards { display: none; flex-direction: column; gap: 10px; }
+      `}</style>
+
       {/* Header */}
-      <header style={{
+      <header className="admin-header" style={{
         borderBottom: `1px solid ${C.border}`,
         padding: '0 32px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -486,7 +508,7 @@ export default function AdminPage() {
             padding: '2px 8px', marginLeft: 4,
           }}>Admin</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="admin-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button
             onClick={() => fetchData(secret)}
             title="Atualizar"
@@ -514,11 +536,11 @@ export default function AdminPage() {
         </div>
       </header>
 
-      <main style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px' }}>
+      <main className="admin-main" style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px' }}>
 
         {/* Stats */}
         {stats && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 32 }}>
+          <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 32 }}>
             <StatCard label="Total de alunos"   value={stats.total}         color={C.navy}      icon={Icon.users} />
             <StatCard label="Institucionais"    value={stats.institutional}  color={C.blue}      icon={Icon.building} />
             <StatCard label="Assinantes"        value={stats.subscribers}    color={C.greenDark} icon={Icon.checkCircle} />
@@ -534,8 +556,8 @@ export default function AdminPage() {
         )}
 
         {/* Toolbar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative' }}>
+        <div className="admin-toolbar" style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+          <div className="admin-search-wrap" style={{ position: 'relative' }}>
             <input
               type="text"
               placeholder="Buscar por nome ou email..."
@@ -547,7 +569,7 @@ export default function AdminPage() {
               {Icon.search}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
+          <div className="admin-filters" style={{ display: 'flex', gap: 6 }}>
             {(['all', 'institutional', 'subscriber', 'trial', 'none'] as const).map(f => {
               const active = filter === f;
               return (
@@ -564,7 +586,7 @@ export default function AdminPage() {
               );
             })}
           </div>
-          <div style={{ marginLeft: 'auto', fontSize: 13, color: C.navyLight }}>
+          <div className="admin-count" style={{ marginLeft: 'auto', fontSize: 13, color: C.navyLight }}>
             {filtered.length} {filtered.length === 1 ? 'usuário' : 'usuários'}
           </div>
         </div>
@@ -584,115 +606,207 @@ export default function AdminPage() {
             Carregando...
           </div>
         ) : (
-          <div style={{
-            backgroundColor: C.card,
-            border: `1px solid ${C.border}`,
-            borderRadius: 16,
-            overflow: 'hidden',
-            boxShadow: C.shadow,
-          }}>
-            {/* Table header */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
-              padding: '11px 20px',
-              borderBottom: `1px solid ${C.border}`,
-              backgroundColor: C.bg,
+          <>
+            {/* Desktop table */}
+            <div className="admin-table-wrap" style={{
+              backgroundColor: C.card,
+              border: `1px solid ${C.border}`,
+              borderRadius: 16,
+              overflow: 'hidden',
+              boxShadow: C.shadow,
             }}>
-              {['Aluno', 'Nivel', 'Status', 'Cadastro', 'Placement', ''].map(h => (
-                <div key={h} style={{
-                  fontSize: 11, fontWeight: 700, color: C.navyLight,
-                  letterSpacing: '0.6px', textTransform: 'uppercase',
-                }}>{h}</div>
-              ))}
+              {/* Table header */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
+                padding: '11px 20px',
+                borderBottom: `1px solid ${C.border}`,
+                backgroundColor: C.bg,
+              }}>
+                {['Aluno', 'Nivel', 'Status', 'Cadastro', 'Placement', ''].map(h => (
+                  <div key={h} style={{
+                    fontSize: 11, fontWeight: 700, color: C.navyLight,
+                    letterSpacing: '0.6px', textTransform: 'uppercase',
+                  }}>{h}</div>
+                ))}
+              </div>
+
+              {/* Rows */}
+              {filtered.length === 0 ? (
+                <div style={{ padding: 56, textAlign: 'center', color: C.navyLight, fontSize: 14 }}>
+                  Nenhum usuário encontrado.
+                </div>
+              ) : (
+                filtered.map((u, i) => {
+                  const badge = statusBadge(u);
+                  const lvl   = levelLabel(u.charlotte_level);
+                  return (
+                    <div
+                      key={u.id}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
+                        padding: '13px 20px',
+                        borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
+                        alignItems: 'center',
+                        transition: 'background 0.1s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.backgroundColor = C.bg)}
+                      onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
+                    >
+                      {/* Aluno */}
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: 14, color: C.navy }}>
+                          {u.name ?? <span style={{ color: C.navyLight, fontWeight: 400 }}>Sem nome</span>}
+                        </div>
+                        <div style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>{u.email}</div>
+                      </div>
+
+                      {/* Nivel */}
+                      <div style={{ fontSize: 13, fontWeight: 600, color: lvl.color }}>{lvl.text}</div>
+
+                      {/* Status */}
+                      <div>
+                        <span style={{
+                          backgroundColor: badge.bg, color: badge.color,
+                          border: `1px solid ${badge.border}`,
+                          borderRadius: 20, padding: '3px 10px',
+                          fontSize: 12, fontWeight: 600,
+                        }}>
+                          {badge.label}
+                        </span>
+                      </div>
+
+                      {/* Cadastro */}
+                      <div style={{ fontSize: 13, color: C.navyMid }}>{fmtDate(u.created_at)}</div>
+
+                      {/* Placement */}
+                      <div style={{ fontSize: 13, fontWeight: 600, color: u.placement_test_done ? C.greenDark : C.navyLight }}>
+                        {u.placement_test_done ? 'Feito' : 'Pendente'}
+                      </div>
+
+                      {/* Actions */}
+                      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
+                        <button
+                          onClick={() => openEdit(u)}
+                          title="Editar"
+                          style={{
+                            background: 'transparent', border: `1px solid ${C.border}`,
+                            borderRadius: 7, padding: '6px 8px',
+                            cursor: 'pointer', color: C.navyMid,
+                            display: 'flex', alignItems: 'center',
+                          }}
+                        >
+                          {Icon.edit}
+                        </button>
+                        <button
+                          onClick={() => openDelete(u)}
+                          title="Excluir"
+                          style={{
+                            background: 'transparent', border: `1px solid #FECACA`,
+                            borderRadius: 7, padding: '6px 8px',
+                            cursor: 'pointer', color: C.red,
+                            display: 'flex', alignItems: 'center',
+                          }}
+                        >
+                          {Icon.trash}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
 
-            {/* Rows */}
-            {filtered.length === 0 ? (
-              <div style={{ padding: 56, textAlign: 'center', color: C.navyLight, fontSize: 14 }}>
-                Nenhum usuário encontrado.
-              </div>
-            ) : (
-              filtered.map((u, i) => {
-                const badge = statusBadge(u);
-                const lvl   = levelLabel(u.charlotte_level);
-                return (
-                  <div
-                    key={u.id}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
-                      padding: '13px 20px',
-                      borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
-                      alignItems: 'center',
-                      transition: 'background 0.1s',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = C.bg)}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}
-                  >
-                    {/* Aluno */}
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 14, color: C.navy }}>
-                        {u.name ?? <span style={{ color: C.navyLight, fontWeight: 400 }}>Sem nome</span>}
+            {/* Mobile card list */}
+            <div className="admin-user-cards">
+              {filtered.length === 0 ? (
+                <div style={{ padding: 40, textAlign: 'center', color: C.navyLight, fontSize: 14,
+                  backgroundColor: C.card, border: `1px solid ${C.border}`, borderRadius: 14 }}>
+                  Nenhum usuário encontrado.
+                </div>
+              ) : (
+                filtered.map(u => {
+                  const badge = statusBadge(u);
+                  const lvl   = levelLabel(u.charlotte_level);
+                  return (
+                    <div key={u.id} style={{
+                      backgroundColor: C.card,
+                      border: `1px solid ${C.border}`,
+                      borderRadius: 14,
+                      padding: '16px',
+                      boxShadow: C.shadow,
+                    }}>
+                      {/* Top row: name + actions */}
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0, marginRight: 10 }}>
+                          <div style={{ fontWeight: 700, fontSize: 15, color: C.navy, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {u.name ?? <span style={{ color: C.navyLight, fontWeight: 400 }}>Sem nome</span>}
+                          </div>
+                          <div style={{ fontSize: 12, color: C.navyLight, marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {u.email}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button
+                            onClick={() => openEdit(u)}
+                            title="Editar"
+                            style={{
+                              background: 'transparent', border: `1px solid ${C.border}`,
+                              borderRadius: 8, padding: '10px 12px',
+                              cursor: 'pointer', color: C.navyMid,
+                              display: 'flex', alignItems: 'center',
+                              minHeight: 44, minWidth: 44, justifyContent: 'center',
+                            }}
+                          >
+                            {Icon.edit}
+                          </button>
+                          <button
+                            onClick={() => openDelete(u)}
+                            title="Excluir"
+                            style={{
+                              background: 'transparent', border: `1px solid #FECACA`,
+                              borderRadius: 8, padding: '10px 12px',
+                              cursor: 'pointer', color: C.red,
+                              display: 'flex', alignItems: 'center',
+                              minHeight: 44, minWidth: 44, justifyContent: 'center',
+                            }}
+                          >
+                            {Icon.trash}
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>{u.email}</div>
+
+                      {/* Meta row */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{
+                          backgroundColor: badge.bg, color: badge.color,
+                          border: `1px solid ${badge.border}`,
+                          borderRadius: 20, padding: '3px 10px',
+                          fontSize: 12, fontWeight: 600,
+                        }}>
+                          {badge.label}
+                        </span>
+                        {u.charlotte_level && (
+                          <span style={{ fontSize: 12, fontWeight: 600, color: lvl.color }}>
+                            {lvl.text}
+                          </span>
+                        )}
+                        <span style={{ fontSize: 12, color: u.placement_test_done ? C.greenDark : C.navyLight, fontWeight: 600 }}>
+                          {u.placement_test_done ? 'Placement feito' : 'Placement pendente'}
+                        </span>
+                      </div>
+
+                      {/* Date */}
+                      <div style={{ fontSize: 11, color: C.navyLight, marginTop: 8 }}>
+                        Cadastro: {fmtDate(u.created_at)}
+                      </div>
                     </div>
-
-                    {/* Nivel */}
-                    <div style={{ fontSize: 13, fontWeight: 600, color: lvl.color }}>{lvl.text}</div>
-
-                    {/* Status */}
-                    <div>
-                      <span style={{
-                        backgroundColor: badge.bg, color: badge.color,
-                        border: `1px solid ${badge.border}`,
-                        borderRadius: 20, padding: '3px 10px',
-                        fontSize: 12, fontWeight: 600,
-                      }}>
-                        {badge.label}
-                      </span>
-                    </div>
-
-                    {/* Cadastro */}
-                    <div style={{ fontSize: 13, color: C.navyMid }}>{fmtDate(u.created_at)}</div>
-
-                    {/* Placement */}
-                    <div style={{ fontSize: 13, fontWeight: 600, color: u.placement_test_done ? C.greenDark : C.navyLight }}>
-                      {u.placement_test_done ? 'Feito' : 'Pendente'}
-                    </div>
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
-                      <button
-                        onClick={() => openEdit(u)}
-                        title="Editar"
-                        style={{
-                          background: 'transparent', border: `1px solid ${C.border}`,
-                          borderRadius: 7, padding: '6px 8px',
-                          cursor: 'pointer', color: C.navyMid,
-                          display: 'flex', alignItems: 'center',
-                        }}
-                      >
-                        {Icon.edit}
-                      </button>
-                      <button
-                        onClick={() => openDelete(u)}
-                        title="Excluir"
-                        style={{
-                          background: 'transparent', border: `1px solid #FECACA`,
-                          borderRadius: 7, padding: '6px 8px',
-                          cursor: 'pointer', color: C.red,
-                          display: 'flex', alignItems: 'center',
-                        }}
-                      >
-                        {Icon.trash}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+                  );
+                })
+              )}
+            </div>
+          </>
         )}
       </main>
 
@@ -700,6 +814,7 @@ export default function AdminPage() {
 
       {modalMode && (
         <div
+          className="admin-modal-overlay"
           onClick={e => { if (e.target === e.currentTarget) closeModal(); }}
           style={{
             position: 'fixed', inset: 0,
@@ -711,7 +826,7 @@ export default function AdminPage() {
         >
           {/* ── DELETE confirmation ── */}
           {modalMode === 'delete' && selectedUser && (
-            <div style={{
+            <div className="admin-modal-box" style={{
               backgroundColor: C.card, border: `1px solid ${C.border}`,
               borderRadius: 20, padding: 36,
               width: '100%', maxWidth: 420,
@@ -773,7 +888,7 @@ export default function AdminPage() {
 
           {/* ── CREATE / EDIT form ── */}
           {(modalMode === 'create' || modalMode === 'edit') && (
-            <div style={{
+            <div className="admin-modal-box" style={{
               backgroundColor: C.card, border: `1px solid ${C.border}`,
               borderRadius: 20, padding: 36,
               width: '100%', maxWidth: 520,
@@ -829,7 +944,7 @@ export default function AdminPage() {
                 )}
 
                 {/* Nivel + Plano */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="admin-form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                   <div>
                     <label style={labelStyle}>Nivel</label>
                     <select style={selectStyle}

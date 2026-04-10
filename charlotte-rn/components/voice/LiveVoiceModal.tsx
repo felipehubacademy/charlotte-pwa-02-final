@@ -588,12 +588,12 @@ export default function LiveVoiceModal({
             voice: 'coral',
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
-            max_response_output_tokens: 80,
+            max_response_output_tokens: 400,
             turn_detection: {
               type: 'server_vad',
               threshold: 0.90,
               prefix_padding_ms: 400,
-              silence_duration_ms: 1200,
+              silence_duration_ms: 1500,
               // Disable auto-response: the app sends response.create manually
               // after speech_stopped so Charlotte never self-triggers on echo.
               create_response: false,
@@ -645,15 +645,16 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.audio.done':
-              // Last audio chunk delivered to WebRTC. A 500ms window lets the
-              // jitter buffer drain and room acoustics settle before we mark
-              // Charlotte as done and stamp lastCharlotteDoneRef (used by the
-              // 700ms guard in speech_stopped).
+              // Last audio chunk delivered to WebRTC.
+              // Stamp lastCharlotteDoneRef NOW so the 1500ms echo guard starts
+              // as early as possible — echo arrives quickly after audio plays.
+              // A 500ms delay on charlotteSpeakingRef lets the jitter buffer
+              // drain before we mark Charlotte as done for the speaking indicator.
               responseActiveRef.current = false;
+              lastCharlotteDoneRef.current = Date.now();
               setTimeout(() => {
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
-                lastCharlotteDoneRef.current = Date.now();
               }, 500);
               break;
 
@@ -681,13 +682,14 @@ export default function LiveVoiceModal({
               // create_response:false — trigger response manually.
               // Guards:
               //   1. Charlotte must not be mid-response (charlotteSpeakingRef).
-              //   2. >= 700ms since her audio finished (lastCharlotteDoneRef).
-              //      Filters tail-echo that the VAD catches right after she stops.
-              //      Real user speech (interruption handled above, or post-turn)
-              //      always has charlotteSpeakingRef=false AND > 700ms elapsed.
+              //   2. >= 1500ms since her audio finished (lastCharlotteDoneRef).
+              //      Filters room echo that the VAD may catch after she stops.
+              //      lastCharlotteDoneRef is stamped immediately on audio.done
+              //      so the guard window starts as early as possible.
+              //      Real user speech always arrives well after this window.
               if (!charlotteSpeakingRef.current) {
                 const msSinceDone = Date.now() - lastCharlotteDoneRef.current;
-                if (msSinceDone > 700) {
+                if (msSinceDone > 1500) {
                   setTimeout(() => {
                     if (dcRef.current?.readyState === 'open') {
                       sendEvent({ type: 'response.create' });

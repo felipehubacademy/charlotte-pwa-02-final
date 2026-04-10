@@ -16,20 +16,30 @@ export default function Page() {
         body { background: #fff; color: #16153A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
         a { text-decoration: none; }
         @media (max-width: 768px) {
-          .hero-grid   { grid-template-columns: 1fr !important; }
+          .hero-section { grid-template-columns: 1fr !important; padding: 48px 20px 0 !important; gap: 0 !important; }
           .feat-grid   { grid-template-columns: 1fr !important; }
           .steps-grid  { grid-template-columns: 1fr !important; }
           .nav-links   { display: none !important; }
-          .hero-text h1 { font-size: 40px !important; }
-          section      { padding: 72px 24px !important; }
-          .hero-section { padding: 64px 24px 0 !important; }
-          .phone-wrap  { margin-top: 48px; }
-          .stats-row   { gap: 32px !important; }
+          .nav-bar     { padding: 0 16px !important; }
+          .nav-cta     { font-size: 12px !important; padding: 8px 14px !important; min-height: 44px !important; display: inline-flex !important; align-items: center !important; }
+          .hero-text h1 { font-size: 36px !important; letter-spacing: -1.5px !important; }
+          .hero-text   { padding-bottom: 32px !important; }
+          .hero-cta a  { min-height: 44px !important; }
+          section      { padding: 56px 20px !important; }
+          .phone-wrap  { margin-top: 32px; display: flex; justify-content: center; }
+          .phone-shell { width: 220px !important; height: 476px !important; }
+          .stats-row   { gap: 24px !important; padding: 20px 20px !important; }
+          .stats-row > div { min-width: 100px; }
+          .pricing-card { padding: 28px 20px !important; }
+          .pricing-plans { flex-direction: column !important; }
+          .pricing-cta  { width: 100% !important; padding: 16px 24px !important; min-height: 44px !important; }
+          .footer-wrap  { padding: 20px 16px !important; }
+          .support-section { padding: 56px 20px !important; }
         }
       `}</style>
 
       {/* ── NAV ──────────────────────────────────────────────────────────── */}
-      <nav style={{
+      <nav className="nav-bar" style={{
         position: 'sticky', top: 0, zIndex: 50,
         borderBottom: '1px solid #EEEDF5',
         background: 'rgba(255,255,255,0.94)',
@@ -50,7 +60,7 @@ export default function Page() {
           <a href="#suporte" style={{ fontSize: 14, color: '#4B4A72', fontWeight: 500 }}>Suporte</a>
         </div>
 
-        <a href={STORE_URL} style={{
+        <a href={STORE_URL} className="nav-cta" style={{
           background: '#16153A', color: '#fff',
           fontSize: 13, fontWeight: 700,
           padding: '9px 20px', borderRadius: 10,
@@ -96,7 +106,7 @@ export default function Page() {
           </p>
 
           {/* CTA */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+          <div className="hero-cta" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
             <a href={STORE_URL} style={{
               display: 'inline-flex', alignItems: 'center', gap: 12,
               background: '#16153A', color: '#fff',
@@ -126,7 +136,7 @@ export default function Page() {
           }} />
 
           {/* iPhone shell — 390×844 scaled to 260×564 (≈ iPhone 15 ratio) */}
-          <div style={{
+          <div className="phone-shell" style={{
             width: 260, height: 564,
             background: '#16153A',
             borderRadius: 50,
@@ -375,14 +385,14 @@ export default function Page() {
           7 dias com acesso completo. Sem cartão de crédito.
         </p>
 
-        <div style={{
+        <div className="pricing-card" style={{
           background: '#fff',
           border: '1px solid #EEEDF5',
           borderRadius: 24,
           padding: '44px 48px',
           boxShadow: '0 8px 48px rgba(22,21,58,0.08)',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 40 }}>
+          <div className="pricing-plans" style={{ display: 'flex', justifyContent: 'center', gap: 14, marginBottom: 40 }}>
             {[
               { label: 'Mensal', price: 'R$ 29,90', sub: 'por mês' },
               { label: 'Anual', price: 'R$ 199,90', sub: 'por ano · economia de 44%' },
@@ -399,7 +409,7 @@ export default function Page() {
             ))}
           </div>
 
-          <a href={STORE_URL} style={{
+          <a href={STORE_URL} className="pricing-cta" style={{
             display: 'inline-block',
             background: '#A3FF3C', color: '#16153A',
             fontWeight: 800, fontSize: 16,
@@ -415,7 +425,7 @@ export default function Page() {
       </section>
 
       {/* ── SUPPORT ──────────────────────────────────────────────────────── */}
-      <section id="suporte" style={{ background: '#F4F3FA', borderTop: '1px solid #EEEDF5', padding: '80px 40px', textAlign: 'center' }}>
+      <section id="suporte" className="support-section" style={{ background: '#F4F3FA', borderTop: '1px solid #EEEDF5', padding: '80px 40px', textAlign: 'center' }}>
         <div style={{ maxWidth: 480, margin: '0 auto' }}>
           <h2 style={{ fontSize: 28, fontWeight: 900, color: '#16153A', marginBottom: 14, letterSpacing: '-0.5px' }}>
             Precisando de ajuda?
@@ -436,7 +446,7 @@ export default function Page() {
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────────────────── */}
-      <footer style={{
+      <footer className="footer-wrap" style={{
         borderTop: '1px solid #EEEDF5',
         padding: '24px 40px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
