@@ -1,7 +1,7 @@
 // lib/email-templates.ts
 // Templates HTML — Apple-style: clean, centered, generous whitespace.
 
-const APP_URL    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://charlotte.hubacademybr.com';
+const APP_URL    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://charlotte-pwa-02-final.vercel.app/install';
 const AVATAR_URL = 'https://charlotte-pwa-02-final.vercel.app/charlotte-avatar.png';
 
 function base(content: string): string {
