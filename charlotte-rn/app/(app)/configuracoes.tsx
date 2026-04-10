@@ -27,6 +27,7 @@ import { supabase } from '@/lib/supabase';
 import { restorePurchases } from '@/lib/purchases';
 import { getLiveVoiceStatus, LiveVoiceStatus } from '@/lib/liveVoiceUsage';
 import Constants from 'expo-constants';
+import * as Updates from 'expo-updates';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -493,6 +494,17 @@ export default function ConfiguracoesScreen() {
           destructive
           chevron
         />
+
+        {/* Version footer */}
+        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+          <AppText style={{ fontSize: 11, color: C.navyLight, letterSpacing: 0.2 }}>
+            {(() => {
+              const version  = Constants.expoConfig?.version ?? '—';
+              const updateId = Updates.updateId ? Updates.updateId.slice(0, 8) : 'dev';
+              return `Charlotte AI v${version} · ${updateId}`;
+            })()}
+          </AppText>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
