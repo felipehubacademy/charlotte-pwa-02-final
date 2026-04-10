@@ -44,13 +44,18 @@ export default function SignupScreen() {
       await signUp(email.trim().toLowerCase(), password, name.trim());
       // AuthGuard vai redirecionar automaticamente para placement-test
     } catch (e: any) {
-      const msg = e?.message ?? '';
-      if (msg.includes('already registered') || msg.includes('already been registered')) {
-        setError('Este e-mail já está cadastrado. Faça login.');
-      } else if (msg.includes('invalid') || msg.includes('Invalid')) {
-        setError('E-mail inválido.');
+      const msg = (e?.message ?? '') as string;
+      console.error('[Signup] error:', msg);
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered') || msg.toLowerCase().includes('user already')) {
+        setError('Este e-mail ja esta cadastrado. Faca login.');
+      } else if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('email')) {
+        setError('E-mail invalido.');
+      } else if (msg.toLowerCase().includes('password') || msg.toLowerCase().includes('senha')) {
+        setError('Senha fraca. Use pelo menos 6 caracteres.');
+      } else if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit')) {
+        setError('Muitas tentativas. Aguarde alguns minutos.');
       } else {
-        setError('Erro ao criar conta. Tente novamente.');
+        setError(msg || 'Erro ao criar conta. Tente novamente.');
       }
     } finally {
       setLoading(false);
@@ -69,7 +74,7 @@ export default function SignupScreen() {
           {/* ── Back ── */}
           <TouchableOpacity
             onPress={() => router.back()}
-            style={{ position: 'absolute', top: 16, left: 0 }}
+            style={{ position: 'absolute', top: 16, left: 4 }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <ArrowLeft size={22} color={C.navy} weight="bold" />

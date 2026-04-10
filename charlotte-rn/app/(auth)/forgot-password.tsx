@@ -36,8 +36,16 @@ export default function ForgotPasswordScreen() {
     try {
       await resetPassword(email.trim().toLowerCase());
       setSent(true);
-    } catch {
-      setError('Não foi possível enviar o e-mail. Verifique o endereço.');
+    } catch (e: any) {
+      const msg = (e?.message ?? '') as string;
+      console.error('[ForgotPassword] error:', msg);
+      if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit')) {
+        setError('Muitas tentativas. Aguarde alguns minutos.');
+      } else if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('email')) {
+        setError('E-mail inválido.');
+      } else {
+        setError(msg || 'Não foi possível enviar o e-mail. Tente novamente.');
+      }
     } finally {
       setLoading(false);
     }
@@ -55,7 +63,7 @@ export default function ForgotPasswordScreen() {
           {/* Back */}
           <TouchableOpacity
             onPress={() => router.back()}
-            style={{ position: 'absolute', top: 0, left: 0, padding: 4 }}
+            style={{ position: 'absolute', top: 0, left: 4, padding: 4 }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <ArrowLeft size={22} color={C.navyMid} weight="bold" />
