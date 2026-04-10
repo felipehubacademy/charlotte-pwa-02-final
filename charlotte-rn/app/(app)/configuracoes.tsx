@@ -496,9 +496,12 @@ export default function ConfiguracoesScreen() {
         />
 
         {/* Version footer */}
-        <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+        <View style={{ paddingVertical: 32, alignItems: 'center', gap: 4 }}>
           <AppText style={{ fontSize: 11, color: C.navyLight, letterSpacing: 0.2 }}>
             {`Charlotte AI v${Constants.expoConfig?.version ?? '—'} · ${Updates.updateId ? Updates.updateId.slice(0, 8) : 'dev'}`}
+          </AppText>
+          <AppText style={{ fontSize: 10, color: C.navyLight, opacity: 0.6 }}>
+            {`embedded=${Updates.isEmbeddedLaunch ? 'sim' : 'nao'} · channel=${Updates.channel ?? '—'}`}
           </AppText>
         </View>
       </ScrollView>
