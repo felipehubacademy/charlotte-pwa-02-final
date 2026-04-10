@@ -7,7 +7,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   Envelope, Lock, Eye, EyeSlash, UserCircle,
-  WarningCircle, ArrowLeft,
+  WarningCircle, ArrowLeft, CheckCircle,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,6 +30,7 @@ export default function SignupScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState<string | null>(null);
+  const [emailSent, setEmailSent]       = useState(false);
   const emailRef    = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const { signUp } = useAuth();
@@ -42,7 +43,7 @@ export default function SignupScreen() {
     setLoading(true);
     try {
       await signUp(email.trim().toLowerCase(), password, name.trim());
-      // AuthGuard vai redirecionar automaticamente para placement-test
+      setEmailSent(true);
     } catch (e: any) {
       const msg = (e?.message ?? '') as string;
       console.error('[Signup] error:', msg);
@@ -61,6 +62,67 @@ export default function SignupScreen() {
       setLoading(false);
     }
   };
+
+  // ── Email sent screen ──────────────────────────────────────────────────────
+  if (emailSent) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
+          <View style={{
+            backgroundColor: C.card,
+            borderRadius: 24,
+            padding: 36,
+            alignItems: 'center',
+            gap: 16,
+            width: '100%',
+            shadowColor: C.navy, shadowOpacity: 0.08,
+            shadowRadius: 20, shadowOffset: { width: 0, height: 4 },
+            borderWidth: 1, borderColor: C.border,
+          }}>
+            <View style={{
+              width: 96, height: 96, borderRadius: 48,
+              borderWidth: 3, borderColor: C.green,
+              overflow: 'hidden', backgroundColor: C.card,
+              shadowColor: C.green, shadowOpacity: 0.3,
+              shadowRadius: 16, shadowOffset: { width: 0, height: 4 },
+            }}>
+              <Image
+                source={require('@/assets/charlotte-avatar.png')}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            </View>
+
+            <View style={{
+              width: 52, height: 52, borderRadius: 26,
+              backgroundColor: C.green,
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <CheckCircle size={28} color={C.navy} weight="fill" />
+            </View>
+
+            <AppText style={{ fontSize: 22, fontWeight: '800', color: C.navy, textAlign: 'center', letterSpacing: -0.3 }}>
+              Verifique seu e-mail
+            </AppText>
+            <AppText style={{ fontSize: 14, color: C.navyMid, textAlign: 'center', lineHeight: 21 }}>
+              Enviamos um link de confirmacao para{'\n'}
+              <AppText style={{ fontWeight: '700', color: C.navy }}>{email}</AppText>
+              {'\n\n'}Clique no link para ativar sua conta.
+            </AppText>
+
+            <TouchableOpacity
+              style={{ marginTop: 4, paddingVertical: 6 }}
+              onPress={() => router.back()}
+            >
+              <AppText style={{ color: C.navyLight, fontSize: 13 }}>
+                Voltar para o login
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>

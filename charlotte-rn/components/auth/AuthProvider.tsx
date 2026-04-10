@@ -222,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // e grava na tabela charlotte_users.
         data: { name },
         // Redirect back to the app after email confirmation
-        emailRedirectTo: 'charlotte://auth/callback',
+        emailRedirectTo: 'https://charlotte-pwa-02-final.vercel.app/auth/confirm',
       },
     });
     if (error) throw error;
@@ -244,7 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPassword = async (email: string) => {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'charlotte://auth/callback',
+      redirectTo: 'https://charlotte-pwa-02-final.vercel.app/auth/confirm',
     });
     if (error) throw error;
   };
