@@ -1,7 +1,8 @@
 # .github/workflows/ota-update.yml
 # Publica OTA automaticamente a cada push na branch main.
-# Roda no mesmo ambiente Expo/Node que o EAS build, garantindo
-# compatibilidade do bytecode Hermes com o binario nativo.
+# IMPORTANTE: deve rodar em macos-latest para que o hermesc (compilador
+# Hermes) produza bytecode compativel com o binario iOS gerado pelo EAS.
+# Linux hermesc gera formato diferente e causa crash no app.
 
 name: OTA Update (production)
 
@@ -14,7 +15,7 @@ on:
 jobs:
   update:
     name: Publish EAS OTA
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     defaults:
       run:
         working-directory: charlotte-rn
