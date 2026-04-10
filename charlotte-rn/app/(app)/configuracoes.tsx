@@ -1,3 +1,4 @@
+// configuracoes.tsx
 import React from 'react';
 import { View, ScrollView, TouchableOpacity, Alert, Platform, Linking, ActivityIndicator, Image } from 'react-native';
 import AvatarCropModal from '@/components/ui/AvatarCropModal';
