@@ -1,5 +1,22 @@
 import '../global.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import * as SecureStore from 'expo-secure-store';
+
+// ── Global JS error catcher ───────────────────────────────────────────────────
+// Catches all fatal JS errors and stores them in SecureStore so they can be
+// viewed in Settings → version footer. Prevents OTA rollback from false positives.
+// Remove after crash is diagnosed.
+const CRASH_KEY = '__last_js_crash__';
+if (typeof (global as any).ErrorUtils !== 'undefined') {
+  const _prev = (global as any).ErrorUtils.getGlobalHandler?.();
+  (global as any).ErrorUtils.setGlobalHandler?.((error: Error, isFatal: boolean) => {
+    const msg = `[${isFatal ? 'FATAL' : 'ERR'}] ${error?.message ?? 'unknown'}\n${(error?.stack ?? '').slice(0, 500)}`;
+    SecureStore.setItemAsync(CRASH_KEY, msg).catch(() => {});
+    console.error('[GlobalErrorHandler]', msg);
+    if (!isFatal) _prev?.(error, isFatal); // let non-fatal propagate normally
+    // Fatal errors: stored but NOT rethrown — prevents OTA rollback
+  });
+}
 import { Stack, usePathname } from 'expo-router';
 import { router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
