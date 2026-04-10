@@ -2,31 +2,31 @@
   {
     "word": "Oi!",
     "start": 0,
-    "end": 0.441
+    "end": 0.476
   },
   {
-    "word": "Pronta",
-    "start": 0.65,
-    "end": 0.94
+    "word": "Pronto",
+    "start": 0.685,
+    "end": 0.964
   },
   {
     "word": "pra",
-    "start": 0.964,
-    "end": 1.057
+    "start": 0.998,
+    "end": 1.091
   },
   {
     "word": "mais",
-    "start": 1.091,
-    "end": 1.219
+    "start": 1.126,
+    "end": 1.254
   },
   {
     "word": "uma",
-    "start": 1.254,
-    "end": 1.347
+    "start": 1.289,
+    "end": 1.382
   },
   {
     "word": "sessão?",
-    "start": 1.382,
-    "end": 2.09
+    "start": 1.416,
+    "end": 2.136
   }
 ]

@@ -29,7 +29,8 @@ import { requestRecordingPermissionsAsync, setAudioModeAsync, createAudioPlayer,
 import * as FileSystem from 'expo-file-system/legacy';
 import { RTCPeerConnection, mediaDevices } from 'react-native-webrtc';
 import InCallManager from 'react-native-incall-manager';
-import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear, Pause, ArrowCounterClockwise } from 'phosphor-react-native';
+import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear, Pause, ArrowCounterClockwise, ArrowLeft, ChatCircle } from 'phosphor-react-native';
+import { ScrollView } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
 import { useCallTimer } from '@/hooks/useCallTimer';
@@ -179,6 +180,11 @@ function formatSecs(s: number): string {
 
 type ConnectionStatus = 'idle' | 'disconnected' | 'connecting' | 'connected' | 'error';
 
+interface ConversationTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 interface LiveVoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -212,6 +218,11 @@ export default function LiveVoiceModal({
   const [inactivityWarning, setInactivityWarning] = React.useState(false);
   const [warningCountdown, setWarningCountdown]   = React.useState(30);
   const [isPaused, setIsPaused]                   = React.useState(false);
+
+  // ── Transcription ──────────────────────────────────────────────────────────
+  const [conversationTurns, setConversationTurns] = React.useState<ConversationTurn[]>([]);
+  const [showTranscript, setShowTranscript]       = React.useState(false);
+  const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
 
   // ── WebRTC refs ────────────────────────────────────────────────────────────
   const pcRef             = React.useRef<InstanceType<typeof RTCPeerConnection> | null>(null);
@@ -589,6 +600,7 @@ export default function LiveVoiceModal({
             input_audio_format: 'pcm16',
             output_audio_format: 'pcm16',
             max_response_output_tokens: 400,
+            input_audio_transcription: { model: 'whisper-1' },
             turn_detection: {
               type: 'server_vad',
               threshold: 0.90,
@@ -638,10 +650,28 @@ export default function LiveVoiceModal({
               }
               break;
 
-            case 'response.done':
-              // Lifecycle complete — reset flag only (audio may still be playing).
+            case 'response.text.delta':
+              // Accumulate Charlotte's text response for the transcript
+              charlotteTextAccRef.current += (msg.delta ?? '');
+              break;
+
+            case 'response.done': {
+              // Lifecycle complete — push Charlotte's turn to transcript
               responseActiveRef.current = false;
               lastActivityRef.current = Date.now();
+              const charlotteText = charlotteTextAccRef.current.trim();
+              if (charlotteText) {
+                setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
+                charlotteTextAccRef.current = '';
+              }
+              break;
+            }
+
+            case 'conversation.item.input_audio_transcription.completed':
+              // User's speech transcription
+              if (msg.transcript?.trim()) {
+                setConversationTurns(prev => [...prev, { role: 'user', text: msg.transcript.trim() }]);
+              }
               break;
 
             case 'response.audio.done':
@@ -800,7 +830,15 @@ export default function LiveVoiceModal({
       sessionAccumSecs.current = 0;
     }
     disconnect();
-    onClose();
+    // Show transcript if there is at least one turn; otherwise close directly
+    setConversationTurns(prev => {
+      if (prev.length > 0) {
+        setShowTranscript(true);
+      } else {
+        onClose();
+      }
+      return prev;
+    });
   }, [disconnect, onClose]);
 
   const handleMute = React.useCallback(() => {
@@ -839,6 +877,9 @@ export default function LiveVoiceModal({
       setPoolExhausted(false);
       setInactivityWarning(false);
       setWarningCountdown(30);
+      setShowTranscript(false);
+      setConversationTurns([]);
+      charlotteTextAccRef.current = '';
       sessionAccumSecs.current = 0;
       warnStartRef.current = 0;
       loadPool().then(remaining => {
@@ -871,6 +912,81 @@ export default function LiveVoiceModal({
       hardwareAccelerated
     >
       <StatusBar barStyle="light-content" backgroundColor="#07071C" />
+
+      {/* ── Transcript screen ─────────────────────────────────────────────── */}
+      {showTranscript ? (
+        <View style={{ flex: 1, backgroundColor: '#F4F3FA', paddingTop: insets.top, paddingBottom: insets.bottom }}>
+          {/* Header */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center',
+            paddingHorizontal: 16, height: 56,
+            backgroundColor: '#FFFFFF',
+            borderBottomWidth: 1, borderBottomColor: 'rgba(22,21,58,0.10)',
+          }}>
+            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(124,58,237,0.10)', alignItems: 'center', justifyContent: 'center' }}>
+              <ChatCircle size={20} color="#7C3AED" weight="fill" />
+            </View>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+              <AppText style={{ fontSize: 9, fontWeight: '700', color: '#9896B8', textTransform: 'uppercase', letterSpacing: 1 }}>Charlotte</AppText>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#16153A', letterSpacing: -0.3 }}>
+                {userLevel === 'Novice' ? 'Transcricao da Chamada' : 'Call Transcript'}
+              </AppText>
+            </View>
+            <TouchableOpacity
+              onPress={() => { setShowTranscript(false); onClose(); }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <AppText style={{ fontSize: 14, fontWeight: '700', color: '#7C3AED' }}>
+                {userLevel === 'Novice' ? 'Fechar' : 'Close'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+
+          {/* Bubbles */}
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {conversationTurns.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingTop: 60 }}>
+                <AppText style={{ color: '#9896B8', fontSize: 14 }}>
+                  {userLevel === 'Novice' ? 'Nenhuma fala transcrita.' : 'No speech transcribed.'}
+                </AppText>
+              </View>
+            ) : (
+              conversationTurns.map((turn, i) => {
+                const isUser = turn.role === 'user';
+                return (
+                  <View key={i} style={{ flexDirection: 'row', justifyContent: isUser ? 'flex-end' : 'flex-start', marginBottom: 4 }}>
+                    {!isUser && (
+                      <Image
+                        source={require('../../assets/charlotte-avatar.png')}
+                        style={{ width: 28, height: 28, borderRadius: 14, marginRight: 8, marginTop: 2, flexShrink: 0 }}
+                      />
+                    )}
+                    <View style={{
+                      maxWidth: '78%',
+                      backgroundColor: isUser ? '#A3FF3C' : '#FFFFFF',
+                      borderRadius: 18,
+                      borderBottomRightRadius: isUser ? 4 : 18,
+                      borderBottomLeftRadius: isUser ? 18 : 4,
+                      paddingHorizontal: 14, paddingVertical: 10,
+                      shadowColor: 'rgba(22,21,58,0.08)', shadowOpacity: 1, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+                      elevation: 2,
+                    }}>
+                      <AppText style={{ fontSize: 14, fontWeight: '500', color: isUser ? '#16153A' : '#16153A', lineHeight: 20 }}>
+                        {turn.text}
+                      </AppText>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </ScrollView>
+        </View>
+      ) : (
+
       <View style={{ flex: 1, backgroundColor: '#07071C', paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 24 }}>
 
@@ -1105,6 +1221,8 @@ export default function LiveVoiceModal({
 
         </View>
       </View>
+
+      )} {/* end showTranscript ternary */}
     </Modal>
   );
 }

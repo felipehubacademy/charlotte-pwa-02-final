@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, ScrollView, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { router } from 'expo-router';
 import {
   ArrowLeft, BookOpen, Microphone, CheckCircle,
@@ -67,17 +68,22 @@ export default function LearnTrailScreen() {
   // ── Intro completion tracking ────────────────────────────────
   const [introDone, setIntroDone] = useState<Record<number, boolean>>({});
 
-  useEffect(() => {
+  const loadIntroDone = useCallback(async () => {
     const levelIntros = MODULE_INTROS[level];
     if (!levelIntros) return;
-    Promise.all(
+    const results = await Promise.all(
       Object.keys(levelIntros).map(async (k) => {
         const mIdx = parseInt(k, 10);
         const val = await SecureStore.getItemAsync(`intro_done_${userId}_${level}_${mIdx}`);
         return [mIdx, val === '1'] as [number, boolean];
       })
-    ).then(results => setIntroDone(Object.fromEntries(results)));
-  }, [level]);
+    );
+    setIntroDone(Object.fromEntries(results));
+  }, [level, userId]);
+
+  // Load on mount and every time the screen regains focus (e.g. returning from Finish)
+  useEffect(() => { loadIntroDone(); }, [loadIntroDone]);
+  useFocusEffect(useCallback(() => { loadIntroDone(); }, [loadIntroDone]));
 
   // ── Progress counters ────────────────────────────────────────
   // Include mini-lesson (intro) completions so the banner reflects all done items.

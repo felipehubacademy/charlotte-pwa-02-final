@@ -40,7 +40,7 @@ export const MODULE_INTROS: AllIntros = {
       title: 'Survival & Identity',
       slides: [
         {
-          label: 'Bem-vinda!',
+          label: 'Bem-vindo!',
           text: 'Olá! Eu sou a Charlotte, sua professora de inglês. Neste módulo você vai dar os primeiros passos no idioma. Coisas simples, essenciais, do dia a dia. Vamos com calma!',
         },
         {

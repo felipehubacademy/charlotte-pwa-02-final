@@ -59,6 +59,11 @@ const API_BASE_URL =
 // not on every app open.
 let _streakSoundPlayedThisSession = false;
 
+// Greeting: module-level so it survives component remounts within the same JS session.
+// Resets only when the app process is killed (true cold start).
+let _greetingFetchedThisSession = false;
+let _greetingLevelThisSession   = '';
+
 // Palette estática usada apenas em constantes de módulo (fora do componente)
 const C = {
   bg:         '#F4F3FA',
@@ -156,10 +161,10 @@ function charlotteMessage(firstName: string, streak: number, todayXP: number, is
     // No activity yet — time-based default PT
     const poolsPt: Record<string, string[]> = {
       morning: [
-        `Bom dia, ${firstName}! Pronta para começar o dia com um pouco de inglês?`,
+        `Bom dia, ${firstName}! Pronto para começar o dia com um pouco de inglês?`,
         `Bom dia, ${firstName}! Vamos fazer hoje valer a pena.`,
         `Bom dia! O que vamos praticar hoje, ${firstName}?`,
-        `Levanta e brilha, ${firstName}! Estou aqui sempre que você estiver pronta.`,
+        `Levanta e brilha, ${firstName}! Estou aqui sempre que você estiver pronto.`,
       ],
       afternoon: [
         `Boa tarde, ${firstName}! Que tal uma sessão de prática agora?`,
@@ -788,8 +793,6 @@ export default function HomeScreen() {
   const [weeklyState, setWeeklyState]               = useState<WeeklyChallengeState | null>(null);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
-  const greetingFetchedRef = useRef(false);
-  const greetingLevelRef   = useRef<string>('');
   // Tracks weekly challenge rewards already granted this session to prevent double-credit
   const weeklyRewardedRef  = useRef<Set<string>>(new Set());
 
@@ -1004,15 +1007,17 @@ export default function HomeScreen() {
   // No cache: a new contextual greeting is fetched every time the home
   // screen mounts (cold/warm start). greetingFetchedRef prevents double-
   // fetching within the same session (e.g. navigation back to home).
+  // Waits for `data` to be loaded so totalXP/streak are accurate before
+  // calling the API — prevents "first session" message for returning users.
   useEffect(() => {
     // Re-fetch if level changed (e.g. after placement test Novice → Advanced)
-    if (greetingLevelRef.current && greetingLevelRef.current !== level) {
-      greetingFetchedRef.current = false;
+    if (_greetingLevelThisSession && _greetingLevelThisSession !== level) {
+      _greetingFetchedThisSession = false;
       setAiGreeting(null);
     }
-    if (!userId || !name || greetingFetchedRef.current) return;
-    greetingFetchedRef.current = true;
-    greetingLevelRef.current = level;
+    if (!userId || !name || !data || _greetingFetchedThisSession) return;
+    _greetingFetchedThisSession = true;
+    _greetingLevelThisSession   = level;
 
     (async () => {
       try {
@@ -1038,7 +1043,7 @@ export default function HomeScreen() {
         setGreetingLoading(false);
       }
     })();
-  }, [userId, name, level]); // eslint-disable-line
+  }, [userId, name, level, data]); // eslint-disable-line
 
   const missions     = data ? buildMissions(data, level) : [];
   const doneMissions = missions.filter(m => m.completed).length;

@@ -21,35 +21,6 @@ function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
-function splitIntoMultipleMessages(response: string, userLevel: string): string[] {
-  if (userLevel === 'Novice') return [response.trim()];
-
-  const grammarPatterns = [
-    /^(.*?)\s+(Ah and.*?)$/i,
-    /^(.*?)\s+(Oh,?\s*and.*?)$/i,
-    /^(.*?)\s+(Just a tip.*?)$/i,
-    /^(.*?)\s+(By the way.*?)$/i,
-    /^(.*?)\s+(Great English!.*?)$/i,
-    /^(.*?)\s+(Perfect grammar!.*?)$/i,
-    /^(.*?)\s+(Well said!.*?)$/i,
-    /^(.*?)\s+(Remember to.*?)$/i,
-    /^(.*?)\s+(Try saying.*?)$/i,
-    /^(.*?)\s+(You could say.*?)$/i,
-    /^(.*?)\s+(Better to say.*?)$/i,
-    /^(.*?)\s+(Instead of.*?)$/i,
-  ];
-
-  const normalized = response.replace(/\n/g, ' ').replace(/\s+/g, ' ');
-  for (const pattern of grammarPatterns) {
-    const match = normalized.match(pattern);
-    if (match) {
-      return [match[1].trim(), match[2].trim()].filter(m => m.length > 0);
-    }
-  }
-
-  return [response.trim()];
-}
-
 function delay(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
@@ -314,10 +285,8 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           );
         }
 
-        const parts = splitIntoMultipleMessages(feedback, userLevel);
-
         // Text input → text output always (no TTS regardless of mode)
-        await deliverSequentially(parts, technicalFeedback, false);
+        await deliverSequentially([feedback.trim()], technicalFeedback, false);
 
         // Save assistant reply to history
         saveChatMessage(userId, 'assistant', feedback, mode);
@@ -372,8 +341,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
-        const parts = splitIntoMultipleMessages(feedback, userLevel);
-        await deliverSequentially(parts, technicalFeedback, false, { isExplainMore: true });
+        await deliverSequentially([feedback.trim()], technicalFeedback, false, { isExplainMore: true });
 
         saveChatMessage(userId, 'assistant', feedback, mode);
 
@@ -749,11 +717,9 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           );
         }
 
-        const parts = splitIntoMultipleMessages(feedback, userLevel);
-
         // chat audio in → audio out (TTS); grammar audio in → text out
         const withAudio = mode === 'chat';
-        await deliverSequentially(parts, technicalFeedback, withAudio);
+        await deliverSequentially([feedback.trim()], technicalFeedback, withAudio);
 
         // Save assistant reply to chat history
         saveChatMessage(userId, 'assistant', feedback, mode);

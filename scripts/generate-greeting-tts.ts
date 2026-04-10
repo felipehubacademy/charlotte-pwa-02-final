@@ -27,7 +27,7 @@ const GREETINGS: { level: string; id: string; text: string }[] = [
   { level: 'novice', id: 'novice_01', text: 'Oi! Que bom te ver! Bora praticar?' },
   { level: 'novice', id: 'novice_02', text: 'Oi! Estou te esperando. Vamos lá!' },
   { level: 'novice', id: 'novice_03', text: 'Ei, que bom que voltou! Bora pro inglês?' },
-  { level: 'novice', id: 'novice_04', text: 'Oi! Pronta pra mais uma sessão?' },
+  { level: 'novice', id: 'novice_04', text: 'Oi! Pronto pra mais uma sessão?' },
 
   // Inter (EN)
   { level: 'inter', id: 'inter_01', text: "Hey! Good to see you — let's get started!" },

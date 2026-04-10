@@ -32,7 +32,7 @@ const GREETINGS: { id: string; text: string }[] = [
   { id: 'novice_01', text: 'Oi! Que bom te ver! Bora praticar?' },
   { id: 'novice_02', text: 'Oi! Estou te esperando. Vamos lá!' },
   { id: 'novice_03', text: 'Ei, que bom que voltou! Bora pro inglês?' },
-  { id: 'novice_04', text: 'Oi! Pronta pra mais uma sessão?' },
+  { id: 'novice_04', text: 'Oi! Pronto pra mais uma sessão?' },
   { id: 'inter_01',    text: "Hey! Good to see you — let's get started!" },
   { id: 'inter_02',    text: "Hey! Ready for some practice?" },
   { id: 'inter_03',    text: "Oh hey! Welcome back — let's do this!" },

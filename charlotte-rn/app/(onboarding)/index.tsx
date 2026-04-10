@@ -402,7 +402,7 @@ function Slide4() {
             ...C.shadow,
           }}>
             <AppText style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600', lineHeight: 20 }}>
-              Estarei aqui todos os dias.{'\n'}Pronta quando você estiver.
+              Estarei aqui todos os dias.{'\n'}Pronto quando você estiver.
             </AppText>
           </View>
         </View>
