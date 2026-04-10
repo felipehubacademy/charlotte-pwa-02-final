@@ -653,22 +653,39 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.text.delta':
-              // Accumulate Charlotte's text for the transcript
-              // delta field confirmed in Realtime API spec; fallback to empty string
+              // Accumulate deltas as primary source
               charlotteTextAccRef.current += (msg.delta ?? '');
               break;
 
-            case 'response.done': {
-              // Lifecycle complete — push Charlotte's turn to transcript
+            case 'response.done':
+              // Lifecycle complete — extract Charlotte's text from the response payload.
+              // Primary: accumulated deltas from response.text.delta events.
+              // Fallback: msg.response.output (response.done always carries the full output).
               responseActiveRef.current = false;
               lastActivityRef.current = Date.now();
-              const charlotteText = charlotteTextAccRef.current.trim();
-              if (charlotteText) {
-                setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
+              {
+                let charlotteText = charlotteTextAccRef.current.trim();
                 charlotteTextAccRef.current = '';
+
+                // Fallback: extract from response.done payload (more reliable in WebRTC mode)
+                if (!charlotteText) {
+                  const output = msg.response?.output ?? [];
+                  for (const item of output) {
+                    if (item.role === 'assistant' || item.type === 'message') {
+                      for (const c of item.content ?? []) {
+                        if (c.type === 'text' && c.text) charlotteText += c.text;
+                        if (c.type === 'audio' && c.transcript) charlotteText += c.transcript;
+                      }
+                    }
+                  }
+                  charlotteText = charlotteText.trim();
+                }
+
+                if (charlotteText) {
+                  setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
+                }
               }
               break;
-            }
 
             case 'conversation.item.input_audio_transcription.completed':
               // User's speech transcription
@@ -921,11 +938,14 @@ export default function LiveVoiceModal({
       transparent={false}
       hardwareAccelerated
     >
-      <StatusBar barStyle="light-content" backgroundColor="#07071C" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Transcript screen ─────────────────────────────────────────────── */}
       {showTranscript ? (
-        <View style={{ flex: 1, backgroundColor: '#F4F3FA', paddingTop: insets.top, paddingBottom: insets.bottom }}>
+        <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+          {/* Safe area top — white, matches header */}
+          <View style={{ height: insets.top, backgroundColor: '#FFFFFF' }} />
+
           {/* Header */}
           <View style={{
             flexDirection: 'row', alignItems: 'center',
@@ -942,20 +962,14 @@ export default function LiveVoiceModal({
                 {userLevel === 'Novice' ? 'Transcricao da Chamada' : 'Call Transcript'}
               </AppText>
             </View>
-            <TouchableOpacity
-              onPress={() => { setShowTranscript(false); onClose(); }}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <AppText style={{ fontSize: 14, fontWeight: '700', color: '#7C3AED' }}>
-                {userLevel === 'Novice' ? 'Fechar' : 'Close'}
-              </AppText>
-            </TouchableOpacity>
+            {/* Spacer to balance the icon on the left */}
+            <View style={{ width: 36 }} />
           </View>
 
           {/* Bubbles */}
           <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, paddingBottom: 32, gap: 12 }}
+            style={{ flex: 1, backgroundColor: '#F4F3FA' }}
+            contentContainerStyle={{ padding: 16, paddingBottom: 16, gap: 12 }}
             showsVerticalScrollIndicator={false}
           >
             {conversationTurns.length === 0 ? (
@@ -996,9 +1010,31 @@ export default function LiveVoiceModal({
               })
             )}
           </ScrollView>
+
+          {/* Close button in bottom safe area */}
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderTopWidth: 1, borderTopColor: 'rgba(22,21,58,0.08)',
+            paddingBottom: insets.bottom,
+          }}>
+            <TouchableOpacity
+              onPress={() => { setShowTranscript(false); onClose(); }}
+              style={{
+                marginHorizontal: 24, marginTop: 12, marginBottom: 12,
+                backgroundColor: '#7C3AED',
+                borderRadius: 14, paddingVertical: 15,
+                alignItems: 'center',
+              }}
+            >
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
+                {userLevel === 'Novice' ? 'Fechar' : 'Close'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
-
+      <>
+      <StatusBar barStyle="light-content" backgroundColor="#07071C" />
       <View style={{ flex: 1, backgroundColor: '#07071C', paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 24 }}>
 
@@ -1233,7 +1269,7 @@ export default function LiveVoiceModal({
 
         </View>
       </View>
-
+      </>
       )} {/* end showTranscript ternary */}
     </Modal>
   );
