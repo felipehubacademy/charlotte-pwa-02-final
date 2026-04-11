@@ -7,14 +7,14 @@ import { useLocalSearchParams, router } from 'expo-router';
 import {
   ChartBar, Trophy, Medal, Lightning, Star, Fire, Microphone,
   PencilLine, GraduationCap, Sun, CalendarCheck,
-  Warning, ArrowLeft, RocketLaunch, Target, ShareNetwork,
+  Warning, ArrowLeft, RocketLaunch, Target, ShareNetwork, BookOpenText,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
 import LevelLeaderboard from '@/components/leaderboard/LevelLeaderboard';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
-import { checkLevelPromotion, NEXT_LEVEL, PromotionStatus } from '@/lib/levelPromotion';
+import { checkLevelPromotion, NEXT_LEVEL, PROMOTION_XP_THRESHOLD, TOTAL_TOPICS_PER_LEVEL, PromotionStatus } from '@/lib/levelPromotion';
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -69,10 +69,6 @@ interface RealData {
   streak: number; totalPractices: number; todayXP: number; freshTotalXP: number;
   recentActivity: RecentActivity[]; achievements: Achievement[];
   loading: boolean; error: string | null;
-}
-
-function calculateLevel(xp: number) {
-  return Math.floor(Math.sqrt(xp / 50)) + 1;
 }
 
 function AchievementIcon({ category, rarity, size = 20 }: { category: string; rarity: string; size?: number }) {
@@ -208,11 +204,6 @@ export default function StatsScreen() {
   };
 
   const displayTotalXP = realData.loading ? totalXP : realData.freshTotalXP;
-  const level       = calculateLevel(displayTotalXP);
-  const xpForCurr   = Math.pow(level - 1, 2) * 50;
-  const xpForNext   = Math.pow(level, 2) * 50;
-  const progress    = xpForNext > xpForCurr ? Math.min(100, ((displayTotalXP - xpForCurr) / (xpForNext - xpForCurr)) * 100) : 100;
-  const xpRemaining = Math.max(0, xpForNext - displayTotalXP);
 
   const TABS: { id: TabType; label: string }[] = [
     { id: 'stats',        label: 'Stats' },
@@ -226,140 +217,127 @@ export default function StatsScreen() {
   };
 
   // ── Stats tab ──────────────────────────────────────────────────────────────
+  const promotionXPThreshold = PROMOTION_XP_THRESHOLD[userLevel] ?? 9999;
+  const trailTotal           = promotionStatus?.totalTopics ?? TOTAL_TOPICS_PER_LEVEL[userLevel] ?? 0;
+  const trailDone            = promotionStatus?.completedTopics ?? 0;
+  const trailPct             = trailTotal > 0 ? Math.min(100, (trailDone / trailTotal) * 100) : 0;
+  const xpPct                = Math.min(100, (displayTotalXP / promotionXPThreshold) * 100);
+  const nextLevelName        = NEXT_LEVEL[userLevel];
+
   const renderStats = () => (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
 
-      {/* ── Counters row — same pill style as home header ─── */}
+      {/* ── Counters row ─── */}
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
 
         {/* Today XP */}
-        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'flex-start', gap: 6, ...cardShadow }}>
-          <Lightning size={20} color={C.green} weight="fill" />
-          <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            {isPortuguese ? 'Hoje' : 'Today'}
-          </AppText>
-          <AppText style={{ fontSize: 24, fontWeight: '800', color: C.navy, letterSpacing: -0.5, lineHeight: 28 }}>
+        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+            <Lightning size={14} color={C.green} weight="fill" />
+            <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              {isPortuguese ? 'Hoje XP' : 'Today XP'}
+            </AppText>
+          </View>
+          <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, letterSpacing: -0.5 }}>
             +{realData.todayXP}
           </AppText>
-          <AppText style={{ fontSize: 11, fontWeight: '600', color: C.navyLight }}>XP</AppText>
         </View>
 
         {/* Total XP */}
-        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'flex-start', gap: 6, ...cardShadow }}>
-          <Lightning size={20} color={C.green} weight="fill" />
-          <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            Total
-          </AppText>
-          <AppText style={{ fontSize: 24, fontWeight: '800', color: C.navy, letterSpacing: -0.5, lineHeight: 28 }}>
+        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+            <Lightning size={14} color={C.green} weight="fill" />
+            <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              Total XP
+            </AppText>
+          </View>
+          <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, letterSpacing: -0.5 }}>
             {displayTotalXP.toLocaleString()}
           </AppText>
-          <AppText style={{ fontSize: 11, fontWeight: '600', color: C.navyLight }}>XP</AppText>
         </View>
 
         {/* Streak */}
-        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 12, alignItems: 'flex-start', gap: 6, ...cardShadow }}>
-          <Fire size={20} color={C.orange} weight="fill" />
-          <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-            {isPortuguese ? 'Sequencia' : 'Streak'}
-          </AppText>
-          <AppText style={{ fontSize: 24, fontWeight: '800', color: C.navy, letterSpacing: -0.5, lineHeight: 28 }}>
+        <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 10 }}>
+            <Fire size={14} color={C.orange} weight="fill" />
+            <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+              {isPortuguese ? 'Sequencia' : 'Streak'}
+            </AppText>
+          </View>
+          <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, letterSpacing: -0.5 }}>
             {realData.streak}
-          </AppText>
-          <AppText style={{ fontSize: 11, fontWeight: '600', color: C.navyLight }}>
-            {isPortuguese ? 'dias' : 'days'}
+            <AppText style={{ fontSize: 13, fontWeight: '600', color: C.navyLight }}>{' '}{isPortuguese ? 'd' : 'd'}</AppText>
           </AppText>
         </View>
 
       </View>
 
-      {/* ── Level progress ─── */}
-      <View style={card}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Star size={16} color={accent} weight="fill" />
-            <View>
-              <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                {isPortuguese ? 'Nivel Atual' : 'Current Level'}
-              </AppText>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>
-                {isPortuguese ? 'Nivel' : 'Level'} {level}
-              </AppText>
-            </View>
-          </View>
-          <View style={{ backgroundColor: accent + '15', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+      {/* ── Progress card — trail + XP ─── */}
+      <View style={{ backgroundColor: C.card, borderRadius: 20, padding: 16, marginBottom: 10 }}>
+
+        {/* Header: icon + level badge */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <Star size={18} color={accent} weight="fill" />
+          <View style={{ backgroundColor: accent + '18', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20 }}>
             <AppText style={{ color: accent, fontSize: 11, fontWeight: '700' }}>{userLevel}</AppText>
           </View>
         </View>
-        <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden', marginBottom: 6 }}>
-          <View style={{ width: `${progress}%` as `${number}%`, height: '100%', backgroundColor: accent, borderRadius: 3 }} />
-        </View>
-        <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '600' }}>
-          {xpRemaining > 0
-            ? `${xpRemaining.toLocaleString()} XP ${isPortuguese ? 'para o proximo nivel' : 'to next level'}`
-            : (isPortuguese ? 'Nivel maximo!' : 'Max level!')}
-        </AppText>
-      </View>
 
-      {/* ── Promotion progress — only if not Advanced ─── */}
-      {promotionStatus && NEXT_LEVEL[userLevel] && (
-        <View style={card}>
-          <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 }}>
-            {isPortuguese ? 'Para subir de nivel' : 'To reach next level'}
-          </AppText>
-
-          <View style={{ marginBottom: 12 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+        {/* Trail */}
+        <View style={{ marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <BookOpenText size={13} color={C.navyLight} weight="bold" />
               <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navy }}>
-                {isPortuguese ? 'Trilha completa' : 'Trail complete'}
-              </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: '700', color: promotionStatus.trailComplete ? C.green : C.navyLight }}>
-                {promotionStatus.completedTopics}/{promotionStatus.totalTopics}
+                {isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail'}
               </AppText>
             </View>
-            <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-              <View style={{
-                width: `${Math.min(100, (promotionStatus.completedTopics / promotionStatus.totalTopics) * 100)}%` as `${number}%`,
-                height: '100%',
-                backgroundColor: promotionStatus.trailComplete ? C.green : accent,
-                borderRadius: 3,
-              }} />
-            </View>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: trailDone >= trailTotal && trailTotal > 0 ? C.green : C.navyLight }}>
+              {trailDone}/{trailTotal}
+            </AppText>
           </View>
-
-          <View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navy }}>
-                {isPortuguese ? 'XP da trilha (min. 80%)' : 'Trail XP (min. 80%)'}
-              </AppText>
-              <AppText style={{ fontSize: 12, fontWeight: '700', color: promotionStatus.learnXP >= promotionStatus.learnXPThreshold ? C.green : C.navyLight }}>
-                {promotionStatus.learnXP.toLocaleString()}/{promotionStatus.learnXPThreshold.toLocaleString()}
-              </AppText>
-            </View>
-            <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-              <View style={{
-                width: `${Math.min(100, (promotionStatus.learnXP / promotionStatus.learnXPThreshold) * 100)}%` as `${number}%`,
-                height: '100%',
-                backgroundColor: promotionStatus.learnXP >= promotionStatus.learnXPThreshold ? C.green : accent,
-                borderRadius: 3,
-              }} />
-            </View>
-          </View>
-
-          {promotionStatus.eligible && (
+          <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
             <View style={{
-              marginTop: 14, backgroundColor: C.greenLight, borderRadius: 12,
-              padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8,
-            }}>
-              <Star size={14} color={C.green} weight="fill" />
-              <AppText style={{ color: C.green, fontSize: 12, fontWeight: '700', flex: 1 }}>
-                {isPortuguese
-                  ? `Pronto para o nivel ${NEXT_LEVEL[userLevel]}!`
-                  : `Ready for ${NEXT_LEVEL[userLevel]} level!`}
-              </AppText>
-            </View>
-          )}
+              width: `${trailPct}%` as `${number}%`, height: '100%',
+              backgroundColor: trailDone >= trailTotal && trailTotal > 0 ? C.green : accent,
+              borderRadius: 3,
+            }} />
+          </View>
         </View>
-      )}
+
+        {/* XP */}
+        <View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Lightning size={13} color={C.navyLight} weight="fill" />
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navy }}>XP</AppText>
+            </View>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: displayTotalXP >= promotionXPThreshold ? C.green : C.navyLight }}>
+              {displayTotalXP.toLocaleString()}/{promotionXPThreshold.toLocaleString()}
+            </AppText>
+          </View>
+          <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
+            <View style={{
+              width: `${xpPct}%` as `${number}%`, height: '100%',
+              backgroundColor: displayTotalXP >= promotionXPThreshold ? C.green : accent,
+              borderRadius: 3,
+            }} />
+          </View>
+        </View>
+
+        {/* Eligible banner */}
+        {promotionStatus?.eligible && nextLevelName && (
+          <View style={{
+            marginTop: 14, backgroundColor: C.greenLight, borderRadius: 12,
+            padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8,
+          }}>
+            <Star size={13} color={C.green} weight="fill" />
+            <AppText style={{ color: C.green, fontSize: 12, fontWeight: '700', flex: 1 }}>
+              {isPortuguese ? `Pronto para o nivel ${nextLevelName}!` : `Ready for ${nextLevelName} level!`}
+            </AppText>
+          </View>
+        )}
+      </View>
 
       {/* ── Recent activity ─── */}
       <View style={card}>

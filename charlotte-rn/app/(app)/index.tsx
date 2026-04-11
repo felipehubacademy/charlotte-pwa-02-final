@@ -1523,28 +1523,32 @@ export default function HomeScreen() {
         ══════════════════════════════════════════ */}
         <SectionHeader label={isPortuguese ? 'Praticar com Charlotte' : 'Practise with Charlotte'} />
 
-        <View style={{ paddingHorizontal: 20, flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-          {modeCards.map(card => (
-            <PracticePortal
-              key={card.mode}
-              card={card}
-              onPress={() => {
-                if (card.locked) {
-                  Alert.alert(
-                    isPortuguese ? `Recurso ${card.lockLevel}` : `${card.lockLevel} Feature`,
-                    isPortuguese
-                      ? `${card.title} será desbloqueado ao atingir o nível ${card.lockLevel}. Continue praticando!`
-                      : `${card.title} unlocks when you reach the ${card.lockLevel} level. Keep practising!`,
-                    [{ text: isPortuguese ? 'Entendido' : 'Got it' }]
-                  );
-                } else if (card.mode === 'live') {
-                  soundEngine.setMuted(true); // silenciar sons durante Live Voice
-                  setShowLiveVoice(true);
-                } else if (card.route) {
-                  router.push(card.route);
-                }
-              }}
-            />
+        <View style={{ paddingHorizontal: 20, gap: 10 }}>
+          {Array.from({ length: Math.ceil(modeCards.length / 2) }, (_, rowIdx) => (
+            <View key={rowIdx} style={{ flexDirection: 'row', gap: 10 }}>
+              {modeCards.slice(rowIdx * 2, rowIdx * 2 + 2).map(card => (
+                <PracticePortal
+                  key={card.mode}
+                  card={card}
+                  onPress={() => {
+                    if (card.locked) {
+                      Alert.alert(
+                        isPortuguese ? `Recurso ${card.lockLevel}` : `${card.lockLevel} Feature`,
+                        isPortuguese
+                          ? `${card.title} será desbloqueado ao atingir o nível ${card.lockLevel}. Continue praticando!`
+                          : `${card.title} unlocks when you reach the ${card.lockLevel} level. Keep practising!`,
+                        [{ text: isPortuguese ? 'Entendido' : 'Got it' }]
+                      );
+                    } else if (card.mode === 'live') {
+                      soundEngine.setMuted(true);
+                      setShowLiveVoice(true);
+                    } else if (card.route) {
+                      router.push(card.route);
+                    }
+                  }}
+                />
+              ))}
+            </View>
           ))}
         </View>
 
@@ -1796,7 +1800,7 @@ function PracticePortal({ card, onPress }: { card: ModeCard; onPress: () => void
       onPress={onPress}
       activeOpacity={0.72}
       style={{
-        width: '47%',
+        flex: 1,
         borderRadius: 18,
         backgroundColor: locked ? C.bg : C.card,
         borderWidth: 1,
