@@ -15,7 +15,7 @@ import AnimatedXPBadge from '@/components/ui/AnimatedXPBadge';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
 import { soundEngine } from '@/lib/soundEngine';
-import { scheduleReviews, trackExerciseError, markReviewDone } from '@/lib/spacedRepetition';
+import { scheduleReviews, markReviewDone, rescheduleReview } from '@/lib/spacedRepetition';
 import { track } from '@/lib/analytics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAudioRecorder, setAudioModeAsync, RecordingPresets } from 'expo-audio';
@@ -31,6 +31,9 @@ import {
   CURRICULUM, TrailLevel, GrammarEx, PronStep,
   getTopic,
 } from '@/data/curriculum';
+import { checkLevelPromotion, promoteUserLevel, NEXT_LEVEL } from '@/lib/levelPromotion';
+import PromotionModal from '@/components/ui/PromotionModal';
+import { supabase } from '@/lib/supabase';
 
 // ── Palette ────────────────────────────────────────────────────
 const C = {
@@ -174,7 +177,7 @@ export default function LearnSessionScreen() {
   const moduleIndex = parseInt(params.moduleIndex ?? '0', 10);
   const topicIndex  = parseInt(params.topicIndex  ?? '0', 10);
 
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const userId      = profile?.id;
   const userLevel   = (profile?.charlotte_level ?? 'Novice') as string;
   const isPortuguese = userLevel === 'Novice';
@@ -192,6 +195,11 @@ export default function LearnSessionScreen() {
 
   // ── Session XP accumulator ─────────────────────────────────
   const [sessionXP, setSessionXP] = useState(0);
+  const [sessionErrors, setSessionErrors] = useState(0);
+
+  // ── Promotion state ────────────────────────────────────────
+  const [showPromotion, setShowPromotion] = useState(false);
+  const [promotionNextLevel, setPromotionNextLevel] = useState<string>('');
 
   // ── Step index — with resume from SecureStore ──────────────
   const resumeKey = userId
@@ -424,7 +432,7 @@ export default function LearnSessionScreen() {
       setSessionXP(prev => prev + xp);
       saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: correct, xpEarned: xp });
       if (correct) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); soundEngine.play('answer_correct').catch(() => {}); }
-      else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); soundEngine.play('answer_wrong').catch(() => {}); }
+      else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); soundEngine.play('answer_wrong').catch(() => {}); setSessionErrors(prev => prev + 1); }
       Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
       return;
     }
@@ -449,6 +457,7 @@ export default function LearnSessionScreen() {
     } else {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       soundEngine.play('answer_wrong').catch(() => {});
+      setSessionErrors(prev => prev + 1);
     }
     Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
   };
@@ -553,6 +562,7 @@ export default function LearnSessionScreen() {
           soundEngine.play('answer_correct').catch(() => {});
         } else {
           soundEngine.play('answer_wrong').catch(() => {});
+          setSessionErrors(prev => prev + 1);
         }
         Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
       }
@@ -574,7 +584,7 @@ export default function LearnSessionScreen() {
     setSessionXP(prev => prev + xp);
     saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'listen_write', isCorrect: correct, xpEarned: xp });
     if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); setSessionErrors(prev => prev + 1); }
     Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
     setPronStatus('result');
   };
@@ -592,10 +602,41 @@ export default function LearnSessionScreen() {
         if (!params.reviewId) {
           scheduleReviews(userId, level, moduleIndex, topicIndex, topic?.title ?? '').catch(console.warn);
         } else {
-          // ✅ Marcar revisão como concluída
-          markReviewDone(parseInt(params.reviewId, 10)).catch(console.warn);
+          // ✅ Marcar revisão como concluída — ou reagendar se houve erros
+          if (sessionErrors > 0) {
+            rescheduleReview(
+              parseInt(params.reviewId, 10),
+              userId,
+              level,
+              moduleIndex,
+              topicIndex,
+              topic?.title ?? '',
+            ).catch(console.warn);
+          } else {
+            markReviewDone(parseInt(params.reviewId, 10)).catch(console.warn);
+          }
         }
         track('lesson_completed', { level, module: moduleIndex, topic: topicIndex, isReview: !!params.reviewId });
+
+        // Check level promotion after topic complete (only when NOT a review)
+        if (!params.reviewId) {
+          try {
+            const { data: progressData } = await supabase
+              .from('learn_progress')
+              .select('completed')
+              .eq('user_id', userId)
+              .eq('level', level)
+              .maybeSingle();
+            const completedCount = (progressData?.completed ?? []).length;
+            const status = await checkLevelPromotion(userId, level, completedCount);
+            if (status.eligible && status.nextLevel) {
+              setPromotionNextLevel(status.nextLevel);
+              setShowPromotion(true);
+            }
+          } catch (e) {
+            console.warn('[Promotion] check error:', e);
+          }
+        }
       }
       // 🎉 Celebração de conclusão: som + vibração tripla
       soundEngine.play('daily_goal').catch(() => {});
@@ -605,6 +646,18 @@ export default function LearnSessionScreen() {
     } else {
       setStepIdx(next);
     }
+  };
+
+  const handlePromotion = async () => {
+    if (!userId || !promotionNextLevel) return;
+    try {
+      await promoteUserLevel(userId, promotionNextLevel);
+      await refreshProfile(); // refresh auth context so level updates everywhere
+    } catch (e) {
+      console.error('[Promotion] error:', e);
+    }
+    setShowPromotion(false);
+    router.replace('/(app)'); // go home
   };
 
   const progress = totalSteps > 0 ? (stepIdx + 1) / totalSteps : 0;
@@ -646,6 +699,11 @@ export default function LearnSessionScreen() {
             <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>{isPortuguese ? 'Voltar' : 'Back'}</AppText>
           </TouchableOpacity>
         </View>
+        <PromotionModal
+          isOpen={showPromotion}
+          nextLevel={promotionNextLevel}
+          onConfirm={handlePromotion}
+        />
       </SafeAreaView>
     );
   }

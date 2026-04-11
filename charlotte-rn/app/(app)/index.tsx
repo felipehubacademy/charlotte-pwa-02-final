@@ -30,6 +30,7 @@ import {
   Phone,
   BookOpenText,
   Headphones,
+  LightbulbFilament,
 } from 'phosphor-react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
@@ -771,6 +772,8 @@ export default function HomeScreen() {
   const C = T;
   const isOnline = useNetworkStatus();
   const { triggerToast } = useXPToast();
+  const levelAccent: string = level === 'Novice' ? '#D97706' : level === 'Inter' ? '#7C3AED' : '#0F766E';
+  const levelAccentBg: string = level === 'Novice' ? '#FFFBEB' : level === 'Inter' ? '#F5F3FF' : '#F0FDFA';
 
   // Trial badge — days remaining for non-institutional users on trial
   const trialDaysLeft = useMemo(() => {
@@ -1416,102 +1419,104 @@ export default function HomeScreen() {
         ══════════════════════════════════════════ */}
         <SectionHeader label={isPortuguese ? 'Aprender com Charlotte' : 'Learn with Charlotte'} />
 
-        <View style={{ paddingHorizontal: 20 }}>
-          <TouchableOpacity
-              onPress={() => router.push('/(app)/learn-trail')}
-              activeOpacity={0.72}
-              style={{
-                borderRadius: 18,
-                backgroundColor: C.card,
-                borderWidth: 1,
-                borderColor: C.navyGhost,
-                flexDirection: 'row',
-                alignItems: 'center',
-                paddingVertical: 18,
-                paddingHorizontal: 20,
-                gap: 16,
-              }}
-            >
-              <View style={{
-                width: 52, height: 52, borderRadius: 14,
-                backgroundColor: '#FFFBEB',
-                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <BookOpenText size={28} color="#D97706" weight="bold" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>
-                  {isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail'}
-                </AppText>
-                <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>
-                  {isPortuguese ? 'Aulas guiadas — Gramática & Pronúncia' : 'Guided lessons — Grammar & Pronunciation'}
-                </AppText>
-              </View>
-              <CaretRight size={18} color={C.navyLight} weight="bold" />
-          </TouchableOpacity>
-        </View>
+        <View style={{ paddingHorizontal: 20, flexDirection: 'row', gap: 10 }}>
 
-        {/* ══════════════════════════════════════════
-            REVIEWS — revisão espaçada
-        ══════════════════════════════════════════ */}
-        {pendingReviews.length > 0 && (
-          <>
-            <SectionHeader
-              label={isPortuguese ? 'Revisão pendente' : 'Review due'}
-              badge={`${pendingReviews.length}`}
-              isPt={isPortuguese}
-            />
-            <View style={{ paddingHorizontal: 20 }}>
-              <TouchableOpacity
-                onPress={() => {
-                  // Navegar para o primeiro tópico pendente
-                  const r = pendingReviews[0];
-                  router.push({
-                    pathname: '/(app)/learn-session',
-                    params: {
-                      level: r.userLevel,
-                      moduleIndex: r.moduleIndex.toString(),
-                      topicIndex: r.topicIndex.toString(),
-                      reviewId: r.id.toString(),
-                    },
-                  });
-                }}
-                activeOpacity={0.72}
-                style={{
-                  borderRadius: 18,
-                  backgroundColor: '#FFFBEB',
-                  borderWidth: 1,
-                  borderColor: 'rgba(245,158,11,0.2)',
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  paddingVertical: 14,
-                  paddingHorizontal: 20,
-                  gap: 14,
-                  ...cardShadow,
-                }}
-              >
-                <View style={{
-                  width: 44, height: 44, borderRadius: 14,
-                  backgroundColor: 'rgba(245,158,11,0.12)',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <BookOpenText size={22} color="#F59E0B" weight="bold" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
-                    {pendingReviews[0].topicTitle || (isPortuguese ? 'Revisão' : 'Review')}
-                  </AppText>
-                  <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 2 }}>
-                    {isPortuguese
-                      ? `${pendingReviews.length} tópico${pendingReviews.length > 1 ? 's' : ''} para revisar`
-                      : `${pendingReviews.length} topic${pendingReviews.length > 1 ? 's' : ''} to review`}
-                  </AppText>
-                </View>
-                <CaretRight size={16} color={C.navyLight} weight="bold" />
-              </TouchableOpacity>
+          {/* Learning Trail card (left, half width) */}
+          <TouchableOpacity
+            onPress={() => router.push('/(app)/learn-trail')}
+            activeOpacity={0.72}
+            style={{
+              flex: 1,
+              borderRadius: 18,
+              backgroundColor: C.card,
+              borderWidth: 1,
+              borderColor: C.navyGhost,
+              padding: 16,
+              gap: 10,
+              ...cardShadow,
+            }}
+          >
+            <View style={{
+              width: 44, height: 44, borderRadius: 13,
+              backgroundColor: levelAccentBg,
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <BookOpenText size={24} color={levelAccent} weight="bold" />
             </View>
-          </>
-        )}
+            <AppText style={{ fontSize: 14, fontWeight: '800', color: C.navy, letterSpacing: -0.2 }}>
+              {isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail'}
+            </AppText>
+            <AppText style={{ fontSize: 11, color: C.navyLight, lineHeight: 15 }}>
+              {isPortuguese ? 'Gramática & Pronúncia' : 'Grammar & Pronunciation'}
+            </AppText>
+          </TouchableOpacity>
+
+          {/* Review card (right, half width) — two states */}
+          <TouchableOpacity
+            onPress={() => {
+              if (pendingReviews.length === 0) return;
+              const r = pendingReviews[0];
+              router.push({
+                pathname: '/(app)/learn-session',
+                params: {
+                  level: r.userLevel,
+                  moduleIndex: r.moduleIndex.toString(),
+                  topicIndex: r.topicIndex.toString(),
+                  reviewId: r.id.toString(),
+                },
+              });
+            }}
+            activeOpacity={pendingReviews.length > 0 ? 0.72 : 1}
+            style={{
+              flex: 1,
+              borderRadius: 18,
+              backgroundColor: pendingReviews.length > 0 ? (levelAccent + '12') : C.card,
+              borderWidth: 1,
+              borderColor: pendingReviews.length > 0 ? (levelAccent + '35') : C.navyGhost,
+              padding: 16,
+              gap: 10,
+              ...cardShadow,
+            }}
+          >
+            {/* badge */}
+            {pendingReviews.length > 0 && (
+              <View style={{
+                position: 'absolute', top: 10, right: 10,
+                backgroundColor: levelAccent, borderRadius: 10,
+                paddingHorizontal: 7, paddingVertical: 2, minWidth: 20, alignItems: 'center',
+              }}>
+                <AppText style={{ color: '#FFF', fontSize: 10, fontWeight: '800' }}>
+                  {pendingReviews.length}
+                </AppText>
+              </View>
+            )}
+            <View style={{
+              width: 44, height: 44, borderRadius: 13,
+              backgroundColor: pendingReviews.length > 0 ? (levelAccent + '18') : C.navyGhost,
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              <LightbulbFilament
+                size={24}
+                color={pendingReviews.length > 0 ? levelAccent : C.navyLight}
+                weight={pendingReviews.length > 0 ? 'fill' : 'regular'}
+              />
+            </View>
+            <AppText style={{
+              fontSize: 14, fontWeight: '800', letterSpacing: -0.2,
+              color: pendingReviews.length > 0 ? C.navy : C.navyLight,
+            }}>
+              {isPortuguese ? 'Revisão' : 'Review'}
+            </AppText>
+            <AppText style={{ fontSize: 11, lineHeight: 15, color: pendingReviews.length > 0 ? C.navyMid : C.navyLight }}>
+              {pendingReviews.length > 0
+                ? (isPortuguese
+                    ? `${pendingReviews.length} tópico${pendingReviews.length > 1 ? 's' : ''} pendente${pendingReviews.length > 1 ? 's' : ''}`
+                    : `${pendingReviews.length} topic${pendingReviews.length > 1 ? 's' : ''} to review`)
+                : (isPortuguese ? 'Nada para hoje' : 'Nothing today')}
+            </AppText>
+          </TouchableOpacity>
+
+        </View>
 
         {/* ══════════════════════════════════════════
             PRACTICE — destination cards

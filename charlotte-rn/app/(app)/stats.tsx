@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
 import LevelLeaderboard from '@/components/leaderboard/LevelLeaderboard';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
+import { checkLevelPromotion, NEXT_LEVEL, PromotionStatus } from '@/lib/levelPromotion';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -107,6 +108,7 @@ export default function StatsScreen() {
 
   const [activeTab,      setActiveTab]      = useState<TabType>('stats');
   const [leaderboardKey, setLeaderboardKey] = useState(0);
+  const [promotionStatus, setPromotionStatus] = useState<PromotionStatus | null>(null);
   const [realData, setRealData] = useState<RealData>({
     streak: 0, totalPractices: 0, todayXP: 0, freshTotalXP: 0,
     recentActivity: [], achievements: [], loading: true, error: null,
@@ -186,6 +188,16 @@ export default function StatsScreen() {
         })),
         loading: false, error: null,
       });
+      // Fetch promotion status
+      const { data: progressData } = await supabase
+        .from('learn_progress')
+        .select('completed')
+        .eq('user_id', userId)
+        .eq('level', userLevel)
+        .maybeSingle();
+      const completedCount = (progressData?.completed ?? []).length;
+      const status = await checkLevelPromotion(userId, userLevel, completedCount);
+      setPromotionStatus(status);
     } catch {
       setRealData(prev => ({ ...prev, loading: false, error: 'Error loading data' }));
     }
@@ -242,6 +254,70 @@ export default function StatsScreen() {
             : (isPortuguese ? 'Nivel maximo!' : 'Max level!')}
         </AppText>
       </View>
+
+      {/* Promotion progress card — only if not Advanced */}
+      {promotionStatus && NEXT_LEVEL[userLevel] && (
+        <View style={[card, { marginBottom: 10 }]}>
+          <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12 }}>
+            {isPortuguese ? 'Para subir de nível' : 'To level up'}
+          </AppText>
+
+          {/* Trail completion */}
+          <View style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navy }}>
+                {isPortuguese ? 'Trilha completa' : 'Trail complete'}
+              </AppText>
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: promotionStatus.trailComplete ? '#3D8800' : C.navyLight }}>
+                {promotionStatus.completedTopics}/{promotionStatus.totalTopics}
+              </AppText>
+            </View>
+            <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{
+                width: `${Math.min(100, (promotionStatus.completedTopics / promotionStatus.totalTopics) * 100)}%` as `${number}%`,
+                height: '100%',
+                backgroundColor: promotionStatus.trailComplete ? '#3D8800' : accent,
+                borderRadius: 3,
+              }} />
+            </View>
+          </View>
+
+          {/* XP from trail */}
+          <View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navy }}>
+                {isPortuguese ? 'XP da trilha (mín. 80%)' : 'Trail XP (min. 80%)'}
+              </AppText>
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: promotionStatus.learnXP >= promotionStatus.learnXPThreshold ? '#3D8800' : C.navyLight }}>
+                {promotionStatus.learnXP.toLocaleString()}/{promotionStatus.learnXPThreshold.toLocaleString()}
+              </AppText>
+            </View>
+            <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{
+                width: `${Math.min(100, (promotionStatus.learnXP / promotionStatus.learnXPThreshold) * 100)}%` as `${number}%`,
+                height: '100%',
+                backgroundColor: promotionStatus.learnXP >= promotionStatus.learnXPThreshold ? '#3D8800' : accent,
+                borderRadius: 3,
+              }} />
+            </View>
+          </View>
+
+          {promotionStatus.eligible && (
+            <View style={{
+              marginTop: 14, backgroundColor: '#F0FFD9', borderRadius: 12,
+              padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8,
+              borderWidth: 1, borderColor: 'rgba(61,136,0,0.20)',
+            }}>
+              <Star size={16} color="#3D8800" weight="fill" />
+              <AppText style={{ color: '#3D8800', fontSize: 12, fontWeight: '700', flex: 1 }}>
+                {isPortuguese
+                  ? `Você está pronto para o nível ${NEXT_LEVEL[userLevel]}!`
+                  : `You're ready for ${NEXT_LEVEL[userLevel]} level!`}
+              </AppText>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Stat grid */}
       <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>

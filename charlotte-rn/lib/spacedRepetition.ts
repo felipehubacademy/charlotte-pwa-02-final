@@ -113,6 +113,48 @@ export async function markReviewDone(reviewId: number): Promise<void> {
   if (error) console.warn('[spacedRep] markDone error:', error.message);
 }
 
+// ── Reagendar revisão com erros ─────────────────────────────────────────────
+
+/**
+ * Reschedula uma revisão que teve erros: marca a atual como concluída e
+ * agenda uma nova revisão em 3 dias (menor intervalo) para reforço.
+ */
+export async function rescheduleReview(
+  reviewId: number,
+  userId: string,
+  level: string,
+  moduleIndex: number,
+  topicIndex: number,
+  topicTitle: string,
+): Promise<void> {
+  const now = new Date();
+  const due = new Date(now);
+  due.setDate(due.getDate() + 3);
+  const dueDateStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+
+  await Promise.all([
+    // Mark current review done
+    supabase
+      .from('charlotte_review_schedule')
+      .update({ review_done: true, review_done_at: now.toISOString() })
+      .eq('id', reviewId),
+    // Insert new review in 3 days (upsert to avoid duplicates if already exists)
+    supabase
+      .from('charlotte_review_schedule')
+      .upsert({
+        user_id: userId,
+        user_level: level,
+        module_index: moduleIndex,
+        topic_index: topicIndex,
+        topic_title: topicTitle,
+        completed_at: now.toISOString(),
+        review_interval: 3,
+        review_due: dueDateStr,
+        review_done: false,
+      }, { onConflict: 'user_id,user_level,module_index,topic_index,review_interval', ignoreDuplicates: false }),
+  ]);
+}
+
 // ── Registrar erro em exercício ─────────────────────────────────────────────
 
 export async function trackExerciseError(
