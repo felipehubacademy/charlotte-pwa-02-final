@@ -2,12 +2,12 @@ import React from 'react';
 import { Alert, View, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
 import { Question } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { useAuth } from '@/hooks/useAuth';
 import ChatHeader from '@/components/chat/ChatHeader';
 import ChatBox from '@/components/chat/ChatBox';
 import ChatInputBar from '@/components/chat/ChatInputBar';
 import AchievementNotification from '@/components/achievements/AchievementNotification';
-import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 import { Achievement } from '@/lib/types/achievement';
@@ -29,7 +29,6 @@ export default function GrammarScreen() {
     sendSilentMessage(prompt);
   }, [userLevel, sendSilentMessage]);
 
-  const [showStats, setShowStats]       = React.useState(false);
   const [achievements, setAchievements] = React.useState<Achievement[]>([]);
 
   const { playingMessageId, toggle } = useMessageAudioPlayer();
@@ -49,7 +48,7 @@ export default function GrammarScreen() {
           onLogout={signOut}
           totalXP={totalXP}
           sessionXP={sessionXP}
-          onXPCounterClick={() => setShowStats(true)}
+          onXPCounterClick={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(sessionXP), totalXP: String(totalXP), userId: userId ?? '', userLevel: userLevel ?? 'Inter', userName: userName ?? '' } })}
           showBack
         />
         <View style={{ flex: 1 }}>
@@ -91,14 +90,6 @@ export default function GrammarScreen() {
         achievements={achievements}
         onDismiss={id => setAchievements(prev => prev.filter(a => a.id !== id))}
         isPt={userLevel === 'Novice'}
-      />
-      <EnhancedStatsModal
-        isOpen={showStats}
-        onClose={() => setShowStats(false)}
-        sessionXP={sessionXP}
-        totalXP={totalXP}
-        userId={userId}
-        userLevel={userLevel}
       />
     </SafeAreaView>
   );

@@ -37,7 +37,6 @@ import Constants from 'expo-constants';
 import { useXPToast } from '@/components/ui/XPToastProvider';
 import LiveVoiceModal from '@/components/voice/LiveVoiceModal';
 import { AppText } from '@/components/ui/Text';
-import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
@@ -789,7 +788,6 @@ export default function HomeScreen() {
   const [showTipModal, setShowTipModal]   = useState(false);
   const [showLiveVoice, setShowLiveVoice]           = useState(false);
   const [liveVoiceRemaining, setLiveVoiceRemaining] = useState<number | null>(null);
-  const [showStats, setShowStats]                   = useState(false);
   const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
   const [weeklyState, setWeeklyState]               = useState<WeeklyChallengeState | null>(null);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
@@ -1159,7 +1157,7 @@ export default function HomeScreen() {
       }}>
         {/* Stats pills — tappable group → stats modal */}
         <TouchableOpacity
-          onPress={() => setShowStats(true)}
+          onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(data?.todayXP ?? 0), totalXP: String(totalXP), userId: userId ?? '', userLevel: level ?? 'Inter', userName: name ?? '' } })}
           activeOpacity={0.7}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
           hitSlop={{ top: 10, bottom: 10, left: 4, right: 4 }}
@@ -1312,8 +1310,8 @@ export default function HomeScreen() {
             {/* Accent divider — bridges navy and white */}
             <View style={{ height: 2, backgroundColor: 'rgba(163,255,60,0.28)' }} />
 
-            {/* White body — XP progress (tappable → stats modal) */}
-            <TouchableOpacity onPress={() => setShowStats(true)} activeOpacity={0.75} style={{ padding: 20 }}>
+            {/* White body — XP progress (tappable → stats screen) */}
+            <TouchableOpacity onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(data?.todayXP ?? 0), totalXP: String(totalXP), userId: userId ?? '', userLevel: level ?? 'Inter', userName: name ?? '' } })} activeOpacity={0.75} style={{ padding: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 <XPRing todayXP={todayXP} goal={DAILY_XP_GOAL} />
                 <View style={{ flex: 1 }}>
@@ -1601,16 +1599,6 @@ export default function HomeScreen() {
           soundEngine.setMuted(false); // reativar sons
           setTimeout(() => loadLiveVoicePool(), 1500);
         }}
-        userLevel={level}
-        userName={name}
-      />
-
-      <EnhancedStatsModal
-        isOpen={showStats}
-        onClose={() => setShowStats(false)}
-        sessionXP={data?.todayXP ?? 0}
-        totalXP={totalXP}
-        userId={userId}
         userLevel={level}
         userName={name}
       />

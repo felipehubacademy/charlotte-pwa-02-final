@@ -11,7 +11,6 @@ import {
   CheckCircle, XCircle, SpeakerHigh, Headphones,
 } from 'phosphor-react-native';
 import AnimatedXPBadge from '@/components/ui/AnimatedXPBadge';
-import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAuth } from '@/hooks/useAuth';
@@ -168,7 +167,6 @@ export default function LearnPronunciationScreen() {
   const userId    = profile?.id;
   const userLevel = (profile?.charlotte_level ?? 'Novice') as string;
   const baseTotalXP = useTotalXP(userId);
-  const [showStats, setShowStats] = useState(false);
 
   const [stepIndex, setStepIndex]       = useState(0);
   const [isComplete, setIsComplete]     = useState(false);
@@ -389,7 +387,7 @@ export default function LearnPronunciationScreen() {
             Pronunciation
           </AppText>
         </View>
-        <TouchableOpacity onPress={() => setShowStats(true)} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(sessionXP), totalXP: String(baseTotalXP + sessionXP), userId: userId ?? '', userLevel: userLevel ?? 'Inter', userName: '' } })} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <AnimatedXPBadge xp={baseTotalXP + sessionXP} iconSize={13} fontSize={13} padH={10} padV={5} />
         </TouchableOpacity>
       </View>
@@ -735,14 +733,6 @@ export default function LearnPronunciationScreen() {
         )}
       </KeyboardAvoidingView>
 
-      <EnhancedStatsModal
-        isOpen={showStats}
-        onClose={() => setShowStats(false)}
-        sessionXP={sessionXP}
-        totalXP={baseTotalXP + sessionXP}
-        userId={userId}
-        userLevel={userLevel as 'Novice' | 'Inter' | 'Advanced' | undefined}
-      />
     </SafeAreaView>
   );
 }

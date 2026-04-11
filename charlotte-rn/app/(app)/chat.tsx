@@ -7,7 +7,7 @@ import ChatHeader from '@/components/chat/ChatHeader';
 import ChatBox from '@/components/chat/ChatBox';
 import ChatInputBar from '@/components/chat/ChatInputBar';
 import OnboardingTour from '@/components/onboarding/OnboardingTour';
-import EnhancedStatsModal from '@/components/ui/EnhancedStatsModal';
+import { router } from 'expo-router';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 
@@ -21,7 +21,6 @@ export default function ChatScreen() {
     useChat({ userLevel, userName, userId, mode: 'chat' });
 
   const [showOnboarding, setShowOnboarding] = React.useState(false);
-  const [showStats, setShowStats]           = React.useState(false);
 
   const { playingMessageId, toggle } = useMessageAudioPlayer();
 
@@ -40,7 +39,7 @@ export default function ChatScreen() {
           onLogout={signOut}
           totalXP={totalXP}
           sessionXP={sessionXP}
-          onXPCounterClick={() => setShowStats(true)}
+          onXPCounterClick={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(sessionXP), totalXP: String(totalXP), userId: userId ?? '', userLevel: userLevel ?? 'Inter', userName: userName ?? '' } })}
           showBack
         />
         <View style={{ flex: 1 }}>
@@ -72,14 +71,6 @@ export default function ChatScreen() {
         />
       </KeyboardAvoidingView>
 
-      <EnhancedStatsModal
-        isOpen={showStats}
-        onClose={() => setShowStats(false)}
-        sessionXP={sessionXP}
-        totalXP={totalXP}
-        userId={userId}
-        userLevel={userLevel}
-      />
       <OnboardingTour
         isOpen={showOnboarding}
         onClose={() => setShowOnboarding(false)}
