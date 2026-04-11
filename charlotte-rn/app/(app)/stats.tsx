@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, TouchableOpacity, ScrollView, Platform, StatusBar,
+  View, TouchableOpacity, ScrollView, Platform, StatusBar, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   ChartBar, Trophy, Medal, Lightning, Star, Fire, Microphone,
   PencilLine, GraduationCap, Sun, CalendarCheck,
-  HourglassMedium, Warning, ArrowLeft, RocketLaunch, Target, ShareNetwork,
+  Warning, ArrowLeft, RocketLaunch, Target, ShareNetwork,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
@@ -454,16 +454,6 @@ export default function StatsScreen() {
 
   // ── Content dispatcher ─────────────────────────────────────────────────────
   const renderContent = () => {
-    if (realData.loading) {
-      return (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-          <HourglassMedium size={32} color={C.navyLight} weight="fill" />
-          <AppText style={{ color: C.navyLight, fontSize: 13, fontWeight: '500' }}>
-            {isPortuguese ? 'Carregando...' : 'Loading...'}
-          </AppText>
-        </View>
-      );
-    }
     if (realData.error) {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -480,6 +470,16 @@ export default function StatsScreen() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  if (realData.loading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={C.navy} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" />
