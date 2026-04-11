@@ -41,9 +41,9 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: '#EAB308',
 };
 
-const shadow = Platform.select({
-  ios:     { shadowColor: 'rgba(22,21,58,0.10)', shadowOpacity: 1, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } },
-  android: { elevation: 2 },
+const cardShadow = Platform.select({
+  ios:     { shadowColor: 'rgba(22,21,58,0.08)', shadowOpacity: 1, shadowRadius: 16, shadowOffset: { width: 0, height: 4 } },
+  android: { elevation: 3 },
 });
 
 const card = {
@@ -53,7 +53,7 @@ const card = {
   borderWidth: 1,
   borderColor: C.border,
   marginBottom: 10,
-  ...shadow,
+  ...cardShadow,
 };
 
 type TabType = 'stats' | 'achievements' | 'leaderboard';
@@ -376,38 +376,30 @@ export default function StatsScreen() {
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.sheet }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Header */}
+      {/* Header — mesmo padrão da Learning Trail */}
       <View style={{
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14,
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 16, height: 52,
         borderBottomWidth: 1, borderBottomColor: C.border,
-        backgroundColor: C.bg,
+        backgroundColor: C.sheet,
       }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{
-              width: 34, height: 34, borderRadius: 10,
-              backgroundColor: C.sheet,
-              alignItems: 'center', justifyContent: 'center',
-              borderWidth: 1, borderColor: C.border,
-              ...shadow,
-            }}
-          >
-            <ArrowLeft size={16} color={C.navyMid} weight="bold" />
-          </TouchableOpacity>
-          <View>
-            <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
-              Charlotte
-            </AppText>
-            <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
-              {isPortuguese ? 'Seu Progresso' : 'Your Progress'}
-            </AppText>
-          </View>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <ArrowLeft size={22} color={C.navy} weight="bold" />
+        </TouchableOpacity>
+
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
+            Charlotte
+          </AppText>
+          <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
+            {isPortuguese ? 'Seu Progresso' : 'Your Progress'}
+          </AppText>
         </View>
 
         <TouchableOpacity
@@ -415,15 +407,9 @@ export default function StatsScreen() {
             if (realData.streak > 0) shareStreak(realData.streak, isPortuguese);
             else shareXP(realData.freshTotalXP || totalXP, isPortuguese);
           }}
-          style={{
-            width: 34, height: 34, borderRadius: 10,
-            backgroundColor: C.sheet,
-            alignItems: 'center', justifyContent: 'center',
-            borderWidth: 1, borderColor: C.border,
-            ...shadow,
-          }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <ShareNetwork size={16} color={C.navyMid} weight="fill" />
+          <ShareNetwork size={20} color={C.navyLight} weight="regular" />
         </TouchableOpacity>
       </View>
 
@@ -432,7 +418,7 @@ export default function StatsScreen() {
         flexDirection: 'row', marginHorizontal: 20, marginTop: 16, marginBottom: 16,
         backgroundColor: C.sheet, borderRadius: 14, padding: 4,
         borderWidth: 1, borderColor: C.border,
-        ...shadow,
+        ...cardShadow,
       }}>
         {TABS.map(tab => {
           const isActive = activeTab === tab.id;
@@ -472,10 +458,7 @@ function StatCard({ icon, iconBg, label, value, unit }: {
     <View style={[{ flex: 1 }, {
       backgroundColor: '#FFFFFF', borderRadius: 20, padding: 14,
       borderWidth: 1, borderColor: 'rgba(22,21,58,0.10)', marginBottom: 0,
-      ...Platform.select({
-        ios:     { shadowColor: 'rgba(22,21,58,0.10)', shadowOpacity: 1, shadowRadius: 10, shadowOffset: { width: 0, height: 2 } },
-        android: { elevation: 2 },
-      }),
+      ...cardShadow,
     }]}>
       <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
         {icon}
