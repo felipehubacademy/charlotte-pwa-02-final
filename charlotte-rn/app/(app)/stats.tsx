@@ -47,18 +47,12 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: '#EAB308',
 };
 
-const cardShadow = Platform.select({
-  ios:     { shadowColor: 'rgba(22,21,58,0.08)', shadowOpacity: 1, shadowRadius: 16, shadowOffset: { width: 0, height: 4 } },
-  android: { elevation: 3 },
-});
-
-// Subtle card — white bg, no border, shadow only
+// No shadows — white cards on gray bg, separation is enough
 const card = {
   backgroundColor: C.card,
   borderRadius: 20,
   padding: 16,
   marginBottom: 10,
-  ...cardShadow,
 };
 
 type TabType = 'stats' | 'achievements' | 'leaderboard';
@@ -450,8 +444,8 @@ export default function StatsScreen() {
   // ── Render ─────────────────────────────────────────────────────────────────
   if (realData.loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'left', 'right']}>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg }}>
           <ActivityIndicator size="large" color={C.navy} />
         </View>
       </SafeAreaView>
@@ -459,14 +453,14 @@ export default function StatsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
       <View style={{
         flexDirection: 'row', alignItems: 'center',
         paddingHorizontal: 16, height: 52,
-        backgroundColor: C.bg,
+        backgroundColor: C.card,
       }}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -495,37 +489,41 @@ export default function StatsScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Tabs */}
-      <View style={{
-        flexDirection: 'row', marginHorizontal: 20, marginTop: 8, marginBottom: 14,
-        backgroundColor: C.card, borderRadius: 14, padding: 4,
-        ...cardShadow,
-      }}>
-        {TABS.map(tab => {
-          const isActive = activeTab === tab.id;
-          return (
-            <TouchableOpacity
-              key={tab.id}
-              onPress={() => setActiveTab(tab.id)}
-              style={{
-                flex: 1, flexDirection: 'row', alignItems: 'center',
-                justifyContent: 'center', paddingVertical: 9,
-                borderRadius: 10, gap: 5,
-                backgroundColor: isActive ? C.navy : 'transparent',
-              }}
-            >
-              {TAB_ICONS[tab.id](isActive)}
-              <AppText style={{ fontSize: 12, fontWeight: '700', color: isActive ? '#FFFFFF' : C.navyLight }}>
-                {tab.label}
-              </AppText>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
+      {/* Gray area: tabs + content */}
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
 
-      {/* Content */}
-      <View style={{ flex: 1, paddingHorizontal: 16 }}>
-        {renderContent()}
+        {/* Tabs */}
+        <View style={{
+          flexDirection: 'row', marginHorizontal: 16, marginTop: 12, marginBottom: 12,
+          backgroundColor: C.card, borderRadius: 14, padding: 4,
+        }}>
+          {TABS.map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <TouchableOpacity
+                key={tab.id}
+                onPress={() => setActiveTab(tab.id)}
+                style={{
+                  flex: 1, flexDirection: 'row', alignItems: 'center',
+                  justifyContent: 'center', paddingVertical: 9,
+                  borderRadius: 10, gap: 5,
+                  backgroundColor: isActive ? C.navy : 'transparent',
+                }}
+              >
+                {TAB_ICONS[tab.id](isActive)}
+                <AppText style={{ fontSize: 12, fontWeight: '700', color: isActive ? '#FFFFFF' : C.navyLight }}>
+                  {tab.label}
+                </AppText>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Content */}
+        <View style={{ flex: 1, paddingHorizontal: 16 }}>
+          {renderContent()}
+        </View>
+
       </View>
     </SafeAreaView>
   );
