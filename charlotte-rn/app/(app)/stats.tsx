@@ -60,6 +60,7 @@ interface RecentActivity {
 interface TopEntry {
   userId: string;
   totalXp: number;
+  name: string;
 }
 
 interface AchievementWithCategory extends Achievement {
@@ -194,9 +195,23 @@ export default function StatsScreen() {
         category: a.category ?? 'general',
       }));
 
-      const top3: TopEntry[] = (top3Res.data ?? []).map((r: any) => ({
+      const top3Raw = (top3Res.data ?? []).map((r: any) => ({
         userId: r.user_id,
         totalXp: r.total_xp ?? 0,
+      }));
+
+      // Fetch names for top3 users
+      const top3UserIds = top3Raw.map(e => e.userId);
+      const { data: top3Users } = await supabase
+        .from('charlotte_users')
+        .select('id, name')
+        .in('id', top3UserIds);
+      const nameMap: Record<string, string> = {};
+      (top3Users ?? []).forEach((u: any) => { nameMap[u.id] = u.name ?? ''; });
+
+      const top3: TopEntry[] = top3Raw.map(e => ({
+        ...e,
+        name: nameMap[e.userId] ?? '',
       }));
 
       setData({
@@ -539,7 +554,7 @@ export default function StatsScreen() {
                       color: isUser ? accent : C.navy,
                       marginLeft: 10,
                     }}>
-                      {isUser ? (userName || 'You') : `#${i + 1}`}
+                      {isUser ? (userName || 'You') : (entry.name ? entry.name.split(' ')[0] : `#${i + 1}`)}
                     </AppText>
                     <AppText style={{
                       fontSize: 13, fontWeight: '700',
