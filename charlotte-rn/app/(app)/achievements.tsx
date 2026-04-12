@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   ArrowLeft, Trophy, Lightning, Fire, Star,
-  Microphone, PencilLine, GraduationCap, Sun, CalendarCheck, Lock,
+  Microphone, PencilLine, GraduationCap, Sun, CalendarCheck,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
@@ -33,6 +33,36 @@ const RARITY_COLORS: Record<string, string> = {
 
 type Level = 'Novice' | 'Inter' | 'Advanced';
 
+// Full catalog — mirrors the DB trigger in 031_fix_award_achievements.sql
+const ALL_ACHIEVEMENTS: { code: string; title: string; category: string; rarity: string }[] = [
+  { code: 'first_practice', title: 'Olá, Mundo!',           category: 'general',     rarity: 'common'    },
+  { code: 'first_text',     title: 'Primeira Conversa',     category: 'text',        rarity: 'common'    },
+  { code: 'first_audio',    title: 'Primeira Voz',          category: 'audio',       rarity: 'common'    },
+  { code: 'first_grammar',  title: 'Gramático Iniciante',   category: 'grammar',     rarity: 'common'    },
+  { code: 'first_learn',    title: 'Na Trilha',             category: 'learn',       rarity: 'common'    },
+  { code: 'practices_10',   title: 'Aquecendo',             category: 'general',     rarity: 'common'    },
+  { code: 'practices_50',   title: 'No Ritmo',              category: 'general',     rarity: 'rare'      },
+  { code: 'practices_100',  title: 'Comprometido',          category: 'general',     rarity: 'epic'      },
+  { code: 'practices_500',  title: 'Lenda da Prática',      category: 'general',     rarity: 'legendary' },
+  { code: 'streak_3',       title: 'Consistente',           category: 'streak',      rarity: 'common'    },
+  { code: 'streak_7',       title: 'Semana Completa',       category: 'streak',      rarity: 'rare'      },
+  { code: 'streak_14',      title: 'Duas Semanas',          category: 'streak',      rarity: 'epic'      },
+  { code: 'streak_30',      title: 'Mês de Ouro',           category: 'streak',      rarity: 'legendary' },
+  { code: 'text_25',        title: 'Comunicativo',          category: 'text',        rarity: 'rare'      },
+  { code: 'text_100',       title: 'Fluente no Chat',       category: 'text',        rarity: 'epic'      },
+  { code: 'audio_10',       title: 'Falante',               category: 'audio',       rarity: 'rare'      },
+  { code: 'audio_50',       title: 'Voz de Ouro',           category: 'audio',       rarity: 'epic'      },
+  { code: 'audio_200',      title: 'Locutor Profissional',  category: 'audio',       rarity: 'legendary' },
+  { code: 'grammar_20',     title: 'Gramático Avançado',    category: 'grammar',     rarity: 'rare'      },
+  { code: 'grammar_50',     title: 'Mestre da Gramática',   category: 'grammar',     rarity: 'epic'      },
+  { code: 'learn_25',       title: 'Trilheiro',             category: 'learn',       rarity: 'rare'      },
+  { code: 'learn_100',      title: 'Mestre da Trilha',      category: 'learn',       rarity: 'epic'      },
+  { code: 'daily_100',      title: 'Super Dia',             category: 'habit',       rarity: 'rare'      },
+  { code: 'daily_200',      title: 'Dia Lendário',          category: 'habit',       rarity: 'epic'      },
+  { code: 'early_bird',     title: 'Madrugador',            category: 'habit',       rarity: 'rare'      },
+  { code: 'night_owl',      title: 'Coruja Noturna',        category: 'habit',       rarity: 'rare'      },
+];
+
 interface EarnedAchievement {
   id: string;
   title: string;
@@ -50,7 +80,7 @@ interface AchievementsData {
 }
 
 function AchievementIcon({ category, rarity, size = 22 }: { category: string; rarity: string; size?: number }) {
-  const color = RARITY_COLORS[rarity] ?? '#22C55E';
+  const color = rarity === 'locked' ? 'rgba(22,21,58,0.25)' : (RARITY_COLORS[rarity] ?? '#22C55E');
   switch (category) {
     case 'xp':
     case 'xp_milestone': return <Lightning     size={size} color={color} weight="fill" />;
@@ -89,14 +119,14 @@ export default function AchievementsScreen() {
     try {
       const { data: rows, error } = await supabase
         .from('user_achievements')
-        .select('id,achievement_name,achievement_description,xp_bonus,rarity,category,earned_at')
+        .select('id,achievement_type,achievement_name,achievement_description,xp_bonus,rarity,category,earned_at')
         .eq('user_id', userId)
         .order('earned_at', { ascending: false });
 
       if (error) throw error;
 
       const earned: EarnedAchievement[] = (rows ?? []).map((a: any) => ({
-        id: a.id,
+        id: a.achievement_type ?? a.id,
         title: a.achievement_name ?? 'Achievement',
         description: a.achievement_description ?? '',
         xpBonus: a.xp_bonus ?? 0,
@@ -122,9 +152,9 @@ export default function AchievementsScreen() {
     );
   }
 
-  // ── Build grid items: earned + locked placeholders (fill to multiple of 3) ──
-  const LOCKED_PLACEHOLDER_COUNT = Math.max(3, 6 - (data.earned.length % 3 === 0 ? 0 : 3 - (data.earned.length % 3)));
-  const lockedCount = data.earned.length < 6 ? LOCKED_PLACEHOLDER_COUNT : 3;
+  // Badges locked = todos do catálogo que o usuário ainda não ganhou
+  const earnedCodes = new Set(data.earned.map(a => a.id));
+  const lockedBadges = ALL_ACHIEVEMENTS.filter(a => !earnedCodes.has(a.code));
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -300,22 +330,22 @@ export default function AchievementsScreen() {
                 );
               })}
 
-              {/* Locked placeholders */}
-              {Array.from({ length: lockedCount }).map((_, i) => (
-                <View key={`locked-${i}`} style={{ width: 72, alignItems: 'center' }}>
+              {/* Locked badges — catálogo completo com nomes corretos, cor apagada */}
+              {lockedBadges.map((ach) => (
+                <View key={ach.code} style={{ width: 72, alignItems: 'center' }}>
                   <View style={{
                     width: 52, height: 52, borderRadius: 26,
                     backgroundColor: C.ghost,
                     alignItems: 'center', justifyContent: 'center',
                     marginBottom: 6,
                   }}>
-                    <Lock size={22} color={C.navyLight} weight="regular" />
+                    <AchievementIcon category={ach.category} rarity="locked" size={24} />
                   </View>
                   <AppText style={{
                     fontSize: 10, fontWeight: '600', color: C.navyLight,
                     textAlign: 'center',
                   }} numberOfLines={2}>
-                    {isPortuguese ? 'Bloqueada' : 'Locked'}
+                    {ach.title}
                   </AppText>
                 </View>
               ))}

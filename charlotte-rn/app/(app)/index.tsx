@@ -1261,48 +1261,40 @@ export default function HomeScreen() {
             {/* Navy header strip */}
             <View style={{
               backgroundColor: C.navy,
-              paddingRight: 20, paddingTop: 18, paddingBottom: 0,
+              paddingRight: 20, paddingTop: 0, paddingBottom: 0,
               flexDirection: 'row', alignItems: 'flex-end', gap: 0,
-              minHeight: 120,
+              minHeight: 140,
             }}>
-              {/* Bust — no circular clip, bottom-anchored */}
+              {/* Bust — larger, pulled down to bottom edge */}
               <Image
                 source={require('@/assets/charlotte-bust.png')}
-                style={{ width: 100, height: 130 }}
+                style={{ width: 118, height: 155 }}
                 resizeMode="contain"
               />
 
-              {/* Online dot */}
-              <View style={{
-                position: 'absolute', left: 78, bottom: 18,
-                width: 11, height: 11, borderRadius: 6,
-                backgroundColor: '#4ade80',
-                borderWidth: 2, borderColor: C.navy,
-              }} />
-
-              {/* Chat bubble with tail */}
-              <View style={{ flex: 1, paddingBottom: 20, paddingLeft: 10, position: 'relative' }}>
+              {/* Chat bubble with tail — compact, same style as chat screen */}
+              <View style={{ flex: 1, paddingBottom: 18, paddingLeft: 8, position: 'relative' }}>
                 {/* Triangle tail pointing left toward bust */}
                 <View style={{
                   position: 'absolute',
-                  left: 3, top: 14,
+                  left: 0, top: 12,
                   width: 0, height: 0,
-                  borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 8,
+                  borderTopWidth: 6, borderBottomWidth: 6, borderRightWidth: 7,
                   borderTopColor: 'transparent', borderBottomColor: 'transparent',
                   borderRightColor: '#3B3A5A',
                 }} />
                 <View style={{
                   backgroundColor: '#3B3A5A',
-                  borderRadius: 18,
-                  paddingHorizontal: 14,
-                  paddingVertical: greetingLoading ? 10 : 12,
+                  borderRadius: 16,
+                  paddingHorizontal: 12,
+                  paddingVertical: greetingLoading ? 8 : 10,
                 }}>
                   {greetingLoading ? (
                     <TypingDots />
                   ) : (
                     <AppText style={{
-                      fontSize: 15, color: '#FFFFFF',
-                      lineHeight: 23, fontWeight: '500',
+                      fontSize: 14, color: '#FFFFFF',
+                      lineHeight: 21, fontWeight: '500',
                     }}>
                       {aiGreeting ?? charlotteMessage(firstName, streak, todayXP, isPortuguese)}
                     </AppText>
