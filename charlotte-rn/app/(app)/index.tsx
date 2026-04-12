@@ -1268,7 +1268,7 @@ export default function HomeScreen() {
               {/* Bust — bottom edge flush with navy strip bottom */}
               <Image
                 source={require('@/assets/charlotte-bust.png')}
-                style={{ width: 118, height: 165, marginBottom: -14 }}
+                style={{ width: 118, height: 165, marginBottom: -22 }}
                 resizeMode="contain"
               />
 
