@@ -1261,30 +1261,31 @@ export default function HomeScreen() {
             {/* Navy header strip */}
             <View style={{
               backgroundColor: C.navy,
-              paddingHorizontal: 20, paddingTop: 18, paddingBottom: 20,
-              flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+              paddingRight: 20, paddingTop: 18, paddingBottom: 0,
+              flexDirection: 'row', alignItems: 'flex-end', gap: 0,
+              minHeight: 120,
             }}>
-              {/* Avatar + online dot only */}
-              <View style={{ position: 'relative', flexShrink: 0 }}>
-                <Image
-                  source={require('@/assets/charlotte-avatar.png')}
-                  style={{ width: 52, height: 52, borderRadius: 26, borderWidth: 2, borderColor: C.green }}
-                  resizeMode="cover"
-                />
-                <View style={{
-                  position: 'absolute', bottom: 1, right: 1,
-                  width: 12, height: 12, borderRadius: 6,
-                  backgroundColor: '#4ade80',
-                  borderWidth: 2, borderColor: C.navy,
-                }} />
-              </View>
+              {/* Bust — no circular clip, bottom-anchored */}
+              <Image
+                source={require('@/assets/charlotte-bust.png')}
+                style={{ width: 100, height: 130 }}
+                resizeMode="contain"
+              />
+
+              {/* Online dot */}
+              <View style={{
+                position: 'absolute', left: 78, bottom: 18,
+                width: 11, height: 11, borderRadius: 6,
+                backgroundColor: '#4ade80',
+                borderWidth: 2, borderColor: C.navy,
+              }} />
 
               {/* Chat bubble with tail */}
-              <View style={{ flex: 1, position: 'relative' }}>
-                {/* Triangle tail pointing left toward avatar */}
+              <View style={{ flex: 1, paddingBottom: 20, paddingLeft: 10, position: 'relative' }}>
+                {/* Triangle tail pointing left toward bust */}
                 <View style={{
                   position: 'absolute',
-                  left: -7, top: 14,
+                  left: 3, top: 14,
                   width: 0, height: 0,
                   borderTopWidth: 7, borderBottomWidth: 7, borderRightWidth: 8,
                   borderTopColor: 'transparent', borderBottomColor: 'transparent',
