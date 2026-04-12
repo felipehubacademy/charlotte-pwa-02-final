@@ -135,7 +135,7 @@ export default function SignupScreen() {
 
           {/* ── Back ── */}
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => router.replace('/(auth)/login')}
             style={{ position: 'absolute', top: 16, left: 4 }}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -257,7 +257,7 @@ export default function SignupScreen() {
           {/* ── Já tenho conta ── */}
           <TouchableOpacity
             style={{ alignItems: 'center', paddingVertical: 10 }}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/(auth)/login')}
           >
             <AppText style={{ color: C.navyMid, fontSize: 13 }}>
               Já tenho uma conta
