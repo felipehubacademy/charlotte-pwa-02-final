@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { Animated, View, StyleSheet, StatusBar } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -9,12 +9,36 @@ const videoSource = require('@/assets/charlotte-intro.mp4');
 
 export default function CharlotteIntroScreen() {
   const { profile, refreshProfile } = useAuth();
-  const doneRef   = useRef(false);
+  const doneRef    = useRef(false);
   const startedRef = useRef(false); // true once video has played at least 1 frame
+  const fadeOutAnim = useRef(new Animated.Value(0)).current;
 
-  const navigateAway = useCallback(async () => {
+  const player = useVideoPlayer(videoSource, p => {
+    p.loop  = false;
+    p.muted = false;
+    p.play();
+  });
+
+  // Fix 1: Force play after mount — iOS sometimes needs this after VideoView renders.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try { player.play(); } catch {}
+    }, 300);
+    return () => clearTimeout(t);
+  }, [player]);
+
+  const navigateWithFade = useCallback(async () => {
     if (doneRef.current) return;
     doneRef.current = true;
+
+    // Fade to black before navigating.
+    await new Promise<void>(resolve => {
+      Animated.timing(fadeOutAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }).start(() => resolve());
+    });
 
     try {
       if (profile?.id) {
@@ -30,13 +54,7 @@ export default function CharlotteIntroScreen() {
     }
 
     router.replace('/(app)');
-  }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const player = useVideoPlayer(videoSource, p => {
-    p.loop    = false;
-    p.muted   = false;
-    p.play();
-  });
+  }, [profile?.id, fadeOutAnim]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // playingChange fires when the player starts or stops.
@@ -45,19 +63,19 @@ export default function CharlotteIntroScreen() {
       if (isPlaying) {
         startedRef.current = true;
       } else if (startedRef.current) {
-        // Video stopped after having started → assume it reached the end.
-        navigateAway();
+        // Video stopped after having started -> assume it reached the end.
+        navigateWithFade();
       }
     });
 
     return () => sub.remove();
-  }, [player, navigateAway]);
+  }, [player, navigateWithFade]);
 
   // Safety fallback: if something prevents the event from firing, navigate after 15s
   useEffect(() => {
-    const t = setTimeout(navigateAway, 15_000);
+    const t = setTimeout(navigateWithFade, 15_000);
     return () => clearTimeout(t);
-  }, [navigateAway]);
+  }, [navigateWithFade]);
 
   return (
     <View style={styles.container}>
@@ -69,6 +87,10 @@ export default function CharlotteIntroScreen() {
         nativeControls={false}
         allowsFullscreen={false}
         allowsPictureInPicture={false}
+      />
+      <Animated.View
+        pointerEvents="none"
+        style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', opacity: fadeOutAnim }]}
       />
     </View>
   );
