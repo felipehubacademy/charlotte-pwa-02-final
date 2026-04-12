@@ -1265,15 +1265,15 @@ export default function HomeScreen() {
               flexDirection: 'row', alignItems: 'flex-end', gap: 0,
               minHeight: 140,
             }}>
-              {/* Bust — flush with bottom edge of navy strip */}
+              {/* Bust — bottom edge flush with navy strip bottom */}
               <Image
                 source={require('@/assets/charlotte-bust.png')}
-                style={{ width: 118, height: 165, marginBottom: -4 }}
+                style={{ width: 118, height: 165, marginBottom: -14 }}
                 resizeMode="contain"
               />
 
-              {/* Chat bubble with tail — compact, same style as chat screen */}
-              <View style={{ flex: 1, paddingBottom: 18, paddingLeft: 8, position: 'relative' }}>
+              {/* Chat bubble with tail — paddingLeft matches triangle tip exactly */}
+              <View style={{ flex: 1, paddingBottom: 18, paddingLeft: 7, position: 'relative' }}>
                 {/* Triangle tail — only visible once message is ready */}
                 {!greetingLoading && (
                   <View style={{
