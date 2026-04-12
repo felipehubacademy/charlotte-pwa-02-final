@@ -57,6 +57,8 @@ function AuthGuard() {
       target = '/(app)/first-access';
     } else if (profile && !profile.placement_test_done) {
       target = '/(app)/placement-test';
+    } else if (profile && profile.placement_test_done && !profile.first_welcome_done) {
+      target = '/(app)/charlotte-intro';
     } else if (isAuthenticated && profile) {
       // Auth is fully ready. If still on login/onboarding (edge case: INITIAL_SESSION
       // fired null, redirected to login, then TOKEN_REFRESHED brought a valid session),

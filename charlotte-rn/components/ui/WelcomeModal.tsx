@@ -1,26 +1,23 @@
 // components/ui/WelcomeModal.tsx
-// Modal de boas-vindas — exibido a cada LOGIN real (SIGNED_IN), nunca na abertura do app.
+// Modal de boas-vindas — exibido 1x por dia no primeiro login do dia.
 //
-// Primeiro acesso (first_welcome_done = false):
-//   Novice    → audio PT-BR de primeiro acesso (novice_first_01)
-//   Inter/Adv → audio EN de primeiro acesso (inter_first_01)
-//   Exibe sempre, independente do dia (1x na vida).
+// Primeiro acesso (first_welcome_done = false): tratado pelo vídeo charlotte-intro.tsx
+//   — este modal NÃO é exibido nesse caso.
 //
 // Acessos seguintes (first_welcome_done = true):
 //   Pool aleatório do nivel atual (novice_01..04 / inter_01..04 / advanced_01..04)
-//   Exibe no máximo 1x por dia (AsyncStorage guarda a data da última exibição).
+//   Exibe no máximo 1x por dia (SecureStore guarda a data da última exibição).
 //
-// Persistencia: coluna first_welcome_done em charlotte_users + AsyncStorage (data).
+// Persistencia: SecureStore com chave welcome_last_shown_${userId}.
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Modal, View, TouchableOpacity, Animated, Image, Platform, StatusBar } from 'react-native';
+import { Modal, View, TouchableOpacity, Animated, Image, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createAudioPlayer, setAudioModeAsync, type AudioPlayer } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 import { AppText } from './Text';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
 // Returns "YYYY-MM-DD" in local timezone
@@ -36,24 +33,11 @@ const API_BASE_URL =
 
 interface WordTiming { word: string; start: number; end: number; }
 
-// Primeiro acesso — um audio especifico por nivel
-const GREETING_IDS_FIRST: Record<string, string> = {
-  Novice:   'novice_first_01',
-  Inter:    'inter_first_01',
-  Advanced: 'advanced_first_01',
-};
-
-// Logins subsequentes — pool aleatorio
+// Pool aleatorio por nivel — retornando
 const GREETING_IDS_POOL: Record<string, string[]> = {
   Novice:   ['novice_01', 'novice_02', 'novice_03', 'novice_04'],
   Inter:    ['inter_01', 'inter_02', 'inter_03', 'inter_04'],
   Advanced: ['advanced_01', 'advanced_02', 'advanced_03', 'advanced_04'],
-};
-
-const SUBTITLE_FIRST: Record<string, string> = {
-  Novice:   'Aqui você fala inglês\nde verdade.',
-  Inter:    "Let's make every\nsession count.",
-  Advanced: "Let's take your English\nto the next level.",
 };
 
 const SUBTITLE_RETURNING: Record<string, string> = {
@@ -68,17 +52,15 @@ interface WelcomeModalProps {
   userId: string;
   userLevel: 'Novice' | 'Inter' | 'Advanced';
   userName: string;
-  isInstitutional?: boolean;
 }
 
-export default function WelcomeModal({ userId, userLevel, userName, isInstitutional = false }: WelcomeModalProps) {
+export default function WelcomeModal({ userId, userLevel, userName }: WelcomeModalProps) {
   const insets         = useSafeAreaInsets();
   const { isFreshLogin, clearFreshLogin, profile } = useAuth();
 
   const [visible, setVisible]         = useState(false);
   const [timings, setTimings]         = useState<WordTiming[]>([]);
   const [currentTime, setCurrentTime] = useState(-1);
-  const [isFirstAccess, setIsFirstAccess] = useState(false);
 
   const isPt       = userLevel === 'Novice';
   const firstName  = userName.split(' ')[0] ?? userName;
@@ -91,30 +73,23 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Mostrar apenas em logins reais (SIGNED_IN), nunca na abertura do app.
-  // - Primeiro acesso: sempre (1x na vida).
-  // - Acessos seguintes: no maximo 1x por dia (compara data atual com AsyncStorage).
+  // Primeiro acesso: tratado pelo vídeo — este modal só exibe quando first_welcome_done = true.
+  // Acessos seguintes: no maximo 1x por dia (compara data atual com SecureStore).
   useEffect(() => {
     if (!isFreshLogin || !profile) return;
-    const first = !profile.first_welcome_done;
-    if (first) {
-      // Primeira vez na vida — exibe sempre
-      setIsFirstAccess(true);
-      setVisible(true);
+    // Nunca exibir para usuários que ainda não viram o vídeo de intro
+    if (!profile.first_welcome_done) {
+      clearFreshLogin();
       return;
     }
-    // Retornando — verifica se ja mostrou hoje
     const LAST_SHOWN_KEY = `welcome_last_shown_${userId}`;
     SecureStore.getItemAsync(LAST_SHOWN_KEY).then(lastDate => {
       if (lastDate === todayDateKey()) {
-        // Ja exibiu hoje — nao mostrar de novo; apenas limpa o flag de login
         clearFreshLogin();
         return;
       }
-      setIsFirstAccess(false);
       setVisible(true);
     }).catch(() => {
-      // Em caso de erro, exibe normalmente
-      setIsFirstAccess(false);
       setVisible(true);
     });
   }, [isFreshLogin, profile]); // eslint-disable-line
@@ -129,16 +104,14 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
-  // Load + play on visible
+  // Load + play on visible — always returning user (pool)
   useEffect(() => {
     if (!visible) return;
 
-    const id = isFirstAccess
-      ? GREETING_IDS_FIRST[userLevel ?? 'Novice']
-      : (() => {
-          const pool = GREETING_IDS_POOL[userLevel ?? 'Novice'] ?? GREETING_IDS_POOL.Novice;
-          return pool[Math.floor(Math.random() * pool.length)];
-        })();
+    const id = (() => {
+      const pool = GREETING_IDS_POOL[userLevel ?? 'Novice'] ?? GREETING_IDS_POOL.Novice;
+      return pool[Math.floor(Math.random() * pool.length)];
+    })();
 
     // Entrance animation
     Animated.parallel([
@@ -210,28 +183,17 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
     ]).start(() => {
       setVisible(false);
       clearFreshLogin();
-
-      if (isFirstAccess) {
-        // Marca primeiro acesso como visto no banco (fire-and-forget)
-        supabase
-          .from('charlotte_users')
-          .update({ first_welcome_done: true })
-          .eq('id', userId)
-          .then(() => {}, () => {});
-      } else {
-        // Salva data de hoje para nao mostrar de novo até amanhã
-        const LAST_SHOWN_KEY = `welcome_last_shown_${userId}`;
-        SecureStore.setItemAsync(LAST_SHOWN_KEY, todayDateKey()).catch(() => {});
-      }
+      // Salva data de hoje para nao mostrar de novo até amanhã
+      const LAST_SHOWN_KEY = `welcome_last_shown_${userId}`;
+      SecureStore.setItemAsync(LAST_SHOWN_KEY, todayDateKey()).catch(() => {});
     });
   };
 
   if (!visible) return null;
 
   // ── Karaoke rendering ─────────────────────────────────────────
-  const subtitle = isFirstAccess
-    ? SUBTITLE_FIRST[userLevel ?? 'Novice']
-    : `${firstName}, ${SUBTITLE_RETURNING[userLevel ?? 'Novice'] ?? SUBTITLE_RETURNING.Novice}`;
+  // Modal is only shown for returning users (first access handled by charlotte-intro video)
+  const subtitle = `${firstName}, ${SUBTITLE_RETURNING[userLevel ?? 'Novice'] ?? SUBTITLE_RETURNING.Novice}`;
 
   const renderKaraoke = () => {
     if (timings.length === 0) return null;
@@ -297,23 +259,6 @@ export default function WelcomeModal({ userId, userLevel, userName, isInstitutio
               {subtitle}
             </AppText>
           </Animated.View>
-
-          {/* Trial badge — so para nao-institucionais */}
-          {!isInstitutional && (
-            <Animated.View style={{ position: 'absolute', bottom: insets.bottom + 72, opacity: textFadeAnim, alignItems: 'center' }}>
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: 'rgba(163,255,60,0.12)',
-                borderRadius: 20, borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)',
-                paddingHorizontal: 16, paddingVertical: 8,
-              }}>
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#A3FF3C' }} />
-                <AppText style={{ color: '#A3FF3C', fontSize: 13, fontWeight: '700' }}>
-                  {isPt ? '7 dias grátis ativados' : '7-day free trial activated'}
-                </AppText>
-              </View>
-            </Animated.View>
-          )}
 
           {/* Tap hint */}
           <Animated.View style={{ position: 'absolute', bottom: insets.bottom + 40, opacity: textFadeAnim }}>

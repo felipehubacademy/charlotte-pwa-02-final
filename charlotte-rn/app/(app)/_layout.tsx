@@ -28,7 +28,6 @@ export default function AppLayout() {
           userId={profile.id}
           userLevel={profile.charlotte_level}
           userName={profile.name ?? profile.email?.split('@')[0] ?? 'Student'}
-          isInstitutional={profile.is_institutional}
         />
       )}
       <Stack screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
@@ -45,6 +44,7 @@ export default function AppLayout() {
         <Stack.Screen name="learn-session" />
         <Stack.Screen name="change-password" />
         <Stack.Screen name="placement-test" options={{ animation: 'none' }} />
+        <Stack.Screen name="charlotte-intro" options={{ animation: 'none', gestureEnabled: false }} />
       </Stack>
       </AchievementsProvider>
     </XPToastProvider>
