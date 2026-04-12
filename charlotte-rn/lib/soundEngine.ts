@@ -14,6 +14,7 @@
 
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import * as FileSystem from 'expo-file-system/legacy';
+import Constants from 'expo-constants';
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -261,18 +262,17 @@ class SoundEngine {
     if (this.muted) return;
     try {
       const uri = await this.getUri(name);
-      // Configura audio mode para playback simples (não grava, não mono)
       await setAudioModeAsync({
         allowsRecording: false,
         playsInSilentMode: true,
-        interruptionMode: 'mixWithOthers', // não interrompe outros áudios
+        interruptionMode: 'mixWithOthers',
         shouldRouteThroughEarpiece: false,
-      }).catch(() => {}); // ignora se não suportado no momento
+      }).catch(() => {});
 
       const player = createAudioPlayer({ uri });
       player.play();
-      // Remove o player após a duração aproximada do som + 500ms de folga
-      const maxDur = this.estimateDurMs(name) + 600;
+      // Para voz da Charlotte: máx 2s. Para PCM sintetizado: duração estimada + folga.
+      const maxDur = uri.includes('sfx_voice_') ? 2000 : this.estimatePcmDurMs(name) + 600;
       setTimeout(() => {
         try { player.pause(); player.remove(); } catch {}
       }, maxDur);
@@ -281,22 +281,53 @@ class SoundEngine {
     }
   }
 
-  private estimateDurMs(name: SoundName): number {
+  private estimatePcmDurMs(name: SoundName): number {
     const melody = MELODIES[name];
     return melody.reduce((sum, n) => sum + n.durMs, 0);
+  }
+
+  // Tenta baixar o MP3 da voz da Charlotte do CDN.
+  // Retorna o URI local em cache, ou null se indisponível (404 / offline).
+  private async tryVoiceUri(name: SoundName): Promise<string | null> {
+    const localUri = `${FileSystem.cacheDirectory}sfx_voice_${name}.mp3`;
+
+    const info = await FileSystem.getInfoAsync(localUri).catch(() => ({ exists: false }));
+    if (info.exists) return localUri;
+
+    try {
+      const API_BASE = (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined)
+        ?? 'https://charlotte-pwa-02-final.vercel.app';
+      const result = await FileSystem.downloadAsync(
+        `${API_BASE}/tts/sfx/${name}.mp3`,
+        localUri,
+      );
+      if (result.status === 200) return localUri;
+      // Arquivo não existe no servidor — limpa e cai no fallback PCM
+      await FileSystem.deleteAsync(localUri, { idempotent: true }).catch(() => {});
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   private async getUri(name: SoundName): Promise<string> {
     const cached = this.uriCache.get(name);
     if (cached) return cached;
 
-    const melody  = MELODIES[name];
-    const base64  = buildMelodyWav(melody);
-    const uri     = `${FileSystem.cacheDirectory}sfx_${name}.wav`;
+    // Prefere voz da Charlotte; fallback para síntese PCM
+    const voiceUri = await this.tryVoiceUri(name);
+    const uri = voiceUri ?? await this.synthUri(name);
+
+    this.uriCache.set(name, uri);
+    return uri;
+  }
+
+  private async synthUri(name: SoundName): Promise<string> {
+    const base64 = buildMelodyWav(MELODIES[name]);
+    const uri    = `${FileSystem.cacheDirectory}sfx_${name}.wav`;
     await FileSystem.writeAsStringAsync(uri, base64, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    this.uriCache.set(name, uri);
     return uri;
   }
 

@@ -1,6 +1,8 @@
 #!/usr/bin/env npx tsx
 // scripts/generate-greeting-tts.ts
-// Gera áudios de saudação via ElevenLabs e salva em public/tts/greetings/
+// Gera áudios via ElevenLabs e salva em public/tts/
+//   greetings/ → saudações do WelcomeModal
+//   sfx/        → feedback curto da Charlotte (Yes!, Nice!, etc.)
 //
 // Uso: ELEVENLABS_API_KEY=xxx npx tsx scripts/generate-greeting-tts.ts
 //
@@ -10,84 +12,104 @@
 import fs from 'fs';
 import path from 'path';
 
-const API_BASE = process.env.API_BASE_URL ?? 'https://charlotte-pwa-02-final.vercel.app';
-const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'tts', 'greetings');
+const API_BASE       = process.env.API_BASE_URL ?? 'https://charlotte-pwa-02-final.vercel.app';
+const GREETINGS_DIR  = path.join(__dirname, '..', 'public', 'tts', 'greetings');
+const SFX_DIR        = path.join(__dirname, '..', 'public', 'tts', 'sfx');
 
-// ── Frases de saudação ──────────────────────────────────────────────────────
-// Novice: PT-BR (mesmo voice Rachel com multilingual_v2 fala PT-BR)
+// ── Saudações ─────────────────────────────────────────────────────────────────
+// Novice: PT-BR (voice Rachel com multilingual_v2 fala PT-BR)
 // Inter + Advanced: EN
 
-const GREETINGS: { level: string; id: string; text: string }[] = [
+const GREETINGS: { id: string; text: string }[] = [
   // Primeiro acesso — audio especifico por nivel
-  { level: 'novice',   id: 'novice_first_01',   text: 'Oi! Que bom que você chegou. Vamos começar essa jornada juntos?' },
-  { level: 'inter',    id: 'inter_first_01',    text: "Hey! So glad you made it. Ready to start your English journey?" },
-  { level: 'advanced', id: 'advanced_first_01', text: "Hey! Great to have you here. Let's get started — I think we're going to work really well together." },
+  { id: 'novice_first_01',   text: 'Oi! Que bom que você chegou. Vamos começar essa jornada juntos?' },
+  { id: 'inter_first_01',    text: "Hey! So glad you made it. Ready to start your English journey?" },
+  { id: 'advanced_first_01', text: "Hey! Great to have you here. Let's get started — I think we're going to work really well together." },
 
   // Novice (PT-BR)
-  { level: 'novice', id: 'novice_01', text: 'Oi! Que bom te ver! Bora praticar?' },
-  { level: 'novice', id: 'novice_02', text: 'Oi! Estou te esperando. Vamos lá!' },
-  { level: 'novice', id: 'novice_03', text: 'Ei, que bom que voltou! Bora pro inglês?' },
-  { level: 'novice', id: 'novice_04', text: 'Oi! Pronto pra mais uma sessão?' },
+  { id: 'novice_01', text: 'Oi! Que bom te ver! Bora praticar?' },
+  { id: 'novice_02', text: 'Oi! Estou te esperando. Vamos lá!' },
+  { id: 'novice_03', text: 'Ei, que bom que voltou! Bora pro inglês?' },
+  { id: 'novice_04', text: 'Oi! Pronto pra mais uma sessão?' },
 
   // Inter (EN)
-  { level: 'inter', id: 'inter_01', text: "Hey! Good to see you — let's get started!" },
-  { level: 'inter', id: 'inter_02', text: "Hey! Ready for some practice?" },
-  { level: 'inter', id: 'inter_03', text: "Oh hey! Welcome back — let's do this!" },
-  { level: 'inter', id: 'inter_04', text: "Hey! I've been waiting. Let's go!" },
+  { id: 'inter_01', text: "Hey! Good to see you — let's get started!" },
+  { id: 'inter_02', text: "Hey! Ready for some practice?" },
+  { id: 'inter_03', text: "Oh hey! Welcome back — let's do this!" },
+  { id: 'inter_04', text: "Hey! I've been waiting. Let's go!" },
 
   // Advanced (EN)
-  { level: 'advanced', id: 'advanced_01', text: "Hey! What's on your mind today?" },
-  { level: 'advanced', id: 'advanced_02', text: "Oh hey! Ready to dive in?" },
-  { level: 'advanced', id: 'advanced_03', text: "Hey! Let's make this session count." },
-  { level: 'advanced', id: 'advanced_04', text: "What's up? Good to see you again." },
+  { id: 'advanced_01', text: "Hey! What's on your mind today?" },
+  { id: 'advanced_02', text: "Oh hey! Ready to dive in?" },
+  { id: 'advanced_03', text: "Hey! Let's make this session count." },
+  { id: 'advanced_04', text: "What's up? Good to see you again." },
 ];
 
-async function generateOne(greeting: typeof GREETINGS[0]): Promise<void> {
-  const outPath = path.join(OUTPUT_DIR, `${greeting.id}.mp3`);
+// ── SFX — feedback curto com a voz da Charlotte ───────────────────────────────
 
-  // Skip if already exists
+const SFX: { id: string; text: string }[] = [
+  { id: 'xp_gained',             text: 'Yes!'         },
+  { id: 'answer_correct',        text: 'Nice!'        },
+  { id: 'answer_wrong',          text: 'Close!'       },
+  { id: 'achievement_common',    text: 'Well done!'   },
+  { id: 'achievement_rare',      text: 'Impressive!'  },
+  { id: 'achievement_epic',      text: 'Amazing!'     },
+  { id: 'achievement_legendary', text: 'Outstanding!' },
+  { id: 'streak_alive',          text: 'Keep going!'  },
+  { id: 'daily_goal',            text: 'You did it!'  },
+];
+
+// ── Core ──────────────────────────────────────────────────────────────────────
+
+async function generateOne(id: string, text: string, outputDir: string): Promise<void> {
+  const outPath = path.join(outputDir, `${id}.mp3`);
+
   if (fs.existsSync(outPath)) {
-    console.log(`⏭️  Skip (exists): ${greeting.id}`);
+    console.log(`  skip  ${id}`);
     return;
   }
 
-  console.log(`🔊 Generating: ${greeting.id} — "${greeting.text}"`);
+  console.log(`  gen   ${id} — "${text}"`);
 
   const res = await fetch(`${API_BASE}/api/tts`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text: greeting.text }),
+    body: JSON.stringify({ text }),
   });
 
   if (!res.ok) {
-    console.error(`❌ Failed ${greeting.id}: HTTP ${res.status}`);
+    console.error(`  ERROR ${id}: HTTP ${res.status}`);
     return;
   }
 
   const json = await res.json();
   if (!json.audio) {
-    console.error(`❌ No audio in response for ${greeting.id}`);
+    console.error(`  ERROR ${id}: no audio in response`);
     return;
   }
 
-  // json.audio is base64-encoded mp3
   const buffer = Buffer.from(json.audio, 'base64');
   fs.writeFileSync(outPath, buffer);
-  console.log(`✅ Saved: ${outPath} (${Math.round(buffer.length / 1024)}KB)`);
+  console.log(`  ok    ${id}.mp3 (${Math.round(buffer.length / 1024)}KB)`);
 }
 
 async function main() {
-  // Create output dir
-  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  fs.mkdirSync(GREETINGS_DIR, { recursive: true });
+  fs.mkdirSync(SFX_DIR,       { recursive: true });
 
-  // Generate sequentially to avoid rate limits
+  console.log('── Greetings ────────────────────────────────');
   for (const g of GREETINGS) {
-    await generateOne(g);
-    // Small delay between requests
-    await new Promise(r => setTimeout(r, 500));
+    await generateOne(g.id, g.text, GREETINGS_DIR);
+    await new Promise(r => setTimeout(r, 400));
   }
 
-  console.log('\n✅ Done! Files in:', OUTPUT_DIR);
+  console.log('\n── SFX ──────────────────────────────────────');
+  for (const s of SFX) {
+    await generateOne(s.id, s.text, SFX_DIR);
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  console.log('\nDone.');
 }
 
 main().catch(console.error);
