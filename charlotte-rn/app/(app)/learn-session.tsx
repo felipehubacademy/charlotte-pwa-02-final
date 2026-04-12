@@ -669,6 +669,19 @@ export default function LearnSessionScreen() {
 
   // ── Completion screen ──────────────────────────────────────
   if (isComplete) {
+    // Calculate next topic
+    const modules = CURRICULUM[level];
+    let nextModuleIdx = moduleIndex;
+    let nextTopicIdx = topicIndex + 1;
+
+    // If we've exhausted topics in this module, move to next module
+    if (modules[nextModuleIdx] && nextTopicIdx >= modules[nextModuleIdx].topics.length) {
+      nextModuleIdx = moduleIndex + 1;
+      nextTopicIdx = 0;
+    }
+
+    const hasNextTopic = nextModuleIdx < modules.length && modules[nextModuleIdx]?.topics[nextTopicIdx] !== undefined;
+
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
@@ -690,12 +703,21 @@ export default function LearnSessionScreen() {
             {avgScore !== null ? (isPortuguese ? ` · Pronúncia média ${avgScore}` : ` · Avg pronunciation ${avgScore}`) : ''}
           </AppText>
           <TouchableOpacity
-            onPress={() => router.replace('/(app)/learn-trail')}
+            onPress={() => {
+              if (hasNextTopic) {
+                router.replace({
+                  pathname: '/(app)/learn-session',
+                  params: { level, moduleIndex: String(nextModuleIdx), topicIndex: String(nextTopicIdx) },
+                });
+              } else {
+                router.replace('/(app)/learn-trail');
+              }
+            }}
             style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, paddingHorizontal: 40, marginBottom: 16 }}
           >
             <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{isPortuguese ? 'Continuar trilha' : 'Continue trail'}</AppText>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.replace('/(app)/learn-trail')}>
             <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>{isPortuguese ? 'Voltar' : 'Back'}</AppText>
           </TouchableOpacity>
         </View>
