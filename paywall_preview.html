@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Charlotte AI — Paywall</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    min-height: 100%;
+    background: #F4F3FA;
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 60px 24px 40px;
+    width: 100%;
+    max-width: 100%;
+  }
+  .badge {
+    background: rgba(163,255,60,0.12);
+    border: 1px solid rgba(61,136,0,0.20);
+    border-radius: 20px;
+    padding: 5px 14px;
+    margin-bottom: 28px;
+  }
+  .badge span {
+    color: #3D8800;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+  }
+  .headline {
+    color: #16153A;
+    font-size: 26px;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1.3;
+    margin-bottom: 10px;
+  }
+  .subtitle {
+    color: #9896B8;
+    font-size: 14px;
+    text-align: center;
+    line-height: 1.4;
+    margin-bottom: 32px;
+  }
+  .features {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .feature-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .check-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .feature-text {
+    color: #4B4A72;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  .plans {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .plan-card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 18px;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(22,21,58,0.08);
+  }
+  .plan-card.selected {
+    background: rgba(163,255,60,0.08);
+    border: 2px solid #3D8800;
+  }
+  .plan-card.unselected {
+    border: 1px solid rgba(22,21,58,0.10);
+  }
+  .best-value {
+    position: absolute;
+    top: -10px;
+    right: 16px;
+    background: #3D8800;
+    border-radius: 10px;
+    padding: 3px 10px;
+  }
+  .best-value span {
+    color: #FFFFFF;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .plan-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .plan-name {
+    color: #16153A;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .plan-per-month {
+    color: #9896B8;
+    font-size: 12px;
+    margin-top: 2px;
+  }
+  .plan-price {
+    text-align: right;
+  }
+  .plan-price-amount {
+    font-size: 20px;
+    font-weight: 800;
+  }
+  .plan-price-amount.green { color: #3D8800; }
+  .plan-price-amount.navy { color: #16153A; }
+  .plan-price-period {
+    color: #9896B8;
+    font-size: 11px;
+  }
+  .cta-button {
+    width: 100%;
+    background: #A3FF3C;
+    border-radius: 16px;
+    padding: 17px;
+    text-align: center;
+    margin-bottom: 16px;
+    cursor: pointer;
+  }
+  .cta-button span {
+    color: #16153A;
+    font-size: 16px;
+    font-weight: 800;
+  }
+  .disclaimer {
+    color: #9896B8;
+    font-size: 11px;
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 24px;
+  }
+  .link-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    margin-bottom: 4px;
+  }
+  .link-text {
+    color: #9896B8;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Badge -->
+  <div class="badge"><span>7 DIAS GRÁTIS</span></div>
+
+  <!-- Headline -->
+  <div class="headline">Aprenda inglês com<br>Charlotte AI</div>
+  <div class="subtitle">Comece hoje. Cancele quando quiser.</div>
+
+  <!-- Features -->
+  <div class="features">
+    <div class="feature-row">
+      <svg class="check-icon" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="128" cy="128" r="128" fill="#3D8800"/>
+        <path d="M80 128l36 36 60-72" stroke="white" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="feature-text">Mini-aulas narradas por Charlotte</span>
+    </div>
+    <div class="feature-row">
+      <svg class="check-icon" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="128" cy="128" r="128" fill="#3D8800"/>
+        <path d="M80 128l36 36 60-72" stroke="white" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="feature-text">Exercícios de gramática e pronúncia</span>
+    </div>
+    <div class="feature-row">
+      <svg class="check-icon" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="128" cy="128" r="128" fill="#3D8800"/>
+        <path d="M80 128l36 36 60-72" stroke="white" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="feature-text">Chat e chamadas em voz com IA</span>
+    </div>
+  </div>
+
+  <!-- Plan cards -->
+  <div class="plans">
+
+    <!-- Annual (selected) -->
+    <div class="plan-card selected">
+      <div class="best-value"><span>MELHOR VALOR</span></div>
+      <div class="plan-row">
+        <div>
+          <div class="plan-name">Anual</div>
+          <div class="plan-per-month">R$ 16,66/mês</div>
+        </div>
+        <div class="plan-price">
+          <div class="plan-price-amount green">R$ 199,90</div>
+          <div class="plan-price-period">/ano</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly -->
+    <div class="plan-card unselected">
+      <div class="plan-row">
+        <div class="plan-name">Mensal</div>
+        <div class="plan-price">
+          <div class="plan-price-amount navy">R$ 29,90</div>
+          <div class="plan-price-period">/mês</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-button">
+    <span>Começar 7 dias grátis</span>
+  </div>
+
+  <div class="disclaimer">
+    Cancele antes do período de teste terminar e não será cobrado. Renovação automática.
+  </div>
+
+  <!-- Restore -->
+  <div class="link-row">
+    <svg width="14" height="14" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M128 32a96 96 0 1 0 96 96" stroke="#9896B8" stroke-width="20" stroke-linecap="round"/>
+      <polyline points="176,32 224,32 224,80" stroke="#9896B8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span class="link-text">Restaurar compras</span>
+  </div>
+
+  <!-- Sign out -->
+  <div class="link-row">
+    <svg width="14" height="14" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M112 40H48a16 16 0 0 0-16 16v144a16 16 0 0 0 16 16h64" stroke="#9896B8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      <polyline points="160,80 208,128 160,176" stroke="#9896B8" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      <line x1="96" y1="128" x2="208" y2="128" stroke="#9896B8" stroke-width="20" stroke-linecap="round"/>
+    </svg>
+    <span class="link-text">Sair da conta</span>
+  </div>
+
+</body>
+</html>
