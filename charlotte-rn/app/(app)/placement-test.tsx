@@ -1,21 +1,10 @@
 // app/(app)/placement-test.tsx
 //
 // Placement test — assigns Charlotte level: Novice / Inter / Advanced
-// Charlotte guides the user in first-person throughout (like Duolingo's Duo).
-//
-// Flow:
-//   Intro  → Q1–Q15 Grammar → (optional Listening x1 or x2) → Result
-//
-// Scoring (15 grammar):
-//   ≤5  correct → Novice  (no listening)
-//   ≤11 correct → Inter   (1 listening: LISTENING_INTER)
-//   12+ correct → Advanced (2 listenings: INTER then ADVANCED; both must pass)
-//
-// Listening modifiers:
-//   Inter  listening correct  → Inter   | wrong → Novice
-//   Advanced both correct     → Advanced
-//   Advanced one wrong        → Inter
-//   Advanced both wrong       → Novice
+// Adaptive 3-block logic:
+//   Block 1 (5 q, vocab)       — if <4 correct → Novice (stop)
+//   Block 2 (5 q, basic gram.) — if <4 correct → Novice
+//   Block 3 (5 q, advanced)    — if >=3 correct → Advanced, else Inter
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
@@ -71,132 +60,109 @@ const LEVEL_TAG: Record<string, string> = {
 type GrammarQ = {
   kind: 'grammar';
   id: number;
-  difficulty: string;
+  block: number;
+  difficulty?: string;
   question: string;
   options: string[];
   correctIndex: number;
+  explanation: string;
 };
 
 type ListeningQ = {
   kind: 'listening';
   id: number;
+  block: number;
   forLevel: 'Inter' | 'Advanced';
   audioText: string;
   prompt: string;
   options: string[];
   correctIndex: number;
+  explanation: string;
 };
 
 type AnyQuestion = GrammarQ | ListeningQ;
 
-// ── Grammar questions (A1 → C2) ───────────────────────────────────────────────
-const GRAMMAR: GrammarQ[] = [
+// ── Block 1 — Very Basic (vocab/translation) ──────────────────────────────────
+const BLOCK1: GrammarQ[] = [
   {
-    kind: 'grammar', id: 1, difficulty: 'Basic',
-    question: 'Every morning, she ___ breakfast before leaving for work.',
-    options: ['make', 'makes', 'is making', 'made'],
-    correctIndex: 1,
-  },
-  {
-    kind: 'grammar', id: 2, difficulty: 'Basic',
-    question: 'I ___ dinner when she called me last night.',
-    options: ['had', 'was having', 'have had', 'am having'],
-    correctIndex: 1,
-  },
-  {
-    kind: 'grammar', id: 3, difficulty: 'Intermediate',
-    question: 'She ___ in Paris for three years — she moved there after university.',
-    options: ['lives', 'lived', 'has lived', 'is living'],
-    correctIndex: 2,
-  },
-  {
-    kind: 'grammar', id: 4, difficulty: 'Intermediate',
-    question: 'If I ___ a car, I would drive to work instead of taking the bus.',
-    options: ['have', 'had', 'will have', 'would have'],
-    correctIndex: 1,
-  },
-  {
-    kind: 'grammar', id: 5, difficulty: 'Intermediate',
-    question: 'When I arrived at the station, the last train ___.',
-    options: ['already left', 'has already left', 'had already left', 'already leaves'],
-    correctIndex: 2,
-  },
-  {
-    kind: 'grammar', id: 6, difficulty: 'Advanced',
-    question: 'A new bridge ___ across the river by the end of next year.',
-    options: [
-      'is going to build',
-      'will have been built',
-      'is going to be building',
-      'will have built',
-    ],
-    correctIndex: 1,
-  },
-  {
-    kind: 'grammar', id: 7, difficulty: 'Advanced',
-    question: 'I wish I ___ that job offer when I had the chance.',
-    options: ['accepted', 'would accept', 'had accepted', 'could accept'],
-    correctIndex: 2,
-  },
-  {
-    kind: 'grammar', id: 8, difficulty: 'Expert',
-    question: 'Not until the final results were announced ___ how close the election had been.',
-    options: [
-      'the public realized',
-      'did the public realize',
-      'the public did realize',
-      'realized the public',
-    ],
-    correctIndex: 1,
-  },
-  {
-    kind: 'grammar', id: 9, difficulty: 'Expert',
-    question: 'The board of directors insisted that the CEO ___ a full audit of all accounts.',
-    options: ['conducts', 'conducted', 'conduct', 'would conduct'],
-    correctIndex: 2,
-  },
-  {
-    kind: 'grammar', id: 10, difficulty: 'Expert',
-    question: 'Scarcely ___ the building when the fire alarm went off.',
-    options: ['we had entered', 'had we entered', 'we entered', 'did we enter'],
-    correctIndex: 1,
-  },
-  // ── Extra questions (Q11–Q15) ── added for better calibration ────────────────
-  {
-    kind: 'grammar', id: 11, difficulty: 'Intermediate',
-    question: 'She told me she ___ to the conference the following day.',
-    options: ['is coming', 'was coming', 'has come', 'will come'],
-    correctIndex: 1,
-  },
-  {
-    kind: 'grammar', id: 12, difficulty: 'Intermediate',
-    question: 'You ___ told her the truth earlier — now it\'s too late to fix it.',
-    options: ['should have', 'must have', 'would have', 'had better'],
+    kind: 'grammar', id: 101, block: 1,
+    question: 'Como se diz "casa" em inglês?',
+    options: ['house', 'horse', 'mouse', 'noise'],
     correctIndex: 0,
+    explanation: '"House" significa casa. "Horse" é cavalo.',
   },
   {
-    kind: 'grammar', id: 13, difficulty: 'Advanced',
-    question: 'If they ___ better safety protocols, the accident never would have happened.',
-    options: ['implement', 'implemented', 'had implemented', 'would implement'],
+    kind: 'grammar', id: 102, block: 1,
+    question: 'Qual palavra significa "obrigado" em inglês?',
+    options: ['Sorry', 'Please', 'Thank you', 'Excuse me'],
     correctIndex: 2,
+    explanation: '"Thank you" é a forma de agradecer em inglês.',
   },
   {
-    kind: 'grammar', id: 14, difficulty: 'Advanced',
-    question: '___ the lack of communication that caused the project to collapse, not the budget.',
-    options: ['It was', 'There was', 'What was', 'It had been'],
-    correctIndex: 0,
+    kind: 'grammar', id: 103, block: 1,
+    question: 'Qual é a cor do céu em inglês?',
+    options: ['red', 'green', 'blue', 'yellow'],
+    correctIndex: 2,
+    explanation: '"Blue" significa azul — a cor do céu.',
   },
   {
-    kind: 'grammar', id: 15, difficulty: 'Expert',
-    question: 'The treaty stipulates that every signatory ___ annual progress reports to the council.',
-    options: ['submits', 'submit', 'submitted', 'must submit'],
+    kind: 'grammar', id: 104, block: 1,
+    question: 'Que número vem depois de "two" (dois)?',
+    options: ['one', 'four', 'three', 'five'],
+    correctIndex: 2,
+    explanation: '"Three" é o número 3 — vem depois de "two" (2).',
+  },
+  {
+    kind: 'grammar', id: 105, block: 1,
+    question: 'Como se diz "bom dia" em inglês?',
+    options: ['Good night', 'Good morning', 'Good afternoon', 'Goodbye'],
     correctIndex: 1,
+    explanation: '"Good morning" é bom dia. "Good night" é boa noite.',
   },
 ];
 
-// ── Listening questions ───────────────────────────────────────────────────────
+// ── Block 2 — Novice/Intermediate (basic grammar) ─────────────────────────────
+const BLOCK2: GrammarQ[] = [
+  {
+    kind: 'grammar', id: 201, block: 2,
+    question: 'She ___ to school every day.',
+    options: ['go', 'goes', 'going', 'gone'],
+    correctIndex: 1,
+    explanation: 'Com "she/he/it", usamos "goes" (simple present com -es).',
+  },
+  {
+    kind: 'grammar', id: 202, block: 2,
+    question: 'I ___ a student.',
+    options: ['am', 'is', 'are', 'be'],
+    correctIndex: 0,
+    explanation: 'Com "I", o verbo "to be" é "am": I am a student.',
+  },
+  {
+    kind: 'grammar', id: 203, block: 2,
+    question: 'Yesterday, I ___ dinner at home.',
+    options: ['eat', 'eats', 'eating', 'ate'],
+    correctIndex: 3,
+    explanation: '"Ate" é o passado de "eat". Yesterday indica passado simples.',
+  },
+  {
+    kind: 'grammar', id: 204, block: 2,
+    question: 'There ___ many people in the park.',
+    options: ['is', 'are', 'was', 'am'],
+    correctIndex: 1,
+    explanation: '"People" é plural, então usamos "are": There are many people.',
+  },
+  {
+    kind: 'grammar', id: 205, block: 2,
+    question: 'How ___ books do you have?',
+    options: ['much', 'more', 'many', 'most'],
+    correctIndex: 2,
+    explanation: '"Many" é usado com substantivos contáveis no plural, como "books".',
+  },
+];
+
+// ── Listening questions (reused in Block 3) ───────────────────────────────────
 const LISTENING_INTER: ListeningQ = {
-  kind: 'listening', id: 20, forLevel: 'Inter',
+  kind: 'listening', id: 20, block: 3, forLevel: 'Inter',
   audioText:
     "Hi, my name is Sarah. I moved to London about a year ago for work. " +
     "At first, I found it quite difficult to understand different accents, " +
@@ -212,10 +178,11 @@ const LISTENING_INTER: ListeningQ = {
     'Living in London for more than two years',
   ],
   correctIndex: 2,
+  explanation: 'Listen carefully to the audio and choose the best answer that matches what was said.',
 };
 
 const LISTENING_ADVANCED: ListeningQ = {
-  kind: 'listening', id: 21, forLevel: 'Advanced',
+  kind: 'listening', id: 21, block: 3, forLevel: 'Advanced',
   audioText:
     "The recent surge in artificial intelligence adoption has sparked considerable debate among economists. " +
     "While proponents argue that automation will ultimately create more jobs than it displaces — " +
@@ -232,22 +199,58 @@ const LISTENING_ADVANCED: ListeningQ = {
     'The fact that only low-skilled roles are at risk',
   ],
   correctIndex: 1,
+  explanation: 'Listen carefully to the audio and choose the best answer that matches what was said.',
 };
+
+// ── Block 3 — Advanced (grammar, listening, grammar, listening, grammar) ───────
+const BLOCK3: AnyQuestion[] = [
+  {
+    kind: 'grammar', id: 6, block: 3, difficulty: 'Advanced',
+    question: 'A new bridge ___ across the river by the end of next year.',
+    options: [
+      'is going to build',
+      'will have been built',
+      'is going to be building',
+      'will have built',
+    ],
+    correctIndex: 1,
+    explanation: '"will have been built" — passive voice in the future perfect.',
+  },
+  LISTENING_INTER,
+  {
+    kind: 'grammar', id: 8, block: 3, difficulty: 'Expert',
+    question: 'Not until the final results were announced ___ how close the election had been.',
+    options: [
+      'the public realized',
+      'did the public realize',
+      'the public did realize',
+      'realized the public',
+    ],
+    correctIndex: 1,
+    explanation: '"did the public realize" — inverted word order after negative adverbial "not until".',
+  },
+  LISTENING_ADVANCED,
+  {
+    kind: 'grammar', id: 10, block: 3, difficulty: 'Expert',
+    question: 'Scarcely ___ the building when the fire alarm went off.',
+    options: ['we had entered', 'had we entered', 'we entered', 'did we enter'],
+    correctIndex: 1,
+    explanation: '"had we entered" — subject-auxiliary inversion required after "scarcely".',
+  },
+];
 
 // ── Level logic ───────────────────────────────────────────────────────────────
 type Level = 'Novice' | 'Inter' | 'Advanced';
 
-// 15 grammar questions — stricter thresholds
-function grammarLevel(score: number): Level {
-  if (score <= 5)  return 'Novice';   // ≤33%
-  if (score <= 11) return 'Inter';    // ≤73%
-  return 'Advanced';                  // 12+ (≥80%)
-}
-
-// For Inter: 1 listening — correct=Inter, wrong=Novice
-// For Advanced: 2 listenings (INTER then ADVANCED) — handled in finalize()
-function applyListeningInter(correct: boolean): Level {
-  return correct ? 'Inter' : 'Novice';
+function computeLevel(
+  block1Correct: number,
+  block2Correct: number,
+  block3Correct: number,
+): Level {
+  if (block1Correct < 4) return 'Novice';
+  if (block2Correct < 4) return 'Novice';
+  if (block3Correct >= 3) return 'Advanced';
+  return 'Inter';
 }
 
 const LEVEL_META: Record<Level, {
@@ -280,9 +283,9 @@ const LEVEL_META: Record<Level, {
   },
 };
 
-
 // ── Main component ────────────────────────────────────────────────────────────
 type Phase = 'intro' | 'test' | 'saving' | 'result';
+type BlockNum = 1 | 2 | 3;
 
 export default function PlacementTestScreen() {
   const { session, refreshProfile, profile } = useAuth();
@@ -293,12 +296,13 @@ export default function PlacementTestScreen() {
   const insets = useSafeAreaInsets();
 
   const [phase, setPhase]         = useState<Phase>('intro');
-  const [queue, setQueue]         = useState<AnyQuestion[]>([]);
+  const [block, setBlock]         = useState<BlockNum>(1);
+  const [blockQuestions, setBlockQuestions] = useState<AnyQuestion[]>(BLOCK1);
   const [qIndex, setQIndex]       = useState(0);
-  const [answers, setAnswers]     = useState<number[]>([]);
   const [selected, setSelected]   = useState<number | null>(null);
   const [locked, setLocked]       = useState(false);
   const [verified, setVerified]   = useState(false);
+  const [answers, setAnswers]     = useState<{ block: BlockNum; idx: number; correct: boolean }[]>([]);
   const [level, setLevel]         = useState<Level>('Novice');
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -307,7 +311,7 @@ export default function PlacementTestScreen() {
   const LISTEN_ID = 'placement-listen';
   const isPlaying  = playingMessageId === LISTEN_ID;
 
-  const slideAnim   = useRef(new Animated.Value(0)).current;
+  const slideAnim    = useRef(new Animated.Value(0)).current;
   const feedbackAnim = useRef(new Animated.Value(0)).current;
 
   const slideIn = useCallback((fromRight = true) => {
@@ -316,7 +320,13 @@ export default function PlacementTestScreen() {
   }, [slideAnim]);
 
   const handleStart = () => {
-    setQueue(GRAMMAR);
+    setBlock(1);
+    setBlockQuestions(BLOCK1);
+    setQIndex(0);
+    setAnswers([]);
+    setSelected(null);
+    setLocked(false);
+    setVerified(false);
     setPhase('test');
     slideIn();
   };
@@ -329,13 +339,13 @@ export default function PlacementTestScreen() {
 
   useEffect(() => {
     if (phase !== 'test') return;
-    const q = queue[qIndex];
+    const q = blockQuestions[qIndex];
     if (!q || q.kind !== 'listening') return;
     stopAudio();
     const uri = STATIC_AUDIO[q.id] ?? null;
     setAudioUri(uri);
     setAudioLoading(false);
-  }, [phase, qIndex, queue]);
+  }, [phase, qIndex, blockQuestions]);
 
   // Select only — no auto-advance (Duolingo style)
   const handleSelect = (idx: number) => {
@@ -359,78 +369,79 @@ export default function PlacementTestScreen() {
     Animated.spring(feedbackAnim, { toValue: 1, friction: 8, tension: 60, useNativeDriver: true }).start();
   };
 
-  // Próxima — advance after feedback
+  // handleNext — record answer then advance through blocks
   const handleNext = () => {
-    const idx = selected!;
-    const newAnswers = [...answers, idx];
-    const isLastGrammar = qIndex === GRAMMAR.length - 1;
+    const currentBlock = block;
+    const currentBlockQuestions = blockQuestions;
+    const isCorrect = selected !== null && selected === currentQ.correctIndex;
+    const newAnswers = [...answers, { block: currentBlock, idx: qIndex, correct: isCorrect }];
 
-    // Dismiss feedback panel first
     Animated.timing(feedbackAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
       setVerified(false);
       setLocked(false);
 
-      if (isLastGrammar) {
-        const grammarScore = newAnswers
-          .slice(0, GRAMMAR.length)
-          .filter((ans, i) => ans === GRAMMAR[i].correctIndex).length;
-        const prelim = grammarLevel(grammarScore);
-        // Advanced → 2 listenings (INTER first, then ADVANCED)
-        // Inter    → 1 listening  (INTER only)
-        // Novice   → no listening
-        const extra: ListeningQ[] =
-          prelim === 'Advanced' ? [LISTENING_INTER, LISTENING_ADVANCED] :
-          prelim === 'Inter'    ? [LISTENING_INTER] : [];
-        const newQueue = [...GRAMMAR, ...extra];
-        setQueue(newQueue);
+      const isLastInBlock = qIndex + 1 >= currentBlockQuestions.length;
+
+      if (!isLastInBlock) {
+        // Advance to next question in same block
         setAnswers(newAnswers);
-        if (extra.length === 0) finalize(newAnswers, newQueue);
-        else advance(newAnswers, newQueue, qIndex + 1);
+        Animated.timing(slideAnim, { toValue: -SCREEN_W, duration: 200, useNativeDriver: true }).start(() => {
+          setSelected(null);
+          setQIndex(qIndex + 1);
+          slideIn(true);
+        });
         return;
       }
-      const isLastQuestion = qIndex === queue.length - 1;
-      if (isLastQuestion) finalize(newAnswers, queue);
-      else advance(newAnswers, queue, qIndex + 1);
+
+      // Block ended — count correct answers for this block
+      const blockCorrect = newAnswers.filter(a => a.block === currentBlock && a.correct).length;
+
+      if (currentBlock === 1) {
+        if (blockCorrect < 4) {
+          // Early exit — Novice
+          finalize(newAnswers, 'Novice');
+        } else {
+          // Advance to Block 2
+          setAnswers(newAnswers);
+          Animated.timing(slideAnim, { toValue: -SCREEN_W, duration: 200, useNativeDriver: true }).start(() => {
+            setSelected(null);
+            setBlock(2);
+            setBlockQuestions(BLOCK2);
+            setQIndex(0);
+            slideIn(true);
+          });
+        }
+        return;
+      }
+
+      if (currentBlock === 2) {
+        if (blockCorrect < 4) {
+          finalize(newAnswers, 'Novice');
+        } else {
+          // Advance to Block 3
+          setAnswers(newAnswers);
+          Animated.timing(slideAnim, { toValue: -SCREEN_W, duration: 200, useNativeDriver: true }).start(() => {
+            setSelected(null);
+            setBlock(3);
+            setBlockQuestions(BLOCK3);
+            setQIndex(0);
+            slideIn(true);
+          });
+        }
+        return;
+      }
+
+      // Block 3 ended
+      const block3Correct = newAnswers.filter(a => a.block === 3 && a.correct).length;
+      const finalLevel: Level = block3Correct >= 3 ? 'Advanced' : 'Inter';
+      finalize(newAnswers, finalLevel);
     });
   };
 
-  const advance = (newAnswers: number[], newQueue: AnyQuestion[], nextIndex: number) => {
-    Animated.timing(slideAnim, { toValue: -SCREEN_W, duration: 200, useNativeDriver: true }).start(() => {
-      setAnswers(newAnswers);
-      setSelected(null);
-      setQIndex(nextIndex);
-      slideIn(true);
-    });
-  };
-
-  const finalize = (finalAnswers: number[], finalQueue: AnyQuestion[]) => {
-    const grammarScore = finalAnswers
-      .slice(0, GRAMMAR.length)
-      .filter((ans, i) => ans === GRAMMAR[i].correctIndex).length;
-    const prelim = grammarLevel(grammarScore);
-
-    const listeningQs = finalQueue.filter(q => q.kind === 'listening') as ListeningQ[];
-
-    let finalLevel: Level = prelim;
-
-    if (prelim === 'Inter' && listeningQs.length >= 1) {
-      // Inter track: 1 listening — pass=Inter, fail=Novice
-      const lq  = listeningQs[0];
-      const ans = finalAnswers[finalQueue.indexOf(lq)];
-      finalLevel = applyListeningInter(ans === lq.correctIndex);
-
-    } else if (prelim === 'Advanced' && listeningQs.length >= 2) {
-      // Advanced track: both listenings must pass
-      const interQ    = listeningQs.find(q => q.forLevel === 'Inter')!;
-      const advQ      = listeningQs.find(q => q.forLevel === 'Advanced')!;
-      const interPass = finalAnswers[finalQueue.indexOf(interQ)] === interQ.correctIndex;
-      const advPass   = finalAnswers[finalQueue.indexOf(advQ)]   === advQ.correctIndex;
-
-      if (interPass && advPass)   finalLevel = 'Advanced';
-      else if (interPass || advPass) finalLevel = 'Inter';
-      else                           finalLevel = 'Novice';
-    }
-
+  const finalize = (
+    finalAnswers: { block: BlockNum; idx: number; correct: boolean }[],
+    finalLevel: Level,
+  ) => {
     setLevel(finalLevel);
     setAnswers(finalAnswers);
     setPhase('saving');
@@ -448,7 +459,7 @@ export default function PlacementTestScreen() {
       const { error } = await supabase
         .from('charlotte_users')
         .update({
-          charlotte_level:    assignedLevel,
+          charlotte_level:     assignedLevel,
           placement_test_done: true,
           subscription_status: 'trial',
           trial_ends_at:       trialEndsAt.toISOString(),
@@ -487,29 +498,47 @@ export default function PlacementTestScreen() {
     />
   );
 
-  const currentQ = queue[qIndex];
+  const currentQ = blockQuestions[qIndex];
   if (!currentQ) return null;
 
-  const displayTotal = qIndex < GRAMMAR.length ? GRAMMAR.length : queue.length;
-  const progress     = (qIndex + 1) / displayTotal;
-
+  const progress = (qIndex + 1) / blockQuestions.length;
   const currentIsCorrect = selected !== null && selected === currentQ.correctIndex;
   const feedbackTranslateY = feedbackAnim.interpolate({ inputRange: [0, 1], outputRange: [300, 0] });
+
+  // Charlotte instruction bubble text per block/kind
+  let instructionText: string;
+  if (block === 1) {
+    instructionText = 'Escolha a alternativa correta.';
+  } else if (block === 2) {
+    instructionText = 'Complete a frase corretamente.';
+  } else if (currentQ.kind === 'listening') {
+    instructionText = 'Listen to the audio and choose the best answer.';
+  } else {
+    instructionText = 'Choose the correct option to complete the sentence.';
+  }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top']}>
 
       {/* Progress header */}
-      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 }}>
+      <View style={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, letterSpacing: 0.5 }}>
+            {`Etapa ${block} de 3`}
+          </AppText>
+          <AppText style={{ fontSize: 11, fontWeight: '600', color: C.navyLight }}>
+            {`${qIndex + 1} / ${blockQuestions.length}`}
+          </AppText>
+        </View>
         <View style={{ height: 4, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 2, overflow: 'hidden' }}>
           <View style={{ height: 4, width: `${progress * 100}%` as `${number}%`, backgroundColor: C.green, borderRadius: 2 }} />
         </View>
       </View>
 
-      {/* Scrollable content — no nested card */}
+      {/* Scrollable content */}
       <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Charlotte instruction */}
@@ -528,9 +557,7 @@ export default function PlacementTestScreen() {
               paddingHorizontal: 14, paddingVertical: 12,
             }}>
               <AppText style={{ fontSize: 14, color: C.navy, fontWeight: '700', lineHeight: 20 }}>
-                {currentQ.kind === 'listening'
-                  ? 'Listen to the audio and choose the best answer.'
-                  : 'Escolha a opção correta para completar a frase.'}
+                {instructionText}
               </AppText>
             </View>
           </View>
@@ -545,7 +572,7 @@ export default function PlacementTestScreen() {
             }}>
               <Headphones size={16} color={C.green} weight="duotone" />
               <AppText style={{ flex: 1, fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.65)' }}>
-                {isPlaying ? 'Playing…' : 'Tap to listen'}
+                {isPlaying ? 'Playing...' : 'Tap to listen'}
               </AppText>
               {audioLoading ? (
                 <ActivityIndicator size="small" color={C.green} />
@@ -575,7 +602,13 @@ export default function PlacementTestScreen() {
           </AppText>
 
           {/* Options */}
-          <OptionList options={currentQ.options} selected={selected} locked={locked} onSelect={handleSelect} />
+          <OptionList
+            options={currentQ.options}
+            selected={selected}
+            locked={locked}
+            correctIndex={currentQ.correctIndex}
+            onSelect={handleSelect}
+          />
 
         </ScrollView>
       </Animated.View>
@@ -610,7 +643,7 @@ export default function PlacementTestScreen() {
           paddingBottom: insets.bottom + 20,
           transform: [{ translateY: feedbackTranslateY }],
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 }}>
             {currentIsCorrect
               ? <CheckCircle size={24} color={C.greenDark} weight="fill" />
               : <XCircle    size={24} color="#DC2626"     weight="fill" />}
@@ -618,9 +651,22 @@ export default function PlacementTestScreen() {
               fontSize: 17, fontWeight: '800',
               color: currentIsCorrect ? C.greenDark : '#DC2626',
             }}>
-              {currentIsCorrect ? 'Correto!' : 'Não foi dessa vez'}
+              {currentIsCorrect ? 'Correto!' : 'Nao foi dessa vez'}
             </AppText>
           </View>
+          {!currentIsCorrect && (
+            <AppText style={{ fontSize: 13, color: '#DC2626', marginBottom: 8 }}>
+              {`Resposta certa: "${currentQ.options[currentQ.correctIndex]}"`}
+            </AppText>
+          )}
+          <AppText style={{
+            fontSize: 13,
+            color: currentIsCorrect ? C.greenDark : '#7B2020',
+            marginBottom: 16,
+            lineHeight: 19,
+          }}>
+            {currentQ.explanation}
+          </AppText>
           <TouchableOpacity
             onPress={handleNext}
             activeOpacity={0.85}
@@ -630,7 +676,7 @@ export default function PlacementTestScreen() {
             }}
           >
             <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
-              Próxima →
+              Proxima →
             </AppText>
           </TouchableOpacity>
         </Animated.View>
@@ -644,17 +690,29 @@ export default function PlacementTestScreen() {
 // ── Option list ───────────────────────────────────────────────────────────────
 
 function OptionList({
-  options, selected, locked, onSelect,
+  options, selected, locked, correctIndex, onSelect,
 }: {
   options: string[];
   selected: number | null;
   locked: boolean;
+  correctIndex: number;
   onSelect: (idx: number) => void;
 }) {
   return (
     <View style={{ gap: 10 }}>
       {options.map((option, idx) => {
         const isSelected = selected === idx;
+        const isCorrect  = idx === correctIndex;
+
+        let borderColor = C.border;
+        let bgColor = C.card;
+        if (locked) {
+          if (isCorrect)                    { borderColor = C.greenDark; bgColor = 'rgba(61,136,0,0.08)'; }
+          else if (isSelected && !isCorrect){ borderColor = '#DC2626';   bgColor = 'rgba(220,38,38,0.06)'; }
+        } else {
+          if (isSelected) { borderColor = C.green; bgColor = 'rgba(163,255,60,0.10)'; }
+        }
+
         return (
           <TouchableOpacity
             key={idx}
@@ -662,8 +720,7 @@ function OptionList({
             activeOpacity={locked ? 1 : 0.75}
             style={{
               borderRadius: 14, borderWidth: 2,
-              borderColor: isSelected ? C.green : C.border,
-              backgroundColor: isSelected ? 'rgba(163,255,60,0.10)' : C.card,
+              borderColor, backgroundColor: bgColor,
               paddingHorizontal: 16, paddingVertical: 16,
               alignItems: 'center',
             }}
@@ -706,8 +763,6 @@ function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () =>
       Animated.timing(bubbleY, { toValue: 0, duration: 380, delay: 350, useNativeDriver: true }),
     ]).start();
   }, []);
-
-  const isNovice = true; // intro is always in PT (user hasn't been tested yet)
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'bottom']}>
@@ -761,10 +816,10 @@ function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () =>
               CHARLOTTE
             </AppText>
             <AppText style={{ fontSize: 17, color: '#FFFFFF', lineHeight: 26, fontWeight: '500' }}>
-              Olá, {firstName}! Qual é o seu nível de inglês?
+              Ola, {firstName}! Qual e o seu nivel de ingles?
             </AppText>
             <AppText style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 23, marginTop: 8 }}>
-              Me responde algumas questões rápidas e eu adapto as conversas e o conteúdo ao seu nível.
+              Me responde algumas questoes rapidas e eu adapto as conversas e o conteudo ao seu nivel.
             </AppText>
           </View>
         </Animated.View>
@@ -780,7 +835,7 @@ function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () =>
             justifyContent: 'center', gap: 8,
           }}
         >
-          <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar</AppText>
+          <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Comecar</AppText>
           <ArrowRight size={18} color={C.navy} weight="bold" />
         </TouchableOpacity>
 
@@ -797,7 +852,7 @@ function SavingScreen() {
       <CharlotteAvatar size="xl" />
       <ActivityIndicator size="large" color={C.navy} style={{ marginTop: 24 }} />
       <AppText style={{ marginTop: 14, fontSize: 15, color: C.navyMid, fontWeight: '500' }}>
-        Calculando seu nível...
+        Calculando seu nivel...
       </AppText>
     </SafeAreaView>
   );
@@ -899,7 +954,7 @@ function ResultScreen({
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
+              <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Comecar a aprender</AppText>
               <ArrowRight size={18} color={C.navy} weight="bold" />
             </TouchableOpacity>
           </ScrollView>
