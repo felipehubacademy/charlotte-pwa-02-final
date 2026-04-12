@@ -47,6 +47,7 @@
       }
     },
     "production": {
+      "channel": "production",
       "autoIncrement": true,
       "ios": {
         "simulator": false
