@@ -6,12 +6,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'charlotte-rn',
   version: '1.0.0',
   orientation: 'portrait',
-  // Fallback: o repositório atual só inclui `charlotte-avatar.png` em `assets/`.
-  // Se você adicionar `icon.png`, trocamos de volta.
-  icon: './assets/charlotte-avatar.png',
+  icon: './assets/icon.png',
   userInterfaceStyle: 'automatic',
   splash: {
-    backgroundColor: '#F4F3FA',
+    image: './assets/splash.png',
+    resizeMode: 'contain',
+    backgroundColor: '#16153A',
   },
   scheme: 'charlotte',
   assetBundlePatterns: ['**/*'],
@@ -34,8 +34,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.hubacademy.charlotte',
     adaptiveIcon: {
-      foregroundImage: './assets/charlotte-avatar.png',
-      backgroundColor: '#F4F3FA',
+      foregroundImage: './assets/icon.png',
+      backgroundColor: '#16153A',
     },
     permissions: [
       'RECORD_AUDIO',
@@ -47,7 +47,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   web: {
     bundler: 'metro',
     output: 'static',
-    favicon: './assets/charlotte-avatar.png',
+    favicon: './assets/icon.png',
   },
   updates: {
     url: 'https://u.expo.dev/da14586b-2944-4150-b8ad-5ff7e32af6e2',
@@ -65,13 +65,16 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       'expo-splash-screen',
       {
-        backgroundColor: '#F4F3FA',
+        image: './assets/splash.png',
+        imageWidth: 480,
+        resizeMode: 'contain',
+        backgroundColor: '#16153A',
       },
     ],
     [
       'expo-notifications',
       {
-        icon: './assets/charlotte-avatar.png',
+        icon: './assets/notification-icon.png',
         color: '#A3FF3C',
       },
     ],
