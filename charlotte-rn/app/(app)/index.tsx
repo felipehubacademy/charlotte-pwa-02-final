@@ -794,9 +794,7 @@ export default function HomeScreen() {
   const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
   const [weeklyState, setWeeklyState]               = useState<WeeklyChallengeState | null>(null);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
-  // Start as false — show charlotteMessage() fallback immediately, swap in AI greeting when ready.
-  // Prevents dots from showing indefinitely if the API is slow or fails.
-  const [greetingLoading, setGreetingLoading] = useState(false);
+  const [greetingLoading, setGreetingLoading] = useState(true);
   // Tracks weekly challenge rewards already granted this session to prevent double-credit
   const weeklyRewardedRef  = useRef<Set<string>>(new Set());
 
@@ -1073,7 +1071,10 @@ export default function HomeScreen() {
         // Silently fail — charlotteMessage() fallback stays visible
       }
     })();
-  }, [userId, name, level, data, profile]); // eslint-disable-line
+  // NOTE: 'data' removed from deps intentionally — having it caused the effect to re-run
+  // every time fetchData completed, interfering with the in-flight async setAiGreeting call.
+  // The greeting context (streak/xp) uses data?.x ?? 0 safely even when data is null.
+  }, [userId, name, level, profile]); // eslint-disable-line
 
   const missions     = data ? buildMissions(data, level) : [];
   const doneMissions = missions.filter(m => m.completed).length;
