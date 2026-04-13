@@ -48,9 +48,9 @@ export default function SignupScreen() {
       const msg = (e?.message ?? '') as string;
       console.error('[Signup] error:', msg);
       if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered') || msg.toLowerCase().includes('user already')) {
-        setError('Este e-mail ja esta cadastrado. Faca login.');
+        setError('Este e-mail já está cadastrado. Faça login.');
       } else if (msg.toLowerCase().includes('invalid') || msg.toLowerCase().includes('email')) {
-        setError('E-mail invalido.');
+        setError('E-mail inválido.');
       } else if (msg.toLowerCase().includes('password') || msg.toLowerCase().includes('senha')) {
         setError('Senha fraca. Use pelo menos 6 caracteres.');
       } else if (msg.toLowerCase().includes('rate') || msg.toLowerCase().includes('limit')) {

@@ -128,7 +128,7 @@ export default function AvatarCropModal({
       }
     } catch (err: any) {
       console.error('[AvatarCropModal] pickFromLibrary error:', err);
-      Alert.alert('Erro', 'Nao foi possivel abrir a galeria. Tente novamente.');
+      Alert.alert('Erro', 'Não foi possível abrir a galeria. Tente novamente.');
     }
   }, []);
 
@@ -137,8 +137,8 @@ export default function AvatarCropModal({
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(
-          'Permissao necessaria',
-          'Permita o acesso a camera nas Configuracoes do iPhone > Charlotte.'
+          'Permissão necessária',
+          'Permita o acesso à câmera nas Configurações do iPhone > Charlotte.'
         );
         return;
       }
@@ -152,7 +152,7 @@ export default function AvatarCropModal({
       }
     } catch (err: any) {
       console.error('[AvatarCropModal] pickFromCamera error:', err);
-      Alert.alert('Erro', 'Nao foi possivel abrir a camera. Tente novamente.');
+      Alert.alert('Erro', 'Não foi possível abrir a câmera. Tente novamente.');
     }
   }, []);
 
@@ -261,7 +261,7 @@ export default function AvatarCropModal({
       handleCloseRef.current();
     } catch (err: any) {
       console.error('[AvatarCropModal] upload error:', err);
-      Alert.alert('Erro', err?.message ?? 'Nao foi possivel salvar a foto. Tente novamente.');
+      Alert.alert('Erro', err?.message ?? 'Não foi possível salvar a foto. Tente novamente.');
     } finally {
       setUploading(false);
     }
@@ -330,7 +330,7 @@ export default function AvatarCropModal({
               <AppText style={styles.pickTitle}>Escolha uma foto</AppText>
               <AppText style={styles.pickSubtitle}>
                 Escolha da galeria ou tire uma nova foto.{'\n'}
-                Voce pode recortar e dar zoom antes de salvar.
+                Você pode recortar e dar zoom antes de salvar.
               </AppText>
 
               <TouchableOpacity style={styles.pickButton} onPress={pickFromLibrary}>

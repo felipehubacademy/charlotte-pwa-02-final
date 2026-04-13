@@ -152,14 +152,14 @@ export default function EnhancedStatsModal({
         text_message:      isPortuguese ? 'Conversa por texto'      : 'Text Chat',
         audio_message:     isPortuguese ? 'Conversa por voz'        : 'Voice Chat',
         live_voice:        isPortuguese ? 'Conversa ao vivo'        : 'Live Conversation',
-        pronunciation:     isPortuguese ? 'Pronuncia'               : 'Pronunciation',
-        grammar:           isPortuguese ? 'Gramatica'               : 'Grammar',
+        pronunciation:     isPortuguese ? 'Pronúncia'               : 'Pronunciation',
+        grammar:           isPortuguese ? 'Gramática'               : 'Grammar',
         learn_exercise:    isPortuguese ? 'Trilha de Aprendizado'   : 'Learning Trail',
-        image_recognition: isPortuguese ? 'Pratica'                 : 'Practice',
+        image_recognition: isPortuguese ? 'Prática'                 : 'Practice',
       };
       const getActivityLabel = (type: string) => {
-        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missao Concluida' : 'Mission Complete';
-        return typeLabels[type] ?? (isPortuguese ? 'Pratica' : 'Practice');
+        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';
+        return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
       };
 
       const todayPracticesXP   = (todayPracticesRes.data ?? []).reduce((s: number, p: any) => s + (p.xp_earned ?? 0), 0);
@@ -242,10 +242,10 @@ export default function EnhancedStatsModal({
             </View>
             <View>
               <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
-                {isPortuguese ? 'Nivel Atual' : 'Current Level'}
+                {isPortuguese ? 'Nível Atual' : 'Current Level'}
               </AppText>
               <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy }}>
-                {isPortuguese ? 'Nivel' : 'Level'} {level}
+                {isPortuguese ? 'Nível' : 'Level'} {level}
               </AppText>
             </View>
           </View>
@@ -258,8 +258,8 @@ export default function EnhancedStatsModal({
         </View>
         <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '600' }}>
           {xpRemaining > 0
-            ? `${xpRemaining.toLocaleString()} XP ${isPortuguese ? 'para o proximo nivel' : 'to next level'}`
-            : (isPortuguese ? 'Nivel maximo!' : 'Max level!')}
+            ? `${xpRemaining.toLocaleString()} XP ${isPortuguese ? 'para o próximo nível' : 'to next level'}`
+            : (isPortuguese ? 'Nível máximo!' : 'Max level!')}
         </AppText>
       </View>
 

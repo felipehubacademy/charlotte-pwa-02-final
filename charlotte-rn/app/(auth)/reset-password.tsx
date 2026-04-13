@@ -38,7 +38,7 @@ export default function ResetPasswordScreen() {
       return;
     }
     if (password !== confirm) {
-      setError('As senhas nao coincidem.');
+      setError('As senhas não coincidem.');
       return;
     }
     setError(null);
@@ -161,7 +161,7 @@ export default function ResetPasswordScreen() {
                     weight={matches ? 'fill' : 'regular'}
                   />
                   <AppText style={{ fontSize: 12, color: matches ? C.greenDark : C.red }}>
-                    {matches ? 'Senhas coincidem' : 'Senhas nao coincidem'}
+                    {matches ? 'Senhas coincidem' : 'Senhas não coincidem'}
                   </AppText>
                 </View>
               )}

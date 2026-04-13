@@ -959,7 +959,7 @@ export default function LiveVoiceModal({
             <View style={{ flex: 1, alignItems: 'center' }}>
               <AppText style={{ fontSize: 9, fontWeight: '700', color: '#9896B8', textTransform: 'uppercase', letterSpacing: 1 }}>Charlotte</AppText>
               <AppText style={{ fontSize: 15, fontWeight: '800', color: '#16153A', letterSpacing: -0.3 }}>
-                {userLevel === 'Novice' ? 'Transcricao da Chamada' : 'Call Transcript'}
+                {userLevel === 'Novice' ? 'Transcrição da Chamada' : 'Call Transcript'}
               </AppText>
             </View>
             {/* Spacer to balance the icon on the left */}
@@ -976,7 +976,7 @@ export default function LiveVoiceModal({
               <View style={{ alignItems: 'center', paddingTop: 60, paddingHorizontal: 24 }}>
                 <AppText style={{ color: '#9896B8', fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
                   {userLevel === 'Novice'
-                    ? 'Transcricao nao disponivel para esta chamada.'
+                    ? 'Transcrição não disponível para esta chamada.'
                     : 'No transcript available for this call.'}
                 </AppText>
               </View>

@@ -45,11 +45,11 @@ export default function NotFoundScreen() {
         </View>
 
         <AppText style={{ fontSize: 22, fontWeight: '800', color: C.navy, marginBottom: 10, textAlign: 'center' }}>
-          {isPt ? 'Pagina nao encontrada' : 'Page not found'}
+          {isPt ? 'Página não encontrada' : 'Page not found'}
         </AppText>
         <AppText style={{ fontSize: 14, color: C.navyMid, textAlign: 'center', lineHeight: 21, marginBottom: 32 }}>
           {isPt
-            ? 'Esta pagina nao existe ou foi removida.'
+            ? 'Esta página não existe ou foi removida.'
             : 'This page does not exist or has been removed.'}
         </AppText>
 

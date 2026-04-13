@@ -14,8 +14,8 @@ export interface CatalogEntry {
 // ── General badges (all levels) ───────────────────────────────────────────────
 export const GENERAL_ACHIEVEMENTS: CatalogEntry[] = [
   {
-    code: 'first_practice', title: 'Ola, Mundo!', category: 'general', rarity: 'common',
-    howToEarnPT: 'Faca sua primeira pratica no app.',
+    code: 'first_practice', title: 'Olá, Mundo!', category: 'general', rarity: 'common',
+    howToEarnPT: 'Faça sua primeira prática no app.',
     howToEarnEN: 'Complete your first practice in the app.',
   },
   {
@@ -29,33 +29,33 @@ export const GENERAL_ACHIEVEMENTS: CatalogEntry[] = [
     howToEarnEN: 'Send your first voice message to Charlotte.',
   },
   {
-    code: 'first_grammar', title: 'Gramatico Iniciante', category: 'grammar', rarity: 'common',
-    howToEarnPT: 'Complete seu primeiro exercicio de gramatica.',
+    code: 'first_grammar', title: 'Gramático Iniciante', category: 'grammar', rarity: 'common',
+    howToEarnPT: 'Complete seu primeiro exercício de gramática.',
     howToEarnEN: 'Complete your first grammar exercise.',
   },
   {
     code: 'first_learn', title: 'Na Trilha', category: 'learn', rarity: 'common',
-    howToEarnPT: 'Complete seu primeiro topico na trilha de aprendizado.',
+    howToEarnPT: 'Complete seu primeiro tópico na trilha de aprendizado.',
     howToEarnEN: 'Complete your first topic on the learning trail.',
   },
   {
     code: 'practices_10', title: 'Aquecendo', category: 'general', rarity: 'common',
-    howToEarnPT: 'Faca 10 praticas no total.',
+    howToEarnPT: 'Faça 10 práticas no total.',
     howToEarnEN: 'Complete 10 total practices.',
   },
   {
     code: 'practices_50', title: 'No Ritmo', category: 'general', rarity: 'rare',
-    howToEarnPT: 'Faca 50 praticas no total.',
+    howToEarnPT: 'Faça 50 práticas no total.',
     howToEarnEN: 'Complete 50 total practices.',
   },
   {
     code: 'practices_100', title: 'Comprometido', category: 'general', rarity: 'epic',
-    howToEarnPT: 'Faca 100 praticas no total.',
+    howToEarnPT: 'Faça 100 práticas no total.',
     howToEarnEN: 'Complete 100 total practices.',
   },
   {
-    code: 'practices_500', title: 'Lenda da Pratica', category: 'general', rarity: 'legendary',
-    howToEarnPT: 'Faca 500 praticas no total.',
+    code: 'practices_500', title: 'Lenda da Prática', category: 'general', rarity: 'legendary',
+    howToEarnPT: 'Faça 500 práticas no total.',
     howToEarnEN: 'Complete 500 total practices.',
   },
   {
@@ -74,7 +74,7 @@ export const GENERAL_ACHIEVEMENTS: CatalogEntry[] = [
     howToEarnEN: 'Practice 14 days in a row.',
   },
   {
-    code: 'streak_30', title: 'Mes de Ouro', category: 'streak', rarity: 'legendary',
+    code: 'streak_30', title: 'Mês de Ouro', category: 'streak', rarity: 'legendary',
     howToEarnPT: 'Pratique 30 dias seguidos.',
     howToEarnEN: 'Practice 30 days in a row.',
   },
@@ -104,38 +104,38 @@ export const GENERAL_ACHIEVEMENTS: CatalogEntry[] = [
     howToEarnEN: 'Send 200 voice messages to Charlotte.',
   },
   {
-    code: 'grammar_20', title: 'Gramatico Avancado', category: 'grammar', rarity: 'rare',
-    howToEarnPT: 'Complete 20 exercicios de gramatica.',
+    code: 'grammar_20', title: 'Gramático Avançado', category: 'grammar', rarity: 'rare',
+    howToEarnPT: 'Complete 20 exercícios de gramática.',
     howToEarnEN: 'Complete 20 grammar exercises.',
   },
   {
-    code: 'grammar_50', title: 'Mestre da Gramatica', category: 'grammar', rarity: 'epic',
-    howToEarnPT: 'Complete 50 exercicios de gramatica.',
+    code: 'grammar_50', title: 'Mestre da Gramática', category: 'grammar', rarity: 'epic',
+    howToEarnPT: 'Complete 50 exercícios de gramática.',
     howToEarnEN: 'Complete 50 grammar exercises.',
   },
   {
     code: 'learn_25', title: 'Trilheiro', category: 'learn', rarity: 'rare',
-    howToEarnPT: 'Complete 25 topicos na trilha de aprendizado.',
+    howToEarnPT: 'Complete 25 tópicos na trilha de aprendizado.',
     howToEarnEN: 'Complete 25 topics on the learning trail.',
   },
   {
     code: 'learn_100', title: 'Mestre da Trilha', category: 'learn', rarity: 'epic',
-    howToEarnPT: 'Complete 100 topicos na trilha de aprendizado.',
+    howToEarnPT: 'Complete 100 tópicos na trilha de aprendizado.',
     howToEarnEN: 'Complete 100 topics on the learning trail.',
   },
   {
     code: 'daily_100', title: 'Super Dia', category: 'habit', rarity: 'rare',
-    howToEarnPT: 'Ganhe 100 XP em um unico dia.',
+    howToEarnPT: 'Ganhe 100 XP em um único dia.',
     howToEarnEN: 'Earn 100 XP in a single day.',
   },
   {
-    code: 'daily_200', title: 'Dia Lendario', category: 'habit', rarity: 'epic',
-    howToEarnPT: 'Ganhe 200 XP em um unico dia.',
+    code: 'daily_200', title: 'Dia Lendário', category: 'habit', rarity: 'epic',
+    howToEarnPT: 'Ganhe 200 XP em um único dia.',
     howToEarnEN: 'Earn 200 XP in a single day.',
   },
   {
     code: 'early_bird', title: 'Madrugador', category: 'habit', rarity: 'rare',
-    howToEarnPT: 'Pratique antes das 8h da manha.',
+    howToEarnPT: 'Pratique antes das 8h da manhã.',
     howToEarnEN: 'Practice before 8am.',
   },
   {
@@ -149,71 +149,71 @@ export const GENERAL_ACHIEVEMENTS: CatalogEntry[] = [
 export const LEVEL_ACHIEVEMENTS: CatalogEntry[] = [
   // Novice (PT titles)
   {
-    code: 'novice_first_topic', title: 'A Jornada Comeca', category: 'learn', rarity: 'common',
+    code: 'novice_first_topic', title: 'A Jornada Começa', category: 'learn', rarity: 'common',
     level: 'Novice',
-    howToEarnPT: 'Complete o primeiro topico da trilha Novice.',
+    howToEarnPT: 'Complete o primeiro tópico da trilha Novice.',
     howToEarnEN: 'Complete the first topic on the Novice trail.',
   },
   {
     code: 'novice_halfway', title: 'No Embalo', category: 'learn', rarity: 'rare',
     level: 'Novice',
-    howToEarnPT: 'Complete 25 dos 50 topicos da trilha Novice.',
+    howToEarnPT: 'Complete 25 dos 50 tópicos da trilha Novice.',
     howToEarnEN: 'Complete 25 of 50 Novice trail topics.',
   },
   {
-    code: 'novice_master', title: 'Mestre do Basico', category: 'learn', rarity: 'epic',
+    code: 'novice_master', title: 'Mestre do Básico', category: 'learn', rarity: 'epic',
     level: 'Novice',
-    howToEarnPT: 'Complete todos os 50 topicos da trilha Novice.',
+    howToEarnPT: 'Complete todos os 50 tópicos da trilha Novice.',
     howToEarnEN: 'Complete all 50 Novice trail topics.',
   },
   {
     code: 'novice_promoted', title: 'Passou de Fase!', category: 'general', rarity: 'legendary',
     level: 'Novice',
-    howToEarnPT: 'Complete a trilha Novice e atinja 4.000 XP para ser promovido ao nivel Inter.',
+    howToEarnPT: 'Complete a trilha Novice e atinja 4.000 XP para ser promovido ao nível Inter.',
     howToEarnEN: 'Complete the Novice trail and reach 4,000 XP to be promoted to Inter.',
   },
   // Inter (EN titles)
   {
     code: 'inter_first_topic', title: 'Rising Up', category: 'learn', rarity: 'common',
     level: 'Inter',
-    howToEarnPT: 'Complete o primeiro topico da trilha Inter.',
+    howToEarnPT: 'Complete o primeiro tópico da trilha Inter.',
     howToEarnEN: 'Complete the first topic on the Inter trail.',
   },
   {
     code: 'inter_halfway', title: 'Halfway There', category: 'learn', rarity: 'rare',
     level: 'Inter',
-    howToEarnPT: 'Complete 35 dos 70 topicos da trilha Inter.',
+    howToEarnPT: 'Complete 35 dos 70 tópicos da trilha Inter.',
     howToEarnEN: 'Complete 35 of 70 Inter trail topics.',
   },
   {
     code: 'inter_champion', title: 'Inter Champion', category: 'learn', rarity: 'epic',
     level: 'Inter',
-    howToEarnPT: 'Complete todos os 70 topicos da trilha Inter.',
+    howToEarnPT: 'Complete todos os 70 tópicos da trilha Inter.',
     howToEarnEN: 'Complete all 70 Inter trail topics.',
   },
   {
     code: 'inter_promoted', title: 'Going Advanced', category: 'general', rarity: 'legendary',
     level: 'Inter',
-    howToEarnPT: 'Complete a trilha Inter e atinja 9.800 XP para ser promovido ao nivel Advanced.',
+    howToEarnPT: 'Complete a trilha Inter e atinja 9.800 XP para ser promovido ao nível Advanced.',
     howToEarnEN: 'Complete the Inter trail and reach 9,800 XP to be promoted to Advanced.',
   },
   // Advanced (EN titles)
   {
     code: 'advanced_first_topic', title: 'Elite Learner', category: 'learn', rarity: 'common',
     level: 'Advanced',
-    howToEarnPT: 'Complete o primeiro topico da trilha Advanced.',
+    howToEarnPT: 'Complete o primeiro tópico da trilha Advanced.',
     howToEarnEN: 'Complete the first topic on the Advanced trail.',
   },
   {
     code: 'advanced_halfway', title: 'Deep End', category: 'learn', rarity: 'rare',
     level: 'Advanced',
-    howToEarnPT: 'Complete 20 dos 40 topicos da trilha Advanced.',
+    howToEarnPT: 'Complete 20 dos 40 tópicos da trilha Advanced.',
     howToEarnEN: 'Complete 20 of 40 Advanced trail topics.',
   },
   {
     code: 'advanced_master', title: 'Advanced Master', category: 'learn', rarity: 'epic',
     level: 'Advanced',
-    howToEarnPT: 'Complete todos os 40 topicos da trilha Advanced.',
+    howToEarnPT: 'Complete todos os 40 tópicos da trilha Advanced.',
     howToEarnEN: 'Complete all 40 Advanced trail topics.',
   },
   {

@@ -196,7 +196,7 @@ export default function ActivityScreen() {
             </AppText>
             <AppText style={{ color: C.navyLight, fontSize: 13, fontWeight: '500', textAlign: 'center' }}>
               {isPortuguese
-                ? 'Comece a praticar para ver seu historico aqui!'
+                ? 'Comece a praticar para ver seu histórico aqui!'
                 : 'Start practicing to see your history here!'}
             </AppText>
           </View>
