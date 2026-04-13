@@ -13,7 +13,7 @@ import {
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
-import { ALL_ACHIEVEMENTS } from '@/lib/achievementsCatalog';
+import { getBadgesForLevel } from '@/lib/achievementsCatalog';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
 import {
   checkLevelPromotion,
@@ -471,8 +471,9 @@ export default function StatsScreen() {
 
         {(() => {
           const earnedCodes = new Set(data.achievements.map(a => a.code));
+          const levelCatalog = getBadgesForLevel(userLevel);
           // Fill up to 5 preview slots: earned first, then catalog locked items
-          const lockedPreview = ALL_ACHIEVEMENTS
+          const lockedPreview = levelCatalog
             .filter(a => !earnedCodes.has(a.code))
             .slice(0, Math.max(0, 5 - data.achievements.length));
           return (

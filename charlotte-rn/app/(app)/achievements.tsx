@@ -1,16 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator,
+  View, TouchableOpacity, ScrollView, StatusBar,
+  ActivityIndicator, Modal, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   ArrowLeft, Trophy, Lightning, Fire, Star,
-  Microphone, PencilLine, GraduationCap, Sun, CalendarCheck,
+  Microphone, PencilLine, GraduationCap, Sun, CalendarCheck, X, CheckCircle, Lock,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
-import { ALL_ACHIEVEMENTS } from '@/lib/achievementsCatalog';
+import { getBadgesForLevel, CatalogEntry } from '@/lib/achievementsCatalog';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const C = {
@@ -20,7 +21,7 @@ const C = {
   navyMid:   '#4B4A72',
   navyLight: '#9896B8',
   ghost:     'rgba(22,21,58,0.06)',
-  border:    'rgba(22,21,58,0.08)',
+  border:    'rgba(22,21,58,0.10)',
   green:     '#3D8800',
   greenLight:'#F0FFD9',
 };
@@ -32,23 +33,29 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: '#EAB308',
 };
 
+const RARITY_LABEL: Record<string, string> = {
+  common:    'Common',
+  rare:      'Rare',
+  epic:      'Epic',
+  legendary: 'Legendary',
+};
+
 type Level = 'Novice' | 'Inter' | 'Advanced';
 
 interface EarnedAchievement {
-  id: string;
-  code: string;
-  title: string;
+  id:          string;
+  code:        string;
+  title:       string;
   description: string;
-  xpBonus: number;
-  rarity: string;
-  category: string;
-  earnedAt: Date;
+  xpBonus:     number;
+  rarity:      string;
+  category:    string;
+  earnedAt:    Date;
 }
 
-interface AchievementsData {
-  earned: EarnedAchievement[];
-  loading: boolean;
-  error: string | null;
+interface ModalBadge {
+  catalog:  CatalogEntry;
+  earned:   EarnedAchievement | null;
 }
 
 function AchievementIcon({ category, rarity, size = 22 }: { category: string; rarity: string; size?: number }) {
@@ -75,19 +82,21 @@ export default function AchievementsScreen() {
     userName:  string;
   }>();
 
-  const userId    = params.userId    ?? '';
-  const userLevel = (params.userLevel ?? 'Inter') as Level;
+  const userId       = params.userId    ?? '';
+  const userLevel    = (params.userLevel ?? 'Inter') as Level;
   const isPortuguese = userLevel === 'Novice';
 
-  const [data, setData] = useState<AchievementsData>({
-    earned: [], loading: true, error: null,
-  });
+  const [earned, setEarned]       = useState<EarnedAchievement[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [modal, setModal]         = useState<ModalBadge | null>(null);
+
+  const catalog = getBadgesForLevel(userLevel); // 30 badges
 
   useEffect(() => { if (userId) loadData(); }, [userId]);
 
   const loadData = async () => {
     if (!userId) return;
-    setData(prev => ({ ...prev, loading: true, error: null }));
+    setLoading(true);
     try {
       const { data: rows, error } = await supabase
         .from('user_achievements')
@@ -97,25 +106,32 @@ export default function AchievementsScreen() {
 
       if (error) throw error;
 
-      const earned: EarnedAchievement[] = (rows ?? []).map((a: any) => ({
-        id: a.id,
-        code: a.achievement_type ?? '',
-        title: a.achievement_name ?? 'Achievement',
+      setEarned((rows ?? []).map((a: any) => ({
+        id:          a.id,
+        code:        a.achievement_type ?? '',
+        title:       a.achievement_name ?? 'Achievement',
         description: a.achievement_description ?? '',
-        xpBonus: a.xp_bonus ?? 0,
-        rarity: a.rarity ?? 'common',
-        category: a.category ?? 'general',
-        earnedAt: new Date(a.earned_at),
-      }));
-
-      setData({ earned, loading: false, error: null });
+        xpBonus:     a.xp_bonus ?? 0,
+        rarity:      a.rarity ?? 'common',
+        category:    a.category ?? 'general',
+        earnedAt:    new Date(a.earned_at),
+      })));
     } catch {
-      setData(prev => ({ ...prev, loading: false, error: 'Error loading achievements' }));
+      // silent — show catalog anyway
+    } finally {
+      setLoading(false);
     }
   };
 
+  const earnedMap: Record<string, EarnedAchievement> = {};
+  earned.forEach(a => { earnedMap[a.code] = a; });
+
+  const openModal = (cat: CatalogEntry) => {
+    setModal({ catalog: cat, earned: earnedMap[cat.code] ?? null });
+  };
+
   // ── Loading ──────────────────────────────────────────────────────────────────
-  if (data.loading) {
+  if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg }}>
@@ -125,9 +141,121 @@ export default function AchievementsScreen() {
     );
   }
 
-  const earnedCodes = new Set(data.earned.map(a => a.code));
-  const earnedMap: Record<string, EarnedAchievement> = {};
-  data.earned.forEach(a => { earnedMap[a.code] = a; });
+  // ── Badge modal ───────────────────────────────────────────────────────────────
+  const BadgeModal = () => {
+    if (!modal) return null;
+    const { catalog: cat, earned: ach } = modal;
+    const isEarned = ach !== null;
+    const rc = RARITY_COLORS[cat.rarity] ?? '#22C55E';
+    const howToEarn = isPortuguese ? cat.howToEarnPT : cat.howToEarnEN;
+
+    return (
+      <Modal
+        visible
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModal(null)}
+      >
+        <Pressable
+          style={{
+            flex: 1, backgroundColor: 'rgba(22,21,58,0.55)',
+            alignItems: 'center', justifyContent: 'center',
+            paddingHorizontal: 32,
+          }}
+          onPress={() => setModal(null)}
+        >
+          <Pressable onPress={e => e.stopPropagation()}>
+            <View style={{
+              backgroundColor: C.card, borderRadius: 24,
+              padding: 24, width: '100%', alignItems: 'center',
+            }}>
+              {/* Close */}
+              <TouchableOpacity
+                onPress={() => setModal(null)}
+                style={{ position: 'absolute', top: 16, right: 16 }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={18} color={C.navyLight} weight="bold" />
+              </TouchableOpacity>
+
+              {/* Icon */}
+              <View style={{
+                width: 72, height: 72, borderRadius: 36,
+                backgroundColor: isEarned ? rc + '20' : C.ghost,
+                alignItems: 'center', justifyContent: 'center',
+                marginBottom: 14,
+              }}>
+                <AchievementIcon
+                  category={cat.category}
+                  rarity={isEarned ? cat.rarity : 'locked'}
+                  size={34}
+                />
+              </View>
+
+              {/* Rarity pill */}
+              <View style={{
+                paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20,
+                backgroundColor: isEarned ? rc + '18' : C.ghost,
+                marginBottom: 8,
+              }}>
+                <AppText style={{
+                  fontSize: 10, fontWeight: '700',
+                  color: isEarned ? rc : C.navyLight,
+                  textTransform: 'uppercase', letterSpacing: 0.8,
+                }}>
+                  {RARITY_LABEL[cat.rarity] ?? cat.rarity}
+                </AppText>
+              </View>
+
+              {/* Title */}
+              <AppText style={{
+                fontSize: 17, fontWeight: '800', color: C.navy,
+                textAlign: 'center', marginBottom: 10,
+              }}>
+                {cat.title}
+              </AppText>
+
+              {/* Divider */}
+              <View style={{ width: '100%', height: 1, backgroundColor: C.border, marginBottom: 14 }} />
+
+              {/* How to earn */}
+              <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 14 }}>
+                {isEarned
+                  ? <CheckCircle size={16} color={C.green} weight="fill" style={{ marginTop: 1 }} />
+                  : <Lock size={16} color={C.navyLight} weight="bold" style={{ marginTop: 1 }} />
+                }
+                <AppText style={{
+                  flex: 1, fontSize: 13, fontWeight: '500',
+                  color: isEarned ? C.navyMid : C.navy,
+                  lineHeight: 20,
+                }}>
+                  {howToEarn}
+                </AppText>
+              </View>
+
+              {/* Earned date */}
+              {isEarned && (
+                <View style={{
+                  width: '100%',
+                  backgroundColor: C.greenLight, borderRadius: 12,
+                  paddingHorizontal: 14, paddingVertical: 10,
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                }}>
+                  <CheckCircle size={15} color={C.green} weight="fill" />
+                  <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green }}>
+                    {isPortuguese ? 'Conquistado em ' : 'Earned on '}
+                    {ach.earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', {
+                      day: '2-digit', month: 'short', year: 'numeric',
+                    })}
+                  </AppText>
+                </View>
+              )}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    );
+  };
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -137,8 +265,7 @@ export default function AchievementsScreen() {
       {/* Header */}
       <View style={{
         flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, height: 52,
-        backgroundColor: C.card,
+        paddingHorizontal: 16, height: 52, backgroundColor: C.card,
       }}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -179,18 +306,25 @@ export default function AchievementsScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <AppText style={{ fontSize: 22, fontWeight: '800', color: C.navy }}>
-              {data.earned.length}
+              {earned.length}
             </AppText>
             <AppText style={{ fontSize: 12, fontWeight: '600', color: C.navyLight }}>
               {isPortuguese
-                ? `de ${ALL_ACHIEVEMENTS.length} conquistas desbloqueadas`
-                : `of ${ALL_ACHIEVEMENTS.length} achievements unlocked`}
+                ? `de ${catalog.length} conquistas desbloqueadas`
+                : `of ${catalog.length} achievements unlocked`}
+            </AppText>
+          </View>
+          <View style={{
+            backgroundColor: C.ghost, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+          }}>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyMid }}>
+              {userLevel}
             </AppText>
           </View>
         </View>
 
-        {/* Earned detail cards — only when there are earned ones */}
-        {data.earned.length > 0 && (
+        {/* Earned detail cards */}
+        {earned.length > 0 && (
           <>
             <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
               <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
@@ -199,15 +333,17 @@ export default function AchievementsScreen() {
             </View>
 
             <View style={{ marginHorizontal: 16, marginBottom: 28 }}>
-              {data.earned.map((ach, i) => {
+              {earned.map((ach, i) => {
                 const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
+                const cat = catalog.find(c => c.code === ach.code);
                 return (
-                  <View
+                  <TouchableOpacity
                     key={ach.id ?? i}
+                    activeOpacity={0.75}
+                    onPress={() => cat && openModal(cat)}
                     style={{
                       backgroundColor: C.card, borderRadius: 16, padding: 14,
-                      flexDirection: 'row', alignItems: 'flex-start',
-                      marginBottom: 8,
+                      flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8,
                     }}
                   >
                     <View style={{
@@ -238,29 +374,23 @@ export default function AchievementsScreen() {
                       )}
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '500' }}>
-                          {ach.earnedAt.toLocaleDateString()}
+                          {ach.earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short' })}
                         </AppText>
-                        <View style={{
-                          paddingHorizontal: 6, paddingVertical: 2,
-                          borderRadius: 6, backgroundColor: rc + '18',
-                        }}>
-                          <AppText style={{
-                            fontSize: 10, fontWeight: '700', color: rc,
-                            textTransform: 'uppercase', letterSpacing: 0.5,
-                          }}>
-                            {ach.rarity}
+                        <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: rc + '18' }}>
+                          <AppText style={{ fontSize: 10, fontWeight: '700', color: rc, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                            {RARITY_LABEL[ach.rarity] ?? ach.rarity}
                           </AppText>
                         </View>
                       </View>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
             </View>
           </>
         )}
 
-        {/* Full catalog grid — always visible, earned colored, locked greyed */}
+        {/* Full catalog grid */}
         <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
           <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
             {isPortuguese ? 'Todas as Conquistas' : 'All Achievements'}
@@ -271,11 +401,16 @@ export default function AchievementsScreen() {
           flexDirection: 'row', flexWrap: 'wrap',
           paddingHorizontal: 16, gap: 16, marginBottom: 24,
         }}>
-          {ALL_ACHIEVEMENTS.map(catalog => {
-            const isEarned = earnedCodes.has(catalog.code);
-            const rc = RARITY_COLORS[catalog.rarity] ?? '#22C55E';
+          {catalog.map(cat => {
+            const isEarned = !!earnedMap[cat.code];
+            const rc = RARITY_COLORS[cat.rarity] ?? '#22C55E';
             return (
-              <View key={catalog.code} style={{ width: 72, alignItems: 'center' }}>
+              <TouchableOpacity
+                key={cat.code}
+                activeOpacity={0.7}
+                onPress={() => openModal(cat)}
+                style={{ width: 72, alignItems: 'center' }}
+              >
                 <View style={{
                   width: 52, height: 52, borderRadius: 26,
                   backgroundColor: isEarned ? rc + '20' : C.ghost,
@@ -283,8 +418,8 @@ export default function AchievementsScreen() {
                   marginBottom: 6,
                 }}>
                   <AchievementIcon
-                    category={catalog.category}
-                    rarity={isEarned ? catalog.rarity : 'locked'}
+                    category={cat.category}
+                    rarity={isEarned ? cat.rarity : 'locked'}
                     size={24}
                   />
                 </View>
@@ -293,7 +428,7 @@ export default function AchievementsScreen() {
                   color: isEarned ? C.navy : C.navyLight,
                   textAlign: 'center',
                 }} numberOfLines={2}>
-                  {catalog.title}
+                  {cat.title}
                 </AppText>
                 {isEarned && (
                   <View style={{
@@ -301,7 +436,7 @@ export default function AchievementsScreen() {
                     backgroundColor: rc,
                   }} />
                 )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
@@ -309,12 +444,13 @@ export default function AchievementsScreen() {
         <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
           <AppText style={{ fontSize: 12, fontWeight: '500', color: C.navyLight, textAlign: 'center' }}>
             {isPortuguese
-              ? 'Continue praticando para desbloquear mais conquistas!'
-              : 'Keep practicing to unlock more achievements!'}
+              ? 'Toque em qualquer conquista para ver como ganhar.'
+              : 'Tap any achievement to see how to earn it.'}
           </AppText>
         </View>
-
       </ScrollView>
+
+      <BadgeModal />
     </SafeAreaView>
   );
 }
