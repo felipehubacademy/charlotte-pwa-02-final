@@ -66,10 +66,24 @@ export default function LeaderboardScreen() {
     if (!userId) return;
     setData(prev => ({ ...prev, loading: true, error: null }));
     try {
-      // Fetch top 20 from charlotte_progress
+      // Fetch all user IDs in the same level to scope the ranking
+      const { data: levelUsers } = await supabase
+        .from('charlotte_users')
+        .select('id')
+        .eq('charlotte_level', userLevel);
+
+      const levelUserIds = (levelUsers ?? []).map((u: any) => u.id as string);
+
+      if (levelUserIds.length === 0) {
+        setData({ entries: [], userEntry: null, loading: false, error: null });
+        return;
+      }
+
+      // Fetch top 20 from charlotte_progress filtered by level
       const { data: progressRows, error: progressError } = await supabase
         .from('charlotte_progress')
         .select('user_id, total_xp')
+        .in('user_id', levelUserIds)
         .order('total_xp', { ascending: false })
         .limit(20);
 
@@ -79,10 +93,9 @@ export default function LeaderboardScreen() {
       const userIds = rawRows.map((r: any) => r.user_id);
 
       // Fetch names for all users in the list
-      const { data: usersRows } = await supabase
-        .from('charlotte_users')
-        .select('id, name')
-        .in('id', userIds);
+      const { data: usersRows } = userIds.length > 0
+        ? await supabase.from('charlotte_users').select('id, name').in('id', userIds)
+        : { data: [] };
 
       const nameMap: Record<string, string> = {};
       (usersRows ?? []).forEach((u: any) => { nameMap[u.id] = u.name ?? ''; });
@@ -100,7 +113,7 @@ export default function LeaderboardScreen() {
       let userEntry: LeaderboardEntry | null = userInTop;
 
       if (!userInTop) {
-        // Fetch current user's rank and XP
+        // Fetch current user's rank and XP within their level
         const { data: userProgress } = await supabase
           .from('charlotte_progress')
           .select('total_xp')
@@ -112,6 +125,7 @@ export default function LeaderboardScreen() {
         const { count: rankCount } = await supabase
           .from('charlotte_progress')
           .select('user_id', { count: 'exact', head: true })
+          .in('user_id', levelUserIds)
           .gt('total_xp', userXp);
 
         userEntry = {
@@ -229,7 +243,7 @@ export default function LeaderboardScreen() {
             CHARLOTTE
           </AppText>
           <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
-            Ranking
+            Ranking {userLevel}
           </AppText>
         </View>
 

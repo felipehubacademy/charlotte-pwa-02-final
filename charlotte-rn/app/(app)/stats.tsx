@@ -141,7 +141,7 @@ export default function StatsScreen() {
         return typeLabels[type] ?? (isPortuguese ? 'Pratica' : 'Practice');
       };
 
-      const [statsRes, historyRes, achievementsRes, learnProgressRes, top3Res] = await Promise.all([
+      const [statsRes, historyRes, achievementsRes, learnProgressRes, levelUsersRes] = await Promise.all([
         supabase.from('charlotte_progress')
           .select('streak_days,total_xp')
           .eq('user_id', userId)
@@ -162,20 +162,34 @@ export default function StatsScreen() {
           .eq('user_id', userId)
           .eq('level', userLevel)
           .maybeSingle(),
-        supabase.from('charlotte_progress')
-          .select('user_id,total_xp')
-          .order('total_xp', { ascending: false })
-          .limit(3),
+        supabase.from('charlotte_users')
+          .select('id')
+          .eq('charlotte_level', userLevel),
       ]);
 
       const freshTotalXP = statsRes.data?.total_xp ?? totalXP;
       const completedCount = (learnProgressRes.data?.completed ?? []).length;
 
-      const { count: rankCount } = await supabase
-        .from('charlotte_progress')
-        .select('user_id', { count: 'exact', head: true })
-        .gt('total_xp', freshTotalXP);
-      const userRank = (rankCount ?? 0) + 1;
+      // IDs of all users in the same level — used to scope ranking
+      const levelUserIds = (levelUsersRes.data ?? []).map((u: any) => u.id as string);
+
+      const [rankRes, top3Res] = await Promise.all([
+        levelUserIds.length > 0
+          ? supabase.from('charlotte_progress')
+              .select('user_id', { count: 'exact', head: true })
+              .in('user_id', levelUserIds)
+              .gt('total_xp', freshTotalXP)
+          : Promise.resolve({ count: 0 }),
+        levelUserIds.length > 0
+          ? supabase.from('charlotte_progress')
+              .select('user_id,total_xp')
+              .in('user_id', levelUserIds)
+              .order('total_xp', { ascending: false })
+              .limit(3)
+          : Promise.resolve({ data: [] }),
+      ]);
+
+      const userRank = ((rankRes as any).count ?? 0) + 1;
 
       const recentActivity: RecentActivity[] = (historyRes.data ?? []).map((p: any) => ({
         type: getLabel(p.practice_type),
@@ -195,21 +209,20 @@ export default function StatsScreen() {
         category: a.category ?? 'general',
       }));
 
-      const top3Raw = (top3Res.data ?? []).map((r: any) => ({
+      const top3Raw = ((top3Res as any).data ?? []).map((r: any) => ({
         userId: r.user_id,
         totalXp: r.total_xp ?? 0,
       }));
 
       // Fetch names for top3 users
-      const top3UserIds = top3Raw.map(e => e.userId);
-      const { data: top3Users } = await supabase
-        .from('charlotte_users')
-        .select('id, name')
-        .in('id', top3UserIds);
+      const top3UserIds = top3Raw.map((e: any) => e.userId);
+      const { data: top3Users } = top3UserIds.length > 0
+        ? await supabase.from('charlotte_users').select('id, name').in('id', top3UserIds)
+        : { data: [] };
       const nameMap: Record<string, string> = {};
       (top3Users ?? []).forEach((u: any) => { nameMap[u.id] = u.name ?? ''; });
 
-      const top3: TopEntry[] = top3Raw.map(e => ({
+      const top3: TopEntry[] = top3Raw.map((e: any) => ({
         ...e,
         name: nameMap[e.userId] ?? '',
       }));
