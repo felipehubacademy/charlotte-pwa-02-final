@@ -10,6 +10,7 @@ import {
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
+import { ALL_ACHIEVEMENTS } from '@/lib/achievementsCatalog';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const C = {
@@ -33,38 +34,9 @@ const RARITY_COLORS: Record<string, string> = {
 
 type Level = 'Novice' | 'Inter' | 'Advanced';
 
-// Full catalog — mirrors the DB trigger in 031_fix_award_achievements.sql
-const ALL_ACHIEVEMENTS: { code: string; title: string; category: string; rarity: string }[] = [
-  { code: 'first_practice', title: 'Olá, Mundo!',           category: 'general',     rarity: 'common'    },
-  { code: 'first_text',     title: 'Primeira Conversa',     category: 'text',        rarity: 'common'    },
-  { code: 'first_audio',    title: 'Primeira Voz',          category: 'audio',       rarity: 'common'    },
-  { code: 'first_grammar',  title: 'Gramático Iniciante',   category: 'grammar',     rarity: 'common'    },
-  { code: 'first_learn',    title: 'Na Trilha',             category: 'learn',       rarity: 'common'    },
-  { code: 'practices_10',   title: 'Aquecendo',             category: 'general',     rarity: 'common'    },
-  { code: 'practices_50',   title: 'No Ritmo',              category: 'general',     rarity: 'rare'      },
-  { code: 'practices_100',  title: 'Comprometido',          category: 'general',     rarity: 'epic'      },
-  { code: 'practices_500',  title: 'Lenda da Prática',      category: 'general',     rarity: 'legendary' },
-  { code: 'streak_3',       title: 'Consistente',           category: 'streak',      rarity: 'common'    },
-  { code: 'streak_7',       title: 'Semana Completa',       category: 'streak',      rarity: 'rare'      },
-  { code: 'streak_14',      title: 'Duas Semanas',          category: 'streak',      rarity: 'epic'      },
-  { code: 'streak_30',      title: 'Mês de Ouro',           category: 'streak',      rarity: 'legendary' },
-  { code: 'text_25',        title: 'Comunicativo',          category: 'text',        rarity: 'rare'      },
-  { code: 'text_100',       title: 'Fluente no Chat',       category: 'text',        rarity: 'epic'      },
-  { code: 'audio_10',       title: 'Falante',               category: 'audio',       rarity: 'rare'      },
-  { code: 'audio_50',       title: 'Voz de Ouro',           category: 'audio',       rarity: 'epic'      },
-  { code: 'audio_200',      title: 'Locutor Profissional',  category: 'audio',       rarity: 'legendary' },
-  { code: 'grammar_20',     title: 'Gramático Avançado',    category: 'grammar',     rarity: 'rare'      },
-  { code: 'grammar_50',     title: 'Mestre da Gramática',   category: 'grammar',     rarity: 'epic'      },
-  { code: 'learn_25',       title: 'Trilheiro',             category: 'learn',       rarity: 'rare'      },
-  { code: 'learn_100',      title: 'Mestre da Trilha',      category: 'learn',       rarity: 'epic'      },
-  { code: 'daily_100',      title: 'Super Dia',             category: 'habit',       rarity: 'rare'      },
-  { code: 'daily_200',      title: 'Dia Lendário',          category: 'habit',       rarity: 'epic'      },
-  { code: 'early_bird',     title: 'Madrugador',            category: 'habit',       rarity: 'rare'      },
-  { code: 'night_owl',      title: 'Coruja Noturna',        category: 'habit',       rarity: 'rare'      },
-];
-
 interface EarnedAchievement {
   id: string;
+  code: string;
   title: string;
   description: string;
   xpBonus: number;
@@ -80,7 +52,7 @@ interface AchievementsData {
 }
 
 function AchievementIcon({ category, rarity, size = 22 }: { category: string; rarity: string; size?: number }) {
-  const color = rarity === 'locked' ? 'rgba(22,21,58,0.25)' : (RARITY_COLORS[rarity] ?? '#22C55E');
+  const color = rarity === 'locked' ? 'rgba(22,21,58,0.22)' : (RARITY_COLORS[rarity] ?? '#22C55E');
   switch (category) {
     case 'xp':
     case 'xp_milestone': return <Lightning     size={size} color={color} weight="fill" />;
@@ -126,7 +98,8 @@ export default function AchievementsScreen() {
       if (error) throw error;
 
       const earned: EarnedAchievement[] = (rows ?? []).map((a: any) => ({
-        id: a.achievement_type ?? a.id,
+        id: a.id,
+        code: a.achievement_type ?? '',
         title: a.achievement_name ?? 'Achievement',
         description: a.achievement_description ?? '',
         xpBonus: a.xp_bonus ?? 0,
@@ -152,9 +125,9 @@ export default function AchievementsScreen() {
     );
   }
 
-  // Badges locked = todos do catálogo que o usuário ainda não ganhou
-  const earnedCodes = new Set(data.earned.map(a => a.id));
-  const lockedBadges = ALL_ACHIEVEMENTS.filter(a => !earnedCodes.has(a.code));
+  const earnedCodes = new Set(data.earned.map(a => a.code));
+  const earnedMap: Record<string, EarnedAchievement> = {};
+  data.earned.forEach(a => { earnedMap[a.code] = a; });
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -183,7 +156,6 @@ export default function AchievementsScreen() {
           </AppText>
         </View>
 
-        {/* Right spacer to balance layout */}
         <View style={{ width: 22 }} />
       </View>
 
@@ -195,7 +167,7 @@ export default function AchievementsScreen() {
       >
         {/* Summary bar */}
         <View style={{
-          marginHorizontal: 16, marginBottom: 20,
+          marginHorizontal: 16, marginBottom: 24,
           backgroundColor: C.card, borderRadius: 20, padding: 16,
           flexDirection: 'row', alignItems: 'center', gap: 12,
         }}>
@@ -210,34 +182,23 @@ export default function AchievementsScreen() {
               {data.earned.length}
             </AppText>
             <AppText style={{ fontSize: 12, fontWeight: '600', color: C.navyLight }}>
-              {isPortuguese ? 'conquistas desbloqueadas' : 'achievements unlocked'}
-            </AppText>
-          </View>
-        </View>
-
-        {/* Section header */}
-        <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-          <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
-            {isPortuguese ? 'Suas Conquistas' : 'Your Badges'}
-          </AppText>
-        </View>
-
-        {data.earned.length === 0 ? (
-          <View style={{ alignItems: 'center', paddingVertical: 60, paddingHorizontal: 32 }}>
-            <Trophy size={48} color={C.navyLight} weight="fill" />
-            <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800', marginTop: 16, marginBottom: 6, textAlign: 'center' }}>
-              {isPortuguese ? 'Nenhuma conquista ainda' : 'No achievements yet'}
-            </AppText>
-            <AppText style={{ color: C.navyLight, fontSize: 13, fontWeight: '500', textAlign: 'center' }}>
               {isPortuguese
-                ? 'Continue praticando para desbloquear sua primeira conquista!'
-                : 'Keep practicing to unlock your first achievement!'}
+                ? `de ${ALL_ACHIEVEMENTS.length} conquistas desbloqueadas`
+                : `of ${ALL_ACHIEVEMENTS.length} achievements unlocked`}
             </AppText>
           </View>
-        ) : (
+        </View>
+
+        {/* Earned detail cards — only when there are earned ones */}
+        {data.earned.length > 0 && (
           <>
-            {/* Earned detail list */}
-            <View style={{ marginHorizontal: 16, marginBottom: 24 }}>
+            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+              <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
+                {isPortuguese ? 'Suas Conquistas' : 'Your Badges'}
+              </AppText>
+            </View>
+
+            <View style={{ marginHorizontal: 16, marginBottom: 28 }}>
               {data.earned.map((ach, i) => {
                 const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
                 return (
@@ -296,64 +257,55 @@ export default function AchievementsScreen() {
                 );
               })}
             </View>
-
-            {/* Grid: badge circles for visual overview */}
-            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-              <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
-                {isPortuguese ? 'Galeria' : 'Gallery'}
-              </AppText>
-            </View>
-
-            <View style={{
-              flexDirection: 'row', flexWrap: 'wrap',
-              paddingHorizontal: 16, gap: 12, marginBottom: 24,
-            }}>
-              {data.earned.map((ach, i) => {
-                const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
-                return (
-                  <View key={ach.id ?? i} style={{ width: 72, alignItems: 'center' }}>
-                    <View style={{
-                      width: 52, height: 52, borderRadius: 26,
-                      backgroundColor: rc + '20',
-                      alignItems: 'center', justifyContent: 'center',
-                      marginBottom: 6,
-                    }}>
-                      <AchievementIcon category={ach.category} rarity={ach.rarity} size={24} />
-                    </View>
-                    <AppText style={{
-                      fontSize: 10, fontWeight: '600', color: C.navy,
-                      textAlign: 'center',
-                    }} numberOfLines={2}>
-                      {ach.title}
-                    </AppText>
-                  </View>
-                );
-              })}
-
-              {/* Locked badges — catálogo completo com nomes corretos, cor apagada */}
-              {lockedBadges.map((ach) => (
-                <View key={ach.code} style={{ width: 72, alignItems: 'center' }}>
-                  <View style={{
-                    width: 52, height: 52, borderRadius: 26,
-                    backgroundColor: C.ghost,
-                    alignItems: 'center', justifyContent: 'center',
-                    marginBottom: 6,
-                  }}>
-                    <AchievementIcon category={ach.category} rarity="locked" size={24} />
-                  </View>
-                  <AppText style={{
-                    fontSize: 10, fontWeight: '600', color: C.navyLight,
-                    textAlign: 'center',
-                  }} numberOfLines={2}>
-                    {ach.title}
-                  </AppText>
-                </View>
-              ))}
-            </View>
           </>
         )}
 
-        {/* Footer note */}
+        {/* Full catalog grid — always visible, earned colored, locked greyed */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
+          <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
+            {isPortuguese ? 'Todas as Conquistas' : 'All Achievements'}
+          </AppText>
+        </View>
+
+        <View style={{
+          flexDirection: 'row', flexWrap: 'wrap',
+          paddingHorizontal: 16, gap: 16, marginBottom: 24,
+        }}>
+          {ALL_ACHIEVEMENTS.map(catalog => {
+            const isEarned = earnedCodes.has(catalog.code);
+            const rc = RARITY_COLORS[catalog.rarity] ?? '#22C55E';
+            return (
+              <View key={catalog.code} style={{ width: 72, alignItems: 'center' }}>
+                <View style={{
+                  width: 52, height: 52, borderRadius: 26,
+                  backgroundColor: isEarned ? rc + '20' : C.ghost,
+                  alignItems: 'center', justifyContent: 'center',
+                  marginBottom: 6,
+                }}>
+                  <AchievementIcon
+                    category={catalog.category}
+                    rarity={isEarned ? catalog.rarity : 'locked'}
+                    size={24}
+                  />
+                </View>
+                <AppText style={{
+                  fontSize: 10, fontWeight: '600',
+                  color: isEarned ? C.navy : C.navyLight,
+                  textAlign: 'center',
+                }} numberOfLines={2}>
+                  {catalog.title}
+                </AppText>
+                {isEarned && (
+                  <View style={{
+                    marginTop: 3, width: 8, height: 8, borderRadius: 4,
+                    backgroundColor: rc,
+                  }} />
+                )}
+              </View>
+            );
+          })}
+        </View>
+
         <View style={{ paddingHorizontal: 20, alignItems: 'center' }}>
           <AppText style={{ fontSize: 12, fontWeight: '500', color: C.navyLight, textAlign: 'center' }}>
             {isPortuguese

@@ -6,13 +6,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   ArrowLeft, ShareNetwork, Star, Lightning, Fire, Trophy,
-  BookOpenText, CaretRight, Lock, Medal,
+  BookOpenText, CaretRight, Medal,
   Microphone, PencilLine, GraduationCap, Sun, CalendarCheck,
   RocketLaunch,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
+import { ALL_ACHIEVEMENTS } from '@/lib/achievementsCatalog';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
 import {
   checkLevelPromotion,
@@ -65,6 +66,7 @@ interface TopEntry {
 
 interface AchievementWithCategory extends Achievement {
   category: string;
+  code: string; // achievement_type — used to match against catalog
 }
 
 interface StatsData {
@@ -153,7 +155,7 @@ export default function StatsScreen() {
           .order('created_at', { ascending: false })
           .limit(5),
         supabase.from('user_achievements')
-          .select('id,achievement_name,achievement_description,xp_bonus,rarity,category,earned_at')
+          .select('id,achievement_type,achievement_name,achievement_description,xp_bonus,rarity,category,earned_at')
           .eq('user_id', userId)
           .order('earned_at', { ascending: false })
           .limit(4),
@@ -199,6 +201,7 @@ export default function StatsScreen() {
 
       const achievements: AchievementWithCategory[] = (achievementsRes.data ?? []).map((a: any) => ({
         id: a.id,
+        code: a.achievement_type ?? '',
         type: 'general',
         title: a.achievement_name ?? 'Achievement',
         description: a.achievement_description ?? '',
@@ -466,53 +469,62 @@ export default function StatsScreen() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 4 }}
-          style={{ marginBottom: 24 }}
-        >
-          {data.achievements.map((ach, i) => {
-            const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
-            return (
-              <View key={ach.id ?? i} style={{ width: 72, alignItems: 'center' }}>
-                <View style={{
-                  width: 52, height: 52, borderRadius: 26,
-                  backgroundColor: rc + '20',
-                  alignItems: 'center', justifyContent: 'center',
-                  marginBottom: 6,
-                }}>
-                  <AchievementIcon category={ach.category} rarity={ach.rarity} size={24} />
-                </View>
-                <AppText style={{
-                  fontSize: 10, fontWeight: '600', color: C.navy,
-                  textAlign: 'center',
-                }} numberOfLines={2}>
-                  {ach.title}
-                </AppText>
-              </View>
-            );
-          })}
+        {(() => {
+          const earnedCodes = new Set(data.achievements.map(a => a.code));
+          // Fill up to 5 preview slots: earned first, then catalog locked items
+          const lockedPreview = ALL_ACHIEVEMENTS
+            .filter(a => !earnedCodes.has(a.code))
+            .slice(0, Math.max(0, 5 - data.achievements.length));
+          return (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 4 }}
+              style={{ marginBottom: 24 }}
+            >
+              {data.achievements.map((ach, i) => {
+                const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
+                return (
+                  <View key={ach.id ?? i} style={{ width: 72, alignItems: 'center' }}>
+                    <View style={{
+                      width: 52, height: 52, borderRadius: 26,
+                      backgroundColor: rc + '20',
+                      alignItems: 'center', justifyContent: 'center',
+                      marginBottom: 6,
+                    }}>
+                      <AchievementIcon category={ach.category} rarity={ach.rarity} size={24} />
+                    </View>
+                    <AppText style={{
+                      fontSize: 10, fontWeight: '600', color: C.navy,
+                      textAlign: 'center',
+                    }} numberOfLines={2}>
+                      {ach.title}
+                    </AppText>
+                  </View>
+                );
+              })}
 
-          {[0, 1].map(i => (
-            <View key={`locked-${i}`} style={{ width: 72, alignItems: 'center' }}>
-              <View style={{
-                width: 52, height: 52, borderRadius: 26,
-                backgroundColor: C.ghost,
-                alignItems: 'center', justifyContent: 'center',
-                marginBottom: 6,
-              }}>
-                <Lock size={22} color={C.navyLight} weight="regular" />
-              </View>
-              <AppText style={{
-                fontSize: 10, fontWeight: '600', color: C.navyLight,
-                textAlign: 'center',
-              }} numberOfLines={2}>
-                {isPortuguese ? 'Bloqueada' : 'Locked'}
-              </AppText>
-            </View>
-          ))}
-        </ScrollView>
+              {lockedPreview.map(ach => (
+                <View key={ach.code} style={{ width: 72, alignItems: 'center' }}>
+                  <View style={{
+                    width: 52, height: 52, borderRadius: 26,
+                    backgroundColor: C.ghost,
+                    alignItems: 'center', justifyContent: 'center',
+                    marginBottom: 6,
+                  }}>
+                    <AchievementIcon category={ach.category} rarity="locked" size={24} />
+                  </View>
+                  <AppText style={{
+                    fontSize: 10, fontWeight: '600', color: C.navyLight,
+                    textAlign: 'center',
+                  }} numberOfLines={2}>
+                    {ach.title}
+                  </AppText>
+                </View>
+              ))}
+            </ScrollView>
+          );
+        })()}
 
         {/* ── Section: Ranking ─────────────────────────────────────────────── */}
         <View style={{
