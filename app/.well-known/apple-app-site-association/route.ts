@@ -17,7 +17,7 @@
 
 import { NextResponse } from 'next/server';
 
-const TEAM_ID        = process.env.APPLE_TEAM_ID ?? 'APPLE_TEAM_ID';
+const TEAM_ID        = 'S3BGJ3648D';
 const BUNDLE_ID      = 'com.hubacademy.charlotte';
 const APP_ID         = `${TEAM_ID}.${BUNDLE_ID}`;
 
