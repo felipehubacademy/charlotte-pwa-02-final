@@ -794,7 +794,9 @@ export default function HomeScreen() {
   const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
   const [weeklyState, setWeeklyState]               = useState<WeeklyChallengeState | null>(null);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
-  const [greetingLoading, setGreetingLoading] = useState(true);
+  // Start as false — show charlotteMessage() fallback immediately, swap in AI greeting when ready.
+  // Prevents dots from showing indefinitely if the API is slow or fails.
+  const [greetingLoading, setGreetingLoading] = useState(false);
   // Tracks weekly challenge rewards already granted this session to prevent double-credit
   const weeklyRewardedRef  = useRef<Set<string>>(new Set());
 
@@ -1035,7 +1037,6 @@ export default function HomeScreen() {
     // Restore cached greeting immediately on remount (no dots on navigation)
     if (_greetingTextThisSession) {
       setAiGreeting(_greetingTextThisSession);
-      setGreetingLoading(false);
       return;
     }
 
@@ -1062,16 +1063,14 @@ export default function HomeScreen() {
             isNewUser:       !(profile?.first_welcome_done ?? false),
           }),
         });
-        if (!res.ok) { setGreetingLoading(false); return; }
+        if (!res.ok) return;
         const json = await res.json();
         if (json.message) {
           _greetingTextThisSession = json.message;
-          setAiGreeting(json.message);
+          setAiGreeting(json.message);  // swaps fallback → AI greeting when ready
         }
       } catch {
-        // Silently fail
-      } finally {
-        setGreetingLoading(false);
+        // Silently fail — charlotteMessage() fallback stays visible
       }
     })();
   }, [userId, name, level, data, profile]); // eslint-disable-line
