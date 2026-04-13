@@ -15,6 +15,7 @@ export interface LearnProgressData {
 interface UseLearnProgressReturn {
   progress:         LearnProgressData | null;
   loading:          boolean;
+  refetch:          () => void;
   saveTopicComplete: (level: TrailLevel, moduleIndex: number, topicIndex: number) => Promise<void>;
   saveExercise:     (params: SaveExerciseParams) => Promise<void>;
   isTopicComplete:  (moduleIndex: number, topicIndex: number) => boolean;
@@ -34,7 +35,11 @@ interface SaveExerciseParams {
 export function useLearnProgress(userId: string | undefined, level: TrailLevel): UseLearnProgressReturn {
   const [progress, setProgress]   = useState<LearnProgressData | null>(null);
   const [loading,  setLoading]    = useState(true);
+  const [fetchTick, setFetchTick] = useState(0);
   const { checkForNewAchievements } = useAchievementsContext();
+
+  /** Trigger a fresh fetch from DB (e.g. when screen gets focus after navigation) */
+  const refetch = useCallback(() => setFetchTick(t => t + 1), []);
 
   // ── Fetch or initialise progress ────────────────────────────────────────
   useEffect(() => {
@@ -73,7 +78,7 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     };
 
     fetch();
-  }, [userId, level]);
+  }, [userId, level, fetchTick]);
 
   // ── Mark topic complete & advance pointer ────────────────────────────────
   const saveTopicComplete = useCallback(async (
@@ -180,5 +185,5 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     return true;
   }, [isTopicComplete, isCurrent]);
 
-  return { progress, loading, saveTopicComplete, saveExercise, isTopicComplete, isCurrent, isLocked };
+  return { progress, loading, refetch, saveTopicComplete, saveExercise, isTopicComplete, isCurrent, isLocked };
 }

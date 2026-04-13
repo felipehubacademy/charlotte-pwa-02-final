@@ -60,7 +60,10 @@ export default function LearnTrailScreen() {
   const userId = profile?.id;
   const isPortuguese = level === 'Novice';
 
-  const { progress, loading, isTopicComplete, isCurrent, isLocked } = useLearnProgress(userId, level);
+  const { progress, loading, refetch, isTopicComplete, isCurrent, isLocked } = useLearnProgress(userId, level);
+
+  // Re-fetch progress whenever the trail screen gets focus (e.g. returning from learn-session)
+  useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
   const modules = CURRICULUM[level];
   const accent  = LEVEL_COLOR[level];

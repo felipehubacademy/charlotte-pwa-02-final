@@ -759,7 +759,7 @@ function buildMissions(data: HomeData, level: UserLevel): Mission[] {
 // ──────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const { profile } = useAuth();
+  const { profile, isFreshLogin } = useAuth();
   const { openPaywall } = usePaywallContext();
   const insets = useSafeAreaInsets();
   const userId = profile?.id ?? '';
@@ -803,6 +803,17 @@ export default function HomeScreen() {
   const rewardSeedLoadedRef = React.useRef(false);
   // Prevent concurrent fetchData calls (race condition → double mission grants)
   const isFetchingRef = React.useRef(false);
+  // Streak sound deferred while WelcomeModal voice-over is playing
+  const isFreshLoginRef   = React.useRef(isFreshLogin);
+  const pendingStreakRef  = React.useRef(false);
+  useEffect(() => { isFreshLoginRef.current = isFreshLogin; }, [isFreshLogin]);
+  // When WelcomeModal is dismissed (isFreshLogin → false), play any pending streak sound
+  useEffect(() => {
+    if (!isFreshLogin && pendingStreakRef.current) {
+      pendingStreakRef.current = false;
+      setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
+    }
+  }, [isFreshLogin]);
   // streakSoundPlayed: uses module-level var so it survives component remounts
 
   const fetchData = useCallback(async () => {
@@ -875,8 +886,7 @@ export default function HomeScreen() {
     setData(newData);
 
     // 🔊 Som de streak — toca UMA VEZ POR DIA quando há streak ativo.
-    // Usa SecureStore para persistir a data do último toque, garantindo que
-    // múltiplas aberturas do app no mesmo dia não disparem o som de novo.
+    // Se o WelcomeModal estiver aberto (isFreshLogin=true), adia o som até ele fechar.
     if (!_streakSoundPlayedThisSession && newData.streakDays > 0) {
       const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
       const streakKey = `streak_sound_played_${userId}`;
@@ -884,7 +894,12 @@ export default function HomeScreen() {
         if (lastPlayed !== today) {
           _streakSoundPlayedThisSession = true;
           SecureStore.setItemAsync(streakKey, today).catch(() => {});
-          setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
+          if (isFreshLoginRef.current) {
+            // WelcomeModal está visível — aguardar dismissal para tocar depois
+            pendingStreakRef.current = true;
+          } else {
+            setTimeout(() => soundEngine.play('streak_alive').catch(() => {}), 800);
+          }
         } else {
           _streakSoundPlayedThisSession = true; // skip but mark so we don't check again
         }
