@@ -16,9 +16,10 @@ import {
 
 const HOOK_SECRET  = process.env.SUPABASE_HOOK_SECRET ?? '';
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
-// Default redirect: deep link opens the mobile app after email verification.
-// The scheme 'charlotte://' is registered in app.config.ts (scheme: 'charlotte').
-const DEFAULT_REDIRECT = 'charlotte://auth/callback';
+// Default redirect: pagina web inteligente que tenta abrir o app via deep link
+// e mostra botoes de App Store / Play Store se o app nao estiver instalado.
+// A pagina /open le os tokens do hash (#access_token=...) e abre charlotte://auth/callback#...
+const DEFAULT_REDIRECT = 'https://charlotte.hubacademybr.com/open';
 
 // ── URL de confirmacao ────────────────────────────────────────────────────────
 const ACTION_TYPE_MAP: Record<string, string> = {

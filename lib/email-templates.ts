@@ -1,7 +1,7 @@
 // lib/email-templates.ts
 // Templates HTML — Apple-style: clean, centered, generous whitespace.
 
-const APP_URL    = process.env.NEXT_PUBLIC_APP_URL ?? 'https://apps.apple.com/br/app/charlotte-ai/id6744929557';
+const SMART_LINK = 'https://charlotte.hubacademybr.com/open?mode=invite';
 const AVATAR_URL = 'https://charlotte-pwa-02-final.vercel.app/charlotte-avatar.png';
 
 function base(content: string): string {
@@ -101,7 +101,7 @@ export function inviteTemplate(opts: {
       { label: 'Senha tempor&aacute;ria', value: `<code style="font-family:monospace;background:#f5f5f7;padding:2px 8px;border-radius:4px;">${opts.tempPassword}</code>` },
     ])}
     ${p(`No primeiro acesso voc&ecirc; ser&aacute; solicitado<br>a criar uma nova senha.`)}
-    ${btn('Acessar o Charlotte AI', APP_URL)}
+    ${btn('Acessar o Charlotte AI', SMART_LINK)}
     ${note(`D&uacute;vidas? Fale com a equipe Hub Academy.`)}
   `);
   return { subject, html };
@@ -122,7 +122,7 @@ export function welcomeSubscriberTemplate(opts: {
       { label: 'N&iacute;vel', value: opts.level },
       { label: 'Acesso gratuito at&eacute;', value: opts.trialEndsAt },
     ])}
-    ${btn('Come&ccedil;ar agora', APP_URL)}
+    ${btn('Come&ccedil;ar agora', SMART_LINK)}
     ${note(`Converse com a Charlotte, fa&ccedil;a li&ccedil;&otilde;es<br>e acompanhe seu progresso.`)}
   `);
   return { subject, html };
@@ -154,7 +154,7 @@ export function trialExpiringTemplate(opts: {
   const html = base(`
     ${h1(`Seu per&iacute;odo gratuito<br>est&aacute; acabando.`)}
     ${p(`Ol&aacute;, ${opts.name}. Seu acesso gratuito expira em <strong style="color:#1d1d1f;">${opts.expiresAt}</strong>.<br>Assine agora para continuar praticando.`)}
-    ${btn('Assinar o Charlotte AI', APP_URL)}
+    ${btn('Assinar o Charlotte AI', SMART_LINK)}
     ${note(`D&uacute;vidas? Fale com a equipe Hub Academy.`)}
   `);
   return { subject, html };
@@ -169,7 +169,7 @@ export function subscriptionExpiredTemplate(opts: {
   const html = base(`
     ${h1(`Sentimos sua falta,<br>${opts.name}.`)}
     ${p(`Sua assinatura foi encerrada e o acesso ao app foi suspenso.<br>Seu hist&oacute;rico de progresso fica salvo.`)}
-    ${btn('Reativar acesso', APP_URL)}
+    ${btn('Reativar acesso', SMART_LINK)}
     ${note(`A Charlotte est&aacute; aqui quando voc&ecirc; quiser voltar.`)}
   `);
   return { subject, html };
