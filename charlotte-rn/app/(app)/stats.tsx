@@ -318,21 +318,11 @@ export default function StatsScreen() {
 
         {/* ── Hero block ───────────────────────────────────────────────────── */}
         <View style={{
-          marginHorizontal: 16, borderRadius: 20, padding: 20,
+          marginHorizontal: 16, borderRadius: 20,
+          paddingHorizontal: 20, paddingVertical: 14,
           backgroundColor: accent, marginBottom: 24,
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Star size={18} color="#FFFFFF" weight="fill" />
-            <View style={{
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20,
-            }}>
-              <AppText style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
-                {userLevel}
-              </AppText>
-            </View>
-          </View>
-
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{
               flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -367,6 +357,15 @@ export default function StatsScreen() {
               </AppText>
             </View>
           </View>
+
+          <View style={{
+            backgroundColor: 'rgba(255,255,255,0.2)',
+            paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20,
+          }}>
+            <AppText style={{ color: '#FFFFFF', fontSize: 12, fontWeight: '700' }}>
+              {userLevel}
+            </AppText>
+          </View>
         </View>
 
         {/* ── Section: Progresso ───────────────────────────────────────────── */}
@@ -380,16 +379,6 @@ export default function StatsScreen() {
           backgroundColor: C.card, borderRadius: 20, padding: 16,
           marginHorizontal: 16, marginBottom: 24,
         }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-            <Star size={16} color={accent} weight="fill" />
-            <View style={{
-              backgroundColor: accent + '26',
-              paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20,
-            }}>
-              <AppText style={{ color: accent, fontSize: 11, fontWeight: '700' }}>{userLevel}</AppText>
-            </View>
-          </View>
-
           {/* Trail */}
           <View style={{ marginBottom: 14 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
