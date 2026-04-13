@@ -478,7 +478,10 @@ export default function PlacementTestScreen() {
         }).catch(e => console.warn('[PlacementTest] welcome email error:', e));
       }
 
-      await refreshProfile();
+      // Do NOT call refreshProfile() here — it would trigger AuthGuard
+      // (placement_test_done: true && !first_welcome_done → charlotte-intro)
+      // before the ResultScreen has a chance to render.
+      // refreshProfile is called in onFinish, after the user reads the result.
       setPhase('result');
     } catch (e: any) {
       console.error('[PlacementTest] save error:', e);
@@ -494,7 +497,13 @@ export default function PlacementTestScreen() {
       level={level}
       firstName={firstName}
       saveError={saveError}
-      onFinish={() => router.replace('/(app)')}
+      onFinish={() => {
+        // Navigate first, then refresh profile in background.
+        // AuthGuard will also see placement_test_done=true → charlotte-intro,
+        // but lastRoute dedup prevents a double push.
+        router.replace('/(app)/charlotte-intro');
+        refreshProfile().catch(() => {});
+      }}
     />
   );
 
