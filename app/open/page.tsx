@@ -23,7 +23,7 @@ const IOS_URL     = 'https://apps.apple.com/app/id6745037039';
 const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.hubacademy.charlotte';
 const QR_PAGE_URL = 'https://charlotte.hubacademybr.com/open';
 
-type Phase = 'launching' | 'fallback';
+type Phase = 'launching' | 'fallback' | 'expired';
 type OS    = 'ios' | 'android' | 'desktop';
 
 function getOS(): OS {
@@ -54,6 +54,13 @@ export default function OpenPage() {
     const search = window.location.search.slice(1);
     const hashParams  = new URLSearchParams(hash);
     const queryParams = new URLSearchParams(search);
+
+    // Erro de token expirado — mostrar mensagem amigavel antes de tentar abrir o app
+    const errorCode = hashParams.get('error_code') ?? hashParams.get('error');
+    if (errorCode === 'otp_expired' || errorCode === 'access_denied') {
+      setPhase('expired');
+      return;
+    }
 
     const accessToken  = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
@@ -239,7 +246,24 @@ export default function OpenPage() {
 
           <p className="brand">Charlotte AI</p>
 
-          {phase === 'launching' ? (
+          {phase === 'expired' ? (
+            /* ── Link expirado ── */
+            <>
+              <h1>Link expirado</h1>
+              <p className="sub">
+                Este link de confirma&ccedil;&atilde;o j&aacute; foi usado ou expirou.<br />
+                Abra o app e solicite um novo link pelo login.
+              </p>
+              {os === 'ios' ? (
+                <a href="charlotte://" className="btn-primary">Abrir Charlotte AI</a>
+              ) : os === 'android' ? (
+                <a href="intent://#Intent;scheme=charlotte;package=com.hubacademy.charlotte;end" className="btn-primary">Abrir Charlotte AI</a>
+              ) : null}
+              <div className="divider">nao tem o app?</div>
+              <a href={IOS_URL} className="btn-secondary">App Store &mdash; iPhone</a>
+              <a href={ANDROID_URL} className="btn-secondary">Google Play &mdash; Android</a>
+            </>
+          ) : phase === 'launching' ? (
             /* ── Tentando abrir o app (mobile) ── */
             <>
               <div className="spinner" />
@@ -253,15 +277,15 @@ export default function OpenPage() {
             <>
               <h1>Abra no seu celular</h1>
               <p className="sub">
-                Charlotte AI e um app para iPhone e Android.<br />
-                Escaneie o QR code com a camera do seu celular.
+                Charlotte AI &eacute; um app para iPhone e Android.<br />
+                Escaneie o QR code com a c&acirc;mera do seu celular.
               </p>
 
               <div className="qr-wrap">
                 <img src={qrUrl} alt="QR code para baixar Charlotte AI" />
               </div>
               <p className="qr-label">
-                Aponte a camera para o QR code<br />e toque no link que aparecer.
+                Aponte a c&acirc;mera para o QR code<br />e toque no link que aparecer.
               </p>
 
               <div className="divider">ou baixe diretamente</div>
@@ -278,7 +302,7 @@ export default function OpenPage() {
             <>
               <h1>Baixe o Charlotte AI</h1>
               <p className="sub">
-                Instale o app para confirmar sua conta<br />e comecar a praticar ingles.
+                Instale o app para confirmar sua conta<br />e come&ccedil;ar a praticar ingl&ecirc;s.
               </p>
 
               {os === 'ios' ? (
@@ -294,7 +318,7 @@ export default function OpenPage() {
               )}
 
               <p className="note">
-                Ja tem o app? Abra o Charlotte AI e entre com seu email e senha.
+                J&aacute; tem o app? Abra o Charlotte AI e entre com seu email e senha.
               </p>
             </>
           )}

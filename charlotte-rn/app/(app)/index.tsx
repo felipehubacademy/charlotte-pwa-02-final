@@ -1030,16 +1030,25 @@ export default function HomeScreen() {
       _greetingFetchedThisSession = false;
       _greetingTextThisSession    = '';
       setAiGreeting(null);
+      setGreetingLoading(true);
     }
 
     // Restore cached greeting immediately on remount (no dots on navigation)
     if (_greetingTextThisSession) {
       setAiGreeting(_greetingTextThisSession);
+      setGreetingLoading(false);
       return;
     }
 
-    // Wait for userId + name; data is used for context but not a blocker
-    if (!userId || !name || _greetingFetchedThisSession) return;
+    // Profile not loaded yet — wait
+    if (!userId || !name) return;
+
+    // Already fetched (success or fail) — show charlotteMessage fallback immediately
+    if (_greetingFetchedThisSession) {
+      setGreetingLoading(false);
+      return;
+    }
+
     _greetingFetchedThisSession = true;
     _greetingLevelThisSession   = level;
 
@@ -1061,14 +1070,18 @@ export default function HomeScreen() {
             isNewUser:       !(profile?.first_welcome_done ?? false),
           }),
         });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.message) {
-          _greetingTextThisSession = json.message;
-          setAiGreeting(json.message);  // swaps fallback → AI greeting when ready
+        if (res.ok) {
+          const json = await res.json();
+          if (json.message) {
+            _greetingTextThisSession = json.message;
+            setAiGreeting(json.message);
+          }
         }
       } catch {
-        // Silently fail — charlotteMessage() fallback stays visible
+        // Silently fail — charlotteMessage() fallback shown via greetingLoading=false
+      } finally {
+        // Always stop loading: show AI greeting if available, charlotteMessage otherwise
+        setGreetingLoading(false);
       }
     })();
   // NOTE: 'data' removed from deps intentionally — having it caused the effect to re-run
