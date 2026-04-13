@@ -18,6 +18,10 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier: 'com.hubacademy.charlotte',
+    // Universal Links: iOS intercepta https://charlotte.hubacademybr.com/open e /auth/*
+    // e abre direto no app sem passar pelo browser.
+    // Requer AASA file em /.well-known/apple-app-site-association (ja deployado no Vercel).
+    associatedDomains: ['applinks:charlotte.hubacademybr.com'],
     infoPlist: {
       NSMicrophoneUsageDescription:
         'Charlotte uses your microphone to practice English conversation with AI.',

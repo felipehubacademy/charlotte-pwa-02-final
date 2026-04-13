@@ -3,42 +3,53 @@
 // app/open/page.tsx
 // Smart redirect page — abre o app Charlotte se instalado,
 // senao mostra botoes para App Store / Google Play.
+// Desktop: mostra QR code para escanear com o celular.
 //
-// Fluxo principal (confirmacao de email):
-//   Supabase verifica token -> redireciona para esta pagina com
-//   #access_token=...&refresh_token=...&type=signup no hash
-//   -> esta pagina tenta abrir charlotte://auth/callback#...
+// Fluxo confirmacao de email:
+//   Supabase verifica token -> redirect para /open#access_token=...&refresh_token=...&type=signup
+//   -> tenta abrir charlotte://auth/callback#... -> AuthProvider.setSession() -> logado
 //
-// Fluxo convite (admin criou usuario):
-//   Email com link /open?mode=invite
+// Fluxo convite institucional (admin criou usuario):
+//   Email com botao -> /open?mode=invite
 //   -> tenta abrir charlotte:// (tela de login)
-//   -> se nao instalado, mostra lojas
+//
+// Com Universal Links (proximo build):
+//   iOS intercepta https://charlotte.hubacademybr.com/open direto no app
+//   sem nem passar pelo browser — fluxo ainda mais suave.
 
 import { useEffect, useState } from 'react';
 
-// Substitua pelos IDs reais apos publicacao nas lojas
 const IOS_URL     = 'https://apps.apple.com/app/id6745037039';
 const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.hubacademy.charlotte';
+const QR_PAGE_URL = 'https://charlotte.hubacademybr.com/open';
 
 type Phase = 'launching' | 'fallback';
+type OS    = 'ios' | 'android' | 'desktop';
 
-function getOS(): 'ios' | 'android' | 'other' {
-  if (typeof navigator === 'undefined') return 'other';
+function getOS(): OS {
+  if (typeof navigator === 'undefined') return 'desktop';
   const ua = navigator.userAgent;
   if (/iPhone|iPad|iPod/.test(ua)) return 'ios';
-  if (/Android/.test(ua)) return 'android';
-  return 'other';
+  if (/Android/.test(ua))          return 'android';
+  return 'desktop';
 }
 
 export default function OpenPage() {
   const [phase, setPhase] = useState<Phase>('launching');
-  const [os, setOs]       = useState<'ios' | 'android' | 'other'>('other');
+  const [os, setOs]       = useState<OS>('desktop');
   const [dots, setDots]   = useState('.');
 
   useEffect(() => {
-    setOs(getOS());
+    const currentOs = getOS();
+    setOs(currentOs);
 
-    // Lê tokens do hash (Supabase redirect) e query string (mode=invite)
+    // Desktop nao tem o app — vai direto para o fallback com QR code
+    if (currentOs === 'desktop') {
+      setPhase('fallback');
+      return;
+    }
+
+    // Le tokens do hash (Supabase redirect) e query string (mode=invite)
     const hash   = window.location.hash.slice(1);
     const search = window.location.search.slice(1);
     const hashParams  = new URLSearchParams(hash);
@@ -47,45 +58,37 @@ export default function OpenPage() {
     const accessToken  = hashParams.get('access_token');
     const refreshToken = hashParams.get('refresh_token');
     const type         = hashParams.get('type') ?? 'signup';
-    const mode         = queryParams.get('mode'); // 'invite' ou null
+    const mode         = queryParams.get('mode');
 
     // Monta o deep link
     let deepLink = 'charlotte://';
     if (accessToken && refreshToken) {
-      // Email confirmation — passa tokens para o app via hash
       deepLink = `charlotte://auth/callback#access_token=${accessToken}&refresh_token=${refreshToken}&type=${type}`;
     } else if (mode === 'invite') {
-      // Convite — abre na tela de login
       deepLink = 'charlotte://';
     }
 
-    // Tenta abrir o app via custom scheme
-    // iOS/Android: se o app estiver instalado, o OS vai interceptar
-    const tryOpen = () => {
-      // Iframe hidden (iOS — mais suave, nao quebra o fallback timer)
-      try {
-        const iframe = document.createElement('iframe');
-        iframe.setAttribute('src', deepLink);
-        iframe.setAttribute('style', 'display:none;width:0;height:0;border:0;');
-        document.body.appendChild(iframe);
-        setTimeout(() => document.body.removeChild(iframe), 3000);
-      } catch {
-        // ignore
-      }
+    // Tenta abrir o app via iframe (menos agressivo — permite o fallback timer)
+    try {
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('src', deepLink);
+      iframe.setAttribute('style', 'display:none;width:0;height:0;border:0;');
+      document.body.appendChild(iframe);
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 3000);
+    } catch {}
 
-      // Android usa Intent URL para melhor compatibilidade
-      const currentOs = getOS();
-      if (currentOs === 'android' && accessToken) {
-        const intentUrl = `intent://auth/callback#access_token=${accessToken}&refresh_token=${refreshToken}&type=${type}#Intent;scheme=charlotte;package=com.hubacademy.charlotte;end`;
-        setTimeout(() => { window.location.href = intentUrl; }, 100);
-      } else {
-        setTimeout(() => { window.location.href = deepLink; }, 100);
-      }
-    };
+    // Android: Intent URL para maior compatibilidade com Chrome
+    if (currentOs === 'android') {
+      const intentBase = accessToken
+        ? `intent://auth/callback#access_token=${accessToken}&refresh_token=${refreshToken}&type=${type}#Intent;scheme=charlotte;package=com.hubacademy.charlotte;end`
+        : `intent://#Intent;scheme=charlotte;package=com.hubacademy.charlotte;end`;
+      setTimeout(() => { window.location.href = intentBase; }, 200);
+    } else {
+      // iOS: window.location para trigger adicional
+      setTimeout(() => { window.location.href = deepLink; }, 200);
+    }
 
-    tryOpen();
-
-    // Fallback: se o usuario ainda estiver na pagina apos 2.5s, o app nao abriu
+    // Fallback: se o usuario ainda estiver aqui apos 2.5s, o app nao foi aberto
     const fallbackTimer = setTimeout(() => setPhase('fallback'), 2500);
 
     // Animacao de pontos
@@ -99,17 +102,14 @@ export default function OpenPage() {
     };
   }, []);
 
-  const storeUrl = os === 'android' ? ANDROID_URL : IOS_URL;
-  const storeLabel = os === 'android'
-    ? 'Baixar na Google Play'
-    : 'Baixar na App Store';
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&color=16153A&bgcolor=F4F3FA&qzone=2&data=${encodeURIComponent(QR_PAGE_URL)}`;
 
   return (
     <html lang="pt-BR">
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Abrindo Charlotte...</title>
+        <title>Abrindo Charlotte AI...</title>
         <style>{`
           * { box-sizing: border-box; margin: 0; padding: 0; }
           body {
@@ -132,15 +132,12 @@ export default function OpenPage() {
             box-shadow: 0 4px 24px rgba(22,21,58,0.08);
           }
           .avatar {
-            width: 96px;
-            height: 96px;
+            width: 88px;
+            height: 88px;
             border-radius: 50%;
             background: #16153A;
-            margin: 0 auto 28px;
+            margin: 0 auto 24px;
             overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
           }
           .avatar img { width: 100%; height: 100%; object-fit: cover; }
           .brand {
@@ -152,26 +149,25 @@ export default function OpenPage() {
             margin-bottom: 8px;
           }
           h1 {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 800;
             color: #16153A;
             letter-spacing: -0.3px;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
           }
           .sub {
             font-size: 15px;
             color: #4B4A72;
             line-height: 1.6;
-            margin-bottom: 32px;
+            margin-bottom: 28px;
           }
-          .dots { display: inline-block; width: 20px; text-align: left; }
           .spinner {
-            width: 40px; height: 40px;
+            width: 36px; height: 36px;
             border: 3px solid rgba(163,255,60,0.3);
             border-top-color: #A3FF3C;
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
-            margin: 0 auto 32px;
+            margin: 0 auto 28px;
           }
           @keyframes spin { to { transform: rotate(360deg); } }
           .btn-primary {
@@ -179,32 +175,58 @@ export default function OpenPage() {
             background: #16153A;
             color: #fff;
             text-decoration: none;
-            padding: 16px 32px;
+            padding: 15px 32px;
             border-radius: 14px;
             font-size: 16px;
             font-weight: 800;
             letter-spacing: -0.2px;
-            margin-bottom: 12px;
-            transition: opacity 0.15s;
+            margin-bottom: 10px;
           }
-          .btn-primary:hover { opacity: 0.85; }
           .btn-secondary {
             display: block;
             background: transparent;
             color: #16153A;
             text-decoration: none;
-            padding: 14px 32px;
+            padding: 13px 32px;
             border-radius: 14px;
             font-size: 15px;
             font-weight: 600;
             border: 1.5px solid rgba(22,21,58,0.15);
-            transition: background 0.15s;
+            margin-bottom: 10px;
           }
-          .btn-secondary:hover { background: rgba(22,21,58,0.04); }
+          .qr-wrap {
+            background: #F4F3FA;
+            border-radius: 16px;
+            padding: 20px;
+            margin: 0 auto 20px;
+            display: inline-block;
+          }
+          .qr-wrap img { display: block; width: 160px; height: 160px; }
+          .qr-label {
+            font-size: 13px;
+            color: #9896B8;
+            line-height: 1.6;
+            margin-bottom: 24px;
+          }
+          .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: #9896B8;
+            font-size: 12px;
+            font-weight: 600;
+          }
+          .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(22,21,58,0.08);
+          }
           .note {
             font-size: 12px;
             color: #9896B8;
-            margin-top: 24px;
+            margin-top: 20px;
             line-height: 1.6;
           }
         `}</style>
@@ -212,53 +234,62 @@ export default function OpenPage() {
       <body>
         <div className="card">
           <div className="avatar">
-            <img
-              src="https://charlotte.hubacademybr.com/charlotte-bust.png"
-              alt="Charlotte"
-            />
+            <img src="https://charlotte.hubacademybr.com/charlotte-bust.png" alt="Charlotte" />
           </div>
 
           <p className="brand">Charlotte AI</p>
 
           {phase === 'launching' ? (
+            /* ── Tentando abrir o app (mobile) ── */
             <>
               <div className="spinner" />
-              <h1>Abrindo o app<span className="dots">{dots}</span></h1>
+              <h1>Abrindo o app<span style={{ display: 'inline-block', width: 20, textAlign: 'left' }}>{dots}</span></h1>
               <p className="sub">
                 Aguarde enquanto abrimos o Charlotte AI no seu dispositivo.
               </p>
             </>
+          ) : os === 'desktop' ? (
+            /* ── Desktop: QR code ── */
+            <>
+              <h1>Abra no seu celular</h1>
+              <p className="sub">
+                Charlotte AI e um app para iPhone e Android.<br />
+                Escaneie o QR code com a camera do seu celular.
+              </p>
+
+              <div className="qr-wrap">
+                <img src={qrUrl} alt="QR code para baixar Charlotte AI" />
+              </div>
+              <p className="qr-label">
+                Aponte a camera para o QR code<br />e toque no link que aparecer.
+              </p>
+
+              <div className="divider">ou baixe diretamente</div>
+
+              <a href={IOS_URL} className="btn-primary">
+                App Store &mdash; iPhone
+              </a>
+              <a href={ANDROID_URL} className="btn-secondary">
+                Google Play &mdash; Android
+              </a>
+            </>
           ) : (
+            /* ── Mobile: app nao instalado ── */
             <>
               <h1>Baixe o Charlotte AI</h1>
               <p className="sub">
-                Instale o app para confirmar sua conta e comecar a praticar ingles com a Charlotte.
+                Instale o app para confirmar sua conta<br />e comecar a praticar ingles.
               </p>
 
-              {os !== 'other' ? (
+              {os === 'ios' ? (
                 <>
-                  <a href={storeUrl} className="btn-primary">
-                    {storeLabel}
-                  </a>
-                  {os === 'ios' && (
-                    <a href={ANDROID_URL} className="btn-secondary">
-                      Tenho Android
-                    </a>
-                  )}
-                  {os === 'android' && (
-                    <a href={IOS_URL} className="btn-secondary">
-                      Tenho iPhone
-                    </a>
-                  )}
+                  <a href={IOS_URL} className="btn-primary">Baixar na App Store</a>
+                  <a href={ANDROID_URL} className="btn-secondary">Tenho Android</a>
                 </>
               ) : (
                 <>
-                  <a href={IOS_URL} className="btn-primary">
-                    App Store (iPhone)
-                  </a>
-                  <a href={ANDROID_URL} className="btn-secondary" style={{ marginTop: 12 }}>
-                    Google Play (Android)
-                  </a>
+                  <a href={ANDROID_URL} className="btn-primary">Baixar no Google Play</a>
+                  <a href={IOS_URL} className="btn-secondary">Tenho iPhone</a>
                 </>
               )}
 
