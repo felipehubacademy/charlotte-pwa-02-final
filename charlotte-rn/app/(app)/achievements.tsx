@@ -219,15 +219,15 @@ export default function AchievementsScreen() {
               <View style={{ width: '100%', height: 1, backgroundColor: C.border, marginBottom: 14 }} />
 
               {/* How to earn */}
-              <View style={{ width: '100%', flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 14 }}>
+              <View style={{ alignItems: 'center', paddingHorizontal: 8, marginBottom: isEarned ? 14 : 0 }}>
                 {isEarned
-                  ? <CheckCircle size={16} color={C.green} weight="fill" style={{ marginTop: 1 }} />
-                  : <Lock size={16} color={C.navyLight} weight="bold" style={{ marginTop: 1 }} />
+                  ? <CheckCircle size={20} color={C.green} weight="fill" style={{ marginBottom: 6 }} />
+                  : <Lock size={20} color={C.navyLight} weight="bold" style={{ marginBottom: 6 }} />
                 }
                 <AppText style={{
-                  flex: 1, fontSize: 13, fontWeight: '500',
+                  fontSize: 13, fontWeight: '500',
                   color: isEarned ? C.navyMid : C.navy,
-                  lineHeight: 20,
+                  textAlign: 'center', lineHeight: 20,
                 }}>
                   {howToEarn}
                 </AppText>
@@ -239,7 +239,7 @@ export default function AchievementsScreen() {
                   width: '100%',
                   backgroundColor: C.greenLight, borderRadius: 12,
                   paddingHorizontal: 14, paddingVertical: 10,
-                  flexDirection: 'row', alignItems: 'center', gap: 8,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                 }}>
                   <CheckCircle size={15} color={C.green} weight="fill" />
                   <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green }}>
@@ -399,7 +399,8 @@ export default function AchievementsScreen() {
 
         <View style={{
           flexDirection: 'row', flexWrap: 'wrap',
-          paddingHorizontal: 16, gap: 16, marginBottom: 24,
+          paddingHorizontal: 8, rowGap: 20, marginBottom: 24,
+          justifyContent: 'space-around',
         }}>
           {catalog.map(cat => {
             const isEarned = !!earnedMap[cat.code];

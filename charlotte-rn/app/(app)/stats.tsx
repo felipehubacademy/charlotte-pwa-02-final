@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator,
+  Modal, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -8,12 +9,12 @@ import {
   ArrowLeft, ShareNetwork, Star, Lightning, Fire, Trophy,
   BookOpenText, CaretRight, Medal,
   Microphone, PencilLine, GraduationCap, Sun, CalendarCheck,
-  RocketLaunch,
+  RocketLaunch, X, Lock, CheckCircle,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
-import { getBadgesForLevel } from '@/lib/achievementsCatalog';
+import { getBadgesForLevel, CatalogEntry } from '@/lib/achievementsCatalog';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
 import {
   checkLevelPromotion,
@@ -82,7 +83,7 @@ interface StatsData {
 }
 
 function AchievementIcon({ category, rarity, size = 20 }: { category: string; rarity: string; size?: number }) {
-  const color = RARITY_COLORS[rarity] ?? '#22C55E';
+  const color = rarity === 'locked' ? 'rgba(22,21,58,0.22)' : (RARITY_COLORS[rarity] ?? '#22C55E');
   switch (category) {
     case 'xp':
     case 'xp_milestone': return <Lightning     size={size} color={color} weight="fill" />;
@@ -116,6 +117,7 @@ export default function StatsScreen() {
   const accent       = LEVEL_COLOR[userLevel] ?? C.navy;
 
   const [promotionStatus, setPromotionStatus] = useState<PromotionStatus | null>(null);
+  const [badgeModal, setBadgeModal] = useState<{ catalog: CatalogEntry; earnedAt?: Date } | null>(null);
   const [data, setData] = useState<StatsData>({
     streak: 0, freshTotalXP: totalXP,
     recentActivity: [], achievements: [],
@@ -470,9 +472,10 @@ export default function StatsScreen() {
         </View>
 
         {(() => {
-          const earnedCodes = new Set(data.achievements.map(a => a.code));
           const levelCatalog = getBadgesForLevel(userLevel);
-          // Fill up to 5 preview slots: earned first, then catalog locked items
+          const earnedMap: Record<string, AchievementWithCategory> = {};
+          data.achievements.forEach(a => { earnedMap[a.code] = a; });
+          const earnedCodes = new Set(data.achievements.map(a => a.code));
           const lockedPreview = levelCatalog
             .filter(a => !earnedCodes.has(a.code))
             .slice(0, Math.max(0, 5 - data.achievements.length));
@@ -485,8 +488,14 @@ export default function StatsScreen() {
             >
               {data.achievements.map((ach, i) => {
                 const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
+                const cat = levelCatalog.find(c => c.code === ach.code);
                 return (
-                  <View key={ach.id ?? i} style={{ width: 72, alignItems: 'center' }}>
+                  <TouchableOpacity
+                    key={ach.id ?? i}
+                    activeOpacity={0.7}
+                    onPress={() => cat && setBadgeModal({ catalog: cat, earnedAt: ach.earnedAt })}
+                    style={{ width: 72, alignItems: 'center' }}
+                  >
                     <View style={{
                       width: 52, height: 52, borderRadius: 26,
                       backgroundColor: rc + '20',
@@ -501,27 +510,32 @@ export default function StatsScreen() {
                     }} numberOfLines={2}>
                       {ach.title}
                     </AppText>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
 
-              {lockedPreview.map(ach => (
-                <View key={ach.code} style={{ width: 72, alignItems: 'center' }}>
+              {lockedPreview.map(cat => (
+                <TouchableOpacity
+                  key={cat.code}
+                  activeOpacity={0.7}
+                  onPress={() => setBadgeModal({ catalog: cat })}
+                  style={{ width: 72, alignItems: 'center' }}
+                >
                   <View style={{
                     width: 52, height: 52, borderRadius: 26,
                     backgroundColor: C.ghost,
                     alignItems: 'center', justifyContent: 'center',
                     marginBottom: 6,
                   }}>
-                    <AchievementIcon category={ach.category} rarity="locked" size={24} />
+                    <AchievementIcon category={cat.category} rarity="locked" size={24} />
                   </View>
                   <AppText style={{
                     fontSize: 10, fontWeight: '600', color: C.navyLight,
                     textAlign: 'center',
                   }} numberOfLines={2}>
-                    {ach.title}
+                    {cat.title}
                   </AppText>
-                </View>
+                </TouchableOpacity>
               ))}
             </ScrollView>
           );
@@ -680,6 +694,84 @@ export default function StatsScreen() {
         </View>
 
       </ScrollView>
+
+      {/* ── Badge modal ───────────────────────────────────────────────────── */}
+      {badgeModal && (() => {
+        const { catalog: cat, earnedAt } = badgeModal;
+        const isEarned = !!earnedAt;
+        const rc = RARITY_COLORS[cat.rarity] ?? '#22C55E';
+        const howToEarn = isPortuguese ? cat.howToEarnPT : cat.howToEarnEN;
+        const RARITY_LABEL: Record<string, string> = {
+          common: 'Common', rare: 'Rare', epic: 'Epic', legendary: 'Legendary',
+        };
+        return (
+          <Modal visible transparent animationType="fade" onRequestClose={() => setBadgeModal(null)}>
+            <Pressable
+              style={{ flex: 1, backgroundColor: 'rgba(22,21,58,0.55)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}
+              onPress={() => setBadgeModal(null)}
+            >
+              <Pressable onPress={e => e.stopPropagation()}>
+                <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 24, width: '100%', alignItems: 'center' }}>
+                  <TouchableOpacity
+                    onPress={() => setBadgeModal(null)}
+                    style={{ position: 'absolute', top: 16, right: 16 }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <X size={18} color={C.navyLight} weight="bold" />
+                  </TouchableOpacity>
+
+                  <View style={{
+                    width: 72, height: 72, borderRadius: 36,
+                    backgroundColor: isEarned ? rc + '20' : C.ghost,
+                    alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+                  }}>
+                    <AchievementIcon category={cat.category} rarity={isEarned ? cat.rarity : 'locked'} size={34} />
+                  </View>
+
+                  <View style={{
+                    paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20,
+                    backgroundColor: isEarned ? rc + '18' : C.ghost, marginBottom: 8,
+                  }}>
+                    <AppText style={{ fontSize: 10, fontWeight: '700', color: isEarned ? rc : C.navyLight, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+                      {RARITY_LABEL[cat.rarity] ?? cat.rarity}
+                    </AppText>
+                  </View>
+
+                  <AppText style={{ fontSize: 17, fontWeight: '800', color: C.navy, textAlign: 'center', marginBottom: 10 }}>
+                    {cat.title}
+                  </AppText>
+
+                  <View style={{ width: '100%', height: 1, backgroundColor: C.border, marginBottom: 14 }} />
+
+                  <View style={{ alignItems: 'center', paddingHorizontal: 8, marginBottom: isEarned ? 14 : 0 }}>
+                    {isEarned
+                      ? <CheckCircle size={20} color={C.green} weight="fill" style={{ marginBottom: 6 }} />
+                      : <Lock size={20} color={C.navyLight} weight="bold" style={{ marginBottom: 6 }} />
+                    }
+                    <AppText style={{ fontSize: 13, fontWeight: '500', color: C.navy, textAlign: 'center', lineHeight: 20 }}>
+                      {howToEarn}
+                    </AppText>
+                  </View>
+
+                  {isEarned && earnedAt && (
+                    <View style={{
+                      width: '100%', backgroundColor: C.greenLight, borderRadius: 12,
+                      paddingHorizontal: 14, paddingVertical: 10,
+                      flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                    }}>
+                      <CheckCircle size={15} color={C.green} weight="fill" />
+                      <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green }}>
+                        {isPortuguese ? 'Conquistado em ' : 'Earned on '}
+                        {earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </AppText>
+                    </View>
+                  )}
+                </View>
+              </Pressable>
+            </Pressable>
+          </Modal>
+        );
+      })()}
     </SafeAreaView>
   );
 }
