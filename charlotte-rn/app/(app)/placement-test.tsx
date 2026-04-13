@@ -660,7 +660,7 @@ export default function PlacementTestScreen() {
               fontSize: 17, fontWeight: '800',
               color: currentIsCorrect ? C.greenDark : '#DC2626',
             }}>
-              {currentIsCorrect ? 'Correto!' : 'Nao foi dessa vez'}
+              {currentIsCorrect ? 'Correto!' : 'Não foi dessa vez'}
             </AppText>
           </View>
           {!currentIsCorrect && (
@@ -685,7 +685,7 @@ export default function PlacementTestScreen() {
             }}
           >
             <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFFFFF' }}>
-              Proxima →
+              Próxima →
             </AppText>
           </TouchableOpacity>
         </Animated.View>
@@ -825,10 +825,10 @@ function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () =>
               CHARLOTTE
             </AppText>
             <AppText style={{ fontSize: 17, color: '#FFFFFF', lineHeight: 26, fontWeight: '500' }}>
-              Ola, {firstName}! Qual e o seu nivel de ingles?
+              Olá, {firstName}! Qual é o seu nível de inglês?
             </AppText>
             <AppText style={{ fontSize: 15, color: 'rgba(255,255,255,0.65)', lineHeight: 23, marginTop: 8 }}>
-              Me responde algumas questoes rapidas e eu adapto as conversas e o conteudo ao seu nivel.
+              Me responde algumas questões rápidas e eu adapto as conversas e o conteúdo ao seu nível.
             </AppText>
           </View>
         </Animated.View>
@@ -844,7 +844,7 @@ function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () =>
             justifyContent: 'center', gap: 8,
           }}
         >
-          <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Comecar</AppText>
+          <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar</AppText>
           <ArrowRight size={18} color={C.navy} weight="bold" />
         </TouchableOpacity>
 
@@ -861,7 +861,7 @@ function SavingScreen() {
       <CharlotteAvatar size="xl" />
       <ActivityIndicator size="large" color={C.navy} style={{ marginTop: 24 }} />
       <AppText style={{ marginTop: 14, fontSize: 15, color: C.navyMid, fontWeight: '500' }}>
-        Calculando seu nivel...
+        Calculando seu nível...
       </AppText>
     </SafeAreaView>
   );
@@ -963,7 +963,7 @@ function ResultScreen({
                 flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
               }}
             >
-              <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Comecar a aprender</AppText>
+              <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar a aprender</AppText>
               <ArrowRight size={18} color={C.navy} weight="bold" />
             </TouchableOpacity>
           </ScrollView>

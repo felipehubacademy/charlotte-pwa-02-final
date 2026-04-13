@@ -66,14 +66,14 @@ export default function ActivityScreen() {
         text_message:      isPortuguese ? 'Conversa por texto'    : 'Text Chat',
         audio_message:     isPortuguese ? 'Conversa por voz'      : 'Voice Chat',
         live_voice:        isPortuguese ? 'Conversa ao vivo'      : 'Live Conversation',
-        pronunciation:     isPortuguese ? 'Pronuncia'             : 'Pronunciation',
-        grammar:           isPortuguese ? 'Gramatica'             : 'Grammar',
+        pronunciation:     isPortuguese ? 'Pronúncia'             : 'Pronunciation',
+        grammar:           isPortuguese ? 'Gramática'             : 'Grammar',
         learn_exercise:    isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail',
-        image_recognition: isPortuguese ? 'Pratica'               : 'Practice',
+        image_recognition: isPortuguese ? 'Prática'               : 'Practice',
       };
       const getLabel = (type: string) => {
-        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missao Concluida' : 'Mission Complete';
-        return typeLabels[type] ?? (isPortuguese ? 'Pratica' : 'Practice');
+        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';
+        return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
       };
 
       const { data: rows, error } = await supabase
@@ -145,7 +145,7 @@ export default function ActivityScreen() {
             CHARLOTTE
           </AppText>
           <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
-            {isPortuguese ? 'Historico de Atividades' : 'Activity History'}
+            {isPortuguese ? 'Histórico de Atividades' : 'Activity History'}
           </AppText>
         </View>
 

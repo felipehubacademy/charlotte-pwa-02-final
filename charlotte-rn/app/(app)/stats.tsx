@@ -135,14 +135,14 @@ export default function StatsScreen() {
         text_message:      isPortuguese ? 'Conversa por texto'    : 'Text Chat',
         audio_message:     isPortuguese ? 'Conversa por voz'      : 'Voice Chat',
         live_voice:        isPortuguese ? 'Conversa ao vivo'      : 'Live Conversation',
-        pronunciation:     isPortuguese ? 'Pronuncia'             : 'Pronunciation',
-        grammar:           isPortuguese ? 'Gramatica'             : 'Grammar',
+        pronunciation:     isPortuguese ? 'Pronúncia'             : 'Pronunciation',
+        grammar:           isPortuguese ? 'Gramática'             : 'Grammar',
         learn_exercise:    isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail',
-        image_recognition: isPortuguese ? 'Pratica'               : 'Practice',
+        image_recognition: isPortuguese ? 'Prática'               : 'Practice',
       };
       const getLabel = (type: string) => {
-        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missao Concluida' : 'Mission Complete';
-        return typeLabels[type] ?? (isPortuguese ? 'Pratica' : 'Practice');
+        if (type.startsWith('mission_reward_')) return isPortuguese ? 'Missão Concluída' : 'Mission Complete';
+        return typeLabels[type] ?? (isPortuguese ? 'Prática' : 'Practice');
       };
 
       const [statsRes, historyRes, achievementsRes, learnProgressRes, levelUsersRes] = await Promise.all([
@@ -435,7 +435,7 @@ export default function StatsScreen() {
               <Star size={13} color={C.green} weight="fill" />
               <AppText style={{ color: C.green, fontSize: 12, fontWeight: '700', flex: 1 }}>
                 {isPortuguese
-                  ? `Pronto para o nivel ${nextLevelName}!`
+                  ? `Pronto para o nível ${nextLevelName}!`
                   : `Ready for ${nextLevelName} level!`}
               </AppText>
             </View>
@@ -556,7 +556,7 @@ export default function StatsScreen() {
             <View style={{ alignItems: 'center', paddingVertical: 20 }}>
               <Trophy size={32} color={C.navyLight} weight="fill" />
               <AppText style={{ color: C.navyLight, fontSize: 13, fontWeight: '500', marginTop: 8 }}>
-                {isPortuguese ? 'Nenhum dado disponivel' : 'No data available'}
+                {isPortuguese ? 'Nenhum dado disponível' : 'No data available'}
               </AppText>
             </View>
           ) : (
