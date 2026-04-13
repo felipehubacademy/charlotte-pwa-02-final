@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       type: 'recovery',
       email: email,
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'https://charlotte-pwa-02-final.vercel.app'}/auth/confirm`
+        redirectTo: 'https://charlotte.hubacademybr.com/open'
       }
     });
 

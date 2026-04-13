@@ -33,13 +33,17 @@ const ACTION_TYPE_MAP: Record<string, string> = {
 };
 
 function buildConfirmationUrl(emailData: Record<string, string>): string {
-  const base       = emailData.site_url || SUPABASE_URL;
+  // Usa sempre SUPABASE_URL (clean project URL sem /auth/v1) para evitar
+  // path duplicado: emailData.site_url pode chegar como .../auth/v1
+  // causando /auth/v1/auth/v1/verify.
+  // Usa sempre DEFAULT_REDIRECT ignorando emailData.redirect_to
+  // (o app pode passar uma URL antiga via emailRedirectTo no signUp).
+  const projectUrl = SUPABASE_URL.replace(/\/auth\/v1\/?$/, '');
   const type       = ACTION_TYPE_MAP[emailData.email_action_type] ?? emailData.email_action_type;
-  const redirectTo = emailData.redirect_to || DEFAULT_REDIRECT;
-  const url        = new URL(`${base}/auth/v1/verify`);
+  const url        = new URL(`${projectUrl}/auth/v1/verify`);
   url.searchParams.set('token',       emailData.token_hash ?? '');
   url.searchParams.set('type',        type);
-  url.searchParams.set('redirect_to', redirectTo);
+  url.searchParams.set('redirect_to', DEFAULT_REDIRECT);
   return url.toString();
 }
 
