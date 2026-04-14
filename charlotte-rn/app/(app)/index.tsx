@@ -121,8 +121,15 @@ interface ModeCard {
   accentBg: string;
   icon: React.ReactNode;
   locked?: boolean;
-  lockLevel?: string;
+  lockLevel?: string;  // texto exibido para locks de nivel
+  lockXP?: number;     // threshold XP para unlock gradual (Novice)
+  currentXP?: number;  // XP atual do usuario, passado junto com lockXP
 }
+
+// Unlock gradual para Novice: baseado em XP da trilha de aprendizado
+// Calculo: N topics × 10 exercicios × 10 XP × 80% de acerto
+const PRONUN_UNLOCK_XP = 1920; // modulo 5 completo @ 80% — 24 topics
+const CHAT_UNLOCK_XP   = 2800; // modulo 8 completo @ 80% — 35 topics
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -1102,10 +1109,15 @@ export default function HomeScreen() {
 
   const isPortuguese    = level === 'Novice';
 
-  const hasGrammar      = config.tabs.includes('grammar');
-  const hasPronun       = config.tabs.includes('pronunciation');
-  const hasChat         = config.tabs.includes('chat');
-  const hasLive         = level === 'Advanced' || level === 'Inter';
+  const hasGrammar = config.tabs.includes('grammar');
+  // Novice: unlock gradual via XP — Inter/Advanced: baseado em tabs do levelConfig
+  const hasPronun  = level !== 'Novice'
+    ? config.tabs.includes('pronunciation')
+    : totalXP >= PRONUN_UNLOCK_XP;
+  const hasChat    = level !== 'Novice'
+    ? config.tabs.includes('chat')
+    : totalXP >= CHAT_UNLOCK_XP;
+  const hasLive    = level === 'Advanced' || level === 'Inter';
 
   const modeCards: ModeCard[] = [
     {
@@ -1128,7 +1140,9 @@ export default function HomeScreen() {
       accentBg: C.blueBg,
       icon: <Microphone size={26} color={C.blue} weight="bold" />,
       locked: !hasPronun,
-      lockLevel: 'Intermediate',
+      lockLevel: level === 'Novice' ? undefined : 'Intermediate',
+      lockXP:    level === 'Novice' && !hasPronun ? PRONUN_UNLOCK_XP : undefined,
+      currentXP: level === 'Novice' && !hasPronun ? totalXP          : undefined,
     },
     {
       mode: 'chat' as const,
@@ -1139,7 +1153,9 @@ export default function HomeScreen() {
       accentBg: C.pinkBg,
       icon: <ChatTeardropText size={26} color={C.pink} weight="bold" />,
       locked: !hasChat,
-      lockLevel: 'Intermediate',
+      lockLevel: level === 'Novice' ? undefined : 'Intermediate',
+      lockXP:    level === 'Novice' && !hasChat ? CHAT_UNLOCK_XP : undefined,
+      currentXP: level === 'Novice' && !hasChat ? totalXP        : undefined,
     },
     {
       mode: 'live' as const,
@@ -1555,13 +1571,24 @@ export default function HomeScreen() {
                   card={card}
                   onPress={() => {
                     if (card.locked) {
-                      Alert.alert(
-                        isPortuguese ? `Recurso ${card.lockLevel}` : `${card.lockLevel} Feature`,
-                        isPortuguese
-                          ? `${card.title} será desbloqueado ao atingir o nível ${card.lockLevel}. Continue praticando!`
-                          : `${card.title} unlocks when you reach the ${card.lockLevel} level. Keep practising!`,
-                        [{ text: isPortuguese ? 'Entendido' : 'Got it' }]
-                      );
+                      if (card.lockXP !== undefined && card.currentXP !== undefined) {
+                        // Lock gradual por XP (Novice)
+                        const xpLeft = card.lockXP - card.currentXP;
+                        const pct    = Math.min(100, Math.round((card.currentXP / card.lockXP) * 100));
+                        Alert.alert(
+                          card.title,
+                          `Para desbloquear ${card.title} voce precisa de ${card.lockXP.toLocaleString('pt-BR')} XP na trilha.\n\nSeu progresso: ${card.currentXP.toLocaleString('pt-BR')} / ${card.lockXP.toLocaleString('pt-BR')} XP (${pct}%)\n\nFaltam ${xpLeft.toLocaleString('pt-BR')} XP. Continue praticando Gramatica!`,
+                          [{ text: 'Entendido' }]
+                        );
+                      } else {
+                        Alert.alert(
+                          isPortuguese ? `Recurso ${card.lockLevel}` : `${card.lockLevel} Feature`,
+                          isPortuguese
+                            ? `${card.title} sera desbloqueado ao atingir o nivel ${card.lockLevel}. Continue praticando!`
+                            : `${card.title} unlocks when you reach the ${card.lockLevel} level. Keep practising!`,
+                          [{ text: isPortuguese ? 'Entendido' : 'Got it' }]
+                        );
+                      }
                     } else if (card.mode === 'live') {
                       soundEngine.setMuted(true);
                       setShowLiveVoice(true);
@@ -1846,11 +1873,26 @@ function PracticePortal({ card, onPress }: { card: ModeCard; onPress: () => void
       <AppText style={{ fontSize: 13, fontWeight: '700', color: locked ? C.navyLight : C.navy, textAlign: 'center' }}>
         {card.title}
       </AppText>
-      {locked && card.lockLevel && (
+      {locked && card.lockXP !== undefined && card.currentXP !== undefined ? (
+        // Unlock gradual (Novice): barra de progresso XP
+        <View style={{ width: '100%', paddingHorizontal: 4, marginTop: 6 }}>
+          <AppText style={{ fontSize: 9, color: C.navyLight, textAlign: 'center', marginBottom: 4 }}>
+            {card.currentXP.toLocaleString('pt-BR')} / {card.lockXP.toLocaleString('pt-BR')} XP
+          </AppText>
+          <View style={{ height: 3, borderRadius: 2, backgroundColor: 'rgba(22,21,58,0.10)' }}>
+            <View style={{
+              height: 3,
+              borderRadius: 2,
+              backgroundColor: C.navyLight,
+              width: `${Math.min(100, Math.round((card.currentXP / card.lockXP) * 100))}%` as any,
+            }} />
+          </View>
+        </View>
+      ) : locked && card.lockLevel ? (
         <AppText style={{ fontSize: 10, color: C.navyLight, marginTop: 3, textAlign: 'center' }}>
           {card.lockLevel}
         </AppText>
-      )}
+      ) : null}
       {!locked && card.sub ? (
         <AppText style={{ fontSize: 10, color: C.navyLight, marginTop: 3, textAlign: 'center' }}>
           {card.sub}
