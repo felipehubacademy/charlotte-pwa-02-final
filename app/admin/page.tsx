@@ -272,6 +272,48 @@ function SortableHeader({ label, sortK, currentKey, dir, onSort }: {
   );
 }
 
+function Tooltip({ text, children }: { text: string; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div
+      style={{ position: 'relative', display: 'inline-block' }}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {children}
+      {show && text && (
+        <div style={{
+          position: 'absolute',
+          bottom: 'calc(100% + 6px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          backgroundColor: C.navy,
+          color: '#fff',
+          fontSize: 11,
+          fontWeight: 500,
+          padding: '5px 10px',
+          borderRadius: 7,
+          whiteSpace: 'nowrap',
+          zIndex: 200,
+          boxShadow: '0 4px 12px rgba(22,21,58,0.25)',
+          pointerEvents: 'none',
+        }}>
+          {text}
+          {/* Seta */}
+          <div style={{
+            position: 'absolute',
+            top: '100%', left: '50%',
+            transform: 'translateX(-50%)',
+            borderLeft: '5px solid transparent',
+            borderRight: '5px solid transparent',
+            borderTop: `5px solid ${C.navy}`,
+          }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 function StatCard({ label, value, sub, color, icon }: {
   label: string; value: string | number; sub?: string;
   color: string; icon: React.ReactNode;
@@ -812,12 +854,11 @@ export default function AdminPage() {
                       </div>
 
                       {/* Ultima atividade — hover mostra data/hora completa */}
-                      <div
-                        title={fmtFull(lastAct)}
-                        style={{ fontSize: 13, fontWeight: 600, color: activityColor(lastAct), cursor: 'default' }}
-                      >
-                        {fmtRelative(lastAct)}
-                      </div>
+                      <Tooltip text={fmtFull(lastAct)}>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: activityColor(lastAct), cursor: 'default' }}>
+                          {fmtRelative(lastAct)}
+                        </span>
+                      </Tooltip>
 
                       {/* Licoes */}
                       <div>
