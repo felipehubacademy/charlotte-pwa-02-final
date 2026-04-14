@@ -10,11 +10,14 @@ export interface TranslationResult {
 }
 
 function getApiBaseUrl(): string {
-  return (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+  return (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 }
+
+const CACHE_MAX = 100;
 
 class TranslationService {
   private cache: Record<string, string> = {};
+  private cacheKeys: string[] = [];
 
   private generateCacheKey(text: string, context?: string): string {
     return `${context ?? ''}::${text}`;
@@ -43,7 +46,13 @@ class TranslationService {
         throw new Error(data.error || 'Translation failed');
       }
 
+      // Limite de 100 entradas — remove a mais antiga (FIFO)
+      if (this.cacheKeys.length >= CACHE_MAX) {
+        const oldest = this.cacheKeys.shift()!;
+        delete this.cache[oldest];
+      }
       this.cache[cacheKey] = data.translatedText;
+      this.cacheKeys.push(cacheKey);
 
       return { translatedText: data.translatedText, success: true };
     } catch (error: any) {

@@ -289,7 +289,7 @@ const MessageBubble: React.FC<{
         {/* Action buttons below assistant messages */}
         {!isUser && (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 6, paddingHorizontal: 2 }}>
-            {isNovice && mode !== 'grammar' && (
+            {isNovice && mode === 'chat' && (
               <TouchableOpacity
                 onPress={handleTranslation}
                 disabled={isTranslating}
@@ -335,28 +335,24 @@ const MessageBubble: React.FC<{
           </View>
         )}
 
-        {/* Translation panel */}
+        {/* Translation panel — discreto: linha fina + italico, sem box */}
         {showTranslation && (
-          <View style={{ marginTop: 8, padding: 12, backgroundColor: '#F0FFD9', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(61,136,0,0.2)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-              <Globe size={12} color="#3D8800" weight="regular" />
-              <AppText style={{ fontSize: 11, color: '#3D8800', fontWeight: '600' }}>
-                Tradução em Português{translationError ? ' (básica)' : ''}
-              </AppText>
-            </View>
+          <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: 'rgba(22,21,58,0.08)' }}>
             {isTranslating ? (
-              <AppText style={{ fontSize: 14, color: 'rgba(22,21,58,0.5)' }}>Traduzindo...</AppText>
+              <AppText style={{ fontSize: 13, color: '#9896B8', fontStyle: 'italic' }}>
+                Traduzindo...
+              </AppText>
             ) : (
-              <AppText style={{ fontSize: 14, color: '#16153A', lineHeight: 20 }}>
+              <AppText style={{ fontSize: 13, color: '#4B4A72', fontStyle: 'italic', lineHeight: 19 }}>
                 {translation || 'Tradução não disponível.'}
               </AppText>
             )}
             {translationError && !isTranslating && (
               <TouchableOpacity
                 onPress={() => { setTranslation(''); setTranslationError(false); fetchTranslation(); }}
-                style={{ marginTop: 6 }}
+                style={{ marginTop: 4 }}
               >
-                <AppText style={{ fontSize: 12, color: '#A3FF3C' }}>Tentar novamente</AppText>
+                <AppText style={{ fontSize: 11, color: '#9896B8' }}>Tentar novamente</AppText>
               </TouchableOpacity>
             )}
           </View>
