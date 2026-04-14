@@ -30,6 +30,13 @@ interface SaveExerciseParams {
   exerciseType:  string;
   isCorrect:     boolean;
   xpEarned:      number;
+  // Conteúdo do exercício — persistido em exercise_errors quando isCorrect=false
+  exerciseData?: {
+    question?:      string;  // enunciado / frase da questão
+    correctAnswer?: string;  // resposta esperada
+    userAnswer?:    string;  // o que o usuário digitou/selecionou
+    score?:         number;  // para pronuncia: score 0-100
+  };
 }
 
 export function useLearnProgress(userId: string | undefined, level: TrailLevel): UseLearnProgressReturn {
@@ -147,14 +154,14 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     });
     if (error) console.error('[useLearnProgress] history insert error', error);
 
-    // Registrar erro se exercício foi incorreto (para revisão espaçada)
+    // Registrar erro se exercício foi incorreto (para revisão espaçada e analytics)
     if (!params.isCorrect) {
       trackExerciseError(userId, {
         userLevel:    params.level,
         moduleIndex:  params.moduleIndex,
         topicIndex:   params.topicIndex,
         exerciseType: params.exerciseType,
-        exerciseData: {},  // dados do exercício (expandir conforme necessário)
+        exerciseData: params.exerciseData ?? {},
       }).catch(console.warn);
     }
 

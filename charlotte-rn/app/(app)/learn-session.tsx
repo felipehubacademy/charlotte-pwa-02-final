@@ -9,7 +9,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft, ArrowRight, CheckCircle, XCircle,
   LightbulbFilament, BookOpen, Microphone,
-  SpeakerHigh, Play, Pause,
+  SpeakerHigh, Play, Pause, ArrowsClockwise,
 } from 'phosphor-react-native';
 import AnimatedXPBadge from '@/components/ui/AnimatedXPBadge';
 import * as SecureStore from 'expo-secure-store';
@@ -414,7 +414,8 @@ export default function LearnSessionScreen() {
       setIsCorrect(true);
       setGStatus('submitted');
       setSessionXP(prev => prev + 8);
-      saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: true, xpEarned: 8 });
+      saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: true, xpEarned: 8,
+        exerciseData: { question: ex.prompt, correctAnswer: ex.answer, userAnswer: userAnswer.trim() } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       soundEngine.play('answer_correct').catch(() => {});
       Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
@@ -430,7 +431,8 @@ export default function LearnSessionScreen() {
       setIsCorrect(correct);
       setGStatus('submitted');
       setSessionXP(prev => prev + xp);
-      saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: correct, xpEarned: xp });
+      saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: correct, xpEarned: xp,
+        exerciseData: { question: ex.prompt, correctAnswer: ex.answer, userAnswer: answerText } });
       if (correct) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); soundEngine.play('answer_correct').catch(() => {}); }
       else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); soundEngine.play('answer_wrong').catch(() => {}); setSessionErrors(prev => prev + 1); }
       Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
@@ -449,6 +451,7 @@ export default function LearnSessionScreen() {
       level, moduleIndex, topicIndex,
       exerciseType: ex.type,
       isCorrect: correct, xpEarned: xp,
+      exerciseData: { question: ex.prompt, correctAnswer: ex.answer, userAnswer: userAnswer.trim() },
     });
 
     if (correct) {
@@ -556,7 +559,8 @@ export default function LearnSessionScreen() {
         const xp = score >= 85 ? 15 : score >= 70 ? 10 : 5;
         setSessionXP(prev => prev + xp);
         const exType = isShadowing ? 'shadowing' : 'repeat';
-        saveExercise({ level, moduleIndex, topicIndex, exerciseType: exType, isCorrect: score >= 70, xpEarned: xp });
+        saveExercise({ level, moduleIndex, topicIndex, exerciseType: exType, isCorrect: score >= 70, xpEarned: xp,
+          exerciseData: { question: currentStep.phrase.text, score, userAnswer: 'audio' } });
         if (score >= 80) {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           soundEngine.play('answer_correct').catch(() => {});
@@ -582,7 +586,8 @@ export default function LearnSessionScreen() {
     setListenWriteCorrect(correct);
     const xp = correct ? 8 : 2;
     setSessionXP(prev => prev + xp);
-    saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'listen_write', isCorrect: correct, xpEarned: xp });
+    saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'listen_write', isCorrect: correct, xpEarned: xp,
+      exerciseData: { question: currentStep.phrase.text, correctAnswer: currentStep.phrase.text, userAnswer: listenWriteAnswer.trim() } });
     if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); setSessionErrors(prev => prev + 1); }
     Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
@@ -669,12 +674,89 @@ export default function LearnSessionScreen() {
 
   // ── Completion screen ──────────────────────────────────────
   if (isComplete) {
-    // Calculate next topic
+    // ── Tela de conclusão: REVISÃO ─────────────────────────────
+    if (params.reviewId) {
+      const perfect = sessionErrors === 0;
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+            {/* Ícone */}
+            <View style={{
+              width: 80, height: 80, borderRadius: 40,
+              backgroundColor: perfect ? C.greenBg : C.violetBg,
+              borderWidth: 2, borderColor: perfect ? C.green : C.violet,
+              alignItems: 'center', justifyContent: 'center', marginBottom: 24,
+            }}>
+              {perfect
+                ? <CheckCircle size={40} color={C.green} weight="fill" />
+                : <ArrowsClockwise size={40} color={C.violet} weight="fill" />
+              }
+            </View>
+
+            {/* Badge revisão */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5,
+              backgroundColor: C.violetBg, borderRadius: 10,
+              paddingHorizontal: 10, paddingVertical: 4, marginBottom: 16 }}>
+              <ArrowsClockwise size={11} color={C.violet} weight="bold" />
+              <AppText style={{ fontSize: 11, fontWeight: '700', color: C.violet }}>
+                {isPortuguese ? 'Revisão' : 'Review'}
+              </AppText>
+            </View>
+
+            <AppText style={{ fontSize: 24, fontWeight: '900', color: C.navy, marginBottom: 8, letterSpacing: -0.5, textAlign: 'center' }}>
+              {perfect
+                ? (isPortuguese ? 'Revisão perfeita!' : 'Perfect review!')
+                : (isPortuguese ? 'Revisão concluída!' : 'Review complete!')}
+            </AppText>
+            <AppText style={{ fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
+              {topicTitle}
+            </AppText>
+            <AppText style={{ fontSize: 13, color: C.navyLight, textAlign: 'center', lineHeight: 20, marginBottom: 12 }}>
+              {sessionXP} {isPortuguese ? 'XP ganhos' : 'XP earned'}
+              {avgScore !== null ? (isPortuguese ? ` · Pronúncia média ${avgScore}` : ` · Avg pronunciation ${avgScore}`) : ''}
+            </AppText>
+
+            {/* Feedback de erros / reagendamento */}
+            <View style={{
+              backgroundColor: perfect ? C.greenBg : C.violetBg,
+              borderRadius: 14, paddingHorizontal: 20, paddingVertical: 12,
+              marginBottom: 32, alignItems: 'center',
+            }}>
+              <AppText style={{ fontSize: 13, color: perfect ? C.green : C.violet, fontWeight: '600', textAlign: 'center', lineHeight: 20 }}>
+                {perfect
+                  ? (isPortuguese
+                    ? 'Excelente! Memoria consolidada — proxima revisao em breve.'
+                    : 'Excellent! Memory consolidated — next review coming up.')
+                  : (isPortuguese
+                    ? `${sessionErrors} erro${sessionErrors > 1 ? 's' : ''} detectado${sessionErrors > 1 ? 's' : ''}. Revisao reagendada para daqui 3 dias.`
+                    : `${sessionErrors} mistake${sessionErrors > 1 ? 's' : ''} detected. Review rescheduled for 3 days from now.`)
+                }
+              </AppText>
+            </View>
+
+            <TouchableOpacity
+              onPress={() => router.replace('/(app)')}
+              style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, paddingHorizontal: 40, marginBottom: 16 }}
+            >
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
+                {isPortuguese ? 'Voltar ao inicio' : 'Back to home'}
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.replace('/(app)/learn-trail')}>
+              <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>
+                {isPortuguese ? 'Ver trilha' : 'View trail'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    // ── Tela de conclusão: APRENDIZADO NORMAL ──────────────────
     const modules = CURRICULUM[level];
     let nextModuleIdx = moduleIndex;
     let nextTopicIdx = topicIndex + 1;
 
-    // If we've exhausted topics in this module, move to next module
     if (modules[nextModuleIdx] && nextTopicIdx >= modules[nextModuleIdx].topics.length) {
       nextModuleIdx = moduleIndex + 1;
       nextTopicIdx = 0;
@@ -693,14 +775,14 @@ export default function LearnSessionScreen() {
             <CheckCircle size={40} color={accent} weight="fill" />
           </View>
           <AppText style={{ fontSize: 24, fontWeight: '900', color: C.navy, marginBottom: 8, letterSpacing: -0.5 }}>
-            {isPortuguese ? 'Tópico concluído!' : 'Topic complete!'}
+            {isPortuguese ? 'Topico concluido!' : 'Topic complete!'}
           </AppText>
           <AppText style={{ fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
             {topicTitle}
           </AppText>
           <AppText style={{ fontSize: 13, color: C.navyLight, textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
             {sessionXP} {isPortuguese ? 'XP ganhos' : 'XP earned'}
-            {avgScore !== null ? (isPortuguese ? ` · Pronúncia média ${avgScore}` : ` · Avg pronunciation ${avgScore}`) : ''}
+            {avgScore !== null ? (isPortuguese ? ` · Pronuncia media ${avgScore}` : ` · Avg pronunciation ${avgScore}`) : ''}
           </AppText>
           <TouchableOpacity
             onPress={() => {
@@ -745,9 +827,21 @@ export default function LearnSessionScreen() {
           <ArrowLeft size={22} color={C.navy} weight="bold" />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center' }}>
-          <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
-            {modTitle}
-          </AppText>
+          {params.reviewId ? (
+            /* Badge de revisão — substitui o modTitle quando é uma revisão */
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4,
+              backgroundColor: C.violetBg, borderRadius: 8,
+              paddingHorizontal: 8, paddingVertical: 2, marginBottom: 2 }}>
+              <ArrowsClockwise size={10} color={C.violet} weight="bold" />
+              <AppText style={{ fontSize: 9, fontWeight: '700', color: C.violet, textTransform: 'uppercase', letterSpacing: 1 }}>
+                {isPortuguese ? 'Revisão' : 'Review'}
+              </AppText>
+            </View>
+          ) : (
+            <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
+              {modTitle}
+            </AppText>
+          )}
           <AppText style={{ fontSize: 14, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }} numberOfLines={1}>
             {topicTitle}
           </AppText>
