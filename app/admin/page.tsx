@@ -11,6 +11,20 @@ import Image from 'next/image';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface Engagement {
+  totalXP:      number;
+  lastActive:   string | null;
+  sessionDays:  number;
+  lessonCount:  number;
+  messageCount: number;
+}
+
+interface TrailProgress {
+  topicsCompleted: number;
+  moduleIndex:     number;
+  topicIndex:      number;
+}
+
 interface User {
   id: string;
   email: string;
@@ -23,6 +37,8 @@ interface User {
   trial_ends_at: string | null;
   must_change_password: boolean;
   created_at: string;
+  engagement:    Engagement | null;
+  trailProgress: TrailProgress | null;
 }
 
 interface Stats {
@@ -33,6 +49,8 @@ interface Stats {
   trialExpired: number;
   last30: number;
   growthPct: number | null;
+  activeToday: number;
+  activeWeek:  number;
 }
 
 type ModalMode = 'create' | 'edit' | 'delete' | null;
@@ -173,6 +191,26 @@ function levelLabel(level: User['charlotte_level']) {
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fmtRelative(iso: string | null): string {
+  if (!iso) return '—';
+  const diff = Date.now() - new Date(iso).getTime();
+  const h = diff / 3600000;
+  if (h < 1)   return 'agora';
+  if (h < 24)  return `${Math.floor(h)}h`;
+  const d = h / 24;
+  if (d < 7)   return `${Math.floor(d)}d`;
+  if (d < 30)  return `${Math.floor(d / 7)}sem`;
+  return `${Math.floor(d / 30)}m`;
+}
+
+function activityColor(iso: string | null): string {
+  if (!iso) return C.navyLight;
+  const days = (Date.now() - new Date(iso).getTime()) / 86400000;
+  if (days < 2)  return C.greenDark;
+  if (days < 7)  return C.orange;
+  return C.red;
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -540,16 +578,30 @@ export default function AdminPage() {
 
         {/* Stats */}
         {stats && (
-          <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 32 }}>
-            <StatCard label="Total de alunos"   value={stats.total}         color={C.navy}      icon={Icon.users} />
-            <StatCard label="Institucionais"    value={stats.institutional}  color={C.blue}      icon={Icon.building} />
-            <StatCard label="Assinantes"        value={stats.subscribers}    color={C.greenDark} icon={Icon.checkCircle} />
-            <StatCard label="Em trial"          value={stats.onTrial}        color={C.orange}    icon={Icon.clock} />
+          <div className="admin-stats-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 14, marginBottom: 32 }}>
+            <StatCard label="Total"          value={stats.total}            color={C.navy}      icon={Icon.users} />
+            <StatCard label="Institucionais" value={stats.institutional}    color={C.blue}      icon={Icon.building} />
+            <StatCard label="Assinantes"     value={stats.subscribers}      color={C.greenDark} icon={Icon.checkCircle} />
+            <StatCard label="Em trial"       value={stats.onTrial}          color={C.orange}    icon={Icon.clock} />
             <StatCard
-              label="Novos (30 dias)"
+              label="Novos (30d)"
               value={stats.growthPct !== null ? `${stats.growthPct > 0 ? '+' : ''}${stats.growthPct}%` : `+${stats.last30}`}
               sub={`${stats.last30} cadastros`}
               color={C.greenDark}
+              icon={Icon.trendUp}
+            />
+            <StatCard
+              label="Ativos hoje"
+              value={stats.activeToday}
+              sub="com atividade nas ultimas 24h"
+              color={stats.activeToday > 0 ? C.greenDark : C.navyLight}
+              icon={Icon.checkCircle}
+            />
+            <StatCard
+              label="Ativos semana"
+              value={stats.activeWeek}
+              sub="com atividade nos ultimos 7d"
+              color={stats.activeWeek > 0 ? C.blue : C.navyLight}
               icon={Icon.trendUp}
             />
           </div>
@@ -618,12 +670,12 @@ export default function AdminPage() {
               {/* Table header */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
+                gridTemplateColumns: '2fr 0.7fr 1fr 0.7fr 0.75fr 0.7fr 0.7fr 0.75fr 90px',
                 padding: '11px 20px',
                 borderBottom: `1px solid ${C.border}`,
                 backgroundColor: C.bg,
               }}>
-                {['Aluno', 'Nivel', 'Status', 'Cadastro', 'Placement', ''].map(h => (
+                {['Aluno', 'Nivel', 'Status', 'Cadastro', 'XP', 'Ult. ativ.', 'Licoes', 'Topicos', ''].map(h => (
                   <div key={h} style={{
                     fontSize: 11, fontWeight: 700, color: C.navyLight,
                     letterSpacing: '0.6px', textTransform: 'uppercase',
@@ -634,18 +686,21 @@ export default function AdminPage() {
               {/* Rows */}
               {filtered.length === 0 ? (
                 <div style={{ padding: 56, textAlign: 'center', color: C.navyLight, fontSize: 14 }}>
-                  Nenhum usuário encontrado.
+                  Nenhum usuario encontrado.
                 </div>
               ) : (
                 filtered.map((u, i) => {
                   const badge = statusBadge(u);
                   const lvl   = levelLabel(u.charlotte_level);
+                  const eng   = u.engagement;
+                  const trail = u.trailProgress;
+                  const lastAct = eng?.lastActive ?? null;
                   return (
                     <div
                       key={u.id}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '2.5fr 1fr 1.2fr 1fr 1fr 100px',
+                        gridTemplateColumns: '2fr 0.7fr 1fr 0.7fr 0.75fr 0.7fr 0.7fr 0.75fr 90px',
                         padding: '13px 20px',
                         borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
                         alignItems: 'center',
@@ -678,11 +733,44 @@ export default function AdminPage() {
                       </div>
 
                       {/* Cadastro */}
-                      <div style={{ fontSize: 13, color: C.navyMid }}>{fmtDate(u.created_at)}</div>
+                      <div style={{ fontSize: 12, color: C.navyMid }}>{fmtDate(u.created_at)}</div>
 
-                      {/* Placement */}
-                      <div style={{ fontSize: 13, fontWeight: 600, color: u.placement_test_done ? C.greenDark : C.navyLight }}>
-                        {u.placement_test_done ? 'Feito' : 'Pendente'}
+                      {/* XP */}
+                      <div style={{ fontSize: 13, fontWeight: 700, color: eng && eng.totalXP > 0 ? C.greenDark : C.navyLight }}>
+                        {eng ? eng.totalXP.toLocaleString('pt-BR') : '—'}
+                      </div>
+
+                      {/* Ultima atividade */}
+                      <div style={{ fontSize: 13, fontWeight: 600, color: activityColor(lastAct) }}>
+                        {fmtRelative(lastAct)}
+                      </div>
+
+                      {/* Licoes */}
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: eng && eng.lessonCount > 0 ? C.navy : C.navyLight }}>
+                          {eng ? eng.lessonCount : '—'}
+                        </span>
+                        {eng && eng.sessionDays > 0 && (
+                          <div style={{ fontSize: 10, color: C.navyLight, marginTop: 1 }}>
+                            {eng.sessionDays}d ativas
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Topicos (trilha) */}
+                      <div>
+                        {trail ? (
+                          <>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: trail.topicsCompleted > 0 ? C.blue : C.navyLight }}>
+                              {trail.topicsCompleted}
+                            </span>
+                            <div style={{ fontSize: 10, color: C.navyLight, marginTop: 1 }}>
+                              M{trail.moduleIndex + 1} T{trail.topicIndex + 1}
+                            </div>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 13, color: C.navyLight }}>—</span>
+                        )}
                       </div>
 
                       {/* Actions */}
@@ -792,10 +880,41 @@ export default function AdminPage() {
                             {lvl.text}
                           </span>
                         )}
-                        <span style={{ fontSize: 12, color: u.placement_test_done ? C.greenDark : C.navyLight, fontWeight: 600 }}>
-                          {u.placement_test_done ? 'Placement feito' : 'Placement pendente'}
-                        </span>
                       </div>
+
+                      {/* Engagement row */}
+                      {u.engagement && (
+                        <div style={{ display: 'flex', gap: 16, marginTop: 10, flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.navyLight, textTransform: 'uppercase', fontWeight: 700 }}>XP</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: u.engagement.totalXP > 0 ? C.greenDark : C.navyLight }}>
+                              {u.engagement.totalXP.toLocaleString('pt-BR')}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.navyLight, textTransform: 'uppercase', fontWeight: 700 }}>Ativo</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: activityColor(u.engagement.lastActive) }}>
+                              {fmtRelative(u.engagement.lastActive)}
+                            </div>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 10, color: C.navyLight, textTransform: 'uppercase', fontWeight: 700 }}>Licoes</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{u.engagement.lessonCount}</div>
+                          </div>
+                          {u.trailProgress && (
+                            <div>
+                              <div style={{ fontSize: 10, color: C.navyLight, textTransform: 'uppercase', fontWeight: 700 }}>Topicos</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: C.blue }}>
+                                {u.trailProgress.topicsCompleted} <span style={{ fontWeight: 400, color: C.navyLight }}>M{u.trailProgress.moduleIndex + 1}</span>
+                              </div>
+                            </div>
+                          )}
+                          <div>
+                            <div style={{ fontSize: 10, color: C.navyLight, textTransform: 'uppercase', fontWeight: 700 }}>Sessoes</div>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{u.engagement.sessionDays}d</div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Date */}
                       <div style={{ fontSize: 11, color: C.navyLight, marginTop: 8 }}>

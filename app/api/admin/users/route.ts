@@ -16,39 +16,108 @@ function checkAuth(req: NextRequest) {
   return ADMIN_SECRET && auth === ADMIN_SECRET;
 }
 
-// ── GET /api/admin/users — list all users + stats ─────────────────────────────
+// ── GET /api/admin/users — list all users + stats + engagement ────────────────
 export async function GET(req: NextRequest) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
 
-  const { data: users, error } = await supabase
-    .from('charlotte_users')
-    .select('*')
-    .order('created_at', { ascending: false });
+  // Fetch users + engagement data in parallel
+  const [
+    { data: users, error },
+    { data: practices },
+    { data: learnProgress },
+  ] = await Promise.all([
+    supabase.from('charlotte_users').select('*').order('created_at', { ascending: false }),
+    supabase.from('charlotte_practices').select('user_id, xp_earned, practice_type, created_at'),
+    supabase.from('learn_progress').select('user_id, completed, module_index, topic_index, level'),
+  ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const total         = users?.length ?? 0;
-  const institutional = users?.filter(u => u.is_institutional).length ?? 0;
-  const subscribers   = users?.filter(u => u.subscription_status === 'active').length ?? 0;
-  const onTrial       = users?.filter(u => u.subscription_status === 'trial').length ?? 0;
-  const trialExpired  = users?.filter(u => {
-    if (u.subscription_status !== 'trial') return false;
-    if (!u.trial_ends_at) return true;
-    return new Date(u.trial_ends_at) < new Date();
-  }).length ?? 0;
+  // ── Aggregate practices per user ──────────────────────────────────────────
+  const now   = new Date();
+  const d1    = new Date(now); d1.setDate(d1.getDate() - 1);
+  const d7    = new Date(now); d7.setDate(d7.getDate() - 7);
 
-  const now    = new Date();
-  const d30    = new Date(now); d30.setDate(d30.getDate() - 30);
-  const d60    = new Date(now); d60.setDate(d60.getDate() - 60);
-  const last30 = users?.filter(u => new Date(u.created_at) >= d30).length ?? 0;
-  const prev30 = users?.filter(u => new Date(u.created_at) >= d60 && new Date(u.created_at) < d30).length ?? 0;
+  type EngMap = Record<string, {
+    totalXP: number; lastActive: string | null;
+    lessonCount: number; messageCount: number; sessionDays: Set<string>;
+  }>;
+  const engMap: EngMap = {};
+
+  for (const p of (practices ?? [])) {
+    const uid = String(p.user_id).toLowerCase();
+    if (!engMap[uid]) {
+      engMap[uid] = { totalXP: 0, lastActive: null, lessonCount: 0, messageCount: 0, sessionDays: new Set() };
+    }
+    const e = engMap[uid];
+    e.totalXP += (p.xp_earned ?? 0);
+    if (!e.lastActive || p.created_at > e.lastActive) e.lastActive = p.created_at;
+    e.sessionDays.add((p.created_at as string).slice(0, 10));
+    if (p.practice_type === 'learn_exercise') e.lessonCount++;
+    if (['text_message', 'audio_message', 'grammar_message'].includes(p.practice_type)) e.messageCount++;
+  }
+
+  // ── Aggregate learn_progress per user (Novice trail) ─────────────────────
+  type ProgMap = Record<string, { topicsCompleted: number; moduleIndex: number; topicIndex: number }>;
+  const progMap: ProgMap = {};
+  for (const lp of (learnProgress ?? [])) {
+    if ((lp.level ?? 'Novice') !== 'Novice') continue; // track Novice trail as main metric
+    const uid = String(lp.user_id).toLowerCase();
+    const completed = (lp.completed as Array<{ m: number; t: number }>) ?? [];
+    progMap[uid] = {
+      topicsCompleted: completed.length,
+      moduleIndex:     lp.module_index ?? 0,
+      topicIndex:      lp.topic_index  ?? 0,
+    };
+  }
+
+  // ── Attach engagement to each user ───────────────────────────────────────
+  const usersWithEng = (users ?? []).map(u => {
+    const uid = String(u.id).toLowerCase();
+    const e   = engMap[uid];
+    const p   = progMap[uid];
+    return {
+      ...u,
+      engagement: e ? {
+        totalXP:      e.totalXP,
+        lastActive:   e.lastActive,
+        sessionDays:  e.sessionDays.size,
+        lessonCount:  e.lessonCount,
+        messageCount: e.messageCount,
+      } : null,
+      trailProgress: p ?? null,
+    };
+  });
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const total         = usersWithEng.length;
+  const institutional = usersWithEng.filter(u => u.is_institutional).length;
+  const subscribers   = usersWithEng.filter(u => u.subscription_status === 'active').length;
+  const onTrial       = usersWithEng.filter(u => u.subscription_status === 'trial').length;
+  const trialExpired  = usersWithEng.filter(u => {
+    if (u.subscription_status !== 'trial') return false;
+    return !u.trial_ends_at || new Date(u.trial_ends_at) < now;
+  }).length;
+
+  const d30   = new Date(now); d30.setDate(d30.getDate() - 30);
+  const d60   = new Date(now); d60.setDate(d60.getDate() - 60);
+  const last30 = usersWithEng.filter(u => new Date(u.created_at) >= d30).length;
+  const prev30 = usersWithEng.filter(u => new Date(u.created_at) >= d60 && new Date(u.created_at) < d30).length;
   const growthPct = prev30 === 0 ? null : Math.round(((last30 - prev30) / prev30) * 100);
 
+  // Engagement stats
+  const activeToday = usersWithEng.filter(u =>
+    u.engagement?.lastActive && new Date(u.engagement.lastActive) >= d1
+  ).length;
+  const activeWeek = usersWithEng.filter(u =>
+    u.engagement?.lastActive && new Date(u.engagement.lastActive) >= d7
+  ).length;
+
   return NextResponse.json({
-    users,
-    stats: { total, institutional, subscribers, onTrial, trialExpired, last30, growthPct },
+    users: usersWithEng,
+    stats: { total, institutional, subscribers, onTrial, trialExpired, last30, growthPct, activeToday, activeWeek },
   });
 }
 
