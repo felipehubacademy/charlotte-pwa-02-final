@@ -39,7 +39,12 @@ interface User {
   created_at: string;
   engagement:    Engagement | null;
   trailProgress: TrailProgress | null;
+  streak:        number;
+  longestStreak: number;
 }
+
+type SortKey = 'name' | 'level' | 'created_at' | 'xp' | 'lastActive' | 'lessons' | 'topics' | 'streak';
+type SortDir = 'asc' | 'desc';
 
 interface Stats {
   total: number;
@@ -213,7 +218,59 @@ function activityColor(iso: string | null): string {
   return C.red;
 }
 
+function fmtFull(iso: string | null): string {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function sortUsers(list: User[], key: SortKey, dir: SortDir): User[] {
+  return [...list].sort((a, b) => {
+    let av: number | string;
+    let bv: number | string;
+    switch (key) {
+      case 'name':       av = (a.name ?? '').toLowerCase();              bv = (b.name ?? '').toLowerCase(); break;
+      case 'level':      av = a.charlotte_level ?? '';                   bv = b.charlotte_level ?? ''; break;
+      case 'created_at': av = a.created_at;                              bv = b.created_at; break;
+      case 'xp':         av = a.engagement?.totalXP    ?? -1;            bv = b.engagement?.totalXP    ?? -1; break;
+      case 'lastActive': av = a.engagement?.lastActive ?? '';            bv = b.engagement?.lastActive ?? ''; break;
+      case 'lessons':    av = a.engagement?.lessonCount ?? -1;           bv = b.engagement?.lessonCount ?? -1; break;
+      case 'topics':     av = a.trailProgress?.topicsCompleted ?? -1;   bv = b.trailProgress?.topicsCompleted ?? -1; break;
+      case 'streak':     av = a.streak ?? -1;                            bv = b.streak ?? -1; break;
+      default:           return 0;
+    }
+    if (av < bv) return dir === 'asc' ? -1 : 1;
+    if (av > bv) return dir === 'asc' ?  1 : -1;
+    return 0;
+  });
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function SortableHeader({ label, sortK, currentKey, dir, onSort }: {
+  label: string; sortK: SortKey; currentKey: SortKey; dir: SortDir;
+  onSort: (k: SortKey) => void;
+}) {
+  const active = currentKey === sortK;
+  return (
+    <div
+      onClick={() => onSort(sortK)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 4,
+        cursor: 'pointer', userSelect: 'none',
+        fontSize: 11, fontWeight: 700, color: active ? C.navy : C.navyLight,
+        letterSpacing: '0.6px', textTransform: 'uppercase',
+      }}
+    >
+      {label}
+      <span style={{ fontSize: 9, opacity: active ? 1 : 0.35 }}>
+        {active ? (dir === 'desc' ? '↓' : '↑') : '↕'}
+      </span>
+    </div>
+  );
+}
 
 function StatCard({ label, value, sub, color, icon }: {
   label: string; value: string | number; sub?: string;
@@ -256,6 +313,8 @@ export default function AdminPage() {
   const [modalMode, setModalMode]   = useState<ModalMode>(null);
   const [selectedUser, setSelected] = useState<User | null>(null);
   const [saving, setSaving]         = useState(false);
+  const [sortKey, setSortKey]       = useState<SortKey>('lastActive');
+  const [sortDir, setSortDir]       = useState<SortDir>('desc');
   const [form, setForm]             = useState({
     email: '', password: '', name: '',
     charlotte_level: '' as string,
@@ -456,7 +515,13 @@ export default function AdminPage() {
     );
   }
 
-  // ── Filtered list ─────────────────────────────────────────────────────────────
+  // ── Sort toggle ───────────────────────────────────────────────────────────────
+  const handleSort = (k: SortKey) => {
+    if (k === sortKey) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setSortKey(k); setSortDir('desc'); }
+  };
+
+  // ── Filtered + sorted list ────────────────────────────────────────────────────
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase();
@@ -472,6 +537,8 @@ export default function AdminPage() {
       true;
     return matchSearch && matchFilter;
   });
+
+  const sorted = sortUsers(filtered, sortKey, sortDir);
 
   // ── Shared styles ─────────────────────────────────────────────────────────────
 
@@ -639,7 +706,7 @@ export default function AdminPage() {
             })}
           </div>
           <div className="admin-count" style={{ marginLeft: 'auto', fontSize: 13, color: C.navyLight }}>
-            {filtered.length} {filtered.length === 1 ? 'usuário' : 'usuários'}
+            {sorted.length} {sorted.length === 1 ? 'usuario' : 'usuarios'}
           </div>
         </div>
 
@@ -670,39 +737,43 @@ export default function AdminPage() {
               {/* Table header */}
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: '2fr 0.7fr 1fr 0.7fr 0.75fr 0.7fr 0.7fr 0.75fr 90px',
+                gridTemplateColumns: '2fr 0.65fr 1fr 0.65fr 0.7fr 0.7fr 0.65fr 0.7fr 0.65fr 90px',
                 padding: '11px 20px',
                 borderBottom: `1px solid ${C.border}`,
                 backgroundColor: C.bg,
               }}>
-                {['Aluno', 'Nivel', 'Status', 'Cadastro', 'XP', 'Ult. ativ.', 'Licoes', 'Topicos', ''].map(h => (
-                  <div key={h} style={{
-                    fontSize: 11, fontWeight: 700, color: C.navyLight,
-                    letterSpacing: '0.6px', textTransform: 'uppercase',
-                  }}>{h}</div>
-                ))}
+                <SortableHeader label="Aluno"     sortK="name"       currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Nivel"     sortK="level"      currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <div style={{ fontSize: 11, fontWeight: 700, color: C.navyLight, letterSpacing: '0.6px', textTransform: 'uppercase' }}>Status</div>
+                <SortableHeader label="Cadastro"  sortK="created_at" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="XP"        sortK="xp"         currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Ult. ativ." sortK="lastActive" currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Licoes"    sortK="lessons"    currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Topicos"   sortK="topics"     currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <SortableHeader label="Streak"    sortK="streak"     currentKey={sortKey} dir={sortDir} onSort={handleSort} />
+                <div />
               </div>
 
               {/* Rows */}
-              {filtered.length === 0 ? (
+              {sorted.length === 0 ? (
                 <div style={{ padding: 56, textAlign: 'center', color: C.navyLight, fontSize: 14 }}>
                   Nenhum usuario encontrado.
                 </div>
               ) : (
-                filtered.map((u, i) => {
-                  const badge = statusBadge(u);
-                  const lvl   = levelLabel(u.charlotte_level);
-                  const eng   = u.engagement;
-                  const trail = u.trailProgress;
+                sorted.map((u, i) => {
+                  const badge   = statusBadge(u);
+                  const lvl     = levelLabel(u.charlotte_level);
+                  const eng     = u.engagement;
+                  const trail   = u.trailProgress;
                   const lastAct = eng?.lastActive ?? null;
                   return (
                     <div
                       key={u.id}
                       style={{
                         display: 'grid',
-                        gridTemplateColumns: '2fr 0.7fr 1fr 0.7fr 0.75fr 0.7fr 0.7fr 0.75fr 90px',
+                        gridTemplateColumns: '2fr 0.65fr 1fr 0.65fr 0.7fr 0.7fr 0.65fr 0.7fr 0.65fr 90px',
                         padding: '13px 20px',
-                        borderBottom: i < filtered.length - 1 ? `1px solid ${C.border}` : 'none',
+                        borderBottom: i < sorted.length - 1 ? `1px solid ${C.border}` : 'none',
                         alignItems: 'center',
                         transition: 'background 0.1s',
                       }}
@@ -740,8 +811,11 @@ export default function AdminPage() {
                         {eng ? eng.totalXP.toLocaleString('pt-BR') : '—'}
                       </div>
 
-                      {/* Ultima atividade */}
-                      <div style={{ fontSize: 13, fontWeight: 600, color: activityColor(lastAct) }}>
+                      {/* Ultima atividade — hover mostra data/hora completa */}
+                      <div
+                        title={fmtFull(lastAct)}
+                        style={{ fontSize: 13, fontWeight: 600, color: activityColor(lastAct), cursor: 'default' }}
+                      >
                         {fmtRelative(lastAct)}
                       </div>
 
@@ -767,6 +841,24 @@ export default function AdminPage() {
                             <div style={{ fontSize: 10, color: C.navyLight, marginTop: 1 }}>
                               M{trail.moduleIndex + 1} T{trail.topicIndex + 1}
                             </div>
+                          </>
+                        ) : (
+                          <span style={{ fontSize: 13, color: C.navyLight }}>—</span>
+                        )}
+                      </div>
+
+                      {/* Streak */}
+                      <div>
+                        {u.streak > 0 ? (
+                          <>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: u.streak >= 7 ? C.orange : C.navy }}>
+                              {u.streak}🔥
+                            </span>
+                            {u.longestStreak > u.streak && (
+                              <div style={{ fontSize: 10, color: C.navyLight, marginTop: 1 }}>
+                                max {u.longestStreak}
+                              </div>
+                            )}
                           </>
                         ) : (
                           <span style={{ fontSize: 13, color: C.navyLight }}>—</span>
@@ -814,7 +906,7 @@ export default function AdminPage() {
                   Nenhum usuário encontrado.
                 </div>
               ) : (
-                filtered.map(u => {
+                sorted.map(u => {
                   const badge = statusBadge(u);
                   const lvl   = levelLabel(u.charlotte_level);
                   return (
@@ -913,6 +1005,14 @@ export default function AdminPage() {
                             <div style={{ fontSize: 10, color: C.navyLight, textTransform: 'uppercase', fontWeight: 700 }}>Sessoes</div>
                             <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{u.engagement.sessionDays}d</div>
                           </div>
+                          {u.streak > 0 && (
+                            <div>
+                              <div style={{ fontSize: 10, color: C.navyLight, textTransform: 'uppercase', fontWeight: 700 }}>Streak</div>
+                              <div style={{ fontSize: 13, fontWeight: 700, color: u.streak >= 7 ? C.orange : C.navy }}>
+                                {u.streak}🔥
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

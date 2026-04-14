@@ -27,10 +27,12 @@ export async function GET(req: NextRequest) {
     { data: users, error },
     { data: practices },
     { data: learnProgress },
+    { data: userProgress },
   ] = await Promise.all([
     supabase.from('charlotte_users').select('*').order('created_at', { ascending: false }),
     supabase.from('charlotte_practices').select('user_id, xp_earned, practice_type, created_at'),
     supabase.from('learn_progress').select('user_id, completed, module_index, topic_index, level'),
+    supabase.from('user_progress').select('user_id, streak_days, longest_streak'),
   ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -73,11 +75,23 @@ export async function GET(req: NextRequest) {
     };
   }
 
+  // ── Streak map ────────────────────────────────────────────────────────────
+  type StreakMap = Record<string, { streak: number; longestStreak: number }>;
+  const streakMap: StreakMap = {};
+  for (const up of (userProgress ?? [])) {
+    const uid = String(up.user_id).toLowerCase();
+    streakMap[uid] = {
+      streak:        up.streak_days        ?? 0,
+      longestStreak: up.longest_streak     ?? 0,
+    };
+  }
+
   // ── Attach engagement to each user ───────────────────────────────────────
   const usersWithEng = (users ?? []).map(u => {
     const uid = String(u.id).toLowerCase();
     const e   = engMap[uid];
     const p   = progMap[uid];
+    const s   = streakMap[uid];
     return {
       ...u,
       engagement: e ? {
@@ -88,6 +102,8 @@ export async function GET(req: NextRequest) {
         messageCount: e.messageCount,
       } : null,
       trailProgress: p ?? null,
+      streak:        s?.streak        ?? 0,
+      longestStreak: s?.longestStreak ?? 0,
     };
   });
 
