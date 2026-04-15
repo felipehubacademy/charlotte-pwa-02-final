@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  View, TextInput, TouchableOpacity,
+  View, TextInput, TouchableOpacity, Pressable,
   Animated, Platform, Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -144,6 +144,23 @@ export default function ChatInputBar({
     }
   };
 
+  // Android: toggle tap-to-start / tap-to-stop (hold gesture unreliable on Android)
+  const micToggle = async () => {
+    if (disabled || isProcessing || isPreview) return;
+    if (isRecording) {
+      const res = await stopRecording();
+      if (res && res.duration >= 1) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (onSendAudio) onSendAudio(res.uri, res.duration);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      }
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      await startRecording();
+    }
+  };
+
   const cancelPreview = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     player.pause();
@@ -284,13 +301,17 @@ export default function ChatInputBar({
               ))}
 
               {/* The mic button itself */}
-              <TouchableOpacity
-                onPressIn={micPressIn}
-                onPressOut={micPressOut}
+              <Pressable
+                onPress={Platform.OS === 'android' ? micToggle : undefined}
+                onPressIn={Platform.OS === 'ios' ? micPressIn : undefined}
+                onPressOut={Platform.OS === 'ios' ? micPressOut : undefined}
                 disabled={disabled || isProcessing}
-                activeOpacity={1}
                 pressRetentionOffset={{ top: 60, bottom: 60, left: 60, right: 60 }}
-                accessibilityLabel={isNovice ? 'Gravar áudio — segure para gravar / Hold to record' : 'Hold to record audio'}
+                accessibilityLabel={
+                  Platform.OS === 'android'
+                    ? (isNovice ? 'Gravar áudio — toque para gravar / Tap to record' : 'Tap to record audio')
+                    : (isNovice ? 'Gravar áudio — segure para gravar / Hold to record' : 'Hold to record audio')
+                }
                 accessibilityRole="button"
                 style={{
                   width: 80, height: 80, borderRadius: 40,
@@ -315,7 +336,7 @@ export default function ChatInputBar({
                   ? <Hourglass size={30} color={`${C.navy}60`} weight="regular" />
                   : <Microphone size={34} color={isRecording ? '#FFFFFF' : C.navy} weight="bold" />
                 }
-              </TouchableOpacity>
+              </Pressable>
             </View>
 
             {/* Status label — fixed height so button never shifts */}
@@ -325,7 +346,7 @@ export default function ChatInputBar({
               ...(isRecording && Platform.OS === 'ios' ? { fontVariant: ['tabular-nums'] } : {}),
               ...(isRecording && Platform.OS !== 'ios' ? { fontFamily: 'monospace' } : {}),
             }}>
-              {isProcessing ? 'Processing...' : isRecording ? formatDuration(duration) : 'Hold to record'}
+              {isProcessing ? 'Processing...' : isRecording ? formatDuration(duration) : Platform.OS === 'android' ? 'Tap to record' : 'Hold to record'}
             </AppText>
 
           </View>
@@ -495,23 +516,27 @@ export default function ChatInputBar({
           </TouchableOpacity>
         ) : (
           // No text, no preview: mic
-          <TouchableOpacity
-            onPressIn={micPressIn}
-            onPressOut={micPressOut}
+          <Pressable
+            onPress={Platform.OS === 'android' ? micToggle : undefined}
+            onPressIn={Platform.OS === 'ios' ? micPressIn : undefined}
+            onPressOut={Platform.OS === 'ios' ? micPressOut : undefined}
             disabled={disabled || isProcessing}
-            activeOpacity={0.75}
             pressRetentionOffset={{ top: 30, bottom: 30, left: 30, right: 30 }}
             style={[styles.actionBtn, {
               backgroundColor: disabled || isProcessing ? `${C.green}50` : C.green,
             }]}
-            accessibilityLabel={isNovice ? 'Microfone — segure para gravar / Hold to record' : 'Hold to record audio'}
+            accessibilityLabel={
+              Platform.OS === 'android'
+                ? (isNovice ? 'Microfone — toque para gravar / Tap to record' : 'Tap to record audio')
+                : (isNovice ? 'Microfone — segure para gravar / Hold to record' : 'Hold to record audio')
+            }
             accessibilityRole="button"
           >
             {isProcessing
               ? <Hourglass size={17} color={`${C.navy}60`} weight="regular" />
               : <Microphone size={20} color={C.navy} weight="bold" />
             }
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
     </View>
