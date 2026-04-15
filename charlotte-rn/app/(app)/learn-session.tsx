@@ -1568,7 +1568,7 @@ export default function LearnSessionScreen() {
         {/* ── Bottom CTA ── */}
         <View style={{
           paddingHorizontal: 20, paddingTop: 12,
-          paddingBottom: Platform.OS === 'ios' ? 28 : Math.max(insets.bottom + 8, 20),
+          paddingBottom: Platform.OS === 'ios' ? 28 : 16,
           backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border,
         }}>
           {/* ── Grammar ── */}
