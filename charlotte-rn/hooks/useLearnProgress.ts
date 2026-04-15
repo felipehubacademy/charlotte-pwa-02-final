@@ -151,6 +151,7 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
       exercise_type: params.exerciseType,
       is_correct:    params.isCorrect,
       xp_earned:     params.xpEarned,
+      score:         params.exerciseData?.score ?? null,
     });
     if (error) console.error('[useLearnProgress] history insert error', error);
 
