@@ -469,65 +469,71 @@ export default function StatsScreen() {
           const lockedPreview = levelCatalog
             .filter(a => !earnedCodes.has(a.code))
             .slice(0, Math.max(0, 4 - shownEarned.length));
+          const allBadges = [
+            ...shownEarned.map(a => ({ type: 'earned' as const, ach: a })),
+            ...lockedPreview.map(c => ({ type: 'locked' as const, cat: c })),
+          ];
           return (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 4 }}
-              style={{ marginBottom: 24 }}
-            >
-              {shownEarned.map((ach, i) => {
-                const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
-                const cat = levelCatalog.find(c => c.code === ach.code);
-                return (
-                  <TouchableOpacity
-                    key={ach.id ?? i}
-                    activeOpacity={0.7}
-                    onPress={() => cat && setBadgeModal({ catalog: cat, earnedAt: ach.earnedAt })}
-                    style={{ width: 72, alignItems: 'center' }}
-                  >
-                    <View style={{
-                      width: 52, height: 52, borderRadius: 26,
-                      backgroundColor: rc + '20',
-                      alignItems: 'center', justifyContent: 'center',
-                      marginBottom: 6,
-                    }}>
-                      <AchievementIcon category={ach.category} rarity={ach.rarity} size={24} />
-                    </View>
-                    <AppText style={{
-                      fontSize: 10, fontWeight: '600', color: C.navy,
-                      textAlign: 'center',
-                    }} numberOfLines={2}>
-                      {ach.title}
-                    </AppText>
-                  </TouchableOpacity>
-                );
+            <View style={{
+              flexDirection: 'row', paddingHorizontal: 16,
+              marginBottom: 24, gap: 8,
+            }}>
+              {allBadges.map((item, i) => {
+                if (item.type === 'earned') {
+                  const ach = item.ach;
+                  const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
+                  const cat = levelCatalog.find(c => c.code === ach.code);
+                  return (
+                    <TouchableOpacity
+                      key={ach.id ?? i}
+                      activeOpacity={0.7}
+                      onPress={() => cat && setBadgeModal({ catalog: cat, earnedAt: ach.earnedAt })}
+                      style={{ flex: 1, alignItems: 'center' }}
+                    >
+                      <View style={{
+                        width: 52, height: 52, borderRadius: 26,
+                        backgroundColor: rc + '20',
+                        alignItems: 'center', justifyContent: 'center',
+                        marginBottom: 6,
+                      }}>
+                        <AchievementIcon category={ach.category} rarity={ach.rarity} size={24} />
+                      </View>
+                      <AppText style={{
+                        fontSize: 10, fontWeight: '600', color: C.navy,
+                        textAlign: 'center',
+                      }} numberOfLines={2}>
+                        {ach.title}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                } else {
+                  const cat = item.cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat.code}
+                      activeOpacity={0.7}
+                      onPress={() => setBadgeModal({ catalog: cat })}
+                      style={{ flex: 1, alignItems: 'center' }}
+                    >
+                      <View style={{
+                        width: 52, height: 52, borderRadius: 26,
+                        backgroundColor: C.ghost,
+                        alignItems: 'center', justifyContent: 'center',
+                        marginBottom: 6,
+                      }}>
+                        <AchievementIcon category={cat.category} rarity="locked" size={24} />
+                      </View>
+                      <AppText style={{
+                        fontSize: 10, fontWeight: '600', color: C.navyLight,
+                        textAlign: 'center',
+                      }} numberOfLines={2}>
+                        {cat.title}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                }
               })}
-
-              {lockedPreview.map(cat => (
-                <TouchableOpacity
-                  key={cat.code}
-                  activeOpacity={0.7}
-                  onPress={() => setBadgeModal({ catalog: cat })}
-                  style={{ width: 72, alignItems: 'center' }}
-                >
-                  <View style={{
-                    width: 52, height: 52, borderRadius: 26,
-                    backgroundColor: C.ghost,
-                    alignItems: 'center', justifyContent: 'center',
-                    marginBottom: 6,
-                  }}>
-                    <AchievementIcon category={cat.category} rarity="locked" size={24} />
-                  </View>
-                  <AppText style={{
-                    fontSize: 10, fontWeight: '600', color: C.navyLight,
-                    textAlign: 'center',
-                  }} numberOfLines={2}>
-                    {cat.title}
-                  </AppText>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            </View>
           );
         })()}
 
