@@ -68,7 +68,13 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const userAgent = request.headers.get('user-agent') || '';
-    const isVercelCron = userAgent.includes('vercel-cron') || userAgent.includes('github-actions-cron');
+    const authHeader = request.headers.get('authorization');
+    // Accept: Vercel Cron, GitHub Actions, or cron-job.org (authenticated via CRON_SECRET)
+    const isVercelCron =
+      userAgent.includes('vercel-cron') ||
+      userAgent.includes('github-actions-cron') ||
+      userAgent.includes('cron-job.org') ||
+      authHeader === `Bearer ${process.env.CRON_SECRET}`;
     
     console.log(`🕐 [SCHEDULER API] GET request - User-Agent: ${userAgent}, isVercelCron: ${isVercelCron}`);
     
