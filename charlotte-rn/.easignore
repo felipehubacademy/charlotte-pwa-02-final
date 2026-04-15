@@ -10,10 +10,11 @@ node_modules/
 .expo/
 dist/
 build/
-ios/build/
-android/build/
-android/.gradle/
-android/app/build/
+
+# Diretórios nativos locais — EAS roda expo prebuild do zero via app.config.ts
+# Sem isso, EAS encontra android/ local desatualizado e pula o prebuild
+android/
+ios/
 
 # Testes
 __tests__/
