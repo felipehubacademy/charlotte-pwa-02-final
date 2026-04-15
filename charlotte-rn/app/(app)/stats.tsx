@@ -467,7 +467,7 @@ export default function StatsScreen() {
           const earnedCodes = new Set(data.achievements.map(a => a.code));
           const lockedPreview = levelCatalog
             .filter(a => !earnedCodes.has(a.code))
-            .slice(0, Math.max(0, 5 - data.achievements.length));
+            .slice(0, Math.max(0, 4 - data.achievements.length));
           return (
             <ScrollView
               horizontal
