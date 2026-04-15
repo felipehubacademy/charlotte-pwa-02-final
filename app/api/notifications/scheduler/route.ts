@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const userAgent = request.headers.get('user-agent') || '';
-    const isVercelCron = userAgent.includes('vercel-cron');
+    const isVercelCron = userAgent.includes('vercel-cron') || userAgent.includes('github-actions-cron');
     
     console.log(`🕐 [SCHEDULER API] GET request - User-Agent: ${userAgent}, isVercelCron: ${isVercelCron}`);
     

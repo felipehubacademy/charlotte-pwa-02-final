@@ -4,10 +4,6 @@
       "path": "/api/cron/trial",
       "schedule": "0 11 * * *"
     },
-    {
-      "path": "/api/notifications/scheduler",
-      "schedule": "0 * * * *"
-    }
   ],
   "functions": {
     "app/api/email/process/route.ts": {
