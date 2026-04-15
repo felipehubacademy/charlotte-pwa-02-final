@@ -4,7 +4,9 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native — gerado por expo prebuild, nao commitar
+android/
+ios/
 *.orig.*
 *.jks
 *.p8
