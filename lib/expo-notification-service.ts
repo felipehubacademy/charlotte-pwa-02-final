@@ -12,123 +12,72 @@ interface ExpoMessage {
   priority: 'high';
 }
 
-// ── GPT-generated daily reminder (hasn't practiced yet) ─────────────────────
-async function generateReminderMessage(
-  firstName: string,
-  level: string,
-  streakDays: number,
-): Promise<{ title: string; body: string }> {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_API_KEY) {
-    return { title: '📚 Hora de praticar!', body: `${firstName}, a Charlotte está esperando por você hoje!` };
-  }
+// ── Message template (placeholder {name} replaced per user) ─────────────────
+interface MsgTemplate { title: string; body: string }
 
-  const isNovice = level === 'Novice';
+// Generate a pool of N variant templates in a single GPT call.
+// Uses {name} placeholder — replaced per user at send time.
+async function generateTemplatePool(
+  type: 'reminder' | 'praise',
+  isNovice: boolean,
+  hasStreak: boolean,
+  count = 4,
+): Promise<MsgTemplate[]> {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   const lang = isNovice ? 'Portuguese (Brazil)' : 'English';
-  const streakNote = streakDays > 1
-    ? (isNovice
-        ? `Atenção: eles têm uma sequência de ${streakDays} dias que pode ser perdida hoje!`
-        : `Heads up: they have a ${streakDays}-day streak at risk today!`)
+  const streakNote = hasStreak
+    ? (isNovice ? 'Muitos estudantes têm sequências em risco hoje.' : 'Many students have streaks at risk today.')
     : '';
 
-  const prompt = `You are Charlotte, an AI English teacher. Write a push notification IN FIRST PERSON inviting a student to practice today — they haven't practiced yet.
-- Student first name: ${firstName}
-- Level: ${level}
-${streakNote ? `- Extra context: ${streakNote}` : ''}
-- Language: Write in ${lang}
-- Tone: warm, personal, gently motivating — like a friend checking in, NOT pushy or guilt-tripping
-- Write in FIRST PERSON as Charlotte ("I", "me", "my") — never refer to yourself in third person
+  const promptReminder = `You are Charlotte, an AI English teacher. Write ${count} different push notification variants IN FIRST PERSON inviting students to practice today.
+- Use {name} as placeholder for the student's first name
+- Language: ${lang}
+- Tone: warm, personal, gently motivating — like a friend checking in
+- Write in FIRST PERSON as Charlotte ("I", "me", "my")
+${streakNote ? `- Context: ${streakNote}` : ''}
 - Title: 4-6 words max, use 1 relevant emoji
-- Body: 1 sentence max (under 90 chars), mention their name, first person
-- Example body: "I saved a spot for you today, Felipe — come chat with me!"
-Return ONLY valid JSON: {"title": "...", "body": "..."}`;
+- Body: 1 sentence max (under 90 chars), include {name}, first person
+Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
+
+  const promptPraise = `You are Charlotte, a warm and encouraging English AI teacher. Write ${count} different push notification variants IN FIRST PERSON celebrating students who practiced today.
+- Use {name} as placeholder for the student's first name
+- Language: ${lang}
+- Tone: warm, personal, genuinely proud — like a teacher celebrating effort
+- Write in FIRST PERSON as Charlotte ("I", "me", "my")
+- Title: 4-6 words max, use 1 relevant emoji
+- Body: 1 sentence max (under 90 chars), include {name}, first person
+Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
+
+  if (!OPENAI_API_KEY) return [];
 
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [{ role: 'user', content: type === 'reminder' ? promptReminder : promptPraise }],
         temperature: 0.9,
-        max_tokens: 80,
+        max_tokens: 400,
         response_format: { type: 'json_object' },
       }),
     });
     const json = await res.json();
     const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? '{}');
-    if (parsed.title && parsed.body) return parsed;
+    if (Array.isArray(parsed.variants) && parsed.variants.length > 0) return parsed.variants;
   } catch (e) {
-    console.warn('⚠️ [Expo] GPT reminder generation failed, using fallback:', e);
+    console.warn('⚠️ [Expo] GPT pool generation failed:', e);
   }
-
-  return isNovice
-    ? { title: '📚 Hora de praticar!', body: `${firstName}, a Charlotte está esperando por você hoje!` }
-    : { title: '📚 Time to practice!', body: `${firstName}, Charlotte is ready for you today!` };
+  return [];
 }
 
-// ── GPT-generated Charlotte message ─────────────────────────────────────────
-async function generateCharlotteMessage(
-  firstName: string,
-  level: string,
-  streakDays: number,
-  todayXP: number,
-): Promise<{ title: string; body: string }> {
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  if (!OPENAI_API_KEY) {
-    // Fallback if key missing
-    return { title: '🌟 Great work today!', body: `${firstName}, you practiced today! Keep it up.` };
-  }
-
-  const isNovice = level === 'Novice';
-  const lang = isNovice ? 'Portuguese (Brazil)' : 'English';
-  const streakNote = streakDays > 1
-    ? (isNovice ? `Ela está em uma sequência de ${streakDays} dias!` : `They're on a ${streakDays}-day streak!`)
-    : '';
-
-  const prompt = `You are Charlotte, a warm and encouraging English AI teacher.
-Write a short push notification (title + body) celebrating a student who just practiced English today.
-- Student first name: ${firstName}
-- Level: ${level}
-- Today's XP earned: ${todayXP}
-${streakNote ? `- Extra context: ${streakNote}` : ''}
-- Language: Write in ${lang}
-- Tone: warm, personal, genuinely proud — like a teacher celebrating their student's effort
-- Write in FIRST PERSON as Charlotte ("I", "me", "my") — never refer to yourself in third person
-- Title: 4-6 words max, use 1 relevant emoji
-- Body: 1 sentence max (under 90 chars), mention their name, first person, be specific
-- Example body: "I loved our session today, ${firstName} — ${todayXP} XP and counting!"
-Return ONLY valid JSON: {"title": "...", "body": "..."}`;
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.9,
-        max_tokens: 80,
-        response_format: { type: 'json_object' },
-      }),
-    });
-    const json = await res.json();
-    const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? '{}');
-    if (parsed.title && parsed.body) return parsed;
-  } catch (e) {
-    console.warn('⚠️ [Expo] GPT message generation failed, using fallback:', e);
-  }
-
-  // Fallback
-  return isNovice
-    ? { title: '🌟 Ótimo trabalho hoje!', body: `${firstName}, você praticou hoje! Continue assim.` }
-    : { title: '🌟 Great work today!', body: `${firstName}, you practiced today! Keep it up.` };
+// Pick a random template from pool and replace {name} placeholder
+function pickTemplate(pool: MsgTemplate[], fallback: MsgTemplate, firstName: string): MsgTemplate {
+  const tpl = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : fallback;
+  return {
+    title: tpl.title.replace(/\{name\}/g, firstName),
+    body: tpl.body.replace(/\{name\}/g, firstName),
+  };
 }
 
 // ── Core send function ───────────────────────────────────────────────────────
@@ -218,11 +167,10 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
 
 // ── 2. Daily reminder ────────────────────────────────────────────────────────
 export async function sendDailyReminders(supabase: any): Promise<void> {
-  console.log('⏰ [Expo] Sending personalized daily reminders...');
+  console.log('⏰ [Expo] Sending daily reminders...');
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // charlotte_users who have a token and haven't practiced today
     const { data: cuUsers } = await supabase
       .from('charlotte_users')
       .select('id, name, expo_push_token, charlotte_level')
@@ -234,33 +182,34 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
     const eligible = (cuUsers ?? []).filter((u: any) =>
       u.expo_push_token?.startsWith('ExponentPushToken[')
     );
-
     if (!eligible.length) { console.log('✅ [Expo] All users practiced today'); return; }
 
-    // Fetch streaks for eligible users
     const userIds = eligible.map((u: any) => u.id);
     const { data: progRows } = await supabase
       .from('charlotte_progress')
       .select('user_id, streak_days')
       .in('user_id', userIds);
-    const streakMap = Object.fromEntries((progRows ?? []).map((r: any) => [r.user_id, r.streak_days]));
+    const streakMap = Object.fromEntries((progRows ?? []).map((r: any) => [r.user_id, r.streak_days ?? 0]));
 
-    console.log(`⏰ [Expo] Generating reminders for ${eligible.length} users...`);
+    const hasAnyStreak = eligible.some((u: any) => (streakMap[u.id] ?? 0) > 0);
 
-    const messages: ExpoMessage[] = [];
-    for (const u of eligible) {
+    // Generate 2 pools (Novice PT + Advanced EN) — 2 GPT calls total regardless of user count
+    const [poolNovice, poolAdvanced] = await Promise.all([
+      generateTemplatePool('reminder', true,  hasAnyStreak),
+      generateTemplatePool('reminder', false, hasAnyStreak),
+    ]);
+
+    const fallbackNovice   = { title: '📚 Hora de praticar!', body: '{name}, a Charlotte está esperando por você hoje!' };
+    const fallbackAdvanced = { title: '📚 Time to practice!', body: '{name}, Charlotte is ready for you today!' };
+
+    console.log(`⏰ [Expo] Sending reminders to ${eligible.length} users...`);
+
+    const messages: ExpoMessage[] = eligible.map((u: any) => {
       const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
-      const streakDays = streakMap[u.id] ?? 0;
-      const msg = await generateReminderMessage(firstName, u.charlotte_level ?? 'Inter', streakDays);
-      messages.push({
-        to: u.expo_push_token,
-        title: msg.title,
-        body: msg.body,
-        data: { screen: 'chat', type: 'daily_reminder' },
-        sound: 'default',
-        priority: 'high',
-      });
-    }
+      const isNovice  = u.charlotte_level === 'Novice';
+      const msg = pickTemplate(isNovice ? poolNovice : poolAdvanced, isNovice ? fallbackNovice : fallbackAdvanced, firstName);
+      return { to: u.expo_push_token, ...msg, data: { screen: 'chat', type: 'daily_reminder' }, sound: 'default', priority: 'high' };
+    });
 
     const { sent, errors } = await sendExpoPush(messages);
     console.log(`✅ [Expo] Daily reminders: ${sent} sent, ${errors} errors`);
@@ -271,11 +220,10 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
 
 // ── 3. Charlotte message (motivational) ─────────────────────────────────────
 export async function sendCharlotteMessages(supabase: any): Promise<void> {
-  console.log('💬 [Expo] Sending Charlotte praise messages to users who practiced today...');
+  console.log('💬 [Expo] Sending Charlotte praise messages...');
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // Users who practiced today via charlotte_practices
     const { data: practicedRows } = await supabase
       .from('charlotte_practices')
       .select('user_id')
@@ -287,43 +235,23 @@ export async function sendCharlotteMessages(supabase: any): Promise<void> {
     const cuUsers = await fetchCharlotteUsers(supabase, practicedIds);
     if (!cuUsers.length) return;
 
-    // Fetch streaks + today XP for these users
-    const { data: progRows } = await supabase
-      .from('charlotte_progress')
-      .select('user_id, streak_days')
-      .in('user_id', practicedIds);
-    const streakMap = Object.fromEntries((progRows ?? []).map((r: any) => [r.user_id, r.streak_days]));
+    // Generate 2 pools (Novice PT + Advanced EN) — 2 GPT calls total
+    const [poolNovice, poolAdvanced] = await Promise.all([
+      generateTemplatePool('praise', true,  false),
+      generateTemplatePool('praise', false, false),
+    ]);
 
-    const { data: xpRows } = await supabase
-      .from('charlotte_practices')
-      .select('user_id, xp_earned')
-      .in('user_id', practicedIds)
-      .gte('created_at', `${today}T00:00:00Z`);
-    const xpMap: Record<string, number> = {};
-    for (const r of (xpRows ?? [])) {
-      xpMap[r.user_id] = (xpMap[r.user_id] ?? 0) + (r.xp_earned ?? 0);
-    }
+    const fallbackNovice   = { title: '🌟 Ótimo trabalho hoje!', body: '{name}, você praticou hoje! Continue assim.' };
+    const fallbackAdvanced = { title: '🌟 Great work today!',    body: '{name}, you practiced today! Keep it up.' };
 
-    console.log(`💬 [Expo] Generating personalized messages for ${cuUsers.length} users...`);
+    console.log(`💬 [Expo] Sending praise to ${cuUsers.length} users...`);
 
-    const messages: ExpoMessage[] = [];
-    for (const u of cuUsers) {
+    const messages: ExpoMessage[] = cuUsers.map((u: any) => {
       const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
-      const msg = await generateCharlotteMessage(
-        firstName,
-        u.charlotte_level ?? 'Inter',
-        streakMap[u.id] ?? 0,
-        xpMap[u.id] ?? 0
-      );
-      messages.push({
-        to: u.expo_push_token,
-        title: msg.title,
-        body: msg.body,
-        data: { screen: 'chat', type: 'charlotte_message' },
-        sound: 'default',
-        priority: 'high',
-      });
-    }
+      const isNovice  = u.charlotte_level === 'Novice';
+      const msg = pickTemplate(isNovice ? poolNovice : poolAdvanced, isNovice ? fallbackNovice : fallbackAdvanced, firstName);
+      return { to: u.expo_push_token, ...msg, data: { screen: 'chat', type: 'charlotte_message' }, sound: 'default', priority: 'high' };
+    });
 
     const { sent, errors } = await sendExpoPush(messages);
     console.log(`✅ [Expo] Charlotte praise: ${sent} sent, ${errors} errors`);
