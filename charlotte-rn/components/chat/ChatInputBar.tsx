@@ -325,7 +325,7 @@ export default function ChatInputBar({
               ...(isRecording && Platform.OS === 'ios' ? { fontVariant: ['tabular-nums'] } : {}),
               ...(isRecording && Platform.OS !== 'ios' ? { fontFamily: 'monospace' } : {}),
             }}>
-              {isProcessing ? 'Processing...' : isRecording ? formatDuration(duration) : 'Hold to record'}
+              {isProcessing ? (isNovice ? 'Processando...' : 'Processing...') : isRecording ? formatDuration(duration) : isNovice ? 'Segure para gravar' : 'Hold to record'}
             </AppText>
 
           </View>
