@@ -297,12 +297,9 @@ export default function ChatInputBar({
                 accessibilityRole="button"
                 style={{
                   width: 80, height: 80, borderRadius: 40,
-                  backgroundColor:
-                    isProcessing         ? `${C.green}50`
-                    : isRecording        ? C.red
-                    : disabled           ? `${C.green}50`
-                    : C.green,
+                  backgroundColor: isRecording ? C.red : C.green,
                   alignItems: 'center', justifyContent: 'center',
+                  opacity: (disabled || isProcessing) ? 0.45 : 1,
                   ...Platform.select({
                     ios: {
                       shadowColor: isRecording ? C.red : C.green,
@@ -310,12 +307,12 @@ export default function ChatInputBar({
                       shadowRadius: isRecording ? 20 : 16,
                       shadowOffset: { width: 0, height: 4 },
                     },
-                    android: { elevation: isRecording ? 10 : 6 },
+                    android: { elevation: (disabled || isProcessing) ? 0 : isRecording ? 10 : 6 },
                   }),
                 }}
               >
                 {isProcessing
-                  ? <Hourglass size={30} color={`${C.navy}60`} weight="regular" />
+                  ? <Hourglass size={30} color={C.navy} weight="regular" />
                   : <Microphone size={34} color={isRecording ? '#FFFFFF' : C.navy} weight="bold" />
                 }
               </Pressable>
@@ -388,7 +385,7 @@ export default function ChatInputBar({
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 10 }}>
 
         {/* Input pill — shows text OR waveform OR preview */}
-        <View style={[styles.pill, { flex: 1, paddingHorizontal: 16, paddingVertical: 12 }]}>
+        <View style={[styles.pill, { flex: 1, paddingHorizontal: 16, paddingVertical: 8 }]}>
 
           {/* Audio preview */}
           {isPreview && (
@@ -528,10 +525,10 @@ const styles = {
     borderRadius: 24,
     borderWidth: 1,
     borderColor: 'rgba(22,21,58,0.09)',
-    minHeight: 48,
+    minHeight: 44,
   },
   actionBtn: {
-    width: 48, height: 48, borderRadius: 24,
+    width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#A3FF3C',
     alignItems: 'center' as const,
     justifyContent: 'center' as const,

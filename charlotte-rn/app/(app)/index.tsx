@@ -85,6 +85,17 @@ const C = {
   shadow:     'rgba(22,21,58,0.08)',
 };
 
+const DAILY_XP_MILESTONES = [100, 200, 350, 500, 750, 1000];
+
+function getDailyGoal(xp: number): number {
+  for (const m of DAILY_XP_MILESTONES) {
+    if (xp < m) return m;
+  }
+  // Beyond 1000: next multiple of 500
+  return Math.ceil((xp + 1) / 500) * 500;
+}
+
+// Keep for legacy references (Charlotte message threshold)
 const DAILY_XP_GOAL = 100;
 
 // ── Types ─────────────────────────────────────────────────────
@@ -1355,21 +1366,20 @@ export default function HomeScreen() {
             {/* White body — XP progress (tappable → stats screen) */}
             <TouchableOpacity onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(data?.todayXP ?? 0), totalXP: String(totalXP), userId: userId ?? '', userLevel: level ?? 'Inter', userName: name ?? '' } })} activeOpacity={0.75} style={{ padding: 20 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                <XPRing todayXP={todayXP} goal={DAILY_XP_GOAL} />
+                <XPRing todayXP={todayXP} goal={getDailyGoal(todayXP)} />
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 7 }}>
                     <AppText style={{ fontSize: 11, color: C.navyMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 }}>
                       {isPortuguese ? 'XP de hoje' : "Today's XP"}
                     </AppText>
-                    <AppText style={{ fontSize: 11, fontWeight: '800',
-                      color: todayXP >= DAILY_XP_GOAL ? C.greenDark : C.navyLight }}>
-                      {todayXP} / {DAILY_XP_GOAL}
+                    <AppText style={{ fontSize: 11, fontWeight: '800', color: C.greenDark }}>
+                      {todayXP} / {getDailyGoal(todayXP)}
                     </AppText>
                   </View>
                   <View style={{ height: 8, backgroundColor: C.navyGhost, borderRadius: 4, overflow: 'hidden' }}>
                     <View style={{
                       height: '100%',
-                      width: `${Math.min((todayXP / DAILY_XP_GOAL) * 100, 100)}%`,
+                      width: `${(todayXP / getDailyGoal(todayXP)) * 100}%`,
                       backgroundColor: C.green,
                       borderRadius: 4,
                     }} />
@@ -1616,7 +1626,7 @@ export default function HomeScreen() {
           borderTopColor: C.navyGhost,
           paddingHorizontal: 20,
           paddingTop: 10,
-          paddingBottom: insets.bottom > 0 ? insets.bottom + 4 : 14,
+          paddingBottom: 10,
           flexDirection: 'row',
           alignItems: 'center',
           gap: 12,

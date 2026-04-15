@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Platform, TouchableOpacity, Modal, ScrollView, Pressable } from 'react-native';
+import { View, TouchableOpacity, Modal, ScrollView, Pressable } from 'react-native';
 import {
   Target, TextT, Wind, CheckCircle, MusicNotes,
   X as XIcon,
@@ -129,27 +129,26 @@ function MetricsModal({ visible, onClose }: { visible: boolean; onClose: () => v
       statusBarTranslucent
     >
       <Pressable
-        style={{ flex: 1, backgroundColor: 'rgba(22,21,58,0.40)', justifyContent: 'flex-end' }}
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(22,21,58,0.55)',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        }}
         onPress={onClose}
       >
         <Pressable
           onPress={e => e.stopPropagation()}
           style={{
             backgroundColor: '#FFFFFF',
-            borderTopLeftRadius: 24,
-            borderTopRightRadius: 24,
-            paddingTop: 8,
-            paddingBottom: Platform.OS === 'ios' ? 36 : 20,
-            maxHeight: '80%',
+            borderRadius: 24,
+            width: '100%',
+            maxHeight: '82%',
+            paddingTop: 20,
+            paddingBottom: 8,
           }}
         >
-          {/* Drag handle */}
-          <View style={{
-            width: 36, height: 4, borderRadius: 2,
-            backgroundColor: 'rgba(22,21,58,0.15)',
-            alignSelf: 'center', marginBottom: 14,
-          }} />
-
           {/* Header */}
           <View style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -178,8 +177,8 @@ function MetricsModal({ visible, onClose }: { visible: boolean; onClose: () => v
             Charlotte analyses your speech across 5 dimensions:
           </AppText>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={{ paddingHorizontal: 20 }}>
+          <ScrollView showsVerticalScrollIndicator={false} style={{ paddingBottom: 12 }}>
+            <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
               {METRICS.map((m, i) => {
                 const IconComp = m.Icon;
                 return (
@@ -213,7 +212,6 @@ function MetricsModal({ visible, onClose }: { visible: boolean; onClose: () => v
                   </View>
                 );
               })}
-              <View style={{ height: 4 }} />
             </View>
           </ScrollView>
         </Pressable>

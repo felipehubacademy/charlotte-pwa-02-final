@@ -329,9 +329,9 @@ export default function StatsScreen() {
               backgroundColor: 'rgba(255,255,255,0.15)',
               paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
             }}>
-              <Lightning size={13} color="#FFFFFF" weight="fill" />
+              <Fire size={13} color="#FFFFFF" weight="fill" />
               <AppText style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>
-                {displayXP.toLocaleString()} XP
+                {data.streak}d
               </AppText>
             </View>
 
@@ -340,9 +340,9 @@ export default function StatsScreen() {
               backgroundColor: 'rgba(255,255,255,0.15)',
               paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
             }}>
-              <Fire size={13} color="#FFFFFF" weight="fill" />
+              <Lightning size={13} color="#FFFFFF" weight="fill" />
               <AppText style={{ color: '#FFFFFF', fontSize: 13, fontWeight: '800' }}>
-                {data.streak}d
+                {displayXP.toLocaleString()} XP
               </AppText>
             </View>
 

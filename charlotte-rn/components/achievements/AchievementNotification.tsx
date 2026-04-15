@@ -328,9 +328,12 @@ export default function AchievementNotification({ achievements, onDismiss, isPt 
                     alignItems: 'center',
                   }}
                 >
-                  <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800' }}>
-                    {isPt ? 'Incrível! 🎉' : 'Awesome! 🎉'}
-                  </AppText>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800' }}>
+                      {isPt ? 'Incrível!' : 'Awesome!'}
+                    </AppText>
+                    <AppText style={{ fontSize: 15 }}>{'🎉'}</AppText>
+                  </View>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => shareAchievement(current.title, current.rarity, isPt)}

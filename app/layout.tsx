@@ -12,28 +12,22 @@ const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://charlotte.hubacademybr.com'),
-  title: 'Charlotte - Hub Academy',
+  title: 'Charlotte AI',
   description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
   manifest: '/manifest.json',
   
   // 🌐 Open Graph para compartilhamento social
   openGraph: {
-    title: 'Charlotte - Hub Academy',
+    title: 'Charlotte AI',
     description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
     url: 'https://charlotte.hubacademybr.com',
-    siteName: 'Charlotte - Hub Academy',
+    siteName: 'Charlotte AI',
     images: [
       {
-        url: '/images/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Charlotte - AI English Learning Assistant',
-      },
-      {
         url: '/images/charlotte-avatar.png',
-        width: 512,
-        height: 512,
-        alt: 'Charlotte Avatar',
+        width: 1024,
+        height: 1024,
+        alt: 'Charlotte AI - Professora de Inglês com IA',
       },
     ],
     locale: 'en_US',
@@ -43,9 +37,9 @@ export const metadata: Metadata = {
   // 🐦 Twitter Card
   twitter: {
     card: 'summary_large_image',
-    title: 'Charlotte - Hub Academy',
+    title: 'Charlotte AI',
     description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
-    images: ['/images/og-image.png'],
+    images: ['/images/charlotte-avatar.png'],
     creator: '@hubacademybr',
   },
   
