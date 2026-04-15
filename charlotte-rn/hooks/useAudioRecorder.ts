@@ -46,8 +46,16 @@ interface AudioRecorderResult {
   hasPermission: boolean | null;
 }
 
+// Max recording duration per mode (seconds)
+export const MAX_RECORDING_DURATION: Record<string, number> = {
+  chat:          30,
+  pronunciation: 10,
+  'learn':       10,
+};
+
 export function useAudioRecorder(
-  options: typeof RecordingPresets.HIGH_QUALITY = RecordingPresets.HIGH_QUALITY
+  options: typeof RecordingPresets.HIGH_QUALITY = RecordingPresets.HIGH_QUALITY,
+  maxDuration = 30,
 ): AudioRecorderResult {
   const [state, setState] = useState<RecordingState>('idle');
   const [duration, setDuration] = useState(0);
@@ -56,8 +64,9 @@ export function useAudioRecorder(
   // expo-audio recorder instance (lifecycle managed by the hook)
   const recorder = useExpoAudioRecorder(options);
 
-  const timerRef    = useRef<ReturnType<typeof setInterval> | null>(null);
-  const durationRef = useRef(0);
+  const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const durationRef    = useRef(0);
+  const autoStopRef    = useRef<(() => void) | null>(null);
 
   const requestPermission = useCallback(async (): Promise<boolean> => {
     const { granted } = await requestRecordingPermissionsAsync();
@@ -82,9 +91,16 @@ export function useAudioRecorder(
       setState('recording');
       setDuration(0);
 
+      // Register auto-stop callback so the timer can call it without circular dep
+      autoStopRef.current = () => stopRecording();
+
       timerRef.current = setInterval(() => {
         durationRef.current += 1;
         setDuration(durationRef.current);
+        // Auto-stop when max duration reached
+        if (durationRef.current >= maxDuration) {
+          autoStopRef.current?.();
+        }
       }, 1000);
     } catch (error) {
       console.error('❌ startRecording error:', error);
@@ -92,10 +108,12 @@ export function useAudioRecorder(
   }, [hasPermission, requestPermission, recorder]);
 
   const stopRecording = useCallback(async (): Promise<AudioRecordingResult | null> => {
+    // Guard: prevent double-invocation from auto-stop + manual release
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    autoStopRef.current = null;
 
     setState('processing');
 

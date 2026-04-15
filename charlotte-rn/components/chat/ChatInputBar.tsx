@@ -89,7 +89,10 @@ export default function ChatInputBar({
   // Pronunciation mode records WAV (PCM 16kHz) so Azure Speech SDK can process
   // it directly without any server-side conversion (M4A fails in serverless).
   const { state, duration, startRecording, stopRecording, cancelRecording } =
-    useAudioRecorder(mode === 'pronunciation' ? PRONUNCIATION_RECORDING_OPTIONS : undefined);
+    useAudioRecorder(
+      mode === 'pronunciation' ? PRONUNCIATION_RECORDING_OPTIONS : undefined,
+      mode === 'pronunciation' ? 10 : 30, // pronunciation: 10s, chat: 30s
+    );
 
   const isRecording  = state === 'recording';
   const isProcessing = state === 'processing';

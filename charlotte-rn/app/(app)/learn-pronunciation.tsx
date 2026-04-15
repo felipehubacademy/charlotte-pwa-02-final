@@ -190,7 +190,7 @@ export default function LearnPronunciationScreen() {
   const charlottePlayId = 'charlotte-learn-phrase';
   const isPlaying = playingMessageId === charlottePlayId;
 
-  const recorder     = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorder     = useAudioRecorder(RecordingPresets.HIGH_QUALITY, 10); // 10s max
   const recordingRef = useRef(false);
   const resultAnim   = useRef(new Animated.Value(0)).current;
 

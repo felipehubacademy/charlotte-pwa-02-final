@@ -279,7 +279,7 @@ export default function LearnSessionScreen() {
       linearPCMIsBigEndian: false,
       linearPCMIsFloat: false,
     },
-  });
+  }, 10); // 10s max — learn-session sentences are short
   const recordingRef      = useRef(false);
   const recordingStartRef = useRef(0);
 
