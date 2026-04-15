@@ -10,6 +10,7 @@ import OnboardingTour from '@/components/onboarding/OnboardingTour';
 import { router } from 'expo-router';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
+import { usePaywallContext } from '@/lib/paywallContext';
 
 export default function ChatScreen() {
   const { profile, signOut } = useAuth();
@@ -17,8 +18,10 @@ export default function ChatScreen() {
   const userName  = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const userId    = profile?.id ?? '';
 
-  const { messages, isProcessing, isProcessingAudio, historyLoading, sessionXP, totalXP, sendTextMessage, sendAudioMessage } =
+  const { messages, isProcessing, isProcessingAudio, historyLoading, sessionXP, totalXP, rateLimited, sendTextMessage, sendAudioMessage } =
     useChat({ userLevel, userName, userId, mode: 'chat' });
+
+  const { openPaywall } = usePaywallContext();
 
   const [showOnboarding, setShowOnboarding] = React.useState(false);
 
@@ -66,8 +69,11 @@ export default function ChatScreen() {
         <ChatInputBar
           onSendText={sendTextMessage}
           onSendAudio={sendAudioMessage}
-          disabled={isProcessing}
+          onUpgradePress={openPaywall}
+          disabled={isProcessing || !!rateLimited}
           mode="chat"
+          userLevel={userLevel}
+          rateLimited={rateLimited}
         />
       </KeyboardAvoidingView>
 

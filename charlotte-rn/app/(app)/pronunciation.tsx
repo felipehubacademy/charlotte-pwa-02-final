@@ -10,6 +10,7 @@ import AchievementNotification from '@/components/achievements/AchievementNotifi
 import { router } from 'expo-router';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
+import { usePaywallContext } from '@/lib/paywallContext';
 import { Achievement } from '@/lib/types/achievement';
 
 export default function PronunciationScreen() {
@@ -18,8 +19,10 @@ export default function PronunciationScreen() {
   const userName  = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const userId    = profile?.id ?? '';
 
-  const { messages, isProcessing, isProcessingAudio, sessionXP, totalXP, sendAudioMessage } =
+  const { messages, isProcessing, isProcessingAudio, sessionXP, totalXP, rateLimited, sendAudioMessage } =
     useChat({ userLevel, userName, userId, mode: 'pronunciation' });
+
+  const { openPaywall } = usePaywallContext();
 
   const [achievements, setAchievements] = React.useState<Achievement[]>([]);
 
@@ -65,8 +68,11 @@ export default function PronunciationScreen() {
         <ChatInputBar
           onSendText={() => {}}
           onSendAudio={sendAudioMessage}
-          disabled={isProcessing}
+          onUpgradePress={openPaywall}
+          disabled={isProcessing || !!rateLimited}
           mode="pronunciation"
+          userLevel={userLevel}
+          rateLimited={rateLimited}
         />
       </KeyboardAvoidingView>
 

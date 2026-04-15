@@ -89,6 +89,12 @@ interface UseChatOptions {
   mode?: ChatMode;
 }
 
+export interface RateLimitState {
+  type: 'hourly' | 'daily';
+  retryAfter: number; // seconds from now
+  isTrial: boolean;
+}
+
 export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatOptions) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -96,8 +102,17 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
   const [historyLoading, setHistoryLoading] = useState(mode === 'chat');
   const [sessionXP, setSessionXP] = useState(0);
   const [totalXP, setTotalXP] = useState(0);
+  const [rateLimited, setRateLimited] = useState<RateLimitState | null>(null);
   const historyLoadedRef = useRef(false);
   const { checkForNewAchievements } = useAchievementsContext();
+
+  // Auto-clear rate limit when retry window expires
+  React.useEffect(() => {
+    if (!rateLimited) return;
+    const ms = rateLimited.retryAfter * 1000;
+    const t  = setTimeout(() => setRateLimited(null), ms);
+    return () => clearTimeout(t);
+  }, [rateLimited]);
 
   // Load real totalXP from charlotte_progress on mount
   React.useEffect(() => {
@@ -189,7 +204,10 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 
       const response = await fetch(`${API_BASE_URL}/api/assistant`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(userId ? { 'x-user-id': userId } : {}),
+        },
         body: JSON.stringify({
           transcription: userMessage,
           pronunciationData: pronunciationData ?? null,
@@ -200,6 +218,27 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           conversationContext: contextString,
         }),
       });
+
+      if (response.status === 429) {
+        const data = await response.json();
+        // Inject Charlotte's rate-limit message as a normal chat bubble
+        const rlMsg: Message = {
+          id:          generateId(),
+          role:        'assistant',
+          content:     data.message ?? (userLevel === 'Novice' ? 'Limite atingido. Tente mais tarde!' : 'Limit reached. Try again later!'),
+          messageType: 'text',
+          timestamp:   new Date(),
+        };
+        setMessages(prev => [...prev, rlMsg]);
+        saveChatMessage(userId, 'assistant', rlMsg.content, mode);
+        setRateLimited({
+          type:        data.type ?? 'hourly',
+          retryAfter:  data.retry_after ?? 3600,
+          isTrial:     data.is_trial ?? false,
+        });
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        return null; // signal caller to skip normal flow
+      }
 
       if (!response.ok) throw new Error(`Assistant API error: ${response.status}`);
 
@@ -274,8 +313,9 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       saveChatMessage(userId, 'user', text.trim(), mode);
 
       try {
-        const { feedback, technicalFeedback, xpAwarded } =
-          await getAssistantResponse(text.trim(), 'text');
+        const result = await getAssistantResponse(text.trim(), 'text');
+        if (!result) { setIsProcessing(false); return; }
+        const { feedback, technicalFeedback, xpAwarded } = result;
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
@@ -336,8 +376,9 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       contextManagerRef.current.addMessage('user', text.trim(), 'text');
 
       try {
-        const { feedback, technicalFeedback, xpAwarded } =
-          await getAssistantResponse(text.trim(), 'text');
+        const result = await getAssistantResponse(text.trim(), 'text');
+        if (!result) { setIsProcessing(false); return; }
+        const { feedback, technicalFeedback, xpAwarded } = result;
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
@@ -759,6 +800,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
     historyLoading,
     sessionXP,
     totalXP,
+    rateLimited,
     sendTextMessage,
     sendSilentMessage,
     sendAudioMessage,

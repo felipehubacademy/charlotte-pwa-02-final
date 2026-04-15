@@ -10,6 +10,7 @@ import ChatInputBar from '@/components/chat/ChatInputBar';
 import AchievementNotification from '@/components/achievements/AchievementNotification';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
+import { usePaywallContext } from '@/lib/paywallContext';
 import { Achievement } from '@/lib/types/achievement';
 
 export default function GrammarScreen() {
@@ -18,8 +19,10 @@ export default function GrammarScreen() {
   const userName  = profile?.name ?? profile?.email?.split('@')[0] ?? 'Student';
   const userId    = profile?.id ?? '';
 
-  const { messages, isProcessing, sessionXP, totalXP, sendTextMessage, sendSilentMessage } =
+  const { messages, isProcessing, sessionXP, totalXP, rateLimited, sendTextMessage, sendSilentMessage } =
     useChat({ userLevel, userName, userId, mode: 'grammar' });
+
+  const { openPaywall } = usePaywallContext();
 
   const handleExplainMore = React.useCallback((originalCorrection: string) => {
     const prompt = userLevel === 'Novice'
@@ -80,9 +83,11 @@ export default function GrammarScreen() {
         </View>
         <ChatInputBar
           onSendText={sendTextMessage}
-          disabled={isProcessing}
+          onUpgradePress={openPaywall}
+          disabled={isProcessing || !!rateLimited}
           mode="grammar"
           userLevel={userLevel}
+          rateLimited={rateLimited}
         />
       </KeyboardAvoidingView>
 

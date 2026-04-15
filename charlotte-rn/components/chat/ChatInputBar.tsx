@@ -5,10 +5,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
-import { ArrowUp, Microphone, X, Play, Pause, Hourglass } from 'phosphor-react-native';
+import { ArrowUp, Microphone, X, Play, Pause, Hourglass, Lock } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
 import { useAudioRecorder, PRONUNCIATION_RECORDING_OPTIONS } from '@/hooks/useAudioRecorder';
+import type { RateLimitState } from '@/hooks/useChat';
 
 // ── Light theme ───────────────────────────────────────────────
 const C = {
@@ -28,9 +29,11 @@ interface ChatInputBarProps {
   onSendText: (text: string) => void;
   onSendAudio?: (uri: string, duration: number) => void;
   onLiveVoicePress?: () => void; // kept for compat — Phone moved to header
+  onUpgradePress?: () => void;
   disabled?: boolean;
   mode?: 'grammar' | 'pronunciation' | 'chat';
   userLevel?: string;
+  rateLimited?: RateLimitState | null;
 }
 
 const BAR_COUNT = 22;
@@ -43,11 +46,27 @@ function formatDuration(s: number) {
 export default function ChatInputBar({
   onSendText,
   onSendAudio,
+  onUpgradePress,
   disabled = false,
   mode = 'chat',
   userLevel,
+  rateLimited,
 }: ChatInputBarProps) {
   const isNovice = userLevel === 'Novice';
+
+  // Countdown timer for rate-limited state
+  const [countdown, setCountdown] = React.useState(0);
+  React.useEffect(() => {
+    if (!rateLimited) { setCountdown(0); return; }
+    setCountdown(rateLimited.retryAfter);
+    const t = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { clearInterval(t); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [rateLimited]);
   const insets = useSafeAreaInsets();
   const [text, setText]             = React.useState('');
   const [previewUri, setPreviewUri] = React.useState<string | null>(null);
@@ -172,6 +191,64 @@ export default function ChatInputBar({
     // the bottom edge, so we use a fixed padding on Android.
     paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : 10,
   };
+
+  // ── Rate-limited overlay (shared across all modes) ────────────────────────
+  if (rateLimited) {
+    const isDaily  = rateLimited.type === 'daily';
+
+    const formatCountdown = (secs: number) => {
+      if (isDaily) {
+        const h = Math.floor(secs / 3600);
+        const m = Math.floor((secs % 3600) / 60);
+        const s = secs % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      }
+      const m = Math.floor(secs / 60);
+      const s = secs % 60;
+      return `${m}:${String(s).padStart(2, '0')}`;
+    };
+
+    const pillLabel = isDaily
+      ? (isNovice ? `Volte amanhã  ${formatCountdown(countdown)}` : `Come back tomorrow  ${formatCountdown(countdown)}`)
+      : (isNovice ? `Volte em ${formatCountdown(countdown)}` : `Come back in ${formatCountdown(countdown)}`);
+
+    return (
+      <View style={[wrapper, { gap: 8 }]}>
+        {/* Lock pill */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+          backgroundColor: '#F4F3FA', borderRadius: 24, borderWidth: 1,
+          borderColor: 'rgba(22,21,58,0.09)', minHeight: 44,
+          paddingHorizontal: 16, paddingVertical: 10, gap: 8,
+        }}>
+          <Lock size={15} color="#9896B8" weight="bold" />
+          <AppText style={{
+            color: '#4B4A72', fontSize: 14, fontWeight: '600',
+            ...(Platform.OS === 'ios' ? { fontVariant: ['tabular-nums'] } : { fontFamily: 'monospace' }),
+          }}>
+            {pillLabel}
+          </AppText>
+        </View>
+
+        {/* Upgrade CTA — trial users only */}
+        {rateLimited.isTrial && (
+          <TouchableOpacity
+            onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onUpgradePress?.(); }}
+            activeOpacity={0.85}
+            style={{
+              alignItems: 'center', justifyContent: 'center',
+              backgroundColor: '#16153A', borderRadius: 24,
+              minHeight: 44, paddingHorizontal: 20, paddingVertical: 10,
+            }}
+          >
+            <AppText style={{ color: '#A3FF3C', fontSize: 14, fontWeight: '700' }}>
+              {isNovice ? 'Ativar assinatura' : 'Upgrade your plan'}
+            </AppText>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  }
 
   // ══════════════════════════════════════════════════════════
   //  PRONUNCIATION — big central mic, no pill

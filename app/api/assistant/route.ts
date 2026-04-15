@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { grammarAnalysisService } from '@/lib/grammar-analysis';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,6 +56,15 @@ export async function POST(request: NextRequest) {
 
     const body: AssistantRequest = await request.json();
     const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext, imageData, mode } = body;
+
+    // ── Rate limit check ─────────────────────────────────────────────────────
+    const userId = request.headers.get('x-user-id');
+    if (userId) {
+      const limit = await checkRateLimit(userId, userLevel, mode);
+      if (limit) {
+        return NextResponse.json(limit, { status: 429 });
+      }
+    }
 
     console.log('Processing for user:', { userName: userName ? 'user-***' : 'unknown', userLevel, hasTranscription: !!transcription });
     console.log('Pronunciation scores:', pronunciationData);
