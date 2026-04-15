@@ -678,7 +678,7 @@ export default function LearnSessionScreen() {
     if (params.reviewId) {
       const perfect = sessionErrors === 0;
       return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
             {/* Ícone */}
             <View style={{
@@ -765,7 +765,7 @@ export default function LearnSessionScreen() {
     const hasNextTopic = nextModuleIdx < modules.length && modules[nextModuleIdx]?.topics[nextTopicIdx] !== undefined;
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <View style={{
             width: 80, height: 80, borderRadius: 40,
@@ -815,7 +815,7 @@ export default function LearnSessionScreen() {
   if (!currentStep) return null;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
 
       {/* ── Header ── */}
       <View style={{

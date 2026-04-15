@@ -104,7 +104,7 @@ export default function LearnTrailScreen() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
 
       {/* ── Header ── */}
       <View style={{

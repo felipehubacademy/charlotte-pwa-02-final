@@ -1190,7 +1190,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: T.card }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: T.card }} edges={['top', 'left', 'right', 'bottom']}>
 
       {/* ══════════════════════════════════════════
           HEADER  —  streak · XP · rank · gear

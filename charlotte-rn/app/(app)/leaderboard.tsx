@@ -145,7 +145,7 @@ export default function LeaderboardScreen() {
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (data.loading) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg }}>
           <ActivityIndicator size="large" color={C.navy} />
         </View>
@@ -222,7 +222,7 @@ export default function LeaderboardScreen() {
   const isUserInTop20 = data.entries.some(e => e.userId === userId);
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}

@@ -388,7 +388,7 @@ export default function LearnGrammarScreen() {
   // ── Completion ──────────────────────────────────────────────
   if (isComplete) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
           <View style={{
             width: 80, height: 80, borderRadius: 40,
@@ -421,7 +421,7 @@ export default function LearnGrammarScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
 
       {/* ── Header ── */}
       <View style={{
