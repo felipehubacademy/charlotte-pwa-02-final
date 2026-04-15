@@ -2,7 +2,7 @@
 -- Tracks hourly and daily message counts to prevent OpenAI cost explosions
 
 create table if not exists charlotte_rate_limits (
-  user_id        text        primary key references auth.users(id) on delete cascade,
+  user_id        uuid        primary key references auth.users(id) on delete cascade,
   -- Hourly window
   hour_count     int         not null default 0,
   hour_window    timestamptz not null default now(),
@@ -17,7 +17,7 @@ alter table charlotte_rate_limits enable row level security;
 
 create policy "Users read own rate limit"
   on charlotte_rate_limits for select
-  using (auth.uid()::text = user_id);
+  using (auth.uid() = user_id);
 
 -- Service role bypasses RLS by default — no extra policy needed for server writes
 
