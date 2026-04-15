@@ -8,11 +8,12 @@ import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 
-// Expo Go (SDK 53+) removed remote push notifications — skip registration there.
-// appOwnership deprecated in SDK 52; use executionEnvironment as primary check.
+// Expo Go uses executionEnvironment === 'storeClient' OR appOwnership === 'expo'.
+// TestFlight and production builds use 'standalone'.
+// We only skip push registration in true Expo Go — never in TestFlight/production.
 const IS_EXPO_GO =
-  (Constants as any).executionEnvironment === 'storeClient' ||
-  Constants.appOwnership === 'expo';
+  Constants.appOwnership === 'expo' &&
+  (Constants as any).executionEnvironment === 'storeClient';
 
 const EXPO_PROJECT_ID = 'da14586b-2944-4150-b8ad-5ff7e32af6e2';
 
@@ -145,6 +146,7 @@ async function registerForPushNotifications(): Promise<string | null> {
     });
 
     console.log('✅ Expo Push Token:', token);
+    console.log('🔍 Push env — appOwnership:', Constants.appOwnership, '| executionEnvironment:', (Constants as any).executionEnvironment);
     return token;
   } catch (e) {
     console.warn('❌ Push registration failed:', e);
