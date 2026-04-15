@@ -28,8 +28,9 @@ yarn-error.*
 .env.local
 .env.production
 
-# EAS
+# EAS + Firebase credentials (never commit)
 google-service-account.json
+google-services.json
 
 # OS
 .DS_Store
