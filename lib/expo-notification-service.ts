@@ -29,23 +29,28 @@ async function generateTemplatePool(
     ? (isNovice ? 'Muitos estudantes têm sequências em risco hoje.' : 'Many students have streaks at risk today.')
     : '';
 
-  const promptReminder = `You are Charlotte, an AI English teacher. Write ${count} different push notification variants IN FIRST PERSON inviting students to practice today.
+    const promptReminder = `You are Charlotte, an AI English teacher. Write ${count} different push notification variants IN FIRST PERSON inviting students to practice today.
 - Use {name} as placeholder for the student's first name
+- Use {streak} as placeholder for streak days (e.g. "your {streak}-day streak")— only include if it adds value
 - Language: ${lang}
 - Tone: warm, personal, gently motivating — like a friend checking in
 - Write in FIRST PERSON as Charlotte ("I", "me", "my")
 ${streakNote ? `- Context: ${streakNote}` : ''}
 - Title: 4-6 words max, use 1 relevant emoji
 - Body: 1 sentence max (under 90 chars), include {name}, first person
+- Example: "I saved a spot for you today, {name} — don't lose that {streak}-day streak!"
 Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
 
   const promptPraise = `You are Charlotte, a warm and encouraging English AI teacher. Write ${count} different push notification variants IN FIRST PERSON celebrating students who practiced today.
 - Use {name} as placeholder for the student's first name
+- Use {xp} as placeholder for XP earned today (e.g. "{xp} XP")
+- Use {streak} as placeholder for streak days (e.g. "{streak}-day streak") — only include if it adds value
 - Language: ${lang}
 - Tone: warm, personal, genuinely proud — like a teacher celebrating effort
 - Write in FIRST PERSON as Charlotte ("I", "me", "my")
 - Title: 4-6 words max, use 1 relevant emoji
-- Body: 1 sentence max (under 90 chars), include {name}, first person
+- Body: 1 sentence max (under 90 chars), include {name}, mention {xp}, first person
+- Example: "I loved our session today, {name} — {xp} XP and your {streak}-day streak is alive!"
 Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
 
   if (!OPENAI_API_KEY) return [];
@@ -71,13 +76,20 @@ Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
   return [];
 }
 
-// Pick a random template from pool and replace {name} placeholder
-function pickTemplate(pool: MsgTemplate[], fallback: MsgTemplate, firstName: string): MsgTemplate {
+// Pick a random template and replace {name}, {xp}, {streak} placeholders
+function pickTemplate(
+  pool: MsgTemplate[],
+  fallback: MsgTemplate,
+  firstName: string,
+  xp?: number,
+  streak?: number,
+): MsgTemplate {
   const tpl = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : fallback;
-  return {
-    title: tpl.title.replace(/\{name\}/g, firstName),
-    body: tpl.body.replace(/\{name\}/g, firstName),
-  };
+  const replace = (s: string) => s
+    .replace(/\{name\}/g, firstName)
+    .replace(/\{xp\}/g, xp != null ? String(xp) : '')
+    .replace(/\{streak\}/g, streak != null ? String(streak) : '');
+  return { title: replace(tpl.title), body: replace(tpl.body) };
 }
 
 // ── Core send function ───────────────────────────────────────────────────────
@@ -207,7 +219,8 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
     const messages: ExpoMessage[] = eligible.map((u: any) => {
       const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
       const isNovice  = u.charlotte_level === 'Novice';
-      const msg = pickTemplate(isNovice ? poolNovice : poolAdvanced, isNovice ? fallbackNovice : fallbackAdvanced, firstName);
+      const streak    = streakMap[u.id] ?? 0;
+      const msg = pickTemplate(isNovice ? poolNovice : poolAdvanced, isNovice ? fallbackNovice : fallbackAdvanced, firstName, undefined, streak > 0 ? streak : undefined);
       return { to: u.expo_push_token, ...msg, data: { screen: 'chat', type: 'daily_reminder' }, sound: 'default', priority: 'high' };
     });
 
@@ -235,21 +248,41 @@ export async function sendCharlotteMessages(supabase: any): Promise<void> {
     const cuUsers = await fetchCharlotteUsers(supabase, practicedIds);
     if (!cuUsers.length) return;
 
+    // Fetch XP and streak per user
+    const { data: progRows } = await supabase
+      .from('charlotte_progress')
+      .select('user_id, streak_days, total_xp')
+      .in('user_id', practicedIds);
+    const xpMap     = Object.fromEntries((progRows ?? []).map((r: any) => [r.user_id, r.total_xp ?? 0]));
+    const streakMap = Object.fromEntries((progRows ?? []).map((r: any) => [r.user_id, r.streak_days ?? 0]));
+
+    // Fetch today XP from charlotte_practices
+    const { data: todayRows } = await supabase
+      .from('charlotte_practices')
+      .select('user_id, xp_earned')
+      .gte('created_at', `${today}T00:00:00Z`);
+    const todayXpMap: Record<string, number> = {};
+    for (const r of (todayRows ?? [])) {
+      todayXpMap[r.user_id] = (todayXpMap[r.user_id] ?? 0) + (r.xp_earned ?? 0);
+    }
+
     // Generate 2 pools (Novice PT + Advanced EN) — 2 GPT calls total
     const [poolNovice, poolAdvanced] = await Promise.all([
       generateTemplatePool('praise', true,  false),
       generateTemplatePool('praise', false, false),
     ]);
 
-    const fallbackNovice   = { title: '🌟 Ótimo trabalho hoje!', body: '{name}, você praticou hoje! Continue assim.' };
-    const fallbackAdvanced = { title: '🌟 Great work today!',    body: '{name}, you practiced today! Keep it up.' };
+    const fallbackNovice   = { title: 'Otimo trabalho hoje!', body: '{name}, voce praticou hoje e ganhou {xp} XP! Continue assim.' };
+    const fallbackAdvanced = { title: 'Great work today!',    body: '{name}, you practiced today and earned {xp} XP! Keep it up.' };
 
     console.log(`💬 [Expo] Sending praise to ${cuUsers.length} users...`);
 
     const messages: ExpoMessage[] = cuUsers.map((u: any) => {
       const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
       const isNovice  = u.charlotte_level === 'Novice';
-      const msg = pickTemplate(isNovice ? poolNovice : poolAdvanced, isNovice ? fallbackNovice : fallbackAdvanced, firstName);
+      const xp        = todayXpMap[u.id] ?? 0;
+      const streak    = streakMap[u.id] ?? 0;
+      const msg = pickTemplate(isNovice ? poolNovice : poolAdvanced, isNovice ? fallbackNovice : fallbackAdvanced, firstName, xp > 0 ? xp : undefined, streak > 0 ? streak : undefined);
       return { to: u.expo_push_token, ...msg, data: { screen: 'chat', type: 'charlotte_message' }, sound: 'default', priority: 'high' };
     });
 
