@@ -301,10 +301,10 @@ export default function LearnTrailScreen() {
                       activeOpacity={canTap ? 0.75 : 1}
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 14,
-                        backgroundColor: !locked && current ? accent + '0E' : C.card,
+                        backgroundColor: C.card,
                         borderRadius: 14, padding: 14,
-                        borderWidth: !locked && current ? 1.5 : 1,
-                        borderColor: !locked && current ? accent + '50' : C.border,
+                        borderWidth: 1,
+                        borderColor: C.border,
                         opacity: locked ? 0.55 : 1,
                         ...shadow,
                       }}

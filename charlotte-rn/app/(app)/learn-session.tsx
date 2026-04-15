@@ -4,7 +4,7 @@ import {
   KeyboardAvoidingView, Platform, Animated,
   ActivityIndicator, Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import {
   ArrowLeft, ArrowRight, CheckCircle, XCircle,
@@ -182,6 +182,7 @@ export default function LearnSessionScreen() {
   const userLevel   = (profile?.charlotte_level ?? 'Novice') as string;
   const isPortuguese = userLevel === 'Novice';
   const baseTotalXP = useTotalXP(userId);
+  const insets      = useSafeAreaInsets();
   const { saveTopicComplete, saveExercise } = useLearnProgress(userId, level);
 
   const topic = getTopic(level, moduleIndex, topicIndex);
@@ -1567,7 +1568,7 @@ export default function LearnSessionScreen() {
         {/* ── Bottom CTA ── */}
         <View style={{
           paddingHorizontal: 20, paddingTop: 12,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 20,
+          paddingBottom: Platform.OS === 'ios' ? 28 : Math.max(insets.bottom + 8, 20),
           backgroundColor: C.card, borderTopWidth: 1, borderTopColor: C.border,
         }}>
           {/* ── Grammar ── */}

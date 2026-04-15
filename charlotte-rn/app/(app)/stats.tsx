@@ -465,9 +465,10 @@ export default function StatsScreen() {
           const earnedMap: Record<string, AchievementWithCategory> = {};
           data.achievements.forEach(a => { earnedMap[a.code] = a; });
           const earnedCodes = new Set(data.achievements.map(a => a.code));
+          const shownEarned = data.achievements.slice(0, 4);
           const lockedPreview = levelCatalog
             .filter(a => !earnedCodes.has(a.code))
-            .slice(0, Math.max(0, 4 - data.achievements.length));
+            .slice(0, Math.max(0, 4 - shownEarned.length));
           return (
             <ScrollView
               horizontal
@@ -475,7 +476,7 @@ export default function StatsScreen() {
               contentContainerStyle={{ paddingHorizontal: 16, gap: 12, paddingBottom: 4 }}
               style={{ marginBottom: 24 }}
             >
-              {data.achievements.map((ach, i) => {
+              {shownEarned.map((ach, i) => {
                 const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
                 const cat = levelCatalog.find(c => c.code === ach.code);
                 return (

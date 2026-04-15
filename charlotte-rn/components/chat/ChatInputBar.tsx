@@ -167,7 +167,10 @@ export default function ChatInputBar({
     borderTopColor: C.topBorder,
     paddingHorizontal: 14,
     paddingTop: 10,
-    paddingBottom: Math.max(insets.bottom, 10),
+    // On Android, insets.bottom changes dynamically after keyboard interaction
+    // (0 → navBarHeight), causing height jumps. Parent SafeAreaView handles
+    // the bottom edge, so we use a fixed padding on Android.
+    paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : 10,
   };
 
   // ══════════════════════════════════════════════════════════

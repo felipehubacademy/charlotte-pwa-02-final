@@ -3,7 +3,7 @@ import {
   View, TouchableOpacity, ScrollView, StatusBar,
   ActivityIndicator, Modal, Pressable,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import {
   ArrowLeft, Trophy, Lightning, Fire, Star,
@@ -91,6 +91,7 @@ export default function AchievementsScreen() {
   const [modal, setModal]         = useState<ModalBadge | null>(null);
 
   const catalog = getBadgesForLevel(userLevel); // 30 badges
+  const insets  = useSafeAreaInsets();
 
   useEffect(() => { if (userId) loadData(); }, [userId]);
 
@@ -218,6 +219,26 @@ export default function AchievementsScreen() {
               {/* Divider */}
               <View style={{ width: '100%', height: 1, backgroundColor: C.border, marginBottom: 14 }} />
 
+              {/* XP reward */}
+              {cat.xpReward > 0 && (
+                <View style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  backgroundColor: isEarned ? C.greenLight : C.ghost,
+                  borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8,
+                  marginBottom: 14,
+                }}>
+                  <Lightning size={14} color={isEarned ? C.green : C.navyLight} weight="fill" />
+                  <AppText style={{ fontSize: 13, fontWeight: '800', color: isEarned ? C.green : C.navyLight }}>
+                    +{cat.xpReward} XP
+                  </AppText>
+                  <AppText style={{ fontSize: 12, fontWeight: '500', color: isEarned ? C.green : C.navyLight }}>
+                    {isEarned
+                      ? (isPortuguese ? 'bônus recebido' : 'bonus received')
+                      : (isPortuguese ? 'ao conquistar' : 'upon earning')}
+                  </AppText>
+                </View>
+              )}
+
               {/* How to earn */}
               <View style={{ alignItems: 'center', paddingHorizontal: 8, marginBottom: isEarned ? 14 : 0 }}>
                 {isEarned
@@ -259,7 +280,7 @@ export default function AchievementsScreen() {
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.card }} edges={['top', 'left', 'right']}>
       <StatusBar barStyle="dark-content" />
 
       {/* Header */}
@@ -290,7 +311,7 @@ export default function AchievementsScreen() {
       <ScrollView
         style={{ flex: 1, backgroundColor: C.bg }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 80 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: Math.max(insets.bottom + 32, 80) }}
       >
         {/* Summary bar */}
         <View style={{
@@ -323,73 +344,6 @@ export default function AchievementsScreen() {
           </View>
         </View>
 
-        {/* Earned detail cards */}
-        {earned.length > 0 && (
-          <>
-            <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
-              <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
-                {isPortuguese ? 'Suas Conquistas' : 'Your Badges'}
-              </AppText>
-            </View>
-
-            <View style={{ marginHorizontal: 16, marginBottom: 28 }}>
-              {earned.map((ach, i) => {
-                const rc = RARITY_COLORS[ach.rarity] ?? '#22C55E';
-                const cat = catalog.find(c => c.code === ach.code);
-                return (
-                  <TouchableOpacity
-                    key={ach.id ?? i}
-                    activeOpacity={0.75}
-                    onPress={() => cat && openModal(cat)}
-                    style={{
-                      backgroundColor: C.card, borderRadius: 16, padding: 14,
-                      flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8,
-                    }}
-                  >
-                    <View style={{
-                      width: 44, height: 44, borderRadius: 14,
-                      backgroundColor: rc + '20',
-                      alignItems: 'center', justifyContent: 'center',
-                      marginRight: 12, flexShrink: 0,
-                    }}>
-                      <AchievementIcon category={ach.category} rarity={ach.rarity} size={22} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                        <AppText style={{ color: C.navy, fontWeight: '800', fontSize: 13, flex: 1, marginRight: 8 }}>
-                          {ach.title}
-                        </AppText>
-                        {ach.xpBonus > 0 && (
-                          <View style={{ backgroundColor: C.greenLight, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 }}>
-                            <AppText style={{ color: C.green, fontSize: 11, fontWeight: '800' }}>
-                              +{ach.xpBonus} XP
-                            </AppText>
-                          </View>
-                        )}
-                      </View>
-                      {ach.description.length > 0 && (
-                        <AppText style={{ color: C.navyMid, fontSize: 12, fontWeight: '500', marginBottom: 6 }}>
-                          {ach.description}
-                        </AppText>
-                      )}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <AppText style={{ color: C.navyLight, fontSize: 11, fontWeight: '500' }}>
-                          {ach.earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short' })}
-                        </AppText>
-                        <View style={{ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: rc + '18' }}>
-                          <AppText style={{ fontSize: 10, fontWeight: '700', color: rc, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                            {RARITY_LABEL[ach.rarity] ?? ach.rarity}
-                          </AppText>
-                        </View>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </>
-        )}
-
         {/* Full catalog grid */}
         <View style={{ paddingHorizontal: 20, marginBottom: 16 }}>
           <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
@@ -412,17 +366,33 @@ export default function AchievementsScreen() {
                 onPress={() => openModal(cat)}
                 style={{ width: 84, alignItems: 'center' }}
               >
-                <View style={{
-                  width: 52, height: 52, borderRadius: 26,
-                  backgroundColor: isEarned ? rc + '20' : C.ghost,
-                  alignItems: 'center', justifyContent: 'center',
-                  marginBottom: 6,
-                }}>
-                  <AchievementIcon
-                    category={cat.category}
-                    rarity={isEarned ? cat.rarity : 'locked'}
-                    size={24}
-                  />
+                {/* Medal + XP bubble wrapper */}
+                <View style={{ width: 52, marginBottom: 6, position: 'relative' }}>
+                  <View style={{
+                    width: 52, height: 52, borderRadius: 26,
+                    backgroundColor: isEarned ? rc + '20' : C.ghost,
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <AchievementIcon
+                      category={cat.category}
+                      rarity={isEarned ? cat.rarity : 'locked'}
+                      size={24}
+                    />
+                  </View>
+                  {/* XP bubble — Mickey ear style */}
+                  {cat.xpReward > 0 && (
+                    <View style={{
+                      position: 'absolute', top: -7, right: -10,
+                      backgroundColor: isEarned ? rc : C.navyLight,
+                      borderRadius: 10, paddingHorizontal: 4, paddingVertical: 2,
+                      minWidth: 26, alignItems: 'center',
+                      borderWidth: 1.5, borderColor: C.bg,
+                    }}>
+                      <AppText style={{ fontSize: 9, fontWeight: '800', color: '#FFF' }}>
+                        +{cat.xpReward}
+                      </AppText>
+                    </View>
+                  )}
                 </View>
                 <AppText style={{
                   fontSize: 10, fontWeight: '600',
