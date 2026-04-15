@@ -210,6 +210,7 @@ export default function LearnSessionScreen() {
   const [stepIdx, setStepIdx]         = useState(0);
   const [isComplete, setIsComplete]   = useState(false);
   const stepLoadedRef = useRef(false);
+  const scrollRef = useRef<InstanceType<typeof ScrollView>>(null);
 
   // Load saved step on mount (resume mid-topic)
   useEffect(() => {
@@ -854,6 +855,7 @@ export default function LearnSessionScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
+          ref={scrollRef}
           style={{ flex: 1, backgroundColor: C.bg }}
           contentContainerStyle={{ padding: 20, paddingBottom: 24, flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
@@ -1156,6 +1158,7 @@ export default function LearnSessionScreen() {
                     multiline
                     autoCorrect={false}
                     autoCapitalize="sentences"
+                    onFocus={() => Platform.OS === 'android' && setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
                   />
                   {currentStep.exercise.hint && showHint && (
                     <View style={{ backgroundColor: C.violetBg, borderRadius: 10, padding: 12 }}>
@@ -1200,6 +1203,7 @@ export default function LearnSessionScreen() {
                     onSubmitEditing={handleGrammarSubmit}
                     autoCorrect={false}
                     autoCapitalize="none"
+                    onFocus={() => Platform.OS === 'android' && setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
                   />
                   {currentStep.exercise.hint && (
                     <>
@@ -1474,6 +1478,7 @@ export default function LearnSessionScreen() {
                       minHeight: 80, textAlignVertical: 'top', marginBottom: 16,
                     }}
                     autoCorrect={false} autoCapitalize="none" multiline
+                    onFocus={() => Platform.OS === 'android' && setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300)}
                   />
                   {pronStatus === 'listening' && (
                     <TouchableOpacity
