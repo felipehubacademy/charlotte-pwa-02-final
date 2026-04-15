@@ -356,7 +356,7 @@ export default function LearnTrailScreen() {
                             }}>
                               <Microphone size={11} color={C.violet} weight="fill" />
                               <AppText style={{ fontSize: 10, fontWeight: '700', color: C.violet }}>
-                                {topic.pronunciation.length} {isPortuguese ? 'pron' : 'pronun'}
+                                {topic.pronunciation.length} {isPortuguese ? 'pronúncia' : 'pronunc.'}
                               </AppText>
                             </View>
                           )}

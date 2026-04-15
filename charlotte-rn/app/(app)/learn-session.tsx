@@ -892,8 +892,8 @@ export default function LearnSessionScreen() {
                 {stepIdx + 1} / {totalSteps}
               </AppText>
             </View>
-            <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-              <View style={{ height: 5, width: `${progress * 100}%` as `${number}%`, backgroundColor: accent, borderRadius: 3 }} />
+            <View style={{ height: 8, backgroundColor: C.ghost, borderRadius: 4, overflow: 'hidden' }}>
+              <View style={{ height: 8, width: `${progress * 100}%` as `${number}%`, backgroundColor: accent, borderRadius: 4 }} />
             </View>
           </View>
 

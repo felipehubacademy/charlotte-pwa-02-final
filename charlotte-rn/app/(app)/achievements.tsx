@@ -290,7 +290,7 @@ export default function AchievementsScreen() {
       <ScrollView
         style={{ flex: 1, backgroundColor: C.bg }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingTop: 16, paddingBottom: 80 }}
       >
         {/* Summary bar */}
         <View style={{
@@ -410,7 +410,7 @@ export default function AchievementsScreen() {
                 key={cat.code}
                 activeOpacity={0.7}
                 onPress={() => openModal(cat)}
-                style={{ width: 72, alignItems: 'center' }}
+                style={{ width: 84, alignItems: 'center' }}
               >
                 <View style={{
                   width: 52, height: 52, borderRadius: 26,
