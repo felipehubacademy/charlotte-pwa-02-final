@@ -38,7 +38,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     package: 'com.hubacademy.charlotte',
     adaptiveIcon: {
-      foregroundImage: './assets/icon.png',
+      foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#16153A',
     },
     permissions: [
