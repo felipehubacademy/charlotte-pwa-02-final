@@ -340,7 +340,7 @@ export async function sendXPMilestoneNotification(
 ): Promise<void> {
   try {
     const { data: user } = await supabase
-      .from('users')
+      .from('charlotte_users')
       .select('expo_push_token, name')
       .eq('id', userId)
       .single();
