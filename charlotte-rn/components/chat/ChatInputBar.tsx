@@ -144,22 +144,6 @@ export default function ChatInputBar({
     }
   };
 
-  // Android: toggle tap-to-start / tap-to-stop (hold gesture unreliable on Android)
-  const micToggle = async () => {
-    if (disabled || isProcessing || isPreview) return;
-    if (isRecording) {
-      const res = await stopRecording();
-      if (res && res.duration >= 1) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        if (onSendAudio) onSendAudio(res.uri, res.duration);
-      } else {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      }
-    } else {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await startRecording();
-    }
-  };
 
   const cancelPreview = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -302,16 +286,11 @@ export default function ChatInputBar({
 
               {/* The mic button itself */}
               <Pressable
-                onPress={Platform.OS === 'android' ? micToggle : undefined}
-                onPressIn={Platform.OS === 'ios' ? micPressIn : undefined}
-                onPressOut={Platform.OS === 'ios' ? micPressOut : undefined}
+                onPressIn={micPressIn}
+                onPressOut={micPressOut}
                 disabled={disabled || isProcessing}
                 pressRetentionOffset={{ top: 60, bottom: 60, left: 60, right: 60 }}
-                accessibilityLabel={
-                  Platform.OS === 'android'
-                    ? (isNovice ? 'Gravar áudio — toque para gravar / Tap to record' : 'Tap to record audio')
-                    : (isNovice ? 'Gravar áudio — segure para gravar / Hold to record' : 'Hold to record audio')
-                }
+                accessibilityLabel={isNovice ? 'Gravar áudio — segure para gravar / Hold to record' : 'Hold to record audio'}
                 accessibilityRole="button"
                 style={{
                   width: 80, height: 80, borderRadius: 40,
@@ -346,7 +325,7 @@ export default function ChatInputBar({
               ...(isRecording && Platform.OS === 'ios' ? { fontVariant: ['tabular-nums'] } : {}),
               ...(isRecording && Platform.OS !== 'ios' ? { fontFamily: 'monospace' } : {}),
             }}>
-              {isProcessing ? 'Processing...' : isRecording ? formatDuration(duration) : Platform.OS === 'android' ? 'Tap to record' : 'Hold to record'}
+              {isProcessing ? 'Processing...' : isRecording ? formatDuration(duration) : 'Hold to record'}
             </AppText>
 
           </View>
@@ -517,19 +496,14 @@ export default function ChatInputBar({
         ) : (
           // No text, no preview: mic
           <Pressable
-            onPress={Platform.OS === 'android' ? micToggle : undefined}
-            onPressIn={Platform.OS === 'ios' ? micPressIn : undefined}
-            onPressOut={Platform.OS === 'ios' ? micPressOut : undefined}
+            onPressIn={micPressIn}
+            onPressOut={micPressOut}
             disabled={disabled || isProcessing}
             pressRetentionOffset={{ top: 30, bottom: 30, left: 30, right: 30 }}
             style={[styles.actionBtn, {
               backgroundColor: disabled || isProcessing ? `${C.green}50` : C.green,
             }]}
-            accessibilityLabel={
-              Platform.OS === 'android'
-                ? (isNovice ? 'Microfone — toque para gravar / Tap to record' : 'Tap to record audio')
-                : (isNovice ? 'Microfone — segure para gravar / Hold to record' : 'Hold to record audio')
-            }
+            accessibilityLabel={isNovice ? 'Microfone — segure para gravar / Hold to record' : 'Hold to record audio'}
             accessibilityRole="button"
           >
             {isProcessing

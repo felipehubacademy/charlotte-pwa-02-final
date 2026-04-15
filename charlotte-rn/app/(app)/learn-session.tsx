@@ -487,22 +487,12 @@ export default function LearnSessionScreen() {
     }
   };
 
-  // Android toggle: tap to start, tap again to stop
-  const handleMicToggle = () => {
-    if (recordingRef.current) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
   const stopRecording = async () => {
     if (!recordingRef.current || !currentStep || currentStep.kind !== 'pronunciation') return;
 
-    // On iOS hold mode: ignore accidental releases shorter than 800ms
-    // On Android toggle mode: no minimum (user explicitly tapped to stop)
+    // Ignore accidental releases shorter than 300ms on both platforms
     const elapsed = Date.now() - recordingStartRef.current;
-    if (Platform.OS === 'ios' && elapsed < 800) {
+    if (elapsed < 300) {
       recordingRef.current = false;
       try { await recorder.stop(); } catch {}
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
@@ -1621,9 +1611,8 @@ export default function LearnSessionScreen() {
               </View>
             ) : (
               <Pressable
-                onPress={Platform.OS === 'android' ? handleMicToggle : undefined}
-                onPressIn={Platform.OS === 'ios' ? startRecording : undefined}
-                onPressOut={Platform.OS === 'ios' ? stopRecording : undefined}
+                onPressIn={startRecording}
+                onPressOut={stopRecording}
                 pressRetentionOffset={{ top: 20, left: 20, right: 20, bottom: 20 }}
                 style={{
                   backgroundColor: pronStatus === 'recording' ? '#DC2626' : '#7C3AED',
@@ -1634,10 +1623,8 @@ export default function LearnSessionScreen() {
                 <Microphone size={22} color="#FFF" weight="fill" />
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
                   {pronStatus === 'recording'
-                    ? (isPortuguese ? 'Gravando… toque para parar' : 'Recording… tap to stop')
-                    : Platform.OS === 'android'
-                      ? (isPortuguese ? 'Toque para falar' : 'Tap to speak')
-                      : (isPortuguese ? 'Segure para falar' : 'Hold to speak')}
+                    ? (isPortuguese ? 'Gravando… solte para parar' : 'Recording… release to stop')
+                    : (isPortuguese ? 'Segure para falar' : 'Hold to speak')}
                 </AppText>
               </Pressable>
             )
@@ -1671,9 +1658,8 @@ export default function LearnSessionScreen() {
               </View>
             ) : (
               <Pressable
-                onPress={Platform.OS === 'android' ? handleMicToggle : undefined}
-                onPressIn={Platform.OS === 'ios' ? startRecording : undefined}
-                onPressOut={Platform.OS === 'ios' ? stopRecording : undefined}
+                onPressIn={startRecording}
+                onPressOut={stopRecording}
                 pressRetentionOffset={{ top: 20, left: 20, right: 20, bottom: 20 }}
                 style={{
                   backgroundColor: pronStatus === 'recording' ? '#DC2626' : '#7C3AED',
@@ -1684,10 +1670,8 @@ export default function LearnSessionScreen() {
                 <Microphone size={22} color="#FFF" weight="fill" />
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
                   {pronStatus === 'recording'
-                    ? (isPortuguese ? 'Gravando… toque para parar' : 'Recording… tap to stop')
-                    : Platform.OS === 'android'
-                      ? (isPortuguese ? 'Toque e fale junto' : 'Tap and follow along')
-                      : (isPortuguese ? 'Segure e siga junto' : 'Hold and follow along')}
+                    ? (isPortuguese ? 'Gravando… solte para parar' : 'Recording… release to stop')
+                    : (isPortuguese ? 'Segure e siga junto' : 'Hold and follow along')}
                 </AppText>
               </Pressable>
             )
