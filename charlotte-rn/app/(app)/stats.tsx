@@ -502,7 +502,7 @@ export default function StatsScreen() {
                         fontSize: 10, fontWeight: '600', color: C.navy,
                         textAlign: 'center',
                       }} numberOfLines={2}>
-                        {ach.title}
+                        {cat ? (isPortuguese ? cat.title : (cat.titleEN ?? cat.title)) : ach.title}
                       </AppText>
                     </TouchableOpacity>
                   );
@@ -527,7 +527,7 @@ export default function StatsScreen() {
                         fontSize: 10, fontWeight: '600', color: C.navyLight,
                         textAlign: 'center',
                       }} numberOfLines={2}>
-                        {cat.title}
+                        {isPortuguese ? cat.title : (cat.titleEN ?? cat.title)}
                       </AppText>
                     </TouchableOpacity>
                   );
@@ -734,7 +734,7 @@ export default function StatsScreen() {
                   </View>
 
                   <AppText style={{ fontSize: 17, fontWeight: '800', color: C.navy, textAlign: 'center', marginBottom: 10 }}>
-                    {cat.title}
+                    {isPortuguese ? cat.title : (cat.titleEN ?? cat.title)}
                   </AppText>
 
                   <View style={{ width: '100%', height: 1, backgroundColor: C.border, marginBottom: 14 }} />
