@@ -162,7 +162,7 @@ export default function MyVocabularyScreen() {
           onPress={() => openAdd()}
           style={{
             width: 38, height: 38, borderRadius: 19,
-            backgroundColor: C.greenDark,
+            backgroundColor: C.navy,
             alignItems: 'center', justifyContent: 'center',
           }}
         >
@@ -172,7 +172,7 @@ export default function MyVocabularyScreen() {
       </SafeAreaView>
 
       {/* Search bar */}
-      <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+      <View style={{ paddingHorizontal: 16, marginTop: 12, marginBottom: 10 }}>
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 8,
           backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
@@ -192,8 +192,8 @@ export default function MyVocabularyScreen() {
       {/* Category filter chips */}
       <ScrollView
         horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-        style={{ maxHeight: 42, marginBottom: 10 }}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: 'center', flexDirection: 'row' }}
+        style={{ flexGrow: 0, marginBottom: 12 }}
       >
         {FILTERS.map(f => {
           const sel = filter === f.key;
@@ -202,9 +202,9 @@ export default function MyVocabularyScreen() {
               key={f.key}
               onPress={() => setFilter(f.key)}
               style={{
-                paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
-                backgroundColor: sel ? C.greenDark : C.card,
-                borderWidth: 1, borderColor: sel ? C.greenDark : C.border,
+                paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
+                backgroundColor: sel ? C.navy : C.card,
+                borderWidth: 1, borderColor: sel ? C.navy : C.border,
               }}
             >
               <AppText style={{ fontSize: 13, fontWeight: '600', color: sel ? '#FFFFFF' : C.navyMid }}>
@@ -239,7 +239,7 @@ export default function MyVocabularyScreen() {
             <TouchableOpacity
               onPress={() => openAdd()}
               style={{
-                marginTop: 20, backgroundColor: C.greenDark,
+                marginTop: 20, backgroundColor: C.navy,
                 borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
                 flexDirection: 'row', alignItems: 'center', gap: 6,
               }}
@@ -314,7 +314,7 @@ export default function MyVocabularyScreen() {
                     {item.example && (
                       <View style={{
                         backgroundColor: C.bg, borderRadius: 10, padding: 10,
-                        borderLeftWidth: 3, borderLeftColor: C.greenDark,
+                        borderLeftWidth: 3, borderLeftColor: C.navy,
                       }}>
                         <AppText style={{ fontSize: 13, color: C.navy, fontStyle: 'italic', lineHeight: 18 }}>
                           {item.example}
@@ -354,10 +354,10 @@ export default function MyVocabularyScreen() {
           style={{
             position: 'absolute', right: 20, bottom: insets.bottom + 20,
             width: 52, height: 52, borderRadius: 26,
-            backgroundColor: C.greenDark,
+            backgroundColor: C.navy,
             alignItems: 'center', justifyContent: 'center',
             ...Platform.select({
-              ios:     { shadowColor: C.greenDark, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+              ios:     { shadowColor: C.navy, shadowOpacity: 0.25, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
               android: { elevation: 6 },
             }),
           }}

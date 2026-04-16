@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, View, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { Alert, View, TouchableOpacity, KeyboardAvoidingView } from 'react-native';
 import { Question } from 'phosphor-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/hooks/useAuth';
@@ -29,12 +29,9 @@ export default function ChatScreen() {
 
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F3FA' }} edges={['top', 'left', 'right']}>
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: '#F4F3FA' }}
-        behavior="padding"
-        keyboardVerticalOffset={0}
-      >
+    <View style={{ flex: 1, backgroundColor: '#F4F3FA' }}>
+      {/* White safe area behind the header */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: '#FFFFFF' }}>
         <ChatHeader
           mode="chat"
           userName={userName}
@@ -45,6 +42,13 @@ export default function ChatScreen() {
           onXPCounterClick={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(sessionXP), totalXP: String(totalXP), userId: userId ?? '', userLevel: userLevel ?? 'Inter', userName: userName ?? '' } })}
           showBack
         />
+      </SafeAreaView>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1, backgroundColor: '#F4F3FA' }}
+        behavior="padding"
+        keyboardVerticalOffset={0}
+      >
         <View style={{ flex: 1 }}>
           <ChatBox
             messages={messages}
@@ -83,7 +87,7 @@ export default function ChatScreen() {
         onComplete={() => setShowOnboarding(false)}
         userLevel={userLevel}
       />
-    </SafeAreaView>
+    </View>
   );
 }
 
