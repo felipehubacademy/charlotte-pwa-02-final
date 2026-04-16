@@ -264,22 +264,20 @@ export default function AddWordScreen() {
                 returnKeyType="done"
                 onSubmitEditing={() => handleGenerate()}
               />
-              {!isPt && (
-                <TouchableOpacity
-                  onPress={handleTts}
-                  disabled={ttsLoading || !term.trim()}
-                  style={{
-                    width: 52, height: 52, borderRadius: 14,
-                    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
-                    alignItems: 'center', justifyContent: 'center',
-                  }}
-                >
-                  {ttsLoading
-                    ? <ActivityIndicator size="small" color={C.greenDark} />
-                    : <SpeakerHigh size={22} color={term.trim() ? C.greenDark : C.muted} weight="fill" />
-                  }
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                onPress={handleTts}
+                disabled={ttsLoading || !term.trim()}
+                style={{
+                  width: 52, height: 52, borderRadius: 14,
+                  backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                {ttsLoading
+                  ? <ActivityIndicator size="small" color={C.greenDark} />
+                  : <SpeakerHigh size={22} color={term.trim() ? C.greenDark : C.muted} weight="fill" />
+                }
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => handleGenerate()}
                 disabled={generating || !term.trim()}
@@ -332,7 +330,7 @@ export default function AddWordScreen() {
           {/* Definition */}
           <View>
             <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
-              {isPt ? 'DEFINICAO (PT-BR)' : 'DEFINITION'}
+              {isPt ? 'DEFINIÇÃO (PT-BR)' : 'DEFINITION'}
             </AppText>
             <TextInput
               value={definition}
@@ -375,7 +373,7 @@ export default function AddWordScreen() {
           {isPt && (
             <View>
               <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
-                TRADUCAO DO EXEMPLO
+                TRADUÇÃO DO EXEMPLO
               </AppText>
               <TextInput
                 value={exampleTr}

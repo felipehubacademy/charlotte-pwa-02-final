@@ -55,10 +55,11 @@ interface SRCardItem {
   intervalDays: number;
   repetitions:  number;
   // Vocabulary-specific (when moduleIndex === -1)
-  vocabTerm?:       string;
-  vocabDefinition?: string;
-  vocabExample?:    string;
-  vocabCategory?:   string;
+  vocabTerm?:               string;
+  vocabDefinition?:         string;
+  vocabExample?:            string;
+  vocabExampleTranslation?: string;  // PT-BR, Novice only
+  vocabCategory?:           string;
 }
 
 interface CardQuestion {
@@ -74,53 +75,69 @@ interface CardQuestion {
 
 // ── Vocabulary card generator ────────────────────────────────────────────────
 function generateVocabCardQuestion(item: SRCardItem): CardQuestion | null {
-  const { vocabTerm, vocabDefinition, vocabExample, vocabCategory, cardType } = item;
+  const { vocabTerm, vocabDefinition, vocabExample, vocabExampleTranslation, cardType } = item;
   if (!vocabTerm || !vocabDefinition) return null;
   const isPt = item.userLevel === 'Novice';
 
+  // Para Novice: definição já está em PT-BR.
+  // Exemplo de frase sempre em EN; tradução do exemplo (PT-BR) usada como dica/explicação.
+  const exampleHint = isPt && vocabExampleTranslation ? vocabExampleTranslation : undefined;
+
   switch (cardType) {
     case 'gap_fill': {
-      // Show example with term blanked out (if example exists), else fill in from definition
       if (vocabExample) {
         const blanked = vocabExample.replace(new RegExp(vocabTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '___');
         return {
-          cardType: 'gap_fill',
+          cardType:    'gap_fill',
           instruction: isPt ? 'Complete com a palavra correta:' : 'Fill in the blank:',
           sentence:    blanked,
           answer:      vocabTerm,
+          // Novice: dica = tradução da frase; explicação = definição em PT
+          hint:        exampleHint,
           explanation: vocabDefinition,
         };
       }
+      // Sem exemplo: mostrar definição em PT, pedir o termo em EN
       return {
-        cardType: 'gap_fill',
+        cardType:    'gap_fill',
         instruction: isPt ? 'Qual palavra significa:' : 'Which word means:',
         sentence:    vocabDefinition,
         answer:      vocabTerm,
-        explanation: vocabExample ?? '',
+        explanation: vocabDefinition,
       };
     }
+
     case 'reverse': {
+      // Mostrar definição (PT para Novice) → usuário digita o termo em EN
       return {
-        cardType: 'reverse',
+        cardType:    'reverse',
         instruction: isPt ? 'Como você diz em inglês:' : 'How do you say:',
         sentence:    vocabDefinition,
         answer:      vocabTerm,
-        hint:        vocabExample ?? undefined,
-        explanation: vocabExample ?? vocabDefinition,
+        // Novice: dica = tradução do exemplo; explicação = definição PT + exemplo EN
+        hint:        exampleHint ?? (vocabExample ? undefined : undefined),
+        explanation: isPt
+          ? `${vocabDefinition}${vocabExample ? `\n\n"${vocabExample}"` : ''}${vocabExampleTranslation ? `\n${vocabExampleTranslation}` : ''}`
+          : (vocabExample ?? vocabDefinition),
       };
     }
+
     case 'context_guess': {
-      // Show the example, ask what the highlighted term means
+      // Mostrar exemplo EN com termo destacado → usuário escolhe definição
       const sentence = vocabExample ?? `The term "${vocabTerm}" is used in this context.`;
       return {
         cardType:    'context_guess',
         instruction: isPt ? 'O que significa o termo destacado?' : 'What does the highlighted term mean?',
         sentence:    sentence.replace(new RegExp(vocabTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), `**${vocabTerm}**`),
-        answer:      vocabDefinition,
-        options:     [vocabDefinition], // only 1 correct — UI will handle fakes
-        explanation: vocabExample ?? vocabDefinition,
+        answer:      vocabDefinition,  // já em PT para Novice
+        options:     [vocabDefinition],
+        // Novice: explicação = tradução do exemplo + definição PT
+        explanation: isPt
+          ? `${vocabDefinition}${vocabExampleTranslation ? `\n\n${vocabExampleTranslation}` : ''}`
+          : (vocabExample ?? vocabDefinition),
       };
     }
+
     default:
       return null;
   }
@@ -286,11 +303,11 @@ export default function ReviewSession() {
         .filter(r => r.source_type === 'vocabulary')
         .map(r => r.source_id as string);
 
-      let vocabMap: Record<string, { term: string; definition: string; example: string | null; category: string }> = {};
+      let vocabMap: Record<string, { term: string; definition: string; example: string | null; example_translation: string | null; category: string }> = {};
       if (vocabIds.length > 0) {
         const { data: vocabData } = await supabase
           .from('user_vocabulary')
-          .select('id, term, definition, example, category')
+          .select('id, term, definition, example, example_translation, category')
           .in('id', vocabIds);
         (vocabData ?? []).forEach(v => { vocabMap[v.id] = v; });
       }
@@ -310,10 +327,11 @@ export default function ReviewSession() {
             intervalDays: r.interval_days ?? 0,
             repetitions:  r.repetitions ?? 0,
             // Vocabulary-specific extra data
-            vocabTerm:       vocab.term,
-            vocabDefinition: vocab.definition,
-            vocabExample:    vocab.example ?? undefined,
-            vocabCategory:   vocab.category,
+            vocabTerm:               vocab.term,
+            vocabDefinition:         vocab.definition,
+            vocabExample:            vocab.example ?? undefined,
+            vocabExampleTranslation: vocab.example_translation ?? undefined,
+            vocabCategory:           vocab.category,
           } as SRCardItem;
         }
         const parts = (r.source_id as string).split(':');
