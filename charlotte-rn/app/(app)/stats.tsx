@@ -756,7 +756,7 @@ export default function StatsScreen() {
                       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
                     }}>
                       <CheckCircle size={15} color={C.green} weight="fill" />
-                      <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green, includeFontPadding: false, lineHeight: 16 }}>
+                      <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green, includeFontPadding: false, lineHeight: 16, textAlign: 'center' }}>
                         {(isPortuguese ? 'Conquistado em ' : 'Earned on ') + earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </AppText>
                     </View>
