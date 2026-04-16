@@ -30,7 +30,7 @@ import { supabase } from '@/lib/supabase';
 // Replace REVENUECAT_IOS_KEY and REVENUECAT_ANDROID_KEY with your actual keys
 // from RevenueCat Dashboard → Project Settings → API Keys → Public app-specific keys
 const RC_IOS_KEY     = 'appl_ZfuDMNvBXEVXSjWSAErBuihcPv';
-const RC_ANDROID_KEY = 'REVENUECAT_ANDROID_KEY'; // goog_xxxxxxxxxxxx
+const RC_ANDROID_KEY = 'goog_hIkklVeoKyULqjSKpqojZUiZwVg';
 
 export const ENTITLEMENT_ID = 'premium';
 export const PRODUCT_MONTHLY = 'com.hubacademy.charlotte.monthly';
