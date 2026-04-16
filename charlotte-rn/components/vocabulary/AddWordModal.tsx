@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import Constants from 'expo-constants';
 import { scheduleVocabReviews } from '@/lib/spacedRepetition';
 import * as Haptics from 'expo-haptics';
+import { createAudioPlayer } from 'expo-audio';
 
 const API_BASE = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
@@ -129,11 +130,19 @@ export function AddWordModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: term.trim() }),
       });
-      if (res.ok) {
-        // TTS returns audio — handled by the native audio player
-        // For now just show haptics (full audio playback would need expo-audio)
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        const { FileSystem } = await import('expo-file-system/legacy');
+        const uri = FileSystem.cacheDirectory + 'vocab_tts.mp3';
+        await FileSystem.writeAsStringAsync(uri, base64, { encoding: FileSystem.EncodingType.Base64 });
+        const player = createAudioPlayer({ uri });
+        player.play();
         await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
+      };
+      reader.readAsDataURL(blob);
     } catch { /* silencioso */ } finally {
       setTtsLoading(false);
     }
@@ -166,9 +175,13 @@ export function AddWordModal({
         return;
       }
 
+      // Gera UUID explícito — necessário pois o INSTEAD OF trigger não tem DEFAULT para id
+      const newId = crypto.randomUUID();
+
       const { data: inserted, error } = await supabase
         .from('user_vocabulary')
         .insert({
+          id:                  newId,
           user_id:             user.id,
           term:                term.trim(),
           definition:          definition.trim(),
