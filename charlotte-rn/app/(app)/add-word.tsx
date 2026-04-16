@@ -94,11 +94,10 @@ export default function AddWordScreen() {
     if (!t) return;
     setGenerating(true);
     try {
-      const res = await fetch(`${API_BASE}/api/vocabulary`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ term: t, level }),
-      });
+      // Checa vocabulary_master primeiro — se ja existe, retorna instantaneamente sem custo de IA
+      const res = await fetch(
+        `${API_BASE}/api/enrich-term?term=${encodeURIComponent(t)}&level=${encodeURIComponent(level)}`,
+      );
       const json = await res.json();
       if (json.success && json.data) {
         const d = json.data;
