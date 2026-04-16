@@ -812,6 +812,7 @@ export default function HomeScreen() {
   const [showLiveVoice, setShowLiveVoice]           = useState(false);
   const [liveVoiceRemaining, setLiveVoiceRemaining] = useState<number | null>(null);
   const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
+  const [vocabDueCount,  setVocabDueCount]          = useState(0);
   const [weeklyState, setWeeklyState]               = useState<WeeklyChallengeState | null>(null);
   const [aiGreeting, setAiGreeting]         = useState<string | null>(null);
   const [greetingLoading, setGreetingLoading] = useState(true);
@@ -976,6 +977,18 @@ export default function HomeScreen() {
     } catch { /* silencioso */ }
   }, [userId]);
 
+  const loadVocabDue = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { count } = await supabase
+        .from('user_vocabulary')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .lte('next_review_at', new Date().toISOString());
+      setVocabDueCount(count ?? 0);
+    } catch { /* silencioso */ }
+  }, [userId]);
+
   const loadWeeklyChallenge = useCallback(async () => {
     if (!userId) return;
     try {
@@ -1027,12 +1040,12 @@ export default function HomeScreen() {
   }, [userId, data?.streakDays, triggerToast]);
 
   useEffect(() => {
-    if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); }
+    if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); loadVocabDue(); }
   }, [userId]); // eslint-disable-line
 
   useFocusEffect(useCallback(() => {
-    if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); }
-  }, [loadLiveVoicePool, loadPendingReviews, loadWeeklyChallenge]));
+    if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); loadVocabDue(); }
+  }, [loadLiveVoicePool, loadPendingReviews, loadWeeklyChallenge, loadVocabDue]));
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1584,8 +1597,12 @@ export default function HomeScreen() {
             <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
               {isPortuguese ? 'Meu Vocabulário' : 'My Vocabulary'}
             </AppText>
-            <AppText style={{ fontSize: 11, color: C.navyLight }}>
-              {isPortuguese ? 'Palavras salvas & revisão' : 'Saved words & review'}
+            <AppText style={{ fontSize: 11, color: vocabDueCount > 0 ? C.red : C.navyLight }}>
+              {vocabDueCount > 0
+                ? (isPortuguese
+                    ? `${vocabDueCount} ${vocabDueCount === 1 ? 'palavra' : 'palavras'} para revisar`
+                    : `${vocabDueCount} ${vocabDueCount === 1 ? 'word' : 'words'} to review`)
+                : (isPortuguese ? 'Palavras salvas & revisão' : 'Saved words & review')}
             </AppText>
           </View>
           <CaretRight size={16} color={C.navyLight} />

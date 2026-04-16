@@ -1,19 +1,20 @@
 /**
  * app/(app)/my-vocabulary.tsx
  * Lista de vocabulário salvo pelo usuário.
- * Header: back + título + botão review (quando há devidas) ou vazio
- * FAB: adicionar palavra (sempre visível quando há itens)
+ * Header: back + título + botão review (quando há devidas)
+ * Search + filter chips + lista
+ * FAB: adicionar palavra
  */
 
 import React, { useState, useCallback } from 'react';
 import {
-  View, ScrollView, TouchableOpacity,
+  View, ScrollView, TouchableOpacity, TextInput,
   ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import {
-  ArrowLeft, Trash, Plus,
+  ArrowLeft, MagnifyingGlass, Trash, Plus,
   BookOpen, ClockCountdown, CheckCircle,
 } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
@@ -42,6 +43,8 @@ const cardShadow = Platform.select({
   android: { elevation: 2 },
 }) as object;
 
+type VocabCategory = 'all' | 'word' | 'idiom' | 'phrasal_verb' | 'grammar';
+
 interface VocabItem {
   id:                  string;
   term:                string;
@@ -55,6 +58,14 @@ interface VocabItem {
   repetitions:         number;
   created_at:          string;
 }
+
+const FILTERS: { key: VocabCategory; labelPt: string; labelEn: string }[] = [
+  { key: 'all',          labelPt: 'Todas',      labelEn: 'All' },
+  { key: 'word',         labelPt: 'Palavras',   labelEn: 'Words' },
+  { key: 'idiom',        labelPt: 'Expressões', labelEn: 'Idioms' },
+  { key: 'phrasal_verb', labelPt: 'Phrasals',   labelEn: 'Phrasals' },
+  { key: 'grammar',      labelPt: 'Gramática',  labelEn: 'Grammar' },
+];
 
 function reviewLabel(nextReview: string | null, isPt: boolean): { label: string; color: string; bg: string } {
   if (!nextReview) return { label: isPt ? 'Nova' : 'New', color: C.greenDark, bg: C.greenBg };
@@ -72,6 +83,8 @@ export default function MyVocabularyScreen() {
 
   const [items,    setItems]    = useState<VocabItem[]>([]);
   const [loading,  setLoading]  = useState(true);
+  const [filter,   setFilter]   = useState<VocabCategory>('all');
+  const [search,   setSearch]   = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const openAdd = () => router.push({ pathname: '/(app)/add-word', params: { source: 'manual' } });
@@ -89,6 +102,15 @@ export default function MyVocabularyScreen() {
   }, [userId]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  const filtered = items.filter(i => {
+    if (filter !== 'all' && i.category !== filter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return i.term.toLowerCase().includes(q) || i.definition.toLowerCase().includes(q);
+    }
+    return true;
+  });
 
   const handleDelete = useCallback((item: VocabItem) => {
     Alert.alert(
@@ -136,7 +158,7 @@ export default function MyVocabularyScreen() {
             )}
           </View>
 
-          {/* Review button — só quando há devidas */}
+          {/* Botão de review — só quando há devidas */}
           {!loading && dueCount > 0 && (
             <TouchableOpacity
               onPress={() => router.push('/(app)/review-session')}
@@ -155,42 +177,94 @@ export default function MyVocabularyScreen() {
         </View>
       </SafeAreaView>
 
+      {/* Search bar */}
+      <View style={{ paddingHorizontal: 16, marginTop: 14, marginBottom: 10 }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', gap: 8,
+          backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
+        }}>
+          <MagnifyingGlass size={16} color={C.muted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={isPt ? 'Buscar palavra...' : 'Search word...'}
+            placeholderTextColor={C.muted}
+            style={{ flex: 1, fontSize: 14, color: C.navy }}
+            returnKeyType="search"
+          />
+        </View>
+      </View>
+
+      {/* Category filter chips */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 2 }}
+        style={{ marginBottom: 12 }}
+      >
+        {FILTERS.map((f, idx) => {
+          const sel = filter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={{
+                paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
+                backgroundColor: sel ? C.navy : C.card,
+                borderWidth: 1, borderColor: sel ? C.navy : C.border,
+                marginRight: idx < FILTERS.length - 1 ? 8 : 0,
+              }}
+            >
+              <AppText style={{ fontSize: 13, fontWeight: '600', color: sel ? '#FFFFFF' : C.navyMid }}>
+                {isPt ? f.labelPt : f.labelEn}
+              </AppText>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {/* List */}
       {loading ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator color={C.navy} />
         </View>
-      ) : items.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
           <BookOpen size={48} color={C.muted} />
           <AppText style={{ fontSize: 16, fontWeight: '700', color: C.navyMid, marginTop: 16, textAlign: 'center' }}>
-            {isPt ? 'Nenhuma palavra ainda' : 'No words yet'}
+            {items.length === 0
+              ? (isPt ? 'Nenhuma palavra ainda' : 'No words yet')
+              : (isPt ? 'Nenhum resultado' : 'No results')}
           </AppText>
-          <AppText style={{ fontSize: 13, color: C.muted, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
-            {isPt
-              ? 'Adicione palavras enquanto aprende para criar seu dicionário pessoal.'
-              : 'Add words as you learn to build your personal dictionary.'}
-          </AppText>
-          <TouchableOpacity
-            onPress={openAdd}
-            style={{
-              marginTop: 20, backgroundColor: C.navy,
-              borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
-              flexDirection: 'row', alignItems: 'center', gap: 6,
-            }}
-          >
-            <Plus size={16} color="#FFFFFF" weight="bold" />
-            <AppText style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
-              {isPt ? 'Adicionar palavra' : 'Add word'}
+          {items.length === 0 && (
+            <AppText style={{ fontSize: 13, color: C.muted, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
+              {isPt
+                ? 'Adicione palavras enquanto aprende para criar seu dicionário pessoal.'
+                : 'Add words as you learn to build your personal dictionary.'}
             </AppText>
-          </TouchableOpacity>
+          )}
+          {items.length === 0 && (
+            <TouchableOpacity
+              onPress={openAdd}
+              style={{
+                marginTop: 20, backgroundColor: C.navy,
+                borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+              }}
+            >
+              <Plus size={16} color="#FFFFFF" weight="bold" />
+              <AppText style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                {isPt ? 'Adicionar palavra' : 'Add word'}
+              </AppText>
+            </TouchableOpacity>
+          )}
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: insets.bottom + 90, gap: 10 }}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 90, gap: 10 }}
           showsVerticalScrollIndicator={false}
         >
-          {items.map(item => {
+          {filtered.map(item => {
             const isOpen = expanded === item.id;
             const rev    = reviewLabel(item.next_review_at, isPt);
             return (
@@ -200,7 +274,6 @@ export default function MyVocabularyScreen() {
                 activeOpacity={0.78}
                 style={{ backgroundColor: C.card, borderRadius: 16, padding: 16, ...cardShadow }}
               >
-                {/* Top row */}
                 <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <View style={{ flex: 1, marginRight: 10 }}>
                     <AppText style={{ fontSize: 16, fontWeight: '700', color: C.navy }}>{item.term}</AppText>
@@ -225,7 +298,6 @@ export default function MyVocabularyScreen() {
                   </View>
                 </View>
 
-                {/* Expanded detail */}
                 {isOpen && (
                   <View style={{ marginTop: 12, gap: 8 }}>
                     {item.phonetic && (
@@ -269,7 +341,7 @@ export default function MyVocabularyScreen() {
         </ScrollView>
       )}
 
-      {/* FAB — adicionar palavra */}
+      {/* FAB */}
       {!loading && items.length > 0 && (
         <TouchableOpacity
           onPress={openAdd}
