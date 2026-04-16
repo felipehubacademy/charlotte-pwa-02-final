@@ -48,8 +48,11 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           MSG=$(printf '%s' "$COMMIT_MSG" | head -n 1 | cut -c1-100)
-          eas update \
+          CI=1 eas update \
             --branch production \
-            --platform all \
-            --message "OTA: $MSG" \
-            --non-interactive
+            --platform ios \
+            --message "OTA: $MSG"
+          CI=1 eas update \
+            --branch production \
+            --platform android \
+            --message "OTA: $MSG"
