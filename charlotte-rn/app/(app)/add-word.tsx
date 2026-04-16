@@ -199,8 +199,9 @@ export default function AddWordScreen() {
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
-    } catch (err) {
-      console.warn('[AddWord] save error:', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : JSON.stringify(err);
+      console.warn('[AddWord] save error:', msg);
       Alert.alert(
         isPt ? 'Erro ao salvar' : 'Save error',
         isPt ? 'Não foi possível salvar. Tente novamente.' : 'Could not save. Please try again.',

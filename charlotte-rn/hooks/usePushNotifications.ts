@@ -156,19 +156,17 @@ async function registerForPushNotifications(): Promise<string | null> {
 
 // ── Save token to Supabase ───────────────────────────────────────────────────
 async function saveTokenToSupabase(userId: string, token: string) {
-  // Use upsert so that devices without a charlotte_users row still get the token saved.
-  // onConflict='id' means: insert if missing, update expo_push_token if row exists.
-  const { error, count } = await supabase
+  const { error, data } = await supabase
     .from('charlotte_users')
-    .upsert(
-      { id: userId, expo_push_token: token },
-      { onConflict: 'id', ignoreDuplicates: false },
-    )
-    .select('id', { count: 'exact', head: true });
+    .update({ expo_push_token: token })
+    .eq('id', userId)
+    .select('id');
 
   if (error) {
     console.warn('❌ Failed to save push token:', error.message);
+  } else if (!data?.length) {
+    console.warn('⚠️ Push token update: no charlotte_users row found for', userId);
   } else {
-    console.log('✅ Push token saved to Supabase — rows affected:', count);
+    console.log('✅ Push token saved to Supabase');
   }
 }
