@@ -63,9 +63,10 @@ export default function AddWordScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ term?: string; category?: string; source?: string }>();
 
-  const userId = session?.user?.id;
-  const level  = profile?.charlotte_level ?? 'Inter';
-  const isPt   = level === 'Novice';
+  const userId    = session?.user?.id;
+  const level     = profile?.charlotte_level ?? 'Inter';
+  const isPt      = level === 'Novice';
+  const playerRef = React.useRef<ReturnType<typeof createAudioPlayer> | null>(null);
 
   const [term,        setTerm]       = useState(params.term ?? '');
   const [definition,  setDefinition] = useState('');
@@ -125,7 +126,10 @@ export default function AddWordScreen() {
       if (!res.ok) throw new Error('TTS fetch failed');
       const { url } = await res.json();
       await setAudioModeAsync({ playsInSilentMode: true });
+      // Libera player anterior antes de criar novo
+      try { playerRef.current?.remove(); } catch { /* ignore */ }
       const player = createAudioPlayer({ uri: url });
+      playerRef.current = player;
       player.play();
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
