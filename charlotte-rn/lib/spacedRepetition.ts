@@ -1,38 +1,86 @@
 // lib/spacedRepetition.ts
-// Sistema de revisão espaçada: re-quiz de tópicos concluídos a 3, 7, 14, 30 dias.
-// Também gerencia o tracking de erros em exercícios.
+// Sistema SR com algoritmo SM-2.
+// sr_items: pool unificado de tópicos da trilha + vocabulário do usuário.
 
 import { supabase } from './supabase';
 
-// ── Intervalos de revisão (dias) ────────────────────────────────────────────
-
-const REVIEW_INTERVALS = [3, 7, 14, 30];
-
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
+export type SRRating = 'hard' | 'ok' | 'easy';
+
+export type CardType =
+  | 'gap_fill'
+  | 'reverse'
+  | 'context_guess'
+  | 'charlotte_challenge'
+  | 'listening_gap';
+
+export interface SRItem {
+  id:            string;
+  sourceType:    'vocabulary' | 'learn_topic';
+  sourceId:      string;
+  cardType:      CardType;
+  content:       Record<string, unknown>;
+  userLevel:     string;
+  topicTitle:    string;
+  easeFactor:    number;
+  intervalDays:  number;
+  repetitions:   number;
+  nextReviewAt:  string;
+  lastRating:    SRRating | null;
+}
+
+// ReviewItem mantido para compatibilidade com learn-session existente
 export interface ReviewItem {
-  id: number;
-  userLevel: string;
-  moduleIndex: number;
-  topicIndex: number;
-  topicTitle: string;
+  id:           string;
+  userLevel:    string;
+  moduleIndex:  number;
+  topicIndex:   number;
+  topicTitle:   string;
   reviewInterval: number;
-  reviewDue: string;       // 'YYYY-MM-DD'
+  reviewDue:    string;
 }
 
 export interface ExerciseError {
-  userLevel: string;
-  moduleIndex: number;
-  topicIndex: number;
+  userLevel:    string;
+  moduleIndex:  number;
+  topicIndex:   number;
   exerciseType: string;
   exerciseData: Record<string, unknown>;
 }
 
-// ── Agendar revisões quando tópico é concluído ──────────────────────────────
+// ── SM-2 ─────────────────────────────────────────────────────────────────────
+
+export function calcNextReview(
+  rating: SRRating,
+  item: Pick<SRItem, 'easeFactor' | 'intervalDays' | 'repetitions'>,
+): { easeFactor: number; intervalDays: number; repetitions: number; nextReviewAt: Date } {
+  let { easeFactor, intervalDays, repetitions } = item;
+
+  if (rating === 'hard') {
+    intervalDays = 1;
+    easeFactor   = Math.max(1.3, easeFactor - 0.2);
+    repetitions  = 0;
+  } else if (rating === 'ok') {
+    intervalDays = repetitions === 0 ? 1 : Math.round(intervalDays * easeFactor);
+    repetitions += 1;
+  } else {
+    easeFactor   = Math.min(3.0, easeFactor + 0.15);
+    intervalDays = repetitions === 0 ? 4 : Math.round(intervalDays * easeFactor);
+    repetitions += 1;
+  }
+
+  const nextReviewAt = new Date();
+  nextReviewAt.setDate(nextReviewAt.getDate() + intervalDays);
+
+  return { easeFactor, intervalDays, repetitions, nextReviewAt };
+}
+
+// ── Agendar itens SR quando tópico é concluído ───────────────────────────────
 
 /**
- * Chamado quando o usuário conclui um tópico.
- * Cria 4 entradas de revisão: 3, 7, 14, 30 dias a partir de agora.
+ * Cria entradas em sr_items para os 4 intervalos SM-2 iniciais (1, 3, 7, 14 dias).
+ * Chamado após saveTopicComplete() ter sucesso.
  */
 export async function scheduleReviews(
   userId: string,
@@ -41,46 +89,58 @@ export async function scheduleReviews(
   topicIndex: number,
   topicTitle: string,
 ): Promise<void> {
+  const sourceId = `${level}:${moduleIndex}:${topicIndex}`;
   const now = new Date();
-  const completedAt = now.toISOString();
 
-  const rows = REVIEW_INTERVALS.map(days => {
-    const due = new Date(now);
-    due.setDate(due.getDate() + days);
-    const dueDateStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+  // Verificar se já existem itens para este tópico (evitar duplicatas em re-conclusão)
+  const { data: existing } = await supabase
+    .from('sr_items')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('source_id', sourceId)
+    .eq('source_type', 'learn_topic')
+    .limit(1);
 
+  if (existing && existing.length > 0) return;
+
+  // 4 cards com intervalos iniciais diferentes — serão ajustados pelo SM-2
+  const initialIntervals = [1, 3, 7, 14];
+  const cardTypes: CardType[] = ['gap_fill', 'reverse', 'context_guess', 'charlotte_challenge'];
+
+  const rows = initialIntervals.map((days, i) => {
+    const reviewAt = new Date(now);
+    reviewAt.setDate(reviewAt.getDate() + days);
     return {
-      user_id:         userId,
-      user_level:      level,
-      module_index:    moduleIndex,
-      topic_index:     topicIndex,
-      topic_title:     topicTitle,
-      completed_at:    completedAt,
-      review_interval: days,
-      review_due:      dueDateStr,
+      user_id:       userId,
+      source_type:   'learn_topic',
+      source_id:     sourceId,
+      card_type:     cardTypes[i],
+      content:       {},
+      user_level:    level,
+      topic_title:   topicTitle,
+      ease_factor:   2.5,
+      interval_days: days,
+      repetitions:   0,
+      next_review_at: reviewAt.toISOString(),
     };
   });
 
-  const { error } = await supabase
-    .from('charlotte_review_schedule')
-    .insert(rows);
-
-  if (error) console.warn('[spacedRep] schedule error:', error.message);
+  const { error } = await supabase.from('sr_items').insert(rows);
+  if (error) console.warn('[spacedRep] scheduleReviews error:', error.message);
 }
 
-// ── Buscar revisões pendentes (due hoje ou antes) ───────────────────────────
+// ── Buscar revisões pendentes ─────────────────────────────────────────────────
 
 export async function getPendingReviews(userId: string): Promise<ReviewItem[]> {
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const now = new Date().toISOString();
 
   const { data, error } = await supabase
-    .from('charlotte_review_schedule')
-    .select('id, user_level, module_index, topic_index, topic_title, review_interval, review_due')
+    .from('sr_items')
+    .select('id, source_id, user_level, topic_title, card_type, interval_days, next_review_at')
     .eq('user_id', userId)
-    .eq('review_done', false)
-    .lte('review_due', todayStr)
-    .order('review_due', { ascending: true })
+    .eq('source_type', 'learn_topic')
+    .lte('next_review_at', now)
+    .order('next_review_at', { ascending: true })
     .limit(10);
 
   if (error) {
@@ -88,74 +148,67 @@ export async function getPendingReviews(userId: string): Promise<ReviewItem[]> {
     return [];
   }
 
-  return (data ?? []).map(r => ({
-    id:             r.id,
-    userLevel:      r.user_level,
-    moduleIndex:    r.module_index,
-    topicIndex:     r.topic_index,
-    topicTitle:     r.topic_title ?? '',
-    reviewInterval: r.review_interval,
-    reviewDue:      r.review_due,
-  }));
+  return (data ?? []).map(r => {
+    const parts = (r.source_id as string).split(':');
+    return {
+      id:             r.id,
+      userLevel:      r.user_level ?? '',
+      moduleIndex:    parseInt(parts[1] ?? '0', 10),
+      topicIndex:     parseInt(parts[2] ?? '0', 10),
+      topicTitle:     r.topic_title ?? '',
+      reviewInterval: r.interval_days ?? 0,
+      reviewDue:      r.next_review_at,
+    };
+  });
 }
 
-// ── Marcar revisão como concluída ───────────────────────────────────────────
+// ── Aplicar rating SM-2 após sessão de review ────────────────────────────────
 
-export async function markReviewDone(reviewId: number): Promise<void> {
-  const { error } = await supabase
-    .from('charlotte_review_schedule')
-    .update({
-      review_done:    true,
-      review_done_at: new Date().toISOString(),
-    })
-    .eq('id', reviewId);
-
-  if (error) console.warn('[spacedRep] markDone error:', error.message);
-}
-
-// ── Reagendar revisão com erros ─────────────────────────────────────────────
-
-/**
- * Reschedula uma revisão que teve erros: marca a atual como concluída e
- * agenda uma nova revisão em 3 dias (menor intervalo) para reforço.
- */
-export async function rescheduleReview(
-  reviewId: number,
-  userId: string,
-  level: string,
-  moduleIndex: number,
-  topicIndex: number,
-  topicTitle: string,
+export async function applyReviewRating(
+  itemId: string,
+  rating: SRRating,
+  currentItem: Pick<SRItem, 'easeFactor' | 'intervalDays' | 'repetitions'>,
 ): Promise<void> {
-  const now = new Date();
-  const due = new Date(now);
-  due.setDate(due.getDate() + 3);
-  const dueDateStr = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}-${String(due.getDate()).padStart(2, '0')}`;
+  const { easeFactor, intervalDays, repetitions, nextReviewAt } =
+    calcNextReview(rating, currentItem);
 
-  await Promise.all([
-    // Mark current review done
-    supabase
-      .from('charlotte_review_schedule')
-      .update({ review_done: true, review_done_at: now.toISOString() })
-      .eq('id', reviewId),
-    // Insert new review in 3 days (upsert to avoid duplicates if already exists)
-    supabase
-      .from('charlotte_review_schedule')
-      .upsert({
-        user_id: userId,
-        user_level: level,
-        module_index: moduleIndex,
-        topic_index: topicIndex,
-        topic_title: topicTitle,
-        completed_at: now.toISOString(),
-        review_interval: 3,
-        review_due: dueDateStr,
-        review_done: false,
-      }, { onConflict: 'user_id,user_level,module_index,topic_index,review_interval', ignoreDuplicates: false }),
-  ]);
+  const { error } = await supabase
+    .from('sr_items')
+    .update({
+      ease_factor:      easeFactor,
+      interval_days:    intervalDays,
+      repetitions,
+      next_review_at:   nextReviewAt.toISOString(),
+      last_reviewed_at: new Date().toISOString(),
+      last_rating:      rating,
+    })
+    .eq('id', itemId);
+
+  if (error) console.warn('[spacedRep] applyRating error:', error.message);
 }
 
-// ── Registrar erro em exercício ─────────────────────────────────────────────
+// ── Compatibilidade retroativa (usado em learn-session existente) ─────────────
+
+export async function markReviewDone(reviewId: string): Promise<void> {
+  await applyReviewRating(reviewId, 'easy', {
+    easeFactor: 2.5, intervalDays: 14, repetitions: 3,
+  });
+}
+
+export async function rescheduleReview(
+  reviewId: string,
+  _userId: string,
+  _level: string,
+  _moduleIndex: number,
+  _topicIndex: number,
+  _topicTitle: string,
+): Promise<void> {
+  await applyReviewRating(reviewId, 'hard', {
+    easeFactor: 2.5, intervalDays: 3, repetitions: 0,
+  });
+}
+
+// ── Tracking de erros em exercícios (inalterado) ──────────────────────────────
 
 export async function trackExerciseError(
   userId: string,
@@ -174,8 +227,6 @@ export async function trackExerciseError(
 
   if (dbErr) console.warn('[spacedRep] trackError error:', dbErr.message);
 }
-
-// ── Buscar erros frequentes por tópico ──────────────────────────────────────
 
 export async function getErrorsByTopic(
   userId: string,

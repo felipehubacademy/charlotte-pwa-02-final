@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CURRICULUM, TrailLevel } from '@/data/curriculum';
 import { useAchievementsContext } from '@/components/achievements/AchievementsProvider';
-import { trackExerciseError } from '@/lib/spacedRepetition';
+import { trackExerciseError, scheduleReviews } from '@/lib/spacedRepetition';
 
 export interface CompletedKey { m: number; t: number }
 
@@ -147,6 +147,14 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
       console.error('[useLearnProgress] upsert error', error);
     } else {
       setProgress({ moduleIndex: nextModule, topicIndex: nextTopic, completed: newCompleted });
+      // Schedule SR reviews on first-time completion only
+      if (!alreadyDone) {
+        const modules = CURRICULUM[lvl];
+        const topicTitle = modules?.[moduleIndex]?.topics?.[topicIndex]?.title ?? '';
+        scheduleReviews(userId, lvl, moduleIndex, topicIndex, topicTitle).catch(
+          e => console.warn('[useLearnProgress] scheduleReviews error', e),
+        );
+      }
     }
   }, [userId]);
 
