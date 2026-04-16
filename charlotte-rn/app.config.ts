@@ -1,4 +1,17 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// EAS cloud builds: google-services.json is gitignored.
+// The file content is stored as the GOOGLE_SERVICES_JSON env var.
+// Write it to disk so googleServicesFile can reference it normally.
+if (process.env.GOOGLE_SERVICES_JSON) {
+  fs.writeFileSync(
+    path.join(__dirname, 'google-services.json'),
+    process.env.GOOGLE_SERVICES_JSON,
+    'utf8'
+  );
+}
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
