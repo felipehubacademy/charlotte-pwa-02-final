@@ -58,7 +58,7 @@ export function PaywallModal() {
   const { profile, hasAccess, signOut, refreshProfile } = useAuth();
   const { paywallOpen, closePaywall } = usePaywallContext();
   const insets = useSafeAreaInsets();
-  const isPt   = (profile?.charlotte_level ?? 'Novice') === 'Novice';
+  const isPt   = true; // Paywall sempre em PT-BR (Brasil)
 
   // Mostra quando: trial expirou (hasAccess=false) OU quando aberto manualmente
   const forcedOpen  = paywallOpen && !!profile && hasAccess;
@@ -87,7 +87,13 @@ export function PaywallModal() {
 
   const handlePurchase = async () => {
     const pkg = selectedPkg();
-    if (!pkg) return;
+    if (!pkg) {
+      Alert.alert(
+        'Planos indisponíveis',
+        'Os planos ainda não estão disponíveis. Tente novamente em alguns instantes.',
+      );
+      return;
+    }
     setLoading(true);
     const result = await purchasePackage(pkg);
     setLoading(false);
