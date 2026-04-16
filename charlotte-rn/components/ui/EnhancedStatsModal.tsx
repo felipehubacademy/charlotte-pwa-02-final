@@ -16,6 +16,14 @@ import { supabase } from '@/lib/supabase';
 import { Achievement } from '@/lib/types/achievement';
 import LevelLeaderboard from '@/components/leaderboard/LevelLeaderboard';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
+import { GENERAL_ACHIEVEMENTS, LEVEL_ACHIEVEMENTS } from '@/lib/achievementsCatalog';
+
+const ALL_CATALOG_ENTRIES = [...GENERAL_ACHIEVEMENTS, ...LEVEL_ACHIEVEMENTS];
+function resolveAchTitle(code: string, isPt: boolean): string | undefined {
+  const entry = ALL_CATALOG_ENTRIES.find(e => e.code === code);
+  if (!entry) return undefined;
+  return isPt ? entry.title : (entry.titleEN ?? entry.title);
+}
 
 // ── Design system — mirrors the home screen palette exactly ──────
 const C = {
@@ -359,7 +367,7 @@ export default function EnhancedStatsModal({
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
                   <AppText style={{ color: C.navy, fontWeight: '800', fontSize: 13, flex: 1, marginRight: 8 }}>
-                    {ach.title}
+                    {resolveAchTitle(ach.achievement_type ?? ach.type ?? '', isPortuguese) ?? ach.title}
                   </AppText>
                   {ach.xpBonus > 0 && (
                     <AppText style={{ color: C.green, fontSize: 12, fontWeight: '800' }}>+{ach.xpBonus} XP</AppText>

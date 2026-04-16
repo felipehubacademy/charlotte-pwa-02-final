@@ -3,7 +3,8 @@
 
 export interface CatalogEntry {
   code:        string;
-  title:       string;
+  title:       string;   // Portuguese (Novice)
+  titleEN?:    string;   // English (Inter / Advanced) — falls back to title if absent
   category:    string;
   rarity:      'common' | 'rare' | 'epic' | 'legendary';
   xpReward:    number;
@@ -15,132 +16,132 @@ export interface CatalogEntry {
 // ── General badges (all levels) ───────────────────────────────────────────────
 export const GENERAL_ACHIEVEMENTS: CatalogEntry[] = [
   {
-    code: 'first_practice', title: 'Olá, Mundo!', category: 'general', rarity: 'common', xpReward: 10,
+    code: 'first_practice', title: 'Olá, Mundo!', titleEN: 'Hello, World!', category: 'general', rarity: 'common', xpReward: 10,
     howToEarnPT: 'Faça sua primeira prática no app.',
     howToEarnEN: 'Complete your first practice in the app.',
   },
   {
-    code: 'first_text', title: 'Primeira Conversa', category: 'text', rarity: 'common', xpReward: 5,
+    code: 'first_text', title: 'Primeira Conversa', titleEN: 'First Conversation', category: 'text', rarity: 'common', xpReward: 5,
     howToEarnPT: 'Envie sua primeira mensagem de texto para a Charlotte.',
     howToEarnEN: 'Send your first text message to Charlotte.',
   },
   {
-    code: 'first_audio', title: 'Primeira Voz', category: 'audio', rarity: 'common', xpReward: 10,
+    code: 'first_audio', title: 'Primeira Voz', titleEN: 'First Voice', category: 'audio', rarity: 'common', xpReward: 10,
     howToEarnPT: 'Envie sua primeira mensagem de voz para a Charlotte.',
     howToEarnEN: 'Send your first voice message to Charlotte.',
   },
   {
-    code: 'first_grammar', title: 'Gramático Iniciante', category: 'grammar', rarity: 'common', xpReward: 5,
+    code: 'first_grammar', title: 'Gramático Iniciante', titleEN: 'Grammar Starter', category: 'grammar', rarity: 'common', xpReward: 5,
     howToEarnPT: 'Complete seu primeiro exercício de gramática.',
     howToEarnEN: 'Complete your first grammar exercise.',
   },
   {
-    code: 'first_learn', title: 'Na Trilha', category: 'learn', rarity: 'common', xpReward: 10,
+    code: 'first_learn', title: 'Na Trilha', titleEN: 'On the Trail', category: 'learn', rarity: 'common', xpReward: 10,
     howToEarnPT: 'Complete seu primeiro tópico na trilha de aprendizado.',
     howToEarnEN: 'Complete your first topic on the learning trail.',
   },
   {
-    code: 'practices_10', title: 'Aquecendo', category: 'general', rarity: 'common', xpReward: 15,
+    code: 'practices_10', title: 'Aquecendo', titleEN: 'Warming Up', category: 'general', rarity: 'common', xpReward: 15,
     howToEarnPT: 'Faça 10 práticas no total.',
     howToEarnEN: 'Complete 10 total practices.',
   },
   {
-    code: 'practices_50', title: 'No Ritmo', category: 'general', rarity: 'rare', xpReward: 50,
+    code: 'practices_50', title: 'No Ritmo', titleEN: 'In the Zone', category: 'general', rarity: 'rare', xpReward: 50,
     howToEarnPT: 'Faça 50 práticas no total.',
     howToEarnEN: 'Complete 50 total practices.',
   },
   {
-    code: 'practices_100', title: 'Comprometido', category: 'general', rarity: 'epic', xpReward: 100,
+    code: 'practices_100', title: 'Comprometido', titleEN: 'Committed', category: 'general', rarity: 'epic', xpReward: 100,
     howToEarnPT: 'Faça 100 práticas no total.',
     howToEarnEN: 'Complete 100 total practices.',
   },
   {
-    code: 'practices_500', title: 'Lenda da Prática', category: 'general', rarity: 'legendary', xpReward: 300,
+    code: 'practices_500', title: 'Lenda da Prática', titleEN: 'Practice Legend', category: 'general', rarity: 'legendary', xpReward: 300,
     howToEarnPT: 'Faça 500 práticas no total.',
     howToEarnEN: 'Complete 500 total practices.',
   },
   {
-    code: 'streak_3', title: 'Consistente', category: 'streak', rarity: 'common', xpReward: 25,
+    code: 'streak_3', title: 'Consistente', titleEN: 'Consistent', category: 'streak', rarity: 'common', xpReward: 25,
     howToEarnPT: 'Pratique 3 dias seguidos.',
     howToEarnEN: 'Practice 3 days in a row.',
   },
   {
-    code: 'streak_7', title: 'Semana Completa', category: 'streak', rarity: 'rare', xpReward: 60,
+    code: 'streak_7', title: 'Semana Completa', titleEN: 'Full Week', category: 'streak', rarity: 'rare', xpReward: 60,
     howToEarnPT: 'Pratique 7 dias seguidos.',
     howToEarnEN: 'Practice 7 days in a row.',
   },
   {
-    code: 'streak_14', title: 'Duas Semanas', category: 'streak', rarity: 'epic', xpReward: 100,
+    code: 'streak_14', title: 'Duas Semanas', titleEN: 'Two Weeks', category: 'streak', rarity: 'epic', xpReward: 100,
     howToEarnPT: 'Pratique 14 dias seguidos.',
     howToEarnEN: 'Practice 14 days in a row.',
   },
   {
-    code: 'streak_30', title: 'Mês de Ouro', category: 'streak', rarity: 'legendary', xpReward: 200,
+    code: 'streak_30', title: 'Mês de Ouro', titleEN: 'Golden Month', category: 'streak', rarity: 'legendary', xpReward: 200,
     howToEarnPT: 'Pratique 30 dias seguidos.',
     howToEarnEN: 'Practice 30 days in a row.',
   },
   {
-    code: 'text_25', title: 'Comunicativo', category: 'text', rarity: 'rare', xpReward: 20,
+    code: 'text_25', title: 'Comunicativo', titleEN: 'Talkative', category: 'text', rarity: 'rare', xpReward: 20,
     howToEarnPT: 'Envie 25 mensagens de texto para a Charlotte.',
     howToEarnEN: 'Send 25 text messages to Charlotte.',
   },
   {
-    code: 'text_100', title: 'Fluente no Chat', category: 'text', rarity: 'epic', xpReward: 75,
+    code: 'text_100', title: 'Fluente no Chat', titleEN: 'Chat Fluent', category: 'text', rarity: 'epic', xpReward: 75,
     howToEarnPT: 'Envie 100 mensagens de texto para a Charlotte.',
     howToEarnEN: 'Send 100 text messages to Charlotte.',
   },
   {
-    code: 'audio_10', title: 'Falante', category: 'audio', rarity: 'rare', xpReward: 20,
+    code: 'audio_10', title: 'Falante', titleEN: 'Speaker', category: 'audio', rarity: 'rare', xpReward: 20,
     howToEarnPT: 'Envie 10 mensagens de voz para a Charlotte.',
     howToEarnEN: 'Send 10 voice messages to Charlotte.',
   },
   {
-    code: 'audio_50', title: 'Voz de Ouro', category: 'audio', rarity: 'epic', xpReward: 100,
+    code: 'audio_50', title: 'Voz de Ouro', titleEN: 'Golden Voice', category: 'audio', rarity: 'epic', xpReward: 100,
     howToEarnPT: 'Envie 50 mensagens de voz para a Charlotte.',
     howToEarnEN: 'Send 50 voice messages to Charlotte.',
   },
   {
-    code: 'audio_200', title: 'Locutor Profissional', category: 'audio', rarity: 'legendary', xpReward: 250,
+    code: 'audio_200', title: 'Locutor Profissional', titleEN: 'Pro Speaker', category: 'audio', rarity: 'legendary', xpReward: 250,
     howToEarnPT: 'Envie 200 mensagens de voz para a Charlotte.',
     howToEarnEN: 'Send 200 voice messages to Charlotte.',
   },
   {
-    code: 'grammar_20', title: 'Gramático Avançado', category: 'grammar', rarity: 'rare', xpReward: 30,
+    code: 'grammar_20', title: 'Gramático Avançado', titleEN: 'Advanced Grammar', category: 'grammar', rarity: 'rare', xpReward: 30,
     howToEarnPT: 'Complete 20 exercícios de gramática.',
     howToEarnEN: 'Complete 20 grammar exercises.',
   },
   {
-    code: 'grammar_50', title: 'Mestre da Gramática', category: 'grammar', rarity: 'epic', xpReward: 75,
+    code: 'grammar_50', title: 'Mestre da Gramática', titleEN: 'Grammar Master', category: 'grammar', rarity: 'epic', xpReward: 75,
     howToEarnPT: 'Complete 50 exercícios de gramática.',
     howToEarnEN: 'Complete 50 grammar exercises.',
   },
   {
-    code: 'learn_25', title: 'Trilheiro', category: 'learn', rarity: 'rare', xpReward: 40,
+    code: 'learn_25', title: 'Trilheiro', titleEN: 'Trail Runner', category: 'learn', rarity: 'rare', xpReward: 40,
     howToEarnPT: 'Complete 25 tópicos na trilha de aprendizado.',
     howToEarnEN: 'Complete 25 topics on the learning trail.',
   },
   {
-    code: 'learn_100', title: 'Mestre da Trilha', category: 'learn', rarity: 'epic', xpReward: 150,
+    code: 'learn_100', title: 'Mestre da Trilha', titleEN: 'Trail Master', category: 'learn', rarity: 'epic', xpReward: 150,
     howToEarnPT: 'Complete 100 tópicos na trilha de aprendizado.',
     howToEarnEN: 'Complete 100 topics on the learning trail.',
   },
   {
-    code: 'daily_100', title: 'Super Dia', category: 'habit', rarity: 'rare', xpReward: 15,
+    code: 'daily_100', title: 'Super Dia', titleEN: 'Super Day', category: 'habit', rarity: 'rare', xpReward: 15,
     howToEarnPT: 'Ganhe 100 XP em um único dia.',
     howToEarnEN: 'Earn 100 XP in a single day.',
   },
   {
-    code: 'daily_200', title: 'Dia Lendário', category: 'habit', rarity: 'epic', xpReward: 25,
+    code: 'daily_200', title: 'Dia Lendário', titleEN: 'Legendary Day', category: 'habit', rarity: 'epic', xpReward: 25,
     howToEarnPT: 'Ganhe 200 XP em um único dia.',
     howToEarnEN: 'Earn 200 XP in a single day.',
   },
   {
-    code: 'early_bird', title: 'Madrugador', category: 'habit', rarity: 'rare', xpReward: 10,
+    code: 'early_bird', title: 'Madrugador', titleEN: 'Early Bird', category: 'habit', rarity: 'rare', xpReward: 10,
     howToEarnPT: 'Pratique antes das 8h da manhã.',
     howToEarnEN: 'Practice before 8am.',
   },
   {
-    code: 'night_owl', title: 'Coruja Noturna', category: 'habit', rarity: 'rare', xpReward: 10,
+    code: 'night_owl', title: 'Coruja Noturna', titleEN: 'Night Owl', category: 'habit', rarity: 'rare', xpReward: 10,
     howToEarnPT: 'Pratique depois das 22h.',
     howToEarnEN: 'Practice after 10pm.',
   },

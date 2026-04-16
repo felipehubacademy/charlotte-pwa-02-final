@@ -14,6 +14,14 @@ import { AppText } from '@/components/ui/Text';
 import { Achievement } from '@/lib/types/achievement';
 import { soundEngine, SoundName } from '@/lib/soundEngine';
 import { shareAchievement } from '@/lib/shareUtils';
+import { GENERAL_ACHIEVEMENTS, LEVEL_ACHIEVEMENTS } from '@/lib/achievementsCatalog';
+
+const ALL_CATALOG = [...GENERAL_ACHIEVEMENTS, ...LEVEL_ACHIEVEMENTS];
+function getCatalogTitle(code: string, isPt: boolean): string | undefined {
+  const entry = ALL_CATALOG.find(e => e.code === code);
+  if (!entry) return undefined;
+  return isPt ? entry.title : (entry.titleEN ?? entry.title);
+}
 import { ShareNetwork } from 'phosphor-react-native';
 
 function achievementSound(rarity: Achievement['rarity']): SoundName {
@@ -278,7 +286,7 @@ export default function AchievementNotification({ achievements, onDismiss, isPt 
 
               {/* Title */}
               <AppText style={{ color: C.navy, fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 8 }}>
-                {current.title}
+                {getCatalogTitle(current.type, isPt ?? true) ?? current.title}
               </AppText>
 
               {/* Description */}

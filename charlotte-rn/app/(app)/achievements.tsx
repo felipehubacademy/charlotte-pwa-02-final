@@ -213,7 +213,7 @@ export default function AchievementsScreen() {
                 fontSize: 17, fontWeight: '800', color: C.navy,
                 textAlign: 'center', marginBottom: 10,
               }}>
-                {cat.title}
+                {isPortuguese ? cat.title : (cat.titleEN ?? cat.title)}
               </AppText>
 
               {/* Divider */}
@@ -399,7 +399,7 @@ export default function AchievementsScreen() {
                   color: isEarned ? C.navy : C.navyLight,
                   textAlign: 'center',
                 }} numberOfLines={2}>
-                  {cat.title}
+                  {isPortuguese ? cat.title : (cat.titleEN ?? cat.title)}
                 </AppText>
                 {isEarned && (
                   <View style={{
