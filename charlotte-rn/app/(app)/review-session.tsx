@@ -26,6 +26,7 @@ const C = {
   navyGhost: 'rgba(22,21,58,0.06)',
   border:    'rgba(22,21,58,0.10)',
   green:     '#3D8800',
+  greenDark: '#3D8800',
   greenBg:   '#F0FFD9',
   red:       '#DC2626',
   redBg:     'rgba(220,38,38,0.07)',
@@ -237,7 +238,8 @@ const XP_BY_RATING: Record<SRRating, number> = { hard: 5, ok: 10, easy: 15 };
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function ReviewSession() {
-  const { user, profile } = useAuth();
+  const { session, profile } = useAuth();
+  const user = session?.user;
   const insets = useSafeAreaInsets();
   const level = (profile?.charlotte_level ?? 'Novice') as TrailLevel;
   const isPt  = level === 'Novice';

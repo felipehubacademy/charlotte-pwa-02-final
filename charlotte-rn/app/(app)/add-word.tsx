@@ -25,7 +25,15 @@ import { useAuth } from '@/hooks/useAuth';
 import Constants from 'expo-constants';
 import { scheduleVocabReviews } from '@/lib/spacedRepetition';
 import * as Haptics from 'expo-haptics';
-import { createAudioPlayer } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
+
+/** Simple UUID v4 — avoids crypto.randomUUID() que nao esta disponivel em todos os ambientes iOS */
+function makeUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
 
 const API_BASE = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
@@ -110,26 +118,31 @@ export default function AddWordScreen() {
     if (!term.trim() || ttsLoading) return;
     setTtsLoading(true);
     try {
+      await setAudioModeAsync({ playsInSilentMode: true });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const FS = (await import('expo-file-system/legacy')) as any;
+      const uri = FS.default.cacheDirectory + 'vocab_tts_' + Date.now() + '.mp3';
+
+      // POST to TTS API and save response to file
       const res = await fetch(`${API_BASE}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: term.trim() }),
       });
       if (!res.ok) throw new Error('TTS failed');
-      const blob = await res.blob();
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const FS = (await import('expo-file-system/legacy')) as any;
-        const uri = FS.default.cacheDirectory + 'vocab_tts.mp3';
-        await FS.default.writeAsStringAsync(uri, base64, { encoding: FS.default.EncodingType.Base64 });
-        const player = createAudioPlayer({ uri });
-        player.play();
-        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      };
-      reader.readAsDataURL(blob);
-    } catch { /* silencioso */ } finally {
+      const arrayBuffer = await res.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      bytes.forEach(b => { binary += String.fromCharCode(b); });
+      const base64 = btoa(binary);
+      await FS.default.writeAsStringAsync(uri, base64, { encoding: 'base64' });
+
+      const player = createAudioPlayer({ uri });
+      player.play();
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch (e) {
+      console.warn('[TTS] error:', e);
+    } finally {
       setTtsLoading(false);
     }
   }, [term, ttsLoading]);
@@ -159,7 +172,7 @@ export default function AddWordScreen() {
         return;
       }
 
-      const newId = crypto.randomUUID();
+      const newId = makeUUID();
       const source = (params.source ?? 'manual') as string;
 
       const { data: inserted, error } = await supabase
@@ -200,14 +213,14 @@ export default function AddWordScreen() {
   const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
-      {/* Header */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, paddingVertical: 14, gap: 12,
-        borderBottomWidth: 1, borderBottomColor: C.border,
-        backgroundColor: C.card,
-      }}>
+    <View style={{ flex: 1, backgroundColor: C.card }}>
+      {/* Status bar area + header — tudo branco */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: C.card }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+          borderBottomWidth: 1, borderBottomColor: C.border,
+        }}>
         <TouchableOpacity
           onPress={() => router.back()}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -222,8 +235,11 @@ export default function AddWordScreen() {
         <AppText style={{ flex: 1, fontSize: 18, fontWeight: '800', color: C.navy }}>
           {isPt ? 'Adicionar palavra' : 'Add word'}
         </AppText>
-      </View>
+        </View>
+      </SafeAreaView>
 
+      {/* Body — fundo lavanda */}
+      <View style={{ flex: 1, backgroundColor: C.bg }}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -432,6 +448,7 @@ export default function AddWordScreen() {
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+    </View>
   );
 }

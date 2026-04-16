@@ -136,11 +136,13 @@ export default function MyVocabularyScreen() {
   }).length;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: C.card }}>
       {/* Header */}
       <View style={{
         flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
         paddingVertical: 12, gap: 12,
+        borderBottomWidth: 1, borderBottomColor: C.border,
       }}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <ArrowLeft size={22} color={C.navy} weight="bold" />
@@ -167,6 +169,7 @@ export default function MyVocabularyScreen() {
           <Plus size={20} color="#FFFFFF" weight="bold" />
         </TouchableOpacity>
       </View>
+      </SafeAreaView>
 
       {/* Search bar */}
       <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
@@ -363,6 +366,6 @@ export default function MyVocabularyScreen() {
         </TouchableOpacity>
       )}
 
-    </SafeAreaView>
+    </View>
   );
 }

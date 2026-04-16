@@ -11,7 +11,6 @@ import { router } from 'expo-router';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 import { usePaywallContext } from '@/lib/paywallContext';
-import { VocabFAB } from '@/components/vocabulary/VocabFAB';
 
 export default function ChatScreen() {
   const { profile, signOut } = useAuth();
@@ -84,7 +83,6 @@ export default function ChatScreen() {
         onComplete={() => setShowOnboarding(false)}
         userLevel={userLevel}
       />
-      <VocabFAB bottom={72} right={72} />
     </SafeAreaView>
   );
 }
