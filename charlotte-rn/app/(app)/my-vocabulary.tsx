@@ -13,7 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { router, useFocusEffect } from 'expo-router';
 import {
   ArrowLeft, MagnifyingGlass, Trash, Plus,
-  BookOpen, ClockCountdown, CheckCircle,
+  BookOpen, ClockCountdown, CheckCircle, ArrowRight,
 } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
@@ -172,7 +172,7 @@ export default function MyVocabularyScreen() {
       </SafeAreaView>
 
       {/* Search bar */}
-      <View style={{ paddingHorizontal: 16, marginTop: 12, marginBottom: 10 }}>
+      <View style={{ paddingHorizontal: 16, marginTop: 10, marginBottom: 10 }}>
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 8,
           backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
@@ -191,20 +191,22 @@ export default function MyVocabularyScreen() {
 
       {/* Category filter chips */}
       <ScrollView
-        horizontal showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: 'center', flexDirection: 'row' }}
-        style={{ flexGrow: 0, marginBottom: 12 }}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 2 }}
+        style={{ marginBottom: 12 }}
       >
-        {FILTERS.map(f => {
+        {FILTERS.map((f, idx) => {
           const sel = filter === f.key;
           return (
             <TouchableOpacity
               key={f.key}
               onPress={() => setFilter(f.key)}
               style={{
-                paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
+                paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
                 backgroundColor: sel ? C.navy : C.card,
                 borderWidth: 1, borderColor: sel ? C.navy : C.border,
+                marginRight: idx < FILTERS.length - 1 ? 8 : 0,
               }}
             >
               <AppText style={{ fontSize: 13, fontWeight: '600', color: sel ? '#FFFFFF' : C.navyMid }}>
@@ -214,6 +216,27 @@ export default function MyVocabularyScreen() {
           );
         })}
       </ScrollView>
+
+      {/* Review banner — aparece quando há palavras devidas */}
+      {!loading && dueCount > 0 && (
+        <TouchableOpacity
+          onPress={() => router.push('/(app)/review-session')}
+          style={{
+            marginHorizontal: 16, marginBottom: 12,
+            backgroundColor: C.navy, borderRadius: 14,
+            paddingHorizontal: 18, paddingVertical: 13,
+            flexDirection: 'row', alignItems: 'center', gap: 10,
+          }}
+        >
+          <ClockCountdown size={18} color="#FFFFFF" weight="fill" />
+          <AppText style={{ flex: 1, fontSize: 14, fontWeight: '700', color: '#FFFFFF' }}>
+            {isPt
+              ? `${dueCount} ${dueCount === 1 ? 'palavra' : 'palavras'} para revisar`
+              : `${dueCount} ${dueCount === 1 ? 'word' : 'words'} to review`}
+          </AppText>
+          <ArrowRight size={16} color="rgba(255,255,255,0.7)" weight="bold" />
+        </TouchableOpacity>
+      )}
 
       {/* List */}
       {loading ? (

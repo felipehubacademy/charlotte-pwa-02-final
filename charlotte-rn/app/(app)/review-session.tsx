@@ -598,7 +598,7 @@ export default function ReviewSession() {
             }}
           >
             <AppText style={{ color: C.navyMid, fontSize: 15, fontWeight: '600' }}>
-              {isPt ? 'Meu vocabulario' : 'My vocabulary'}
+              {isPt ? 'Meu vocabulario' : 'My Vocabulary'}
             </AppText>
           </TouchableOpacity>
         </ScrollView>
