@@ -1519,12 +1519,12 @@ export default function HomeScreen() {
             style={{
               flex: 1,
               borderRadius: 18,
-              backgroundColor: pendingReviews.length > 0 ? (levelAccent + '12') : C.card,
+              backgroundColor: pendingReviews.length > 0 ? levelAccentBg : C.card,
               borderWidth: 1,
-              borderColor: pendingReviews.length > 0 ? (levelAccent + '35') : C.navyGhost,
+              borderColor: pendingReviews.length > 0 ? (levelAccent + '60') : C.navyGhost,
               padding: 16,
               gap: 10,
-              ...(pendingReviews.length > 0 ? {} : cardShadow),
+              ...(pendingReviews.length > 0 ? { elevation: 0 } : cardShadow),
             }}
           >
             {/* badge */}
