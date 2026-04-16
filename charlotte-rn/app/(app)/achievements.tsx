@@ -257,13 +257,13 @@ export default function AchievementsScreen() {
               {/* Earned date */}
               {isEarned && (
                 <View style={{
-                  width: '100%',
+                  alignSelf: 'stretch',
                   backgroundColor: C.greenLight, borderRadius: 12,
                   paddingHorizontal: 14, paddingVertical: 10,
-                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}>
-                  <CheckCircle size={15} color={C.green} weight="fill" />
-                  <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green, includeFontPadding: false, lineHeight: 16, textAlign: 'center' }}>
+                  <CheckCircle size={15} color={C.green} weight="fill" style={{ flexShrink: 0 }} />
+                  <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green, flexShrink: 1, textAlign: 'center' }}>
                     {(isPortuguese ? 'Conquistado em ' : 'Earned on ') + ach.earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </AppText>
                 </View>
