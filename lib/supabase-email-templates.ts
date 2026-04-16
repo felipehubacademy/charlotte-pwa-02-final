@@ -65,8 +65,8 @@ function p(text: string): string {
 function btn(text: string, url: string): string {
   return `<table cellpadding="0" cellspacing="0" style="margin:32px auto 0;text-align:center;">
     <tr>
-      <td align="center" style="background:#A3FF3C;border-radius:980px;">
-        <a href="${url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#1d1d1f;text-decoration:none;letter-spacing:-0.1px;">${text}</a>
+      <td align="center" bgcolor="#A3FF3C" style="background:#A3FF3C;border-radius:980px;">
+        <a href="${url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;color:#16153A;-webkit-text-fill-color:#16153A;background-color:#A3FF3C;text-decoration:none;letter-spacing:-0.1px;border-radius:980px;">${text}</a>
       </td>
     </tr>
   </table>`;
