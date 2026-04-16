@@ -118,26 +118,14 @@ export default function AddWordScreen() {
     if (!term.trim() || ttsLoading) return;
     setTtsLoading(true);
     try {
+      // Busca URL do CDN (cache global) — gera via ElevenLabs so se nao existir
+      const res = await fetch(
+        `${API_BASE}/api/tts-cached?term=${encodeURIComponent(term.trim())}`,
+      );
+      if (!res.ok) throw new Error('TTS fetch failed');
+      const { url } = await res.json();
       await setAudioModeAsync({ playsInSilentMode: true });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const FS = (await import('expo-file-system/legacy')) as any;
-      const uri = FS.default.cacheDirectory + 'vocab_tts_' + Date.now() + '.mp3';
-
-      // POST to TTS API and save response to file
-      const res = await fetch(`${API_BASE}/api/tts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: term.trim() }),
-      });
-      if (!res.ok) throw new Error('TTS failed');
-      const arrayBuffer = await res.arrayBuffer();
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      bytes.forEach(b => { binary += String.fromCharCode(b); });
-      const base64 = btoa(binary);
-      await FS.default.writeAsStringAsync(uri, base64, { encoding: 'base64' });
-
-      const player = createAudioPlayer({ uri });
+      const player = createAudioPlayer({ uri: url });
       player.play();
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     } catch (e) {
