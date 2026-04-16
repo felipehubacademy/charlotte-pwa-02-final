@@ -589,18 +589,6 @@ export default function ReviewSession() {
             </AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.push('/(app)/my-vocabulary')}
-            activeOpacity={0.78}
-            style={{
-              marginTop: 10, borderRadius: 16, paddingVertical: 14,
-              alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(22,21,58,0.15)',
-            }}
-          >
-            <AppText style={{ color: C.navyMid, fontSize: 15, fontWeight: '600' }}>
-              {isPt ? 'Meu vocabulario' : 'My Vocabulary'}
-            </AppText>
-          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     );
