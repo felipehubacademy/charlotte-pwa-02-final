@@ -50,6 +50,6 @@ jobs:
           MSG=$(printf '%s' "$COMMIT_MSG" | head -n 1 | cut -c1-100)
           eas update \
             --branch production \
-            --platform ios \
+            --platform all \
             --message "OTA: $MSG" \
             --non-interactive
