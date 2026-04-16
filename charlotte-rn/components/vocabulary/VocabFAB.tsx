@@ -1,67 +1,55 @@
 /**
  * components/vocabulary/VocabFAB.tsx
- * Floating "+" button for quick word capture.
- * Import this into any screen that should show the FAB.
- *
- * Usage:
- *   import { VocabFAB } from '@/components/vocabulary/VocabFAB';
- *   // Inside screen render, after main content:
- *   <VocabFAB />
+ * Floating "+" button para captura rapida de palavra.
+ * Navega para a tela add-word (full-screen).
  */
 
-import React, { useState } from 'react';
-import { TouchableOpacity, Platform, View } from 'react-native';
+import React from 'react';
+import { TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Plus } from 'phosphor-react-native';
-import { AddWordModal } from './AddWordModal';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 interface VocabFABProps {
-  bottom?: number;   // extra offset from bottom (e.g. to sit above a nav bar)
+  bottom?: number;
   right?: number;
   initialTerm?: string;
+  color?: string;   // defaults to greenDark; pass levelAccent to match module color
 }
 
-export function VocabFAB({ bottom = 0, right = 20, initialTerm }: VocabFABProps) {
+export function VocabFAB({ bottom = 0, right = 20, initialTerm, color = '#3D8800' }: VocabFABProps) {
   const insets = useSafeAreaInsets();
-  const [visible, setVisible] = useState(false);
 
   const open = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setVisible(true);
+    const params: Record<string, string> = { source: 'manual' };
+    if (initialTerm) params.term = initialTerm;
+    router.push({ pathname: '/(app)/add-word', params });
   };
 
   return (
-    <>
-      <TouchableOpacity
-        onPress={open}
-        activeOpacity={0.82}
-        style={{
-          position: 'absolute',
-          right,
-          bottom: insets.bottom + bottom + 16,
-          width: 50,
-          height: 50,
-          borderRadius: 25,
-          backgroundColor: '#3D8800',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 100,
-          ...Platform.select({
-            ios:     { shadowColor: '#3D8800', shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-            android: { elevation: 8 },
-          }),
-        }}
-      >
-        <Plus size={22} color="#FFFFFF" weight="bold" />
-      </TouchableOpacity>
-
-      <AddWordModal
-        visible={visible}
-        onClose={() => setVisible(false)}
-        initialTerm={initialTerm}
-        source="manual"
-      />
-    </>
+    <TouchableOpacity
+      onPress={open}
+      activeOpacity={0.82}
+      style={{
+        position: 'absolute',
+        right,
+        bottom: insets.bottom + bottom + 16,
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: color,
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 100,
+        ...Platform.select({
+          ios:     { shadowColor: color, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+          android: { elevation: 8 },
+        }),
+      }}
+    >
+      <Plus size={22} color="#FFFFFF" weight="bold" />
+    </TouchableOpacity>
   );
 }

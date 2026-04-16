@@ -51,7 +51,6 @@ import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePaywallContext } from '@/lib/paywallContext';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { VocabFAB } from '@/components/vocabulary/VocabFAB';
-import { AddWordModal } from '@/components/vocabulary/AddWordModal';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 
 const API_BASE_URL =
@@ -810,7 +809,6 @@ export default function HomeScreen() {
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showTipModal, setShowTipModal]   = useState(false);
-  const [addWordFromTip, setAddWordFromTip] = useState(false);
   const [showLiveVoice, setShowLiveVoice]           = useState(false);
   const [liveVoiceRemaining, setLiveVoiceRemaining] = useState<number | null>(null);
   const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
@@ -1752,7 +1750,16 @@ export default function HomeScreen() {
 
               {/* Add to my list button */}
               <TouchableOpacity
-                onPress={() => { setShowTipModal(false); setAddWordFromTip(true); }}
+                onPress={() => {
+                  setShowTipModal(false);
+                  router.push({
+                    pathname: '/(app)/add-word',
+                    params: {
+                      term: tip.term,
+                      source: 'tip_of_day',
+                    },
+                  });
+                }}
                 style={{
                   marginTop: 16,
                   backgroundColor: C.greenDark,
@@ -1771,19 +1778,8 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* Add Word modal from Tip of the Day */}
-      <AddWordModal
-        visible={addWordFromTip}
-        onClose={() => setAddWordFromTip(false)}
-        initialTerm={tip.term}
-        initialDefinition={isPortuguese && tip.meaningPt ? tip.meaningPt : tip.meaning}
-        initialExample={tip.example}
-        initialCategory={tip.type as 'word' | 'idiom' | 'phrasal_verb' | 'grammar'}
-        source="tip_of_day"
-      />
-
       {/* FAB — adicionar palavra */}
-      <VocabFAB bottom={68} />
+      <VocabFAB bottom={68} color={levelAccent} />
 
     </SafeAreaView>
   );

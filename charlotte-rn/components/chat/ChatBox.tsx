@@ -18,7 +18,7 @@ import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { translationService, TranslationResult } from '@/lib/translation-service';
 import PronunciationScoreCard, { PronunciationData } from '@/components/chat/PronunciationScoreCard';
-import { AddWordModal } from '@/components/vocabulary/AddWordModal';
+import { router } from 'expo-router';
 
 export interface Message {
   id: string;
@@ -129,7 +129,9 @@ const MessageBubble: React.FC<{
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [translationError, setTranslationError] = React.useState(false);
   const [transcription, setTranscription] = React.useState('');
-  const [addWordTerm, setAddWordTerm] = React.useState<string | null>(null);
+  const openAddWord = (termVal: string) => {
+    router.push({ pathname: '/(app)/add-word', params: { term: termVal, source: 'charlotte' } });
+  };
 
   const isUser = message.role === 'user';
   const isNovice = userLevel === 'Novice';
@@ -380,7 +382,7 @@ const MessageBubble: React.FC<{
             {message.vocabularySuggestions.map(term => (
               <TouchableOpacity
                 key={term}
-                onPress={() => setAddWordTerm(term)}
+                onPress={() => openAddWord(term)}
                 style={{
                   flexDirection: 'row', alignItems: 'center', gap: 4,
                   backgroundColor: 'rgba(61,136,0,0.10)',
@@ -401,15 +403,6 @@ const MessageBubble: React.FC<{
       </View>
     </View>
 
-    {/* Add Word modal — triggered by vocab chip tap */}
-    {addWordTerm !== null && (
-      <AddWordModal
-        visible
-        onClose={() => setAddWordTerm(null)}
-        initialTerm={addWordTerm}
-        source="charlotte"
-      />
-    )}
     </>
   );
 };

@@ -1,0 +1,437 @@
+/**
+ * app/(app)/add-word.tsx
+ * Tela full-screen para adicionar palavra ao vocabulário.
+ * Substituiu AddWordModal (bottom-sheet) por navegação normal.
+ *
+ * Params (query string via router.push):
+ *   term?        – pré-preenche o campo de termo
+ *   category?    – pré-seleciona a categoria
+ *   source?      – origem: manual | charlotte | learn_trail | tip_of_day
+ */
+
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View, TextInput, TouchableOpacity, ActivityIndicator,
+  ScrollView, Platform, Alert, KeyboardAvoidingView,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router, useLocalSearchParams } from 'expo-router';
+import {
+  ArrowLeft, MagicWand, SpeakerHigh, Check, Plus,
+} from 'phosphor-react-native';
+import { AppText } from '@/components/ui/Text';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import Constants from 'expo-constants';
+import { scheduleVocabReviews } from '@/lib/spacedRepetition';
+import * as Haptics from 'expo-haptics';
+import { createAudioPlayer } from 'expo-audio';
+
+const API_BASE = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
+
+export type VocabCategory = 'word' | 'idiom' | 'phrasal_verb' | 'grammar';
+
+const C = {
+  bg:        '#F4F3FA',
+  card:      '#FFFFFF',
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  muted:     '#9896B8',
+  border:    'rgba(22,21,58,0.12)',
+  greenDark: '#3D8800',
+  greenBg:   'rgba(163,255,60,0.10)',
+  inputBg:   '#F0EFF8',
+};
+
+const CATEGORIES: { key: VocabCategory; labelPt: string; labelEn: string }[] = [
+  { key: 'word',         labelPt: 'Palavra',     labelEn: 'Word' },
+  { key: 'idiom',        labelPt: 'Expressão',   labelEn: 'Idiom' },
+  { key: 'phrasal_verb', labelPt: 'Phrasal',     labelEn: 'Phrasal' },
+  { key: 'grammar',      labelPt: 'Gramática',   labelEn: 'Grammar' },
+];
+
+export default function AddWordScreen() {
+  const { profile, session } = useAuth();
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ term?: string; category?: string; source?: string }>();
+
+  const userId = session?.user?.id;
+  const level  = profile?.charlotte_level ?? 'Inter';
+  const isPt   = level === 'Novice';
+
+  const [term,        setTerm]       = useState(params.term ?? '');
+  const [definition,  setDefinition] = useState('');
+  const [example,     setExample]    = useState('');
+  const [exampleTr,   setExampleTr]  = useState('');
+  const [phonetic,    setPhonetic]   = useState('');
+  const [category,    setCategory]   = useState<VocabCategory>(
+    (params.category as VocabCategory) ?? 'word',
+  );
+  const [generating,  setGenerating] = useState(false);
+  const [saving,      setSaving]     = useState(false);
+  const [alreadyAdded, setAlreadyAdded] = useState(false);
+  const [ttsLoading,  setTtsLoading] = useState(false);
+
+  // Auto-generate if term was passed in and has no definition yet
+  useEffect(() => {
+    if (params.term && params.term.trim()) {
+      handleGenerate(params.term.trim());
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleGenerate = useCallback(async (termOverride?: string) => {
+    const t = (termOverride ?? term).trim();
+    if (!t) return;
+    setGenerating(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/vocabulary`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ term: t, level }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        const d = json.data;
+        if (d.definition)          setDefinition(d.definition);
+        if (d.example)             setExample(d.example);
+        if (d.example_translation) setExampleTr(d.example_translation);
+        if (d.phonetic)            setPhonetic(d.phonetic);
+        if (d.category)            setCategory(d.category as VocabCategory);
+      }
+    } catch {
+      // silencioso — user can fill manually
+    } finally {
+      setGenerating(false);
+    }
+  }, [term, level]);
+
+  const handleTts = useCallback(async () => {
+    if (!term.trim() || ttsLoading) return;
+    setTtsLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: term.trim() }),
+      });
+      if (!res.ok) throw new Error('TTS failed');
+      const blob = await res.blob();
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const FS = (await import('expo-file-system/legacy')) as any;
+        const uri = FS.default.cacheDirectory + 'vocab_tts.mp3';
+        await FS.default.writeAsStringAsync(uri, base64, { encoding: FS.default.EncodingType.Base64 });
+        const player = createAudioPlayer({ uri });
+        player.play();
+        await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      };
+      reader.readAsDataURL(blob);
+    } catch { /* silencioso */ } finally {
+      setTtsLoading(false);
+    }
+  }, [term, ttsLoading]);
+
+  const handleSave = useCallback(async () => {
+    if (!userId || !term.trim()) return;
+    if (!definition.trim()) {
+      Alert.alert(
+        isPt ? 'Definição necessária' : 'Definition required',
+        isPt ? 'Adicione uma definição antes de salvar.' : 'Please add a definition before saving.',
+      );
+      return;
+    }
+    setSaving(true);
+    try {
+      const { data: existing } = await supabase
+        .from('user_vocabulary')
+        .select('id')
+        .eq('user_id', userId)
+        .ilike('term', term.trim())
+        .maybeSingle();
+
+      if (existing) {
+        setAlreadyAdded(true);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        setSaving(false);
+        return;
+      }
+
+      const newId = crypto.randomUUID();
+      const source = (params.source ?? 'manual') as string;
+
+      const { data: inserted, error } = await supabase
+        .from('user_vocabulary')
+        .insert({
+          id:                  newId,
+          user_id:             userId,
+          term:                term.trim(),
+          definition:          definition.trim(),
+          example:             example.trim() || null,
+          example_translation: exampleTr.trim() || null,
+          phonetic:            phonetic.trim() || null,
+          category,
+          source,
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      if (inserted?.id && userId) {
+        scheduleVocabReviews(userId, inserted.id, category, term.trim(), level).catch(console.warn);
+      }
+
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      router.back();
+    } catch (err) {
+      console.warn('[AddWord] save error:', err);
+      Alert.alert(
+        isPt ? 'Erro ao salvar' : 'Save error',
+        isPt ? 'Não foi possível salvar. Tente novamente.' : 'Could not save. Please try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [userId, term, definition, example, exampleTr, phonetic, category, params.source, isPt, level]);
+
+  const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
+      {/* Header */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center',
+        paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+        borderBottomWidth: 1, borderBottomColor: C.border,
+        backgroundColor: C.card,
+      }}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={{
+            width: 36, height: 36, borderRadius: 18,
+            backgroundColor: C.bg,
+            alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <ArrowLeft size={20} color={C.navy} weight="bold" />
+        </TouchableOpacity>
+        <AppText style={{ flex: 1, fontSize: 18, fontWeight: '800', color: C.navy }}>
+          {isPt ? 'Adicionar palavra' : 'Add word'}
+        </AppText>
+      </View>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ padding: 20, gap: 20, paddingBottom: insets.bottom + 100 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Term */}
+          <View>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
+              {isPt ? 'TERMO' : 'TERM'}
+            </AppText>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <TextInput
+                value={term}
+                onChangeText={t => { setTerm(t); setAlreadyAdded(false); }}
+                placeholder={isPt ? 'ex: take it easy' : 'e.g. take it easy'}
+                placeholderTextColor={C.muted}
+                style={{
+                  flex: 1, backgroundColor: C.card, borderRadius: 14,
+                  paddingHorizontal: 16, paddingVertical: 14,
+                  fontSize: 16, color: C.navy, fontWeight: '500',
+                  borderWidth: 1, borderColor: C.border,
+                }}
+                autoCorrect={false}
+                autoCapitalize="none"
+                returnKeyType="done"
+                onSubmitEditing={() => handleGenerate()}
+              />
+              {!isPt && (
+                <TouchableOpacity
+                  onPress={handleTts}
+                  disabled={ttsLoading || !term.trim()}
+                  style={{
+                    width: 52, height: 52, borderRadius: 14,
+                    backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  {ttsLoading
+                    ? <ActivityIndicator size="small" color={C.greenDark} />
+                    : <SpeakerHigh size={22} color={term.trim() ? C.greenDark : C.muted} weight="fill" />
+                  }
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => handleGenerate()}
+                disabled={generating || !term.trim()}
+                style={{
+                  width: 52, height: 52, borderRadius: 14,
+                  backgroundColor: term.trim() ? C.greenDark : C.inputBg,
+                  alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                {generating
+                  ? <ActivityIndicator size="small" color="#FFFFFF" />
+                  : <MagicWand size={22} color={term.trim() ? '#FFFFFF' : C.muted} weight="fill" />
+                }
+              </TouchableOpacity>
+            </View>
+            {phonetic ? (
+              <AppText style={{ fontSize: 13, color: C.muted, marginTop: 6, paddingHorizontal: 4 }}>
+                {phonetic}
+              </AppText>
+            ) : null}
+          </View>
+
+          {/* Category */}
+          <View>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
+              {isPt ? 'CATEGORIA' : 'CATEGORY'}
+            </AppText>
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {CATEGORIES.map(c => {
+                const sel = category === c.key;
+                return (
+                  <TouchableOpacity
+                    key={c.key}
+                    onPress={() => setCategory(c.key)}
+                    style={{
+                      paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
+                      backgroundColor: sel ? C.greenDark : C.card,
+                      borderWidth: 1, borderColor: sel ? C.greenDark : C.border,
+                    }}
+                  >
+                    <AppText style={{ fontSize: 14, fontWeight: '600', color: sel ? '#FFFFFF' : C.navyMid }}>
+                      {isPt ? c.labelPt : c.labelEn}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Definition */}
+          <View>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
+              {isPt ? 'DEFINICAO (PT-BR)' : 'DEFINITION'}
+            </AppText>
+            <TextInput
+              value={definition}
+              onChangeText={setDefinition}
+              placeholder={isPt ? 'O que significa este termo?' : 'What does this term mean?'}
+              placeholderTextColor={C.muted}
+              multiline
+              style={{
+                backgroundColor: C.card, borderRadius: 14,
+                paddingHorizontal: 16, paddingVertical: 14,
+                fontSize: 15, color: C.navy, lineHeight: 22,
+                minHeight: 88, textAlignVertical: 'top',
+                borderWidth: 1, borderColor: C.border,
+              }}
+            />
+          </View>
+
+          {/* Example */}
+          <View>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
+              {isPt ? 'EXEMPLO (EN)' : 'EXAMPLE'}
+            </AppText>
+            <TextInput
+              value={example}
+              onChangeText={setExample}
+              placeholder="e.g. Just take it easy — there's no rush."
+              placeholderTextColor={C.muted}
+              multiline
+              style={{
+                backgroundColor: C.card, borderRadius: 14,
+                paddingHorizontal: 16, paddingVertical: 14,
+                fontSize: 15, color: C.navy, lineHeight: 22,
+                minHeight: 72, textAlignVertical: 'top',
+                borderWidth: 1, borderColor: C.border,
+              }}
+            />
+          </View>
+
+          {/* Example translation — Novice only */}
+          {isPt && (
+            <View>
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
+                TRADUCAO DO EXEMPLO
+              </AppText>
+              <TextInput
+                value={exampleTr}
+                onChangeText={setExampleTr}
+                placeholder="Traducao em portugues..."
+                placeholderTextColor={C.muted}
+                multiline
+                style={{
+                  backgroundColor: C.card, borderRadius: 14,
+                  paddingHorizontal: 16, paddingVertical: 14,
+                  fontSize: 15, color: C.navy, lineHeight: 22,
+                  minHeight: 72, textAlignVertical: 'top',
+                  borderWidth: 1, borderColor: C.border,
+                }}
+              />
+            </View>
+          )}
+
+          {alreadyAdded && (
+            <View style={{
+              flexDirection: 'row', alignItems: 'center', gap: 8,
+              backgroundColor: C.greenBg, borderRadius: 12, padding: 14,
+            }}>
+              <Check size={18} color={C.greenDark} weight="bold" />
+              <AppText style={{ fontSize: 14, color: C.greenDark, fontWeight: '600' }}>
+                {isPt ? 'Ja esta na sua lista!' : 'Already in your list!'}
+              </AppText>
+            </View>
+          )}
+        </ScrollView>
+
+        {/* Save button — fixed at bottom */}
+        <View style={{
+          position: 'absolute', bottom: insets.bottom + 16, left: 20, right: 20,
+        }}>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={!canSave}
+            activeOpacity={0.82}
+            style={{
+              backgroundColor: canSave ? C.greenDark : C.border,
+              borderRadius: 16, paddingVertical: 16,
+              alignItems: 'center', justifyContent: 'center',
+              flexDirection: 'row', gap: 8,
+              ...Platform.select({
+                ios:     { shadowColor: C.greenDark, shadowOpacity: canSave ? 0.4 : 0, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+                android: { elevation: canSave ? 6 : 0 },
+              }),
+            }}
+          >
+            {saving
+              ? <ActivityIndicator color="#FFFFFF" />
+              : (
+                <>
+                  <Plus size={20} color="#FFFFFF" weight="bold" />
+                  <AppText style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
+                    {isPt ? 'Salvar palavra' : 'Save word'}
+                  </AppText>
+                </>
+              )
+            }
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}

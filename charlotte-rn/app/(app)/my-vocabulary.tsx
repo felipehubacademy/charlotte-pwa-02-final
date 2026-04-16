@@ -4,13 +4,13 @@
  * Filtro por categoria, busca, swipe to delete, indicador SR.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, ScrollView, TouchableOpacity, TextInput,
   ActivityIndicator, Alert, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import {
   ArrowLeft, MagnifyingGlass, Trash, Plus,
   BookOpen, ClockCountdown, CheckCircle,
@@ -19,7 +19,6 @@ import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
-import { AddWordModal } from '@/components/vocabulary/AddWordModal';
 
 const C = {
   bg:        '#F4F3FA',
@@ -76,31 +75,32 @@ function reviewLabel(nextReview: string | null, isPt: boolean): { label: string;
 }
 
 export default function MyVocabularyScreen() {
-  const { profile, user } = useAuth();
+  const { profile, session } = useAuth();
   const insets = useSafeAreaInsets();
-  const isPt   = profile?.level === 'Novice';
+  const isPt   = profile?.charlotte_level === 'Novice';
+  const userId = session?.user?.id;
 
   const [items,     setItems]    = useState<VocabItem[]>([]);
   const [loading,   setLoading]  = useState(true);
   const [filter,    setFilter]   = useState<VocabCategory>('all');
   const [search,    setSearch]   = useState('');
   const [expanded,  setExpanded] = useState<string | null>(null);
-  const [addVisible, setAddVisible] = useState(false);
+  const openAdd = () => router.push({ pathname: '/(app)/add-word', params: { source: 'manual' } });
 
   const load = useCallback(async () => {
-    if (!user?.id) { setLoading(false); return; }
+    if (!userId) { setLoading(false); return; }
     setLoading(true);
     const { data, error } = await supabase
       .from('user_vocabulary')
       .select('id, term, definition, example, example_translation, phonetic, category, source, next_review_at, repetitions, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     if (!error) setItems(data ?? []);
     setLoading(false);
-  }, [user?.id]);
+  }, [userId]);
 
-  useEffect(() => { load(); }, [load]);
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const filtered = items.filter(i => {
     if (filter !== 'all' && i.category !== filter) return false;
@@ -157,7 +157,7 @@ export default function MyVocabularyScreen() {
           )}
         </View>
         <TouchableOpacity
-          onPress={() => setAddVisible(true)}
+          onPress={() => openAdd()}
           style={{
             width: 38, height: 38, borderRadius: 19,
             backgroundColor: C.greenDark,
@@ -234,7 +234,7 @@ export default function MyVocabularyScreen() {
           )}
           {items.length === 0 && (
             <TouchableOpacity
-              onPress={() => setAddVisible(true)}
+              onPress={() => openAdd()}
               style={{
                 marginTop: 20, backgroundColor: C.greenDark,
                 borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
@@ -347,7 +347,7 @@ export default function MyVocabularyScreen() {
       {/* Floating + button */}
       {!loading && items.length > 0 && (
         <TouchableOpacity
-          onPress={() => setAddVisible(true)}
+          onPress={() => openAdd()}
           style={{
             position: 'absolute', right: 20, bottom: insets.bottom + 20,
             width: 52, height: 52, borderRadius: 26,
@@ -363,11 +363,6 @@ export default function MyVocabularyScreen() {
         </TouchableOpacity>
       )}
 
-      <AddWordModal
-        visible={addVisible}
-        onClose={() => { setAddVisible(false); load(); }}
-        source="manual"
-      />
     </SafeAreaView>
   );
 }
