@@ -179,6 +179,7 @@ const MessageBubble: React.FC<{
   };
 
   return (
+    <>
     <View style={{ flexDirection: 'row', marginBottom: 16, justifyContent: isUser ? 'flex-end' : 'flex-start', alignItems: 'flex-start' }}>
       {/* Avatar for assistant messages — alinhado ao topo */}
       {!isUser && (
@@ -409,6 +410,7 @@ const MessageBubble: React.FC<{
         source="charlotte"
       />
     )}
+    </>
   );
 };
 
