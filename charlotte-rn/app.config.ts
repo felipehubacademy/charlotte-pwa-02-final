@@ -1,17 +1,8 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
-import * as fs from 'fs';
-import * as path from 'path';
 
 // EAS cloud builds: google-services.json is gitignored.
-// The file content is stored as the GOOGLE_SERVICES_JSON env var.
-// Write it to disk so googleServicesFile can reference it normally.
-if (process.env.GOOGLE_SERVICES_JSON) {
-  fs.writeFileSync(
-    path.join(__dirname, 'google-services.json'),
-    process.env.GOOGLE_SERVICES_JSON,
-    'utf8'
-  );
-}
+// GOOGLE_SERVICES_JSON is a file-type EAS secret — EAS writes the file
+// to a temp path and sets the env var to that path automatically.
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
@@ -50,7 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'com.hubacademy.charlotte',
-    googleServicesFile: './google-services.json',
+    googleServicesFile: process.env.GOOGLE_SERVICES_JSON ?? './google-services.json',
     adaptiveIcon: {
       foregroundImage: './assets/adaptive-icon.png',
       backgroundColor: '#16153A',
