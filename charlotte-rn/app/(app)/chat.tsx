@@ -11,6 +11,7 @@ import { router } from 'expo-router';
 import { useChat } from '@/hooks/useChat';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 import { usePaywallContext } from '@/lib/paywallContext';
+import { VocabFAB } from '@/components/vocabulary/VocabFAB';
 
 export default function ChatScreen() {
   const { profile, signOut } = useAuth();
@@ -29,7 +30,7 @@ export default function ChatScreen() {
 
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }} edges={['top', 'left', 'right', 'bottom']}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#F4F3FA' }} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: '#F4F3FA' }}
         behavior="padding"
@@ -83,6 +84,7 @@ export default function ChatScreen() {
         onComplete={() => setShowOnboarding(false)}
         userLevel={userLevel}
       />
+      <VocabFAB bottom={72} right={72} />
     </SafeAreaView>
   );
 }

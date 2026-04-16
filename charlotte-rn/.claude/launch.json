@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "autoPort": true,
+  "configurations": [
+    {
+      "name": "Charlotte RN (Expo — QR scan)",
+      "runtimeExecutable": "/Users/felipexavier/.nvm/versions/node/v24.14.0/bin/node",
+      "runtimeArgs": ["/Users/felipexavier/charlotte-pwa-02-final/charlotte-rn/node_modules/.bin/expo", "start"],
+      "port": 8081
+    }
+  ]
+}

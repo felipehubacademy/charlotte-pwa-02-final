@@ -131,20 +131,40 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
       }
     }
 
-    // upsert: creates row if missing, updates if exists — never a silent no-op
-    const { error } = await supabase
-      .from('learn_progress')
-      .upsert({
-        user_id:      userId,
-        level:        lvl,
-        module_index: nextModule,
-        topic_index:  nextTopic,
-        completed:    newCompleted,
-        updated_at:   new Date().toISOString(),
-      }, { onConflict: 'user_id,level' });
+    // public.learn_progress is a VIEW — ON CONFLICT is not supported on views.
+    // Use explicit UPDATE when row already exists, INSERT only on first access.
+    const now = new Date().toISOString();
+    let error: unknown;
+    if (fresh) {
+      // Row exists → UPDATE via the INSTEAD OF UPDATE trigger (matches by user_id + level)
+      const { error: updErr } = await supabase
+        .from('learn_progress')
+        .update({
+          module_index: nextModule,
+          topic_index:  nextTopic,
+          completed:    newCompleted,
+          updated_at:   now,
+        })
+        .eq('user_id', userId)
+        .eq('level',   lvl);
+      error = updErr;
+    } else {
+      // No row yet → INSERT
+      const { error: insErr } = await supabase
+        .from('learn_progress')
+        .insert({
+          user_id:      userId,
+          level:        lvl,
+          module_index: nextModule,
+          topic_index:  nextTopic,
+          completed:    newCompleted,
+          updated_at:   now,
+        });
+      error = insErr;
+    }
 
     if (error) {
-      console.error('[useLearnProgress] upsert error', error);
+      console.error('[useLearnProgress] save error', error);
     } else {
       setProgress({ moduleIndex: nextModule, topicIndex: nextTopic, completed: newCompleted });
       // Schedule SR reviews on first-time completion only

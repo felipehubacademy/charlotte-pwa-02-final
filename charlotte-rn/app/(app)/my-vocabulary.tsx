@@ -1,0 +1,373 @@
+/**
+ * app/(app)/my-vocabulary.tsx
+ * Lista de vocabulário salvo pelo usuário.
+ * Filtro por categoria, busca, swipe to delete, indicador SR.
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, ScrollView, TouchableOpacity, TextInput,
+  ActivityIndicator, Alert, Platform,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import {
+  ArrowLeft, MagnifyingGlass, Trash, Plus,
+  BookOpen, ClockCountdown, CheckCircle,
+} from 'phosphor-react-native';
+import * as Haptics from 'expo-haptics';
+import { AppText } from '@/components/ui/Text';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { AddWordModal } from '@/components/vocabulary/AddWordModal';
+
+const C = {
+  bg:        '#F4F3FA',
+  card:      '#FFFFFF',
+  navy:      '#16153A',
+  navyMid:   '#4B4A72',
+  muted:     '#9896B8',
+  border:    'rgba(22,21,58,0.10)',
+  green:     '#A3FF3C',
+  greenDark: '#3D8800',
+  greenBg:   'rgba(61,136,0,0.08)',
+  red:       '#DC2626',
+  redBg:     'rgba(220,38,38,0.07)',
+  gold:      '#D97706',
+  goldBg:    '#FFFBEB',
+  inputBg:   '#ECEAF5',
+};
+
+const cardShadow = Platform.select({
+  ios:     { shadowColor: 'rgba(22,21,58,0.08)', shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+  android: { elevation: 2 },
+}) as object;
+
+type VocabCategory = 'all' | 'word' | 'idiom' | 'phrasal_verb' | 'grammar';
+
+interface VocabItem {
+  id:                  string;
+  term:                string;
+  definition:          string;
+  example:             string | null;
+  example_translation: string | null;
+  phonetic:            string | null;
+  category:            string;
+  source:              string;
+  next_review_at:      string | null;
+  repetitions:         number;
+  created_at:          string;
+}
+
+const FILTERS: { key: VocabCategory; labelPt: string; labelEn: string }[] = [
+  { key: 'all',          labelPt: 'Todas',    labelEn: 'All' },
+  { key: 'word',         labelPt: 'Palavras', labelEn: 'Words' },
+  { key: 'idiom',        labelPt: 'Expressões', labelEn: 'Idioms' },
+  { key: 'phrasal_verb', labelPt: 'Phrasals', labelEn: 'Phrasals' },
+  { key: 'grammar',      labelPt: 'Gramática', labelEn: 'Grammar' },
+];
+
+function reviewLabel(nextReview: string | null, isPt: boolean): { label: string; color: string; bg: string } {
+  if (!nextReview) return { label: isPt ? 'Nova' : 'New', color: C.greenDark, bg: C.greenBg };
+  const diff = Math.ceil((new Date(nextReview).getTime() - Date.now()) / 86400000);
+  if (diff <= 0) return { label: isPt ? 'Revisar hoje' : 'Review today', color: C.red, bg: C.redBg };
+  if (diff === 1) return { label: isPt ? 'Amanhã' : 'Tomorrow', color: C.gold, bg: C.goldBg };
+  return { label: isPt ? `Em ${diff} dias` : `In ${diff} days`, color: C.muted, bg: C.inputBg };
+}
+
+export default function MyVocabularyScreen() {
+  const { profile, user } = useAuth();
+  const insets = useSafeAreaInsets();
+  const isPt   = profile?.level === 'Novice';
+
+  const [items,     setItems]    = useState<VocabItem[]>([]);
+  const [loading,   setLoading]  = useState(true);
+  const [filter,    setFilter]   = useState<VocabCategory>('all');
+  const [search,    setSearch]   = useState('');
+  const [expanded,  setExpanded] = useState<string | null>(null);
+  const [addVisible, setAddVisible] = useState(false);
+
+  const load = useCallback(async () => {
+    if (!user?.id) { setLoading(false); return; }
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('user_vocabulary')
+      .select('id, term, definition, example, example_translation, phonetic, category, source, next_review_at, repetitions, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+
+    if (!error) setItems(data ?? []);
+    setLoading(false);
+  }, [user?.id]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = items.filter(i => {
+    if (filter !== 'all' && i.category !== filter) return false;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      return i.term.toLowerCase().includes(q) || i.definition.toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  const handleDelete = useCallback((item: VocabItem) => {
+    Alert.alert(
+      isPt ? 'Remover palavra?' : 'Remove word?',
+      isPt ? `"${item.term}" será removida da sua lista.` : `"${item.term}" will be removed from your list.`,
+      [
+        { text: isPt ? 'Cancelar' : 'Cancel', style: 'cancel' },
+        {
+          text: isPt ? 'Remover' : 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            await supabase.from('user_vocabulary').delete().eq('id', item.id);
+            setItems(prev => prev.filter(i => i.id !== item.id));
+          },
+        },
+      ],
+    );
+  }, [isPt]);
+
+  const dueCount = items.filter(i => {
+    if (!i.next_review_at) return true;
+    return new Date(i.next_review_at) <= new Date();
+  }).length;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top']}>
+      {/* Header */}
+      <View style={{
+        flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
+        paddingVertical: 12, gap: 12,
+      }}>
+        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <ArrowLeft size={22} color={C.navy} weight="bold" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <AppText style={{ fontSize: 19, fontWeight: '800', color: C.navy }}>
+            {isPt ? 'Meu Vocabulário' : 'My Vocabulary'}
+          </AppText>
+          {items.length > 0 && (
+            <AppText style={{ fontSize: 12, color: C.muted }}>
+              {items.length} {isPt ? 'palavra' : 'word'}{items.length !== 1 ? 's' : ''}
+              {dueCount > 0 ? ` · ${dueCount} ${isPt ? 'para revisar' : 'to review'}` : ''}
+            </AppText>
+          )}
+        </View>
+        <TouchableOpacity
+          onPress={() => setAddVisible(true)}
+          style={{
+            width: 38, height: 38, borderRadius: 19,
+            backgroundColor: C.greenDark,
+            alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Plus size={20} color="#FFFFFF" weight="bold" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Search bar */}
+      <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center', gap: 8,
+          backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
+        }}>
+          <MagnifyingGlass size={16} color={C.muted} />
+          <TextInput
+            value={search}
+            onChangeText={setSearch}
+            placeholder={isPt ? 'Buscar palavra...' : 'Search word...'}
+            placeholderTextColor={C.muted}
+            style={{ flex: 1, fontSize: 14, color: C.navy }}
+            returnKeyType="search"
+          />
+        </View>
+      </View>
+
+      {/* Category filter chips */}
+      <ScrollView
+        horizontal showsHorizontalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+        style={{ maxHeight: 42, marginBottom: 10 }}
+      >
+        {FILTERS.map(f => {
+          const sel = filter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={{
+                paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20,
+                backgroundColor: sel ? C.greenDark : C.card,
+                borderWidth: 1, borderColor: sel ? C.greenDark : C.border,
+              }}
+            >
+              <AppText style={{ fontSize: 13, fontWeight: '600', color: sel ? '#FFFFFF' : C.navyMid }}>
+                {isPt ? f.labelPt : f.labelEn}
+              </AppText>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* List */}
+      {loading ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator color={C.greenDark} />
+        </View>
+      ) : filtered.length === 0 ? (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
+          <BookOpen size={48} color={C.muted} />
+          <AppText style={{ fontSize: 16, fontWeight: '700', color: C.navyMid, marginTop: 16, textAlign: 'center' }}>
+            {items.length === 0
+              ? (isPt ? 'Nenhuma palavra ainda' : 'No words yet')
+              : (isPt ? 'Nenhum resultado' : 'No results')}
+          </AppText>
+          {items.length === 0 && (
+            <AppText style={{ fontSize: 13, color: C.muted, marginTop: 6, textAlign: 'center', lineHeight: 18 }}>
+              {isPt
+                ? 'Adicione palavras enquanto aprende para criar seu dicionário pessoal.'
+                : 'Add words as you learn to build your personal dictionary.'}
+            </AppText>
+          )}
+          {items.length === 0 && (
+            <TouchableOpacity
+              onPress={() => setAddVisible(true)}
+              style={{
+                marginTop: 20, backgroundColor: C.greenDark,
+                borderRadius: 14, paddingHorizontal: 24, paddingVertical: 12,
+                flexDirection: 'row', alignItems: 'center', gap: 6,
+              }}
+            >
+              <Plus size={16} color="#FFFFFF" weight="bold" />
+              <AppText style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                {isPt ? 'Adicionar palavra' : 'Add word'}
+              </AppText>
+            </TouchableOpacity>
+          )}
+        </View>
+      ) : (
+        <ScrollView
+          contentContainerStyle={{
+            paddingHorizontal: 16, paddingBottom: insets.bottom + 80, gap: 10,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
+          {filtered.map(item => {
+            const isOpen = expanded === item.id;
+            const rev    = reviewLabel(item.next_review_at, isPt);
+            return (
+              <TouchableOpacity
+                key={item.id}
+                onPress={() => setExpanded(isOpen ? null : item.id)}
+                activeOpacity={0.78}
+                style={{
+                  backgroundColor: C.card, borderRadius: 16,
+                  padding: 16, ...cardShadow,
+                }}
+              >
+                {/* Top row */}
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                  <View style={{ flex: 1, marginRight: 10 }}>
+                    <AppText style={{ fontSize: 16, fontWeight: '700', color: C.navy }}>{item.term}</AppText>
+                    {item.phonetic && !isOpen && (
+                      <AppText style={{ fontSize: 12, color: C.muted, marginTop: 1 }}>{item.phonetic}</AppText>
+                    )}
+                    {!isOpen && (
+                      <AppText style={{ fontSize: 13, color: C.navyMid, marginTop: 4 }} numberOfLines={2}>
+                        {item.definition}
+                      </AppText>
+                    )}
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                    <View style={{
+                      backgroundColor: rev.bg, borderRadius: 8,
+                      paddingHorizontal: 8, paddingVertical: 3,
+                    }}>
+                      <AppText style={{ fontSize: 10, fontWeight: '700', color: rev.color }}>
+                        {rev.label}
+                      </AppText>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleDelete(item)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Trash size={16} color={C.muted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* Expanded detail */}
+                {isOpen && (
+                  <View style={{ marginTop: 12, gap: 8 }}>
+                    {item.phonetic && (
+                      <AppText style={{ fontSize: 13, color: C.muted }}>{item.phonetic}</AppText>
+                    )}
+                    <AppText style={{ fontSize: 14, color: C.navyMid, lineHeight: 20 }}>
+                      {item.definition}
+                    </AppText>
+                    {item.example && (
+                      <View style={{
+                        backgroundColor: C.bg, borderRadius: 10, padding: 10,
+                        borderLeftWidth: 3, borderLeftColor: C.greenDark,
+                      }}>
+                        <AppText style={{ fontSize: 13, color: C.navy, fontStyle: 'italic', lineHeight: 18 }}>
+                          {item.example}
+                        </AppText>
+                        {item.example_translation && (
+                          <AppText style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+                            {item.example_translation}
+                          </AppText>
+                        )}
+                      </View>
+                    )}
+                    {/* SR info */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                      {item.repetitions > 0
+                        ? <CheckCircle size={14} color={C.greenDark} weight="fill" />
+                        : <ClockCountdown size={14} color={C.gold} weight="fill" />
+                      }
+                      <AppText style={{ fontSize: 11, color: C.muted }}>
+                        {item.repetitions > 0
+                          ? (isPt ? `Revisado ${item.repetitions}x` : `Reviewed ${item.repetitions}x`)
+                          : (isPt ? 'Ainda não revisado' : 'Not yet reviewed')
+                        }
+                      </AppText>
+                    </View>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      {/* Floating + button */}
+      {!loading && items.length > 0 && (
+        <TouchableOpacity
+          onPress={() => setAddVisible(true)}
+          style={{
+            position: 'absolute', right: 20, bottom: insets.bottom + 20,
+            width: 52, height: 52, borderRadius: 26,
+            backgroundColor: C.greenDark,
+            alignItems: 'center', justifyContent: 'center',
+            ...Platform.select({
+              ios:     { shadowColor: C.greenDark, shadowOpacity: 0.4, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+              android: { elevation: 6 },
+            }),
+          }}
+        >
+          <Plus size={24} color="#FFFFFF" weight="bold" />
+        </TouchableOpacity>
+      )}
+
+      <AddWordModal
+        visible={addVisible}
+        onClose={() => { setAddVisible(false); load(); }}
+        source="manual"
+      />
+    </SafeAreaView>
+  );
+}

@@ -40,6 +40,17 @@ interface AssistantResponse {
   grammarErrors?: number;
   textComplexity?: string;
   technicalFeedback: string;
+  vocabulary_suggestions?: string[];
+}
+
+/** Extracts **bolded** terms from text as vocabulary suggestions (max 3). */
+function extractVocabSuggestions(text: string): string[] {
+  if (!text) return [];
+  const matches = text.match(/\*\*([^*]{2,40})\*\*/g) ?? [];
+  return matches
+    .map(m => m.replace(/\*\*/g, '').trim())
+    .filter(t => t.length > 0 && !/^\d/.test(t))
+    .slice(0, 3);
 }
 
 export async function POST(request: NextRequest) {
@@ -169,6 +180,7 @@ async function handleTextMessageWithGrammar(
       grammarErrors: grammarResult?.analysis?.errors?.length ?? 0,
       textComplexity: grammarResult?.analysis?.complexity ?? 'intermediate',
       technicalFeedback: grammarResult ? formatGrammarFeedback(grammarResult) : '',
+      vocabulary_suggestions: extractVocabSuggestions(charlotteResponse),
     };
 
     console.log('✅ Text with grammar analysis and context response ready');
@@ -927,11 +939,12 @@ IMPORTANT:
 
                 const response: AssistantResponse = {
         feedback: correctedResponse,
-        xpAwarded: 5, // XP baixo mas consistente para Novice
-        nextChallenge: '', // Novice não precisa de challenge separado
-      tips: ['Keep writing in English!'],
-      encouragement: 'You\'re doing great! 😊',
-      technicalFeedback: ''
+        xpAwarded: 5,
+        nextChallenge: '',
+        tips: ['Keep writing in English!'],
+        encouragement: 'You\'re doing great!',
+        technicalFeedback: '',
+        vocabulary_suggestions: extractVocabSuggestions(correctedResponse),
     };
 
     return NextResponse.json({ success: true, result: response });

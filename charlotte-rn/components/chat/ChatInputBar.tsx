@@ -68,6 +68,10 @@ export default function ChatInputBar({
     return () => clearInterval(t);
   }, [rateLimited]);
   const insets = useSafeAreaInsets();
+  // Freeze the bottom inset at mount time — on Android, insets.bottom changes
+  // dynamically (0 ↔ navBarHeight) when the keyboard appears/disappears,
+  // causing the input bar to jump in height. Freezing prevents that.
+  const frozenBottomInset = React.useRef(insets.bottom).current;
   const [text, setText]             = React.useState('');
   const [previewUri, setPreviewUri] = React.useState<string | null>(null);
   const [previewDur, setPreviewDur] = React.useState(0);
@@ -189,10 +193,7 @@ export default function ChatInputBar({
     borderTopColor: C.topBorder,
     paddingHorizontal: 14,
     paddingTop: 10,
-    // On Android, insets.bottom changes dynamically after keyboard interaction
-    // (0 → navBarHeight), causing height jumps. Parent SafeAreaView handles
-    // the bottom edge, so we use a fixed padding on Android.
-    paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : 10,
+    paddingBottom: Math.max(frozenBottomInset, 10),
   };
 
   // ── Rate-limited overlay (shared across all modes) ────────────────────────

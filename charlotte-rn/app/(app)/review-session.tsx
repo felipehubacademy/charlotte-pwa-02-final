@@ -53,6 +53,11 @@ interface SRCardItem {
   easeFactor:   number;
   intervalDays: number;
   repetitions:  number;
+  // Vocabulary-specific (when moduleIndex === -1)
+  vocabTerm?:       string;
+  vocabDefinition?: string;
+  vocabExample?:    string;
+  vocabCategory?:   string;
 }
 
 interface CardQuestion {
@@ -66,8 +71,65 @@ interface CardQuestion {
   explanation: string;
 }
 
+// ── Vocabulary card generator ────────────────────────────────────────────────
+function generateVocabCardQuestion(item: SRCardItem): CardQuestion | null {
+  const { vocabTerm, vocabDefinition, vocabExample, vocabCategory, cardType } = item;
+  if (!vocabTerm || !vocabDefinition) return null;
+  const isPt = item.userLevel === 'Novice';
+
+  switch (cardType) {
+    case 'gap_fill': {
+      // Show example with term blanked out (if example exists), else fill in from definition
+      if (vocabExample) {
+        const blanked = vocabExample.replace(new RegExp(vocabTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '___');
+        return {
+          cardType: 'gap_fill',
+          instruction: isPt ? 'Complete com a palavra correta:' : 'Fill in the blank:',
+          sentence:    blanked,
+          answer:      vocabTerm,
+          explanation: vocabDefinition,
+        };
+      }
+      return {
+        cardType: 'gap_fill',
+        instruction: isPt ? 'Qual palavra significa:' : 'Which word means:',
+        sentence:    vocabDefinition,
+        answer:      vocabTerm,
+        explanation: vocabExample ?? '',
+      };
+    }
+    case 'reverse': {
+      return {
+        cardType: 'reverse',
+        instruction: isPt ? 'Como você diz em inglês:' : 'How do you say:',
+        sentence:    vocabDefinition,
+        answer:      vocabTerm,
+        hint:        vocabExample ?? undefined,
+        explanation: vocabExample ?? vocabDefinition,
+      };
+    }
+    case 'context_guess': {
+      // Show the example, ask what the highlighted term means
+      const sentence = vocabExample ?? `The term "${vocabTerm}" is used in this context.`;
+      return {
+        cardType:    'context_guess',
+        instruction: isPt ? 'O que significa o termo destacado?' : 'What does the highlighted term mean?',
+        sentence:    sentence.replace(new RegExp(vocabTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), `**${vocabTerm}**`),
+        answer:      vocabDefinition,
+        options:     [vocabDefinition], // only 1 correct — UI will handle fakes
+        explanation: vocabExample ?? vocabDefinition,
+      };
+    }
+    default:
+      return null;
+  }
+}
+
 // ── Content generator ────────────────────────────────────────────────────────
 function generateCardQuestion(item: SRCardItem): CardQuestion | null {
+  // Vocabulary cards (moduleIndex === -1)
+  if (item.moduleIndex === -1) return generateVocabCardQuestion(item);
+
   const modules = CURRICULUM[item.userLevel as TrailLevel];
   if (!modules) return null;
   const module = modules[item.moduleIndex];
@@ -205,7 +267,7 @@ export default function ReviewSession() {
       const now = new Date().toISOString();
       const { data, error } = await supabase
         .from('sr_items')
-        .select('id, source_id, card_type, user_level, topic_title, ease_factor, interval_days, repetitions, next_review_at')
+        .select('id, source_type, source_id, card_type, user_level, topic_title, ease_factor, interval_days, repetitions, next_review_at')
         .eq('user_id', user.id)
         .lte('next_review_at', now)
         .order('next_review_at', { ascending: true })
@@ -217,7 +279,41 @@ export default function ReviewSession() {
         return;
       }
 
+      // Fetch vocabulary items needed for vocab SR cards
+      const vocabIds = (data ?? [])
+        .filter(r => r.source_type === 'vocabulary')
+        .map(r => r.source_id as string);
+
+      let vocabMap: Record<string, { term: string; definition: string; example: string | null; category: string }> = {};
+      if (vocabIds.length > 0) {
+        const { data: vocabData } = await supabase
+          .from('user_vocabulary')
+          .select('id, term, definition, example, category')
+          .in('id', vocabIds);
+        (vocabData ?? []).forEach(v => { vocabMap[v.id] = v; });
+      }
+
       const mapped: SRCardItem[] = (data ?? []).map(r => {
+        if (r.source_type === 'vocabulary') {
+          const vocab = vocabMap[r.source_id as string];
+          if (!vocab) return null;
+          return {
+            id:           r.id,
+            cardType:     (r.card_type as CardType),
+            userLevel:    r.user_level ?? level,
+            moduleIndex:  -1,
+            topicIndex:   -1,
+            topicTitle:   vocab.term,
+            easeFactor:   r.ease_factor ?? 2.5,
+            intervalDays: r.interval_days ?? 0,
+            repetitions:  r.repetitions ?? 0,
+            // Vocabulary-specific extra data
+            vocabTerm:       vocab.term,
+            vocabDefinition: vocab.definition,
+            vocabExample:    vocab.example ?? undefined,
+            vocabCategory:   vocab.category,
+          } as SRCardItem;
+        }
         const parts = (r.source_id as string).split(':');
         return {
           id:           r.id,
@@ -229,8 +325,8 @@ export default function ReviewSession() {
           easeFactor:   r.ease_factor ?? 2.5,
           intervalDays: r.interval_days ?? 0,
           repetitions:  r.repetitions ?? 0,
-        };
-      }).filter(item => !!generateCardQuestion(item)); // only items with valid content
+        } as SRCardItem;
+      }).filter((item): item is SRCardItem => item !== null && !!generateCardQuestion(item)); // only items with valid content
 
       setItems(mapped);
       setLoading(false);

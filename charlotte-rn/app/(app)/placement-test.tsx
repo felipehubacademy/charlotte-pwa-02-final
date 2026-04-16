@@ -547,7 +547,7 @@ export default function PlacementTestScreen() {
       {/* Scrollable content */}
       <Animated.View style={{ flex: 1, transform: [{ translateX: slideAnim }] }}>
         <ScrollView
-          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 }}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, paddingBottom: verified ? 280 : 16 }}
           showsVerticalScrollIndicator={false}
         >
           {/* Charlotte instruction */}
@@ -646,8 +646,10 @@ export default function PlacementTestScreen() {
       {verified && (
         <Animated.View style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
-          backgroundColor: currentIsCorrect ? 'rgba(163,255,60,0.15)' : 'rgba(220,38,38,0.07)',
+          backgroundColor: currentIsCorrect ? '#EDFFD0' : '#FFF0F0',
           borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          borderTopWidth: 1,
+          borderColor: currentIsCorrect ? '#A3FF3C40' : '#DC262640',
           paddingHorizontal: 24, paddingTop: 24,
           paddingBottom: insets.bottom + 20,
           transform: [{ translateY: feedbackTranslateY }],

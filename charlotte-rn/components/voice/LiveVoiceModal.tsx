@@ -622,7 +622,12 @@ export default function LiveVoiceModal({
         }, 500);
 
         InCallManager.start({ media: 'audio' });
-        InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+        // Android: InCallManager.start needs a moment to initialise the audio
+        // session before setForceSpeakerphoneOn takes effect — without the delay
+        // the call starts on earpiece even when isSpeaker=true.
+        setTimeout(() => {
+          InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+        }, Platform.OS === 'android' ? 300 : 0);
 
         // Iniciar timers
         startSessionTimer();

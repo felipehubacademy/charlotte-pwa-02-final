@@ -18,6 +18,7 @@ import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { translationService, TranslationResult } from '@/lib/translation-service';
 import PronunciationScoreCard, { PronunciationData } from '@/components/chat/PronunciationScoreCard';
+import { AddWordModal } from '@/components/vocabulary/AddWordModal';
 
 export interface Message {
   id: string;
@@ -35,6 +36,7 @@ export interface Message {
   isDemonstration?: boolean;             // Charlotte demonstrating a word via TTS
   isSeparator?: boolean;                 // Visual divider between history and current session
   isExplainMore?: boolean;              // Response to an "Explain more" tap — hides the button
+  vocabularySuggestions?: string[];     // Terms Charlotte suggests adding to vocabulary
 }
 
 interface ChatBoxProps {
@@ -127,6 +129,7 @@ const MessageBubble: React.FC<{
   const [isTranslating, setIsTranslating] = React.useState(false);
   const [translationError, setTranslationError] = React.useState(false);
   const [transcription, setTranscription] = React.useState('');
+  const [addWordTerm, setAddWordTerm] = React.useState<string | null>(null);
 
   const isUser = message.role === 'user';
   const isNovice = userLevel === 'Novice';
@@ -370,12 +373,42 @@ const MessageBubble: React.FC<{
         )}
 
 
+        {/* Vocabulary suggestion chips */}
+        {!isUser && !!message.vocabularySuggestions?.length && (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+            {message.vocabularySuggestions.map(term => (
+              <TouchableOpacity
+                key={term}
+                onPress={() => setAddWordTerm(term)}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  backgroundColor: 'rgba(61,136,0,0.10)',
+                  borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+                  borderWidth: 1, borderColor: 'rgba(61,136,0,0.20)',
+                }}
+              >
+                <AppText style={{ fontSize: 12, color: '#3D8800', fontWeight: '600' }}>+ {term}</AppText>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
         {/* Timestamp */}
         <AppText style={{ fontSize: 10, color: 'rgba(22,21,58,0.35)', marginTop: 4, paddingHorizontal: 4, textAlign: isUser ? 'right' : 'left' }}>
           {message.timestamp?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </AppText>
       </View>
     </View>
+
+    {/* Add Word modal — triggered by vocab chip tap */}
+    {addWordTerm !== null && (
+      <AddWordModal
+        visible
+        onClose={() => setAddWordTerm(null)}
+        initialTerm={addWordTerm}
+        source="charlotte"
+      />
+    )}
   );
 };
 

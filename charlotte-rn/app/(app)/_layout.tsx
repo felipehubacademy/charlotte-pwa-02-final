@@ -46,6 +46,7 @@ export default function AppLayout() {
         <Stack.Screen name="placement-test" options={{ animation: 'none' }} />
         <Stack.Screen name="charlotte-intro" options={{ animation: 'none', gestureEnabled: false }} />
         <Stack.Screen name="leaderboard" />
+        <Stack.Screen name="my-vocabulary" />
       </Stack>
       </AchievementsProvider>
     </XPToastProvider>

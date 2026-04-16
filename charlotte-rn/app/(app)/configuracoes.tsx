@@ -21,6 +21,7 @@ import {
   ArrowsClockwise,
   Trash,
   PencilSimple,
+  BookOpen,
 } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
@@ -386,6 +387,12 @@ export default function ConfiguracoesScreen() {
           icon={<GraduationCap size={18} color={C.greenDark} weight="duotone" />}
           label={isPt ? 'Refazer teste de nível' : 'Retake placement test'}
           onPress={handleRetakePlacementTest}
+          chevron
+        />
+        <SettingRow
+          icon={<BookOpen size={18} color={C.greenDark} weight="duotone" />}
+          label={isPt ? 'Meu Vocabulário' : 'My Vocabulary'}
+          onPress={() => router.push('/(app)/my-vocabulary')}
           chevron
         />
 

@@ -129,6 +129,52 @@ export async function scheduleReviews(
   if (error) console.warn('[spacedRep] scheduleReviews error:', error.message);
 }
 
+// ── Schedule SR cards for a user vocabulary item ──────────────────────────────
+
+export async function scheduleVocabReviews(
+  userId: string,
+  vocabId: string,
+  category: string,
+  term: string,
+  level: string,
+): Promise<void> {
+  // Choose card types based on category
+  let cardTypes: CardType[];
+  if (category === 'idiom') {
+    cardTypes = ['context_guess', 'gap_fill'];
+  } else if (category === 'phrasal_verb') {
+    cardTypes = ['context_guess', 'gap_fill'];
+  } else if (category === 'grammar') {
+    cardTypes = ['charlotte_challenge', 'gap_fill'];
+  } else {
+    cardTypes = ['gap_fill', 'reverse'];
+  }
+
+  const now = new Date();
+  const initialIntervals = [1, 5]; // 2 cards: day 1 + day 5
+
+  const rows = initialIntervals.map((days, i) => {
+    const reviewAt = new Date(now);
+    reviewAt.setDate(reviewAt.getDate() + days);
+    return {
+      user_id:       userId,
+      source_type:   'vocabulary',
+      source_id:     vocabId,
+      card_type:     cardTypes[i] ?? cardTypes[0],
+      content:       {},
+      user_level:    level,
+      topic_title:   term,
+      ease_factor:   2.5,
+      interval_days: days,
+      repetitions:   0,
+      next_review_at: reviewAt.toISOString(),
+    };
+  });
+
+  const { error } = await supabase.from('sr_items').insert(rows);
+  if (error) console.warn('[spacedRep] scheduleVocabReviews error:', error.message);
+}
+
 // ── Buscar revisões pendentes ─────────────────────────────────────────────────
 
 export async function getPendingReviews(userId: string): Promise<ReviewItem[]> {

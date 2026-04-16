@@ -31,6 +31,7 @@ import {
   BookOpenText,
   Headphones,
   LightbulbFilament,
+  BookOpen,
 } from 'phosphor-react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
@@ -49,6 +50,8 @@ import { cacheHomeData, getCachedHomeData } from '@/lib/offlineCache';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePaywallContext } from '@/lib/paywallContext';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
+import { VocabFAB } from '@/components/vocabulary/VocabFAB';
+import { AddWordModal } from '@/components/vocabulary/AddWordModal';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 
 const API_BASE_URL =
@@ -807,6 +810,7 @@ export default function HomeScreen() {
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showTipModal, setShowTipModal]   = useState(false);
+  const [addWordFromTip, setAddWordFromTip] = useState(false);
   const [showLiveVoice, setShowLiveVoice]           = useState(false);
   const [liveVoiceRemaining, setLiveVoiceRemaining] = useState<number | null>(null);
   const [pendingReviews, setPendingReviews]         = useState<ReviewItem[]>([]);
@@ -1504,16 +1508,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             onPress={() => {
               if (pendingReviews.length === 0) return;
-              const r = pendingReviews[0];
-              router.push({
-                pathname: '/(app)/learn-session',
-                params: {
-                  level: r.userLevel,
-                  moduleIndex: r.moduleIndex.toString(),
-                  topicIndex: r.topicIndex.toString(),
-                  reviewId: r.id.toString(),
-                },
-              });
+              router.push('/(app)/review-session');
             }}
             activeOpacity={pendingReviews.length > 0 ? 0.72 : 1}
             style={{
@@ -1566,6 +1561,37 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
         </View>
+
+        {/* My Vocabulary quick link */}
+        <TouchableOpacity
+          onPress={() => router.push('/(app)/my-vocabulary')}
+          activeOpacity={0.78}
+          style={{
+            marginHorizontal: 20, marginTop: 10,
+            backgroundColor: C.card,
+            borderRadius: 14, borderWidth: 1, borderColor: C.navyGhost,
+            paddingHorizontal: 16, paddingVertical: 12,
+            flexDirection: 'row', alignItems: 'center', gap: 10,
+            ...cardShadow,
+          }}
+        >
+          <View style={{
+            width: 36, height: 36, borderRadius: 10,
+            backgroundColor: 'rgba(61,136,0,0.10)',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <BookOpen size={20} color={C.greenDark} weight="fill" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
+              {isPortuguese ? 'Meu Vocabulário' : 'My Vocabulary'}
+            </AppText>
+            <AppText style={{ fontSize: 11, color: C.navyLight }}>
+              {isPortuguese ? 'Palavras salvas & revisão' : 'Saved words & review'}
+            </AppText>
+          </View>
+          <CaretRight size={16} color={C.navyLight} />
+        </TouchableOpacity>
 
         {/* ══════════════════════════════════════════
             PRACTICE — destination cards
@@ -1724,10 +1750,40 @@ export default function HomeScreen() {
                 )}
               </View>
 
+              {/* Add to my list button */}
+              <TouchableOpacity
+                onPress={() => { setShowTipModal(false); setAddWordFromTip(true); }}
+                style={{
+                  marginTop: 16,
+                  backgroundColor: C.greenDark,
+                  borderRadius: 12, paddingVertical: 12,
+                  flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <BookOpen size={16} color="#FFFFFF" weight="fill" />
+                <AppText style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
+                  {isPortuguese ? '+ Salvar na minha lista' : '+ Add to my list'}
+                </AppText>
+              </TouchableOpacity>
+
             </View>
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Add Word modal from Tip of the Day */}
+      <AddWordModal
+        visible={addWordFromTip}
+        onClose={() => setAddWordFromTip(false)}
+        initialTerm={tip.term}
+        initialDefinition={isPortuguese && tip.meaningPt ? tip.meaningPt : tip.meaning}
+        initialExample={tip.example}
+        initialCategory={tip.type as 'word' | 'idiom' | 'phrasal_verb' | 'grammar'}
+        source="tip_of_day"
+      />
+
+      {/* FAB — adicionar palavra */}
+      <VocabFAB bottom={68} />
 
     </SafeAreaView>
   );

@@ -249,6 +249,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         feedback: data.result.feedback as string,
         technicalFeedback: data.result.technicalFeedback as string | undefined,
         xpAwarded: (data.result.xpAwarded as number) ?? 10,
+        vocabularySuggestions: (data.result.vocabulary_suggestions as string[] | undefined) ?? [],
       };
     },
     [userLevel, userName, mode]
@@ -315,7 +316,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       try {
         const result = await getAssistantResponse(text.trim(), 'text');
         if (!result) { setIsProcessing(false); return; }
-        const { feedback, technicalFeedback, xpAwarded } = result;
+        const { feedback, technicalFeedback, xpAwarded, vocabularySuggestions } = result;
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
@@ -326,7 +327,10 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         }
 
         // Text input → text output always (no TTS regardless of mode)
-        await deliverSequentially([feedback.trim()], technicalFeedback, false);
+        await deliverSequentially(
+          [feedback.trim()], technicalFeedback, false,
+          vocabularySuggestions?.length ? { vocabularySuggestions } : {}
+        );
 
         // Save assistant reply to history
         saveChatMessage(userId, 'assistant', feedback, mode);
@@ -747,7 +751,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         // Save transcription as user message in chat history
         saveChatMessage(userId, 'user', transcription, mode);
 
-        const { feedback, technicalFeedback, xpAwarded } =
+        const { feedback, technicalFeedback, xpAwarded, vocabularySuggestions } =
           await getAssistantResponse(transcription, 'audio');
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
@@ -760,7 +764,10 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
 
         // chat audio in → audio out (TTS); grammar audio in → text out
         const withAudio = mode === 'chat';
-        await deliverSequentially([feedback.trim()], technicalFeedback, withAudio);
+        await deliverSequentially(
+          [feedback.trim()], technicalFeedback, withAudio,
+          vocabularySuggestions?.length ? { vocabularySuggestions } : {}
+        );
 
         // Save assistant reply to chat history
         saveChatMessage(userId, 'assistant', feedback, mode);
