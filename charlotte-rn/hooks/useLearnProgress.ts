@@ -93,10 +93,20 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
   ) => {
     if (!userId) return;
 
-    const key: CompletedKey = { m: moduleIndex, t: topicIndex };
-    const existing = progress?.completed ?? [];
+    // Always read fresh state from DB — never trust potentially stale in-memory progress.
+    // This prevents alreadyDone false-positive and silent no-op updates.
+    const { data: fresh, error: fetchErr } = await supabase
+      .from('learn_progress')
+      .select('module_index, topic_index, completed')
+      .eq('user_id', userId)
+      .eq('level', lvl)
+      .maybeSingle();
+
+    if (fetchErr) console.error('[useLearnProgress] fresh fetch error', fetchErr);
+
+    const existing: CompletedKey[] = (fresh?.completed as CompletedKey[]) ?? [];
     const alreadyDone = existing.some(k => k.m === moduleIndex && k.t === topicIndex);
-    const newCompleted = alreadyDone ? existing : [...existing, key];
+    const newCompleted = alreadyDone ? existing : [...existing, { m: moduleIndex, t: topicIndex }];
 
     // Advance pointer only on first-time completion; redos keep current pointer
     const modules = CURRICULUM[lvl];
@@ -104,40 +114,41 @@ export function useLearnProgress(userId: string | undefined, level: TrailLevel):
     let nextTopic: number;
 
     if (alreadyDone) {
-      // Redo of a previously completed topic — don't move the frontier
-      nextModule = progress?.moduleIndex ?? moduleIndex;
-      nextTopic  = progress?.topicIndex  ?? topicIndex;
+      // Redo — keep the frontier wherever it already is
+      nextModule = fresh?.module_index ?? moduleIndex;
+      nextTopic  = fresh?.topic_index  ?? topicIndex;
     } else {
       nextModule = moduleIndex;
       nextTopic  = topicIndex + 1;
-      if (nextTopic >= modules[moduleIndex].topics.length) {
+      if (nextTopic >= (modules?.[moduleIndex]?.topics?.length ?? 0)) {
         nextModule = moduleIndex + 1;
         nextTopic  = 0;
       }
-      if (nextModule >= modules.length) {
+      if (!modules?.[nextModule]) {
         // Trail complete — stay at last position
         nextModule = moduleIndex;
         nextTopic  = topicIndex;
       }
     }
 
+    // upsert: creates row if missing, updates if exists — never a silent no-op
     const { error } = await supabase
       .from('learn_progress')
-      .update({
+      .upsert({
+        user_id:      userId,
+        level:        lvl,
         module_index: nextModule,
         topic_index:  nextTopic,
         completed:    newCompleted,
         updated_at:   new Date().toISOString(),
-      })
-      .eq('user_id', userId)
-      .eq('level', lvl);
+      }, { onConflict: 'user_id,level' });
 
     if (error) {
-      console.error('[useLearnProgress] update error', error);
+      console.error('[useLearnProgress] upsert error', error);
     } else {
       setProgress({ moduleIndex: nextModule, topicIndex: nextTopic, completed: newCompleted });
     }
-  }, [userId, progress]);
+  }, [userId]);
 
   // ── Save single exercise result ──────────────────────────────────────────
   const saveExercise = useCallback(async (params: SaveExerciseParams) => {
