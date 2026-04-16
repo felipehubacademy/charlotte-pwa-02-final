@@ -217,46 +217,55 @@ export function AddWordModal({
   const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded;
 
   return (
-    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
+    <Modal visible={visible} animationType="fade" transparent statusBarTranslucent>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Backdrop */}
         <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(22,21,58,0.40)' }}
+          style={{ flex: 1, backgroundColor: 'rgba(22,21,58,0.55)' }}
           activeOpacity={1}
           onPress={onClose}
         />
 
-        {/* Sheet */}
+        {/* Sheet — estilo card do app */}
         <View style={{
-          backgroundColor: C.bg,
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
+          backgroundColor: C.card,
+          borderTopLeftRadius: 28,
+          borderTopRightRadius: 28,
           paddingBottom: insets.bottom + 16,
-          maxHeight: '92%',
+          maxHeight: '90%',
+          ...Platform.select({
+            ios:     { shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: -4 } },
+            android: { elevation: 12 },
+          }),
         }}>
+          {/* Handle bar */}
+          <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
+            <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(22,21,58,0.12)' }} />
+          </View>
+
           {/* Header */}
           <View style={{
             flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-            paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
-            borderBottomWidth: 1, borderBottomColor: C.border,
+            paddingHorizontal: 20, paddingTop: 8, paddingBottom: 14,
           }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <BookOpen size={20} color={C.greenDark} weight="fill" />
-              <AppText style={{ fontSize: 17, fontWeight: '700', color: C.navy }}>
-                {isPt ? 'Adicionar palavra' : 'Add word'}
-              </AppText>
-            </View>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <X size={20} color={C.navyMid} weight="bold" />
+            <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy }}>
+              {isPt ? 'Adicionar palavra' : 'Add word'}
+            </AppText>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <X size={16} color={C.navyMid} weight="bold" />
             </TouchableOpacity>
           </View>
 
           <ScrollView
             keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 8, gap: 14 }}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 8, gap: 16 }}
             showsVerticalScrollIndicator={false}
           >
             {/* Term input */}

@@ -326,7 +326,12 @@ export default function ReviewSession() {
           intervalDays: r.interval_days ?? 0,
           repetitions:  r.repetitions ?? 0,
         } as SRCardItem;
-      }).filter((item): item is SRCardItem => item !== null && !!generateCardQuestion(item)); // only items with valid content
+      }).filter((item): item is SRCardItem => {
+        if (item === null) return false;
+        const q = generateCardQuestion(item);
+        if (!q) console.warn('[ReviewSession] item filtered out (no question):', item.topicTitle, item.cardType, item.moduleIndex, item.topicIndex);
+        return !!q;
+      });
 
       setItems(mapped);
       setLoading(false);
@@ -488,9 +493,13 @@ export default function ReviewSession() {
           </AppText>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={{ marginTop: 32, backgroundColor: levelAccent, borderRadius: 14, paddingVertical: 14, paddingHorizontal: 32 }}
+            activeOpacity={0.82}
+            style={{
+              marginTop: 32, backgroundColor: C.greenDark,
+              borderRadius: 16, paddingVertical: 14, paddingHorizontal: 40,
+            }}
           >
-            <AppText style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>
+            <AppText style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
               {isPt ? 'Voltar ao inicio' : 'Back to Home'}
             </AppText>
           </TouchableOpacity>
@@ -566,19 +575,28 @@ export default function ReviewSession() {
           {/* Buttons */}
           <TouchableOpacity
             onPress={() => router.replace('/(app)')}
-            style={{ marginTop: 24, backgroundColor: levelAccent, borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}
+            activeOpacity={0.82}
+            style={{
+              marginTop: 24, backgroundColor: C.greenDark,
+              borderRadius: 16, paddingVertical: 16, alignItems: 'center',
+              ...Platform.select({ ios: { shadowColor: C.greenDark, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 4 } }),
+            }}
           >
-            <AppText style={{ color: '#FFF', fontSize: 16, fontWeight: '700' }}>
+            <AppText style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
               {isPt ? 'Voltar ao inicio' : 'Back to Home'}
             </AppText>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.replace('/(app)')}
-            style={{ marginTop: 10, borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: levelAccent }}
+            onPress={() => router.push('/(app)/my-vocabulary')}
+            activeOpacity={0.78}
+            style={{
+              marginTop: 10, borderRadius: 16, paddingVertical: 14,
+              alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(22,21,58,0.15)',
+            }}
           >
-            <AppText style={{ color: levelAccent, fontSize: 15, fontWeight: '700' }}>
-              {isPt ? 'Adicionar palavra' : 'Add a Word'}
+            <AppText style={{ color: C.navyMid, fontSize: 15, fontWeight: '600' }}>
+              {isPt ? 'Meu vocabulario' : 'My vocabulary'}
             </AppText>
           </TouchableOpacity>
         </ScrollView>
