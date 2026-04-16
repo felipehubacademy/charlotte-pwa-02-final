@@ -1524,7 +1524,7 @@ export default function HomeScreen() {
               borderColor: pendingReviews.length > 0 ? (levelAccent + '35') : C.navyGhost,
               padding: 16,
               gap: 10,
-              ...cardShadow,
+              ...(pendingReviews.length > 0 ? {} : cardShadow),
             }}
           >
             {/* badge */}
