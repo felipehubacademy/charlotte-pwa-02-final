@@ -264,10 +264,7 @@ export default function AchievementsScreen() {
                 }}>
                   <CheckCircle size={15} color={C.green} weight="fill" />
                   <AppText style={{ fontSize: 12, fontWeight: '700', color: C.green }}>
-                    {isPortuguese ? 'Conquistado em ' : 'Earned on '}
-                    {ach.earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', {
-                      day: '2-digit', month: 'short', year: 'numeric',
-                    })}
+                    {(isPortuguese ? 'Conquistado em ' : 'Earned on ') + ach.earnedAt.toLocaleDateString(isPortuguese ? 'pt-BR' : 'en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
                   </AppText>
                 </View>
               )}
