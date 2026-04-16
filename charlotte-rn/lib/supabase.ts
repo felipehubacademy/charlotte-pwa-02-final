@@ -2,8 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
-const supabaseUrl: string = Constants.expoConfig?.extra?.supabaseUrl ?? '';
-const supabaseAnonKey: string = Constants.expoConfig?.extra?.supabaseAnonKey ?? '';
+// process.env.EXPO_PUBLIC_* is statically replaced by Metro at bundle time — works for OTA updates.
+// Constants.expoConfig?.extra is read from the OTA manifest and does NOT include extra values,
+// so it cannot be used for OTA-delivered bundles.
+const supabaseUrl: string =
+  process.env.EXPO_PUBLIC_SUPABASE_URL ??
+  Constants.expoConfig?.extra?.supabaseUrl ?? '';
+const supabaseAnonKey: string =
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ??
+  Constants.expoConfig?.extra?.supabaseAnonKey ?? '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn('[Supabase] EXPO_PUBLIC_SUPABASE_URL ou EXPO_PUBLIC_SUPABASE_ANON_KEY não definidas.');
