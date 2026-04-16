@@ -172,7 +172,7 @@ export default function MyVocabularyScreen() {
       </SafeAreaView>
 
       {/* Search bar */}
-      <View style={{ paddingHorizontal: 16, marginTop: 10, marginBottom: 10 }}>
+      <View style={{ paddingHorizontal: 16, marginTop: 16, marginBottom: 10 }}>
         <View style={{
           flexDirection: 'row', alignItems: 'center', gap: 8,
           backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
