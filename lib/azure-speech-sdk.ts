@@ -388,37 +388,45 @@ export class AzureSpeechOfficialService {
     }
   }
 
-  // 🎵 CRIAR AUDIO CONFIG OFICIAL
+  // 🎵 CRIAR AUDIO CONFIG — detecta formato pelo Content-Type e usa o stream correto
   private async createOfficialAudioConfig(audioBlob: Blob): Promise<sdk.AudioConfig> {
-    console.log('🎵 Creating OFFICIAL AudioConfig...');
-    
+    const mimeType = audioBlob.type ?? '';
+    console.log('🎵 Creating AudioConfig — MIME:', mimeType, 'size:', audioBlob.size);
+
     try {
       const arrayBuffer = await audioBlob.arrayBuffer();
-      
-      console.log('📊 Official audio data:', {
-        size: arrayBuffer.byteLength,
-        type: audioBlob.type
-      });
 
-      // ✅ USAR MÉTODO OFICIAL DA MICROSOFT
-      // Conforme documentação: usar AudioConfig.fromWavFileInput ou fromStreamInput
-      
-      // Criar stream de áudio oficial
+      // iOS grava WAV PCM 16kHz mono → declara PCM corretamente
+      if (mimeType.includes('wav') || mimeType.includes('wave')) {
+        console.log('✅ Format: WAV PCM — using getWaveFormatPCM(16000, 16, 1)');
+        const audioFormat = sdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
+        const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
+        pushStream.write(arrayBuffer);
+        pushStream.close();
+        return sdk.AudioConfig.fromStreamInput(pushStream);
+      }
+
+      // Android grava OGG/OPUS 16kHz mono → declara OGG_OPUS
+      if (mimeType.includes('ogg') || mimeType.includes('opus')) {
+        console.log('✅ Format: OGG_OPUS — using getCompressedFormat(OGG_OPUS)');
+        const audioFormat = sdk.AudioStreamFormat.getCompressedFormat(sdk.AudioFormatTag.OGG_OPUS);
+        const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
+        pushStream.write(arrayBuffer);
+        pushStream.close();
+        return sdk.AudioConfig.fromStreamInput(pushStream);
+      }
+
+      // Fallback para M4A/AAC legado (iOS anterior à mudança) — tenta PCM como antes
+      console.warn('⚠️ Unknown format:', mimeType, '— falling back to PCM declaration (may be inaccurate)');
       const audioFormat = sdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-      const pushStream = sdk.AudioInputStream.createPushStream(audioFormat);
-      
-      // Enviar dados de áudio
+      const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
       pushStream.write(arrayBuffer);
       pushStream.close();
-
-      const audioConfig = sdk.AudioConfig.fromStreamInput(pushStream);
-      
-      console.log('✅ Official AudioConfig created successfully');
-      return audioConfig;
+      return sdk.AudioConfig.fromStreamInput(pushStream);
 
     } catch (error) {
-      console.error('❌ Official AudioConfig creation failed:', error);
-      throw new Error(`Official AudioConfig creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('❌ AudioConfig creation failed:', error);
+      throw new Error(`AudioConfig creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 
