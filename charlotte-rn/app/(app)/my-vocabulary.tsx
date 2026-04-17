@@ -78,26 +78,40 @@ function reviewLabel(nextReview: string | null, isPt: boolean): { label: string;
 export default function MyVocabularyScreen() {
   const { profile, session } = useAuth();
   const insets = useSafeAreaInsets();
-  const isPt   = profile?.charlotte_level === 'Novice';
+  const level  = profile?.charlotte_level ?? 'Inter';
+  const isPt   = level === 'Novice';
   const userId = session?.user?.id;
 
-  const [items,    setItems]    = useState<VocabItem[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState<VocabCategory>('all');
-  const [search,   setSearch]   = useState('');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  // Level accent color — matches review-session and home screen
+  const levelAccent = level === 'Novice' ? '#D97706' : level === 'Inter' ? '#7C3AED' : '#0F766E';
+
+  const [items,     setItems]    = useState<VocabItem[]>([]);
+  const [loading,   setLoading]  = useState(true);
+  const [dueCount,  setDueCount] = useState(0);
+  const [filter,    setFilter]   = useState<VocabCategory>('all');
+  const [search,    setSearch]   = useState('');
+  const [expanded,  setExpanded] = useState<string | null>(null);
 
   const openAdd = () => router.push({ pathname: '/(app)/add-word', params: { source: 'manual' } });
 
   const load = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from('user_vocabulary')
-      .select('id, term, definition, example, example_translation, phonetic, category, source, next_review_at, repetitions, created_at')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
-    if (!error) setItems(data ?? []);
+    const [vocabRes, srRes] = await Promise.all([
+      supabase
+        .from('user_vocabulary')
+        .select('id, term, definition, example, example_translation, phonetic, category, source, next_review_at, repetitions, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('sr_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('source_type', 'vocabulary')
+        .lte('next_review_at', new Date().toISOString()),
+    ]);
+    if (!vocabRes.error) setItems(vocabRes.data ?? []);
+    setDueCount(srRes.count ?? 0);
     setLoading(false);
   }, [userId]);
 
@@ -131,10 +145,6 @@ export default function MyVocabularyScreen() {
     );
   }, [isPt]);
 
-  const dueCount = items.filter(i => {
-    if (!i.next_review_at) return true;
-    return new Date(i.next_review_at) <= new Date();
-  }).length;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -164,7 +174,7 @@ export default function MyVocabularyScreen() {
               onPress={() => router.push('/(app)/review-session')}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: C.navy, borderRadius: 20,
+                backgroundColor: levelAccent, borderRadius: 20,
                 paddingHorizontal: 14, paddingVertical: 8,
               }}
             >
@@ -199,8 +209,8 @@ export default function MyVocabularyScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 2 }}
-        style={{ marginBottom: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 2, alignItems: 'center' }}
+        style={{ height: 44, marginBottom: 12, flexGrow: 0, flexShrink: 0 }}
       >
         {FILTERS.map((f, idx) => {
           const sel = filter === f.key;

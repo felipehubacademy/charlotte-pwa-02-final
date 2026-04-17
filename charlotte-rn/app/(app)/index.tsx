@@ -1796,7 +1796,7 @@ export default function HomeScreen() {
       </Modal>
 
       {/* FAB — adicionar palavra */}
-      <VocabFAB bottom={68} color={levelAccent} />
+      <VocabFAB bottom={68} color={C.navy} />
 
     </SafeAreaView>
   );
