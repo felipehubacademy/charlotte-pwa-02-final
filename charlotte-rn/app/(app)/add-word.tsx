@@ -9,7 +9,7 @@
  *   source?      – origem: manual | charlotte | learn_trail | tip_of_day
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, TextInput, TouchableOpacity, ActivityIndicator,
   ScrollView, Platform, Alert, KeyboardAvoidingView,
@@ -80,6 +80,10 @@ export default function AddWordScreen() {
   const [saving,      setSaving]     = useState(false);
   const [alreadyAdded, setAlreadyAdded] = useState(false);
   const [ttsLoading,  setTtsLoading] = useState(false);
+  // Pro-active term validation
+  type TermStatus = 'idle' | 'checking' | 'duplicate' | 'cached' | 'unknown';
+  const [termStatus, setTermStatus] = useState<TermStatus>('idle');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-generate if term was passed in and has no definition yet
   useEffect(() => {
@@ -88,6 +92,33 @@ export default function AddWordScreen() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Pro-active validation: debounce 600ms → check duplicate + cache
+  useEffect(() => {
+    const t = term.trim();
+    if (!t || !userId) { setTermStatus('idle'); return; }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setTermStatus('checking');
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const [dupRes, cacheRes] = await Promise.all([
+          supabase
+            .from('user_vocabulary')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .ilike('term', t),
+          supabase
+            .from('vocabulary_master')
+            .select('term', { count: 'exact', head: true })
+            .ilike('term', t),
+        ]);
+        if ((dupRes.count ?? 0) > 0)        setTermStatus('duplicate');
+        else if ((cacheRes.count ?? 0) > 0) setTermStatus('cached');
+        else                                 setTermStatus('unknown');
+      } catch { setTermStatus('idle'); }
+    }, 600);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [term, userId]);
 
   const handleGenerate = useCallback(async (termOverride?: string) => {
     const t = (termOverride ?? term).trim();
@@ -202,7 +233,7 @@ export default function AddWordScreen() {
     }
   }, [userId, term, definition, example, exampleTr, phonetic, category, params.source, isPt, level]);
 
-  const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded;
+  const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded && termStatus !== 'duplicate';
 
   return (
     <View style={{ flex: 1, backgroundColor: C.card }}>
@@ -250,7 +281,7 @@ export default function AddWordScreen() {
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
                 value={term}
-                onChangeText={t => { setTerm(t); setAlreadyAdded(false); }}
+                onChangeText={t => { setTerm(t); setAlreadyAdded(false); setTermStatus('idle'); }}
                 placeholder={isPt ? 'ex: take it easy' : 'e.g. take it easy'}
                 placeholderTextColor={C.muted}
                 style={{
@@ -298,6 +329,40 @@ export default function AddWordScreen() {
                 {phonetic}
               </AppText>
             ) : null}
+
+            {/* Term status banner */}
+            {termStatus === 'checking' && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 2 }}>
+                <ActivityIndicator size="small" color={C.muted} />
+                <AppText style={{ fontSize: 12, color: C.muted }}>
+                  {isPt ? 'Verificando...' : 'Checking...'}
+                </AppText>
+              </View>
+            )}
+            {termStatus === 'duplicate' && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
+                backgroundColor: 'rgba(217,119,6,0.08)', borderRadius: 10,
+                paddingHorizontal: 12, paddingVertical: 8,
+              }}>
+                <AppText style={{ fontSize: 18 }}>!</AppText>
+                <AppText style={{ fontSize: 13, color: '#D97706', fontWeight: '600', flex: 1 }}>
+                  {isPt ? 'Essa palavra já está no seu vocabulário.' : 'This word is already in your vocabulary.'}
+                </AppText>
+              </View>
+            )}
+            {termStatus === 'cached' && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
+                backgroundColor: C.greenBg, borderRadius: 10,
+                paddingHorizontal: 12, paddingVertical: 8,
+              }}>
+                <Check size={16} color={C.greenDark} weight="bold" />
+                <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600', flex: 1 }}>
+                  {isPt ? 'Definicao disponivel — toque no botao AI.' : 'Definition ready — tap the AI button.'}
+                </AppText>
+              </View>
+            )}
           </View>
 
           {/* Category */}

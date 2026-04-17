@@ -226,11 +226,21 @@ export default function VocabReview() {
 
     const isLast = idx + 1 >= cards.length;
 
-    // Animate card out (simple fade — no slide to avoid jitter on Android)
-    Animated.parallel([
+    // Animate card out — slide on iOS, fade-only on Android
+    const exitAnims: Animated.CompositeAnimation[] = [
       Animated.timing(opacAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       Animated.timing(btnOpac, { toValue: 0, duration: 120, useNativeDriver: true }),
-    ]).start(() => {
+    ];
+    if (Platform.OS === 'ios') {
+      exitAnims.push(
+        Animated.timing(slideAnim, {
+          toValue: rating === 'hard' ? -40 : 40,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      );
+    }
+    Animated.parallel(exitAnims).start(() => {
       if (isLast) {
         setPhase('summary');
         return;
@@ -457,6 +467,7 @@ export default function VocabReview() {
           transform: [
             { perspective: 1200 },
             { rotateY: cardRotate },
+            ...(Platform.OS === 'ios' ? [{ translateY: slideAnim }] : []),
           ],
         }}>
           {!flipped ? (
