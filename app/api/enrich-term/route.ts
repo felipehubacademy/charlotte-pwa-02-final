@@ -60,13 +60,19 @@ export async function GET(req: NextRequest) {
 
   // ── 2. Generate via GPT — both PT and EN in one call ──────────────────────
   const systemPrompt = `You are an English vocabulary assistant.
-Given a term, return a JSON object with ALL of these fields:
+Given a term, first decide if it is a real English word, phrase, idiom, phrasal verb, or grammatical structure.
+
+If the term is NOT valid (misspelled, gibberish, or not English):
+  Return ONLY: {"invalid":true,"suggestion":"corrected term if you can guess one, otherwise empty string"}
+
+If the term IS valid, return a JSON object with ALL of these fields:
 - definition_en: string — monolingual English definition, B2/C1 dictionary style
 - definition_pt: string — Portuguese (Brazil) definition, simple A2 level for learners
 - example: string — rich, natural English example sentence
 - example_translation_pt: string — the example translated to Brazilian Portuguese
 - phonetic: string — IPA transcription (e.g. /wɜːrd/)
 - category: one of "word" | "idiom" | "phrasal_verb" | "grammar"
+
 Return ONLY the raw JSON object, no markdown, no explanation.`;
 
   let parsed: Record<string, unknown> = {};
@@ -91,6 +97,15 @@ Return ONLY the raw JSON object, no markdown, no explanation.`;
   } catch (err) {
     console.error('[enrich-term] GPT error:', err);
     return NextResponse.json({ error: 'Failed to generate vocabulary data' }, { status: 500 });
+  }
+
+  // ── 2b. Invalid term — return without saving to cache ─────────────────────
+  if (parsed.invalid === true) {
+    return NextResponse.json({
+      success: false,
+      error: 'invalid_term',
+      suggestion: String(parsed.suggestion ?? ''),
+    }, { status: 422 });
   }
 
   // ── 3. Save to master ──────────────────────────────────────────────────────

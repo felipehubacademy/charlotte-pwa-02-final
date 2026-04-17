@@ -80,6 +80,7 @@ export default function AddWordScreen() {
   const [saving,      setSaving]     = useState(false);
   const [alreadyAdded, setAlreadyAdded] = useState(false);
   const [ttsLoading,  setTtsLoading] = useState(false);
+  const [suggestion,  setSuggestion] = useState<string | null>(null);
   // Pro-active term validation
   type TermStatus = 'idle' | 'checking' | 'duplicate' | 'cached' | 'unknown';
   const [termStatus, setTermStatus] = useState<TermStatus>('idle');
@@ -124,12 +125,16 @@ export default function AddWordScreen() {
     const t = (termOverride ?? term).trim();
     if (!t) return;
     setGenerating(true);
+    setSuggestion(null);
     try {
-      // Checa vocabulary_master primeiro — se ja existe, retorna instantaneamente sem custo de IA
       const res = await fetch(
         `${API_BASE}/api/enrich-term?term=${encodeURIComponent(t)}&level=${encodeURIComponent(level)}`,
       );
       const json = await res.json();
+      if (json.error === 'invalid_term') {
+        setSuggestion(json.suggestion ?? '');
+        return;
+      }
       if (json.success && json.data) {
         const d = json.data;
         if (d.definition)          setDefinition(d.definition);
@@ -233,7 +238,7 @@ export default function AddWordScreen() {
     }
   }, [userId, term, definition, example, exampleTr, phonetic, category, params.source, isPt, level]);
 
-  const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded && termStatus !== 'duplicate';
+  const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded && termStatus !== 'duplicate' && suggestion === null;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.card }}>
@@ -281,7 +286,7 @@ export default function AddWordScreen() {
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
                 value={term}
-                onChangeText={t => { setTerm(t); setAlreadyAdded(false); setTermStatus('idle'); }}
+                onChangeText={t => { setTerm(t); setAlreadyAdded(false); setTermStatus('idle'); setSuggestion(null); }}
                 placeholder={isPt ? 'ex: take it easy' : 'e.g. take it easy'}
                 placeholderTextColor={C.muted}
                 style={{
@@ -361,6 +366,34 @@ export default function AddWordScreen() {
                 <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600', flex: 1 }}>
                   {isPt ? 'Definicao disponivel — toque no botao AI.' : 'Definition ready — tap the AI button.'}
                 </AppText>
+              </View>
+            )}
+
+            {/* Suggestion banner — shown after AI button detects invalid term */}
+            {suggestion !== null && (
+              <View style={{
+                marginTop: 8, backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 10,
+                paddingHorizontal: 12, paddingVertical: 10,
+              }}>
+                <AppText style={{ fontSize: 13, color: '#DC2626', fontWeight: '600' }}>
+                  {isPt ? 'Palavra nao encontrada.' : 'Word not found.'}
+                </AppText>
+                {suggestion ? (
+                  <TouchableOpacity
+                    onPress={() => { setTerm(suggestion); setSuggestion(null); setTermStatus('idle'); handleGenerate(suggestion); }}
+                    style={{ marginTop: 4 }}
+                  >
+                    <AppText style={{ fontSize: 13, color: '#DC2626' }}>
+                      {isPt ? `Voce quis dizer ` : 'Did you mean '}
+                      <AppText style={{ fontWeight: '800', textDecorationLine: 'underline' }}>{suggestion}</AppText>
+                      {'?'}
+                    </AppText>
+                  </TouchableOpacity>
+                ) : (
+                  <AppText style={{ fontSize: 13, color: '#DC2626', marginTop: 2 }}>
+                    {isPt ? 'Verifique a grafia.' : 'Check the spelling.'}
+                  </AppText>
+                )}
               </View>
             )}
           </View>
