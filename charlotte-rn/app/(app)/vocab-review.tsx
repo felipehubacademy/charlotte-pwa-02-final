@@ -226,14 +226,9 @@ export default function VocabReview() {
 
     const isLast = idx + 1 >= cards.length;
 
-    // Animate card out
+    // Animate card out (simple fade — no slide to avoid jitter on Android)
     Animated.parallel([
-      Animated.timing(opacAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
-      Animated.timing(slideAnim, {
-        toValue: rating === 'hard' ? -40 : 40,
-        duration: 180,
-        useNativeDriver: true,
-      }),
+      Animated.timing(opacAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       Animated.timing(btnOpac, { toValue: 0, duration: 120, useNativeDriver: true }),
     ]).start(() => {
       if (isLast) {
@@ -462,7 +457,6 @@ export default function VocabReview() {
           transform: [
             { perspective: 1200 },
             { rotateY: cardRotate },
-            { translateY: slideAnim },
           ],
         }}>
           {!flipped ? (
