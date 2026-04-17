@@ -211,10 +211,8 @@ export default function VocabReview() {
 
     // Sound
     soundEngine.play(rating === 'hard' ? 'answer_wrong' : 'answer_correct').catch(() => {});
-    Haptics.notificationAsync(
-      rating === 'hard'
-        ? Haptics.NotificationFeedbackType.Error
-        : Haptics.NotificationFeedbackType.Success,
+    Haptics.impactAsync(
+      rating === 'hard' ? Haptics.ImpactFeedbackStyle.Medium : Haptics.ImpactFeedbackStyle.Light,
     );
 
     // XP toast
