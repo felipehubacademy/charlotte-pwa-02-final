@@ -981,10 +981,9 @@ export default function HomeScreen() {
     if (!userId) return;
     try {
       const { count } = await supabase
-        .from('sr_items')
+        .from('user_vocabulary')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('source_type', 'vocabulary')
         .lte('next_review_at', new Date().toISOString());
       setVocabDueCount(count ?? 0);
     } catch { /* silencioso */ }

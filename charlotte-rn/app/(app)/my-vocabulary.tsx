@@ -104,10 +104,9 @@ export default function MyVocabularyScreen() {
         .eq('user_id', userId)
         .order('created_at', { ascending: false }),
       supabase
-        .from('sr_items')
+        .from('user_vocabulary')
         .select('id', { count: 'exact', head: true })
         .eq('user_id', userId)
-        .eq('source_type', 'vocabulary')
         .lte('next_review_at', new Date().toISOString()),
     ]);
     if (!vocabRes.error) setItems(vocabRes.data ?? []);
@@ -171,7 +170,7 @@ export default function MyVocabularyScreen() {
           {/* Botão de review — só quando há devidas */}
           {!loading && dueCount > 0 && (
             <TouchableOpacity
-              onPress={() => router.push('/(app)/review-session')}
+              onPress={() => router.push('/(app)/vocab-review')}
               style={{
                 flexDirection: 'row', alignItems: 'center', gap: 6,
                 backgroundColor: levelAccent, borderRadius: 20,
