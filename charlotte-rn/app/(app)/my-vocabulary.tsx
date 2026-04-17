@@ -150,14 +150,14 @@ export default function MyVocabularyScreen() {
       <SafeAreaView edges={['top']} style={{ backgroundColor: C.card }}>
         <View style={{
           flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16,
-          paddingVertical: 12, gap: 12,
+          paddingVertical: 14, gap: 12,
           borderBottomWidth: 1, borderBottomColor: C.border,
         }}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <ArrowLeft size={22} color={C.navy} weight="bold" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <AppText style={{ fontSize: 19, fontWeight: '800', color: C.navy }}>
+            <AppText style={{ fontSize: 20, fontWeight: '800', color: C.navy }}>
               {isPt ? 'Meu Vocabulário' : 'My Vocabulary'}
             </AppText>
             {items.length > 0 && (

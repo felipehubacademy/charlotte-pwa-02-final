@@ -235,14 +235,14 @@ export default function LeaderboardScreen() {
           onPress={() => router.back()}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <ArrowLeft size={22} color={C.navy} weight="regular" />
+          <ArrowLeft size={22} color={C.navy} weight="bold" />
         </TouchableOpacity>
 
         <View style={{ flex: 1, alignItems: 'center' }}>
           <AppText style={{ fontSize: 9, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 1 }}>
             CHARLOTTE
           </AppText>
-          <AppText style={{ fontSize: 15, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
+          <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }}>
             Ranking {userLevel}
           </AppText>
         </View>

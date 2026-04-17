@@ -844,7 +844,7 @@ export default function LearnSessionScreen() {
               {modTitle}
             </AppText>
           )}
-          <AppText style={{ fontSize: 14, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }} numberOfLines={1}>
+          <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy, letterSpacing: -0.3 }} numberOfLines={1}>
             {topicTitle}
           </AppText>
         </View>

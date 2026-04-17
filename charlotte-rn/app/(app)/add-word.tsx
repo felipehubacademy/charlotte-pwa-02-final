@@ -40,15 +40,15 @@ const API_BASE = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https:/
 export type VocabCategory = 'word' | 'idiom' | 'phrasal_verb' | 'grammar';
 
 const C = {
-  bg:        '#F4F3FA',
-  card:      '#FFFFFF',
-  navy:      '#16153A',
-  navyMid:   '#4B4A72',
-  muted:     '#9896B8',
-  border:    'rgba(22,21,58,0.12)',
-  greenDark: '#3D8800',
-  greenBg:   'rgba(163,255,60,0.10)',
-  inputBg:   '#F0EFF8',
+  bg:       '#F4F3FA',
+  card:     '#FFFFFF',
+  navy:     '#16153A',
+  navyMid:  '#4B4A72',
+  muted:    '#9896B8',
+  border:   'rgba(22,21,58,0.10)',
+  inputBg:  '#ECEAF5',   // mesmo que my-vocabulary
+  greenBg:  'rgba(61,136,0,0.08)',
+  green:    '#3D8800',
 };
 
 const CATEGORIES: { key: VocabCategory; labelPt: string; labelEn: string }[] = [
@@ -253,16 +253,11 @@ export default function AddWordScreen() {
         }}>
         <TouchableOpacity
           onPress={() => router.back()}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          style={{
-            width: 36, height: 36, borderRadius: 18,
-            backgroundColor: C.bg,
-            alignItems: 'center', justifyContent: 'center',
-          }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <ArrowLeft size={20} color={C.navy} weight="bold" />
+          <ArrowLeft size={22} color={C.navy} weight="bold" />
         </TouchableOpacity>
-        <AppText style={{ flex: 1, fontSize: 18, fontWeight: '800', color: C.navy }}>
+        <AppText style={{ flex: 1, fontSize: 20, fontWeight: '800', color: C.navy, marginLeft: 12 }}>
           {isPt ? 'Adicionar palavra' : 'Add word'}
         </AppText>
         </View>
@@ -292,42 +287,44 @@ export default function AddWordScreen() {
               )}
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
+              {/* Term input — mesmo estilo da search bar do My Vocabulary */}
               <TextInput
                 value={term}
                 onChangeText={t => { setTerm(t); setAlreadyAdded(false); setTermStatus('idle'); setSuggestion(null); }}
                 placeholder={isPt ? 'ex: take it easy' : 'e.g. take it easy'}
                 placeholderTextColor={C.muted}
                 style={{
-                  flex: 1, backgroundColor: C.card, borderRadius: 14,
+                  flex: 1, backgroundColor: C.inputBg, borderRadius: 12,
                   paddingHorizontal: 16, paddingVertical: 14,
                   fontSize: 16, color: C.navy, fontWeight: '500',
-                  borderWidth: 1, borderColor: C.border,
                 }}
                 autoCorrect={false}
                 autoCapitalize="none"
                 returnKeyType="done"
                 onSubmitEditing={() => handleGenerate()}
               />
+              {/* TTS */}
               <TouchableOpacity
                 onPress={handleTts}
                 disabled={ttsLoading || !term.trim()}
                 style={{
-                  width: 52, height: 52, borderRadius: 14,
-                  backgroundColor: C.card, borderWidth: 1, borderColor: C.border,
+                  width: 52, height: 52, borderRadius: 12,
+                  backgroundColor: C.inputBg,
                   alignItems: 'center', justifyContent: 'center',
                 }}
               >
                 {ttsLoading
-                  ? <ActivityIndicator size="small" color={C.greenDark} />
-                  : <SpeakerHigh size={22} color={term.trim() ? C.greenDark : C.muted} weight="fill" />
+                  ? <ActivityIndicator size="small" color={C.navy} />
+                  : <SpeakerHigh size={22} color={term.trim() ? C.navy : C.muted} weight="fill" />
                 }
               </TouchableOpacity>
+              {/* AI enrich */}
               <TouchableOpacity
                 onPress={() => handleGenerate()}
                 disabled={generating || !term.trim()}
                 style={{
-                  width: 52, height: 52, borderRadius: 14,
-                  backgroundColor: term.trim() ? C.greenDark : C.inputBg,
+                  width: 52, height: 52, borderRadius: 12,
+                  backgroundColor: term.trim() ? C.navy : C.inputBg,
                   alignItems: 'center', justifyContent: 'center',
                 }}
               >
@@ -350,6 +347,7 @@ export default function AddWordScreen() {
             <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
               {isPt ? 'CATEGORIA' : 'CATEGORY'}
             </AppText>
+            {/* Chips — mesmo padrão navy do My Vocabulary */}
             <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
               {CATEGORIES.map(c => {
                 const sel = category === c.key;
@@ -358,12 +356,12 @@ export default function AddWordScreen() {
                     key={c.key}
                     onPress={() => setCategory(c.key)}
                     style={{
-                      paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-                      backgroundColor: sel ? C.greenDark : C.card,
-                      borderWidth: 1, borderColor: sel ? C.greenDark : C.border,
+                      paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20,
+                      backgroundColor: sel ? C.navy : C.card,
+                      borderWidth: 1, borderColor: sel ? C.navy : C.border,
                     }}
                   >
-                    <AppText style={{ fontSize: 14, fontWeight: '600', color: sel ? '#FFFFFF' : C.navyMid }}>
+                    <AppText style={{ fontSize: 13, fontWeight: '600', color: sel ? '#FFFFFF' : C.navyMid }}>
                       {isPt ? c.labelPt : c.labelEn}
                     </AppText>
                   </TouchableOpacity>
@@ -384,11 +382,10 @@ export default function AddWordScreen() {
               placeholderTextColor={C.muted}
               multiline
               style={{
-                backgroundColor: C.card, borderRadius: 14,
+                backgroundColor: C.inputBg, borderRadius: 12,
                 paddingHorizontal: 16, paddingVertical: 14,
                 fontSize: 15, color: C.navy, lineHeight: 22,
                 minHeight: 88, textAlignVertical: 'top',
-                borderWidth: 1, borderColor: C.border,
               }}
             />
           </View>
@@ -405,11 +402,10 @@ export default function AddWordScreen() {
               placeholderTextColor={C.muted}
               multiline
               style={{
-                backgroundColor: C.card, borderRadius: 14,
+                backgroundColor: C.inputBg, borderRadius: 12,
                 paddingHorizontal: 16, paddingVertical: 14,
                 fontSize: 15, color: C.navy, lineHeight: 22,
                 minHeight: 72, textAlignVertical: 'top',
-                borderWidth: 1, borderColor: C.border,
               }}
             />
           </View>
@@ -423,15 +419,14 @@ export default function AddWordScreen() {
               <TextInput
                 value={exampleTr}
                 onChangeText={setExampleTr}
-                placeholder="Traducao em portugues..."
+                placeholder="Tradução em português..."
                 placeholderTextColor={C.muted}
                 multiline
                 style={{
-                  backgroundColor: C.card, borderRadius: 14,
+                  backgroundColor: C.inputBg, borderRadius: 12,
                   paddingHorizontal: 16, paddingVertical: 14,
                   fontSize: 15, color: C.navy, lineHeight: 22,
                   minHeight: 72, textAlignVertical: 'top',
-                  borderWidth: 1, borderColor: C.border,
                 }}
               />
             </View>
@@ -460,11 +455,11 @@ export default function AddWordScreen() {
             {termStatus === 'cached' && !definition && (
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: C.greenBg, borderRadius: 10,
+                backgroundColor: 'rgba(22,21,58,0.06)', borderRadius: 10,
                 paddingHorizontal: 12, paddingVertical: 8,
               }}>
-                <Check size={14} color={C.greenDark} weight="bold" />
-                <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600', flex: 1 }}>
+                <Check size={14} color={C.navy} weight="bold" />
+                <AppText style={{ fontSize: 13, color: C.navy, fontWeight: '600', flex: 1 }}>
                   {isPt ? 'Definição disponível — toque no botão AI.' : 'Definition ready — tap the AI button.'}
                 </AppText>
               </View>
@@ -504,10 +499,10 @@ export default function AddWordScreen() {
             {alreadyAdded && (
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 8,
-                backgroundColor: C.greenBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+                backgroundColor: 'rgba(22,21,58,0.06)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
               }}>
-                <Check size={14} color={C.greenDark} weight="bold" />
-                <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600' }}>
+                <Check size={14} color={C.navy} weight="bold" />
+                <AppText style={{ fontSize: 13, color: C.navy, fontWeight: '600' }}>
                   {isPt ? 'Já está no seu vocabulário!' : 'Already in your vocabulary!'}
                 </AppText>
               </View>
@@ -518,12 +513,12 @@ export default function AddWordScreen() {
             disabled={!canSave}
             activeOpacity={0.82}
             style={{
-              backgroundColor: canSave ? C.greenDark : C.border,
+              backgroundColor: canSave ? C.navy : C.inputBg,
               borderRadius: 16, paddingVertical: 16,
               alignItems: 'center', justifyContent: 'center',
               flexDirection: 'row', gap: 8,
               ...Platform.select({
-                ios:     { shadowColor: C.greenDark, shadowOpacity: canSave ? 0.4 : 0, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+                ios:     { shadowColor: C.navy, shadowOpacity: canSave ? 0.25 : 0, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
                 android: { elevation: canSave ? 6 : 0 },
               }),
             }}
