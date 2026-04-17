@@ -458,6 +458,7 @@ export default function VocabReview() {
 
           {/* ── FRONT ── */}
           <Animated.View
+            pointerEvents={flipped ? 'none' : 'auto'}
             style={{
               position: 'absolute', width: '100%',
               backfaceVisibility: 'hidden',
@@ -524,6 +525,7 @@ export default function VocabReview() {
 
           {/* ── BACK ── */}
           <Animated.View
+            pointerEvents={flipped ? 'auto' : 'none'}
             style={{
               position: 'absolute', width: '100%',
               backfaceVisibility: 'hidden',
