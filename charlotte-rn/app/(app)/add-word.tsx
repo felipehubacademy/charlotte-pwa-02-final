@@ -142,6 +142,8 @@ export default function AddWordScreen() {
         if (d.example_translation) setExampleTr(d.example_translation);
         if (d.phonetic)            setPhonetic(d.phonetic);
         if (d.category)            setCategory(d.category as VocabCategory);
+        // Termo validado pelo AI — libera o botão salvar
+        setTermStatus('cached');
       }
     } catch {
       // silencioso — user can fill manually
