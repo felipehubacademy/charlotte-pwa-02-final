@@ -45,7 +45,7 @@ export default function TermosPage() {
             Termos de Uso
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: 0 }}>
-            Última atualização: 07 de abril de 2026
+            Última atualização: 17 de abril de 2026
           </p>
         </div>
       </div>
@@ -108,12 +108,14 @@ export default function TermosPage() {
           ]} />
         </Section>
 
-        <Section title="6. Conteúdo Gerado por IA">
+        <Section title="6. Conteúdo Gerado por IA e Consentimento">
+          <p style={{ marginBottom: 14 }}>O Charlotte AI usa serviços de Inteligência Artificial de terceiros (OpenAI GPT-4o, ElevenLabs e Microsoft Azure Speech) para gerar respostas, sintetizar voz e avaliar pronúncia. Ao utilizar o aplicativo pela primeira vez, você consente explicitamente com o envio de dados a esses serviços, conforme detalhado na nossa <a href="/privacidade" style={{ color: '#7c3aed' }}>Política de Privacidade</a>.</p>
           <List items={[
             'O conteúdo gerado pela IA é para fins educacionais e pode conter imprecisões',
             'As respostas não substituem instrução profissional de idiomas',
             'Não nos responsabilizamos por decisões tomadas com base exclusivamente na IA',
-            'Conversas podem ser utilizadas para melhoria do serviço, conforme a Política de Privacidade',
+            'Conversas e interações de voz são processadas pelos serviços de IA descritos acima e descartadas conforme suas políticas de retenção',
+            'A Charlotte AI pode informar que determinado conteúdo foi gerado por IA; isso é parte normal do serviço',
           ]} />
         </Section>
 

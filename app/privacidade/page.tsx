@@ -45,7 +45,7 @@ export default function PrivacidadePage() {
             Política de Privacidade
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 14, margin: 0 }}>
-            Última atualização: 07 de abril de 2026
+            Última atualização: 17 de abril de 2026
           </p>
         </div>
       </div>
@@ -69,7 +69,7 @@ export default function PrivacidadePage() {
           <DataTable rows={[
             ['Dados de cadastro', 'Nome, e-mail e senha (armazenada com hash seguro).'],
             ['Dados de uso', 'Histórico de conversas com a IA, progresso nas lições, streak diário, nível de inglês e preferências de aprendizado.'],
-            ['Dados de áudio', 'Gravações de voz durante sessões de conversação. Processados em tempo real — não são armazenados permanentemente.'],
+            ['Dados de áudio', 'Gravações de voz durante exercícios de pronúncia e sessões de conversação. Enviados ao Microsoft Azure Speech Services para análise em tempo real e descartados imediatamente após o processamento — não são armazenados permanentemente.'],
 ['Dados de dispositivo', 'Token de notificações push, sistema operacional e versão do app (para lembretes de estudo).'],
             ['Dados de pagamento', 'Processados exclusivamente pela App Store ou Google Play via RevenueCat. Não armazenamos dados bancários.'],
           ]} />
@@ -100,14 +100,26 @@ export default function PrivacidadePage() {
           <p style={{ marginBottom: 16 }}>Não vendemos seus dados. Compartilhamos somente com os parceiros abaixo, contratualmente obrigados a protegê-los:</p>
           <DataTable rows={[
             ['Supabase', 'Banco de dados e autenticação.'],
-            ['OpenAI / ElevenLabs', 'Processamento de linguagem natural e síntese de voz.'],
+            ['OpenAI', 'Geração de respostas, explicações e exercícios via inteligência artificial (GPT-4o). Suas mensagens são processadas e descartadas conforme a política de dados da OpenAI.'],
+            ['ElevenLabs', 'Síntese de voz (text-to-speech) para as falas da Charlotte. Apenas texto é transmitido.'],
+            ['Microsoft Azure Speech', 'Reconhecimento e avaliação de pronúncia. Áudio enviado em tempo real e descartado imediatamente após a análise.'],
             ['RevenueCat', 'Gestão de assinaturas e pagamentos.'],
             ['Apple / Google', 'Distribuição do app e compras in-app.'],
             ['Autoridades públicas', 'Quando exigido por lei ou ordem judicial.'],
           ]} />
         </Section>
 
-        <Section title="6. Retenção de dados">
+        <Section title="6. Inteligência Artificial e tratamento de dados">
+          <p style={{ marginBottom: 14 }}>O Charlotte AI utiliza serviços de IA de terceiros para personalizar sua experiência de aprendizado. Antes do primeiro uso, o aplicativo solicita seu consentimento explícito para o envio de dados a esses serviços.</p>
+          <DataTable rows={[
+            ['OpenAI GPT-4o', 'Suas mensagens de chat e respostas a exercícios são enviadas à API da OpenAI para geração de respostas personalizadas. A OpenAI não usa esses dados para treinar modelos por padrão (API usage).'],
+            ['ElevenLabs TTS', 'Texto das respostas da Charlotte é enviado para síntese de voz. Nenhuma informação pessoal identificável é transmitida.'],
+            ['Azure Speech Services', 'Áudio capturado pelo microfone é enviado ao Azure para reconhecimento de fala e avaliação de pronúncia em tempo real. O áudio é descartado imediatamente após o processamento e não é retido pela Microsoft para fins de treino.'],
+          ]} />
+          <p style={{ marginTop: 16 }}>Você pode revogar seu consentimento de uso de IA a qualquer momento entrando em contato pelo e-mail <a href="mailto:privacidade@hubacademybr.com" style={{ color: '#7c3aed' }}>privacidade@hubacademybr.com</a>, ficando ciente de que o aplicativo não funcionará sem esses serviços.</p>
+        </Section>
+
+        <Section title="7. Retenção de dados">
           <List items={[
             'Dados de conta: enquanto ativa ou por até 5 anos após o encerramento',
             'Histórico de conversas: enquanto a conta estiver ativa',
@@ -116,7 +128,7 @@ export default function PrivacidadePage() {
           ]} />
         </Section>
 
-        <Section title="7. Seus direitos (LGPD)">
+        <Section title="8. Seus direitos (LGPD)">
           <p style={{ marginBottom: 16 }}>Você tem os seguintes direitos em relação aos seus dados:</p>
           <List items={[
             'Confirmação da existência de tratamento',
@@ -133,7 +145,7 @@ export default function PrivacidadePage() {
           />
         </Section>
 
-        <Section title="8. Segurança">
+        <Section title="9. Segurança">
           <List items={[
             'Criptografia em trânsito (TLS/HTTPS) e em repouso',
             'Autenticação segura via Supabase Auth',
@@ -142,15 +154,15 @@ export default function PrivacidadePage() {
           ]} />
         </Section>
 
-        <Section title="9. Crianças e adolescentes">
+        <Section title="10. Crianças e adolescentes">
           <p>O Charlotte AI é destinado a usuários com <strong>13 anos ou mais</strong>. Não coletamos intencionalmente dados de crianças menores de 13 anos. Em caso de coleta inadvertida, entre em contato para exclusão imediata.</p>
         </Section>
 
-        <Section title="10. Alterações nesta política">
+        <Section title="11. Alterações nesta política">
           <p>Notificaremos sobre mudanças significativas por e-mail ou notificação no app. O uso continuado após alterações constitui concordância com a nova versão.</p>
         </Section>
 
-        <Section title="11. Contato e ANPD">
+        <Section title="12. Contato e ANPD">
           <p style={{ marginBottom: 16 }}>Para dúvidas ou reclamações:</p>
           <ContactCard label="Hub Academy — DPO" email="privacidade@hubacademybr.com" />
           <p style={{ marginTop: 16, fontSize: 14, color: '#6b7280' }}>
