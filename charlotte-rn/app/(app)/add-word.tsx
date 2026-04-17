@@ -282,9 +282,15 @@ export default function AddWordScreen() {
         >
           {/* Term */}
           <View>
-            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginBottom: 8, letterSpacing: 0.6 }}>
-              {isPt ? 'TERMO' : 'TERM'}
-            </AppText>
+            {/* Label com spinner inline quando checking */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+              <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, letterSpacing: 0.6 }}>
+                {isPt ? 'TERMO' : 'TERM'}
+              </AppText>
+              {termStatus === 'checking' && (
+                <ActivityIndicator size="small" color={C.muted} style={{ marginLeft: 2 }} />
+              )}
+            </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
                 value={term}
@@ -331,73 +337,12 @@ export default function AddWordScreen() {
                 }
               </TouchableOpacity>
             </View>
-            {phonetic ? (
-              <AppText style={{ fontSize: 13, color: C.muted, marginTop: 6, paddingHorizontal: 4 }}>
-                {phonetic}
-              </AppText>
-            ) : null}
-
-            {/* Term status banner */}
-            {termStatus === 'checking' && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 2 }}>
-                <ActivityIndicator size="small" color={C.muted} />
-                <AppText style={{ fontSize: 12, color: C.muted }}>
-                  {isPt ? 'Verificando...' : 'Checking...'}
-                </AppText>
-              </View>
-            )}
-            {termStatus === 'duplicate' && (
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
-                backgroundColor: 'rgba(217,119,6,0.08)', borderRadius: 10,
-                paddingHorizontal: 12, paddingVertical: 8,
-              }}>
-                <AppText style={{ fontSize: 18 }}>!</AppText>
-                <AppText style={{ fontSize: 13, color: '#D97706', fontWeight: '600', flex: 1 }}>
-                  {isPt ? 'Essa palavra já está no seu vocabulário.' : 'This word is already in your vocabulary.'}
-                </AppText>
-              </View>
-            )}
-            {termStatus === 'cached' && (
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8,
-                backgroundColor: C.greenBg, borderRadius: 10,
-                paddingHorizontal: 12, paddingVertical: 8,
-              }}>
-                <Check size={16} color={C.greenDark} weight="bold" />
-                <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600', flex: 1 }}>
-                  {isPt ? 'Definição disponível — toque no botão AI.' : 'Definition ready — tap the AI button.'}
-                </AppText>
-              </View>
-            )}
-
-            {/* Suggestion banner — shown after AI button detects invalid term */}
-            {suggestion !== null && (
-              <View style={{
-                marginTop: 8, backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 10,
-                paddingHorizontal: 12, paddingVertical: 10,
-              }}>
-                <AppText style={{ fontSize: 13, color: '#DC2626', fontWeight: '600' }}>
-                  {isPt ? 'Palavra não encontrada.' : 'Word not found.'}
-                </AppText>
-                {suggestion ? (
-                  <TouchableOpacity
-                    onPress={() => { setTerm(suggestion); setSuggestion(null); setTermStatus('idle'); handleGenerate(suggestion); }}
-                    style={{ marginTop: 4 }}
-                  >
-                    <AppText style={{ fontSize: 13, color: '#DC2626' }}>
-                      {isPt ? 'Você quis dizer ' : 'Did you mean '}
-                      <AppText style={{ fontWeight: '800', textDecorationLine: 'underline' }}>{suggestion}</AppText>
-                      {'?'}
-                    </AppText>
-                  </TouchableOpacity>
-                ) : (
-                  <AppText style={{ fontSize: 13, color: '#DC2626', marginTop: 2 }}>
-                    {isPt ? 'Verifique a ortografia.' : 'Check the spelling.'}
-                  </AppText>
-                )}
-              </View>
-            )}
+            {/* Fonética — altura fixa reservada para não movimentar o layout */}
+            <View style={{ height: 22, justifyContent: 'center', marginTop: 4, paddingHorizontal: 4 }}>
+              {phonetic ? (
+                <AppText style={{ fontSize: 13, color: C.muted }}>{phonetic}</AppText>
+              ) : null}
+            </View>
           </View>
 
           {/* Category */}
@@ -492,30 +437,82 @@ export default function AddWordScreen() {
             </View>
           )}
 
-          {alreadyAdded && (
-            <View style={{
-              flexDirection: 'row', alignItems: 'center', gap: 8,
-              backgroundColor: C.greenBg, borderRadius: 12, padding: 14,
-            }}>
-              <Check size={18} color={C.greenDark} weight="bold" />
-              <AppText style={{ fontSize: 14, color: C.greenDark, fontWeight: '600' }}>
-                {isPt ? 'Já está no seu vocabulário!' : 'Already in your vocabulary!'}
-              </AppText>
-            </View>
-          )}
         </ScrollView>
 
         {/* Save button — fixed at bottom */}
         <View style={{
           position: 'absolute', bottom: insets.bottom + 16, left: 20, right: 20,
         }}>
-          {termStatus === 'unknown' && suggestion === null && (
-            <AppText style={{ fontSize: 12, color: C.muted, textAlign: 'center', marginBottom: 8 }}>
-              {isPt
-                ? 'Toque no botão AI para validar o termo antes de salvar.'
-                : 'Tap the AI button to validate the term before saving.'}
-            </AppText>
-          )}
+          {/* Zona de status fixa — altura reservada, layout nunca se move */}
+          <View style={{ height: 44, justifyContent: 'center', marginBottom: 8 }}>
+            {termStatus === 'duplicate' && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: 'rgba(217,119,6,0.10)', borderRadius: 10,
+                paddingHorizontal: 12, paddingVertical: 8,
+              }}>
+                <AppText style={{ fontSize: 13, color: '#D97706', fontWeight: '700' }}>!</AppText>
+                <AppText style={{ fontSize: 13, color: '#D97706', fontWeight: '600', flex: 1 }}>
+                  {isPt ? 'Já está no seu vocabulário.' : 'Already in your vocabulary.'}
+                </AppText>
+              </View>
+            )}
+            {termStatus === 'cached' && !definition && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: C.greenBg, borderRadius: 10,
+                paddingHorizontal: 12, paddingVertical: 8,
+              }}>
+                <Check size={14} color={C.greenDark} weight="bold" />
+                <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600', flex: 1 }}>
+                  {isPt ? 'Definição disponível — toque no botão AI.' : 'Definition ready — tap the AI button.'}
+                </AppText>
+              </View>
+            )}
+            {termStatus === 'unknown' && suggestion === null && (
+              <AppText style={{ fontSize: 12, color: C.muted, textAlign: 'center' }}>
+                {isPt
+                  ? 'Toque no botão AI para validar o termo antes de salvar.'
+                  : 'Tap the AI button to validate the term before saving.'}
+              </AppText>
+            )}
+            {suggestion !== null && (
+              <View style={{
+                backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 10,
+                paddingHorizontal: 12, paddingVertical: 8, flexDirection: 'row', alignItems: 'center', gap: 6,
+              }}>
+                <AppText style={{ fontSize: 13, color: '#DC2626', fontWeight: '600' }}>
+                  {isPt ? 'Não encontrado.' : 'Not found.'}
+                </AppText>
+                {suggestion ? (
+                  <TouchableOpacity
+                    onPress={() => { setTerm(suggestion); setSuggestion(null); setTermStatus('idle'); handleGenerate(suggestion); }}
+                  >
+                    <AppText style={{ fontSize: 13, color: '#DC2626' }}>
+                      {isPt ? 'Quis dizer ' : 'Did you mean '}
+                      <AppText style={{ fontWeight: '800', textDecorationLine: 'underline' }}>{suggestion}</AppText>
+                      ?
+                    </AppText>
+                  </TouchableOpacity>
+                ) : (
+                  <AppText style={{ fontSize: 13, color: '#DC2626' }}>
+                    {isPt ? 'Verifique a ortografia.' : 'Check the spelling.'}
+                  </AppText>
+                )}
+              </View>
+            )}
+            {alreadyAdded && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                backgroundColor: C.greenBg, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8,
+              }}>
+                <Check size={14} color={C.greenDark} weight="bold" />
+                <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600' }}>
+                  {isPt ? 'Já está no seu vocabulário!' : 'Already in your vocabulary!'}
+                </AppText>
+              </View>
+            )}
+          </View>
           <TouchableOpacity
             onPress={handleSave}
             disabled={!canSave}
