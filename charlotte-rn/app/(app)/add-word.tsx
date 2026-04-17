@@ -238,7 +238,7 @@ export default function AddWordScreen() {
     }
   }, [userId, term, definition, example, exampleTr, phonetic, category, params.source, isPt, level]);
 
-  const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded && termStatus !== 'duplicate' && suggestion === null;
+  const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded && termStatus !== 'duplicate' && termStatus !== 'unknown' && suggestion === null;
 
   return (
     <View style={{ flex: 1, backgroundColor: C.card }}>
@@ -364,7 +364,7 @@ export default function AddWordScreen() {
               }}>
                 <Check size={16} color={C.greenDark} weight="bold" />
                 <AppText style={{ fontSize: 13, color: C.greenDark, fontWeight: '600', flex: 1 }}>
-                  {isPt ? 'Definicao disponivel — toque no botao AI.' : 'Definition ready — tap the AI button.'}
+                  {isPt ? 'Definição disponível — toque no botão AI.' : 'Definition ready — tap the AI button.'}
                 </AppText>
               </View>
             )}
@@ -376,7 +376,7 @@ export default function AddWordScreen() {
                 paddingHorizontal: 12, paddingVertical: 10,
               }}>
                 <AppText style={{ fontSize: 13, color: '#DC2626', fontWeight: '600' }}>
-                  {isPt ? 'Palavra nao encontrada.' : 'Word not found.'}
+                  {isPt ? 'Palavra não encontrada.' : 'Word not found.'}
                 </AppText>
                 {suggestion ? (
                   <TouchableOpacity
@@ -384,14 +384,14 @@ export default function AddWordScreen() {
                     style={{ marginTop: 4 }}
                   >
                     <AppText style={{ fontSize: 13, color: '#DC2626' }}>
-                      {isPt ? `Voce quis dizer ` : 'Did you mean '}
+                      {isPt ? 'Você quis dizer ' : 'Did you mean '}
                       <AppText style={{ fontWeight: '800', textDecorationLine: 'underline' }}>{suggestion}</AppText>
                       {'?'}
                     </AppText>
                   </TouchableOpacity>
                 ) : (
                   <AppText style={{ fontSize: 13, color: '#DC2626', marginTop: 2 }}>
-                    {isPt ? 'Verifique a grafia.' : 'Check the spelling.'}
+                    {isPt ? 'Verifique a ortografia.' : 'Check the spelling.'}
                   </AppText>
                 )}
               </View>
@@ -497,7 +497,7 @@ export default function AddWordScreen() {
             }}>
               <Check size={18} color={C.greenDark} weight="bold" />
               <AppText style={{ fontSize: 14, color: C.greenDark, fontWeight: '600' }}>
-                {isPt ? 'Ja esta na sua lista!' : 'Already in your list!'}
+                {isPt ? 'Já está no seu vocabulário!' : 'Already in your vocabulary!'}
               </AppText>
             </View>
           )}
@@ -507,6 +507,13 @@ export default function AddWordScreen() {
         <View style={{
           position: 'absolute', bottom: insets.bottom + 16, left: 20, right: 20,
         }}>
+          {termStatus === 'unknown' && suggestion === null && (
+            <AppText style={{ fontSize: 12, color: C.muted, textAlign: 'center', marginBottom: 8 }}>
+              {isPt
+                ? 'Toque no botão AI para validar o termo antes de salvar.'
+                : 'Tap the AI button to validate the term before saving.'}
+            </AppText>
+          )}
           <TouchableOpacity
             onPress={handleSave}
             disabled={!canSave}
