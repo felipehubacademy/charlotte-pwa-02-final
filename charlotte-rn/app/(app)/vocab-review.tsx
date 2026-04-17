@@ -454,7 +454,7 @@ export default function VocabReview() {
 
       {/* Card area */}
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
-        <Animated.View style={{ width: '100%', opacity: opacAnim, transform: [{ translateY: slideAnim }] }}>
+        <Animated.View style={{ width: '100%', minHeight: 360, opacity: opacAnim, transform: [{ translateY: slideAnim }] }}>
 
           {/* ── FRONT ── */}
           <Animated.View
@@ -525,7 +525,7 @@ export default function VocabReview() {
           {/* ── BACK ── */}
           <Animated.View
             style={{
-              width: '100%',
+              position: 'absolute', width: '100%',
               backfaceVisibility: 'hidden',
               transform: [{ perspective: 1200 }, { rotateY: backRotate }],
             }}
