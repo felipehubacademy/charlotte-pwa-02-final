@@ -161,3 +161,4 @@ export function formatDatePT(iso: string): string {
   // Usa getDate/getMonth no fuso local do ambiente (server = UTC, app = local)
   return `${d.getDate()} de ${months[d.getMonth()]} de ${d.getFullYear()}`;
 }
+// Mon Apr 20 11:48:41 -03 2026
