@@ -432,7 +432,7 @@ export default function ConfiguracoesScreen() {
                     {isPt ? 'Live Voice este mês' : 'Live Voice this month'}
                   </AppText>
                   <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 2 }}>
-                    {`${Math.ceil(voiceUsage.secondsUsed / 60)} / ${Math.floor(voiceUsage.poolTotal / 60)} min ${isPt ? 'utilizados' : 'used'}`}
+                    {`${Math.min(Math.ceil(voiceUsage.secondsUsed / 60), Math.floor(voiceUsage.poolTotal / 60))} / ${Math.floor(voiceUsage.poolTotal / 60)} min ${isPt ? 'utilizados' : 'used'}`}
                   </AppText>
                 </View>
               </View>

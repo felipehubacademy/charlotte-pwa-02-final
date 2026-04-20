@@ -1655,8 +1655,19 @@ export default function HomeScreen() {
                         );
                       }
                     } else if (card.mode === 'live') {
-                      soundEngine.setMuted(true);
-                      setShowLiveVoice(true);
+                      if (liveVoiceRemaining === 0) {
+                        const totalMin = Math.floor(getPoolForLevel(level) / 60);
+                        Alert.alert(
+                          isPortuguese ? 'Limite mensal atingido' : 'Monthly limit reached',
+                          isPortuguese
+                            ? `Voce usou seus ${totalMin} min de Live Voice deste mes. Volte no mes que vem!`
+                            : `You've used your ${totalMin}-min monthly Live Voice allowance. Come back next month!`,
+                          [{ text: isPortuguese ? 'Ok' : 'OK' }]
+                        );
+                      } else {
+                        soundEngine.setMuted(true);
+                        setShowLiveVoice(true);
+                      }
                     } else if (card.route) {
                       router.push(card.route);
                     }

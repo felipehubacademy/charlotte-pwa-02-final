@@ -224,6 +224,7 @@ export default function LiveVoiceModal({
   const [showTranscript, setShowTranscript]       = React.useState(false);
   const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
   const wasConnectedRef     = React.useRef(false); // tracks if call ever reached connected state
+  const farewellActiveRef   = React.useRef(false); // true when Charlotte is delivering the pool-exhausted farewell
 
   // ── WebRTC refs ────────────────────────────────────────────────────────────
   const pcRef             = React.useRef<InstanceType<typeof RTCPeerConnection> | null>(null);
@@ -472,22 +473,70 @@ export default function LiveVoiceModal({
     }
   }, [warningCountdown, inactivityWarning]); // eslint-disable-line
 
-  // ── Auto-encerrar quando pool esgotado ────────────────────────────────────
+  // ── Auto-encerrar quando pool esgotado — Charlotte diz adeus antes ────────
   React.useEffect(() => {
     if (!poolExhausted || status !== 'connected') return;
+    if (farewellActiveRef.current) return; // já em andamento
+    farewellActiveRef.current = true;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
-    consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
-    sessionAccumSecs.current = 0;
+    // Parar timers (não desconectar ainda)
     clearSessionInterval();
     clearInactivityInterval();
-    disconnectWebRTC();
-    setStatus('error');
-    setErrorMsg(
-      userLevel === 'Novice'
-        ? `Seus ${Math.floor(levelPool / 60)} min de Live Voice deste mês acabaram. Volta no mês que vem!`
-        : `Your ${Math.floor(levelPool / 60)}-min monthly allowance is up. See you next month!`
-    );
+
+    if (dcRef.current?.readyState !== 'open') {
+      // Data channel fechado — fallback imediato
+      farewellActiveRef.current = false;
+      const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
+      sessionAccumSecs.current = 0;
+      disconnectWebRTC();
+      setStatus('error');
+      setErrorMsg(
+        userLevel === 'Novice'
+          ? `Seus ${Math.floor(levelPool / 60)} min de Live Voice deste mês acabaram. Volta no mês que vem!`
+          : `Your ${Math.floor(levelPool / 60)}-min monthly allowance is up. See you next month!`
+      );
+      return;
+    }
+
+    // 1. Cancelar resposta ativa (se houver)
+    if (responseActiveRef.current) {
+      sendEvent({ type: 'response.cancel' });
+      responseActiveRef.current = false;
+    }
+    charlotteSpeakingRef.current = false;
+    setCharlotteSpeaking(false);
+
+    // 2. Desativar VAD — Charlotte não deve responder a mais nada do user
+    sendEvent({
+      type: 'session.update',
+      session: {
+        turn_detection: null,
+      },
+    });
+
+    // 3. Injetar instrução de despedida como mensagem de sistema
+    const farewellText = userLevel === 'Novice'
+      ? `Poxa ${userName}, seu tempo mensal de conversa ao vivo esgotou, mas logo voce ja volta a praticar. Te vejo em breve!`
+      : `Oh ${userName}, your monthly live conversation time is up — but you'll be back practising before you know it. See you soon!`;
+
+    sendEvent({
+      type: 'conversation.item.create',
+      item: {
+        type: 'message',
+        role: 'user',
+        content: [{ type: 'input_text', text: `[SYSTEM] Please say exactly the following as your final message and nothing else: "${farewellText}"` }],
+      },
+    });
+
+    // 4. Criar resposta para Charlotte entregar a despedida
+    setTimeout(() => {
+      if (dcRef.current?.readyState === 'open') {
+        charlotteSpeakingRef.current = true;
+        setCharlotteSpeaking(true);
+        sendEvent({ type: 'response.create' });
+      }
+    }, 200);
   }, [poolExhausted]); // eslint-disable-line
 
   // ── Disconnect WebRTC (sem fechar modal) ─────────────────────────────────
@@ -711,6 +760,23 @@ export default function LiveVoiceModal({
                 if (charlotteText) {
                   setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
                 }
+
+                // Se estávamos entregando a despedida do pool esgotado,
+                // aguardar o áudio terminar e então encerrar automaticamente.
+                if (farewellActiveRef.current) {
+                  // Deixar response.audio.done controlar o fechamento via
+                  // um timeout de segurança de 5s caso o evento não chegue.
+                  setTimeout(() => {
+                    if (farewellActiveRef.current) {
+                      farewellActiveRef.current = false;
+                      const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
+                      consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
+                      sessionAccumSecs.current = 0;
+                      disconnect();
+                      onClose();
+                    }
+                  }, 5000);
+                }
               }
               break;
 
@@ -733,6 +799,19 @@ export default function LiveVoiceModal({
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
               }, 500);
+              // Se era a despedida, fechar o modal ~1.5s após o áudio terminar
+              if (farewellActiveRef.current) {
+                setTimeout(() => {
+                  if (farewellActiveRef.current) {
+                    farewellActiveRef.current = false;
+                    const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
+                    consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
+                    sessionAccumSecs.current = 0;
+                    disconnect();
+                    onClose();
+                  }
+                }, 1500);
+              }
               break;
 
             case 'input_audio_buffer.speech_started':
@@ -939,6 +1018,7 @@ export default function LiveVoiceModal({
       setConversationTurns([]);
       charlotteTextAccRef.current = '';
       wasConnectedRef.current = false;
+      farewellActiveRef.current = false;
       sessionAccumSecs.current = 0;
       warnStartRef.current = 0;
       loadPool().then(remaining => {
