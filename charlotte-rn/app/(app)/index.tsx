@@ -10,6 +10,7 @@ import {
   Platform,
   Modal,
   Animated,
+  unstable_batchedUpdates,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { router, useFocusEffect } from 'expo-router';
@@ -1110,13 +1111,18 @@ export default function HomeScreen() {
           const json = await res.json();
           if (json.message) {
             _greetingTextThisSession = json.message;
-            setAiGreeting(json.message);
+            // Batch: ambos mudam no mesmo render — sem flash do fallback hardcoded
+            unstable_batchedUpdates(() => {
+              setAiGreeting(json.message);
+              setGreetingLoading(false);
+            });
+            return;
           }
         }
       } catch {
-        // Silently fail — charlotteMessage() fallback shown via greetingLoading=false
+        // Silently fail — dots continuam até o finally
       } finally {
-        // Always stop loading: show AI greeting if available, charlotteMessage otherwise
+        // Só chega aqui se não houve mensagem válida (erro ou json sem message)
         setGreetingLoading(false);
       }
     })();
