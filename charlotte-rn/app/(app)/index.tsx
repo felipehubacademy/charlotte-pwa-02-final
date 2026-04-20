@@ -1370,14 +1370,14 @@ export default function HomeScreen() {
                   paddingHorizontal: 12,
                   paddingVertical: greetingLoading ? 8 : 10,
                 }}>
-                  {greetingLoading ? (
+                  {(greetingLoading || !aiGreeting) ? (
                     <TypingDots />
                   ) : (
                     <AppText style={{
                       fontSize: 14, color: '#FFFFFF',
                       lineHeight: 21, fontWeight: '500',
                     }}>
-                      {aiGreeting ?? charlotteMessage(firstName, streak, todayXP, isPortuguese)}
+                      {aiGreeting}
                     </AppText>
                   )}
                 </View>
