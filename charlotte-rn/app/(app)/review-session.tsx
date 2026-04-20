@@ -339,27 +339,6 @@ export default function ReviewSession() {
     });
   }, [fadeAnim]);
 
-  // ── Submit answer ──────────────────────────────────────────────────────────
-  const handleSubmit = useCallback(() => {
-    if (!currentQuestion) return;
-    const answer = currentQuestion.cardType === 'context_guess'
-      ? (selectedOption ?? '')
-      : userAnswer;
-    if (!answer.trim()) return;
-
-    const correct = answerIsCorrect(answer, currentQuestion.answer);
-    setIsCorrect(correct);
-
-    if (correct) {
-      soundEngine.play('answer_correct').catch(() => {});
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    } else {
-      soundEngine.play('answer_wrong').catch(() => {});
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-    }
-    setPhase('rating');
-  }, [currentQuestion, userAnswer, selectedOption]);
-
   // ── Apply rating & move to next ────────────────────────────────────────────
   const handleRating = useCallback(async (rating: SRRating) => {
     if (!currentItem || !user?.id) return;
@@ -411,6 +390,29 @@ export default function ReviewSession() {
     });
   }, [currentItem, user?.id, ratings, cardIdx, items.length, animateNext]);
 
+  // ── Submit answer ──────────────────────────────────────────────────────────
+  const handleSubmit = useCallback(() => {
+    if (!currentQuestion) return;
+    const answer = currentQuestion.cardType === 'context_guess'
+      ? (selectedOption ?? '')
+      : userAnswer;
+    if (!answer.trim()) return;
+
+    const correct = answerIsCorrect(answer, currentQuestion.answer);
+    setIsCorrect(correct);
+
+    if (correct) {
+      soundEngine.play('answer_correct').catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } else {
+      soundEngine.play('answer_wrong').catch(() => {});
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    }
+    setPhase('rating');
+    // Auto-rate baseado na corretude — sem self-rating manual
+    setTimeout(() => handleRating(correct ? 'easy' : 'hard'), 1800);
+  }, [currentQuestion, userAnswer, selectedOption, handleRating]);
+
   // ── Select option (context_guess) ─────────────────────────────────────────
   const handleSelectOption = useCallback((opt: string) => {
     if (phase !== 'question') return;
@@ -427,9 +429,11 @@ export default function ReviewSession() {
   }, [selectedOption, currentQuestion?.cardType, phase, handleSubmit]);
 
   // ── Summary stats ─────────────────────────────────────────────────────────
-  const easyCount  = ratings.filter(r => r === 'easy').length;
-  const okCount    = ratings.filter(r => r === 'ok').length;
-  const hardCount  = ratings.filter(r => r === 'hard').length;
+  const correctCount = ratings.filter(r => r === 'easy').length;
+  const wrongCount   = ratings.filter(r => r === 'hard').length;
+  const easyCount    = correctCount; // compat para nextReview calc
+  const okCount      = 0;
+  const hardCount    = wrongCount;
   const nextReview = items
     .map((item, i) => {
       const r = ratings[i];
@@ -525,9 +529,8 @@ export default function ReviewSession() {
 
           {/* Stats grid */}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-            <StatCard label={isPt ? 'Facil' : 'Easy'} value={easyCount} color={C.green} bg={C.greenBg} />
-            <StatCard label={isPt ? 'Ok' : 'Ok'}      value={okCount}   color={C.gold}  bg={C.goldBg}  />
-            <StatCard label={isPt ? 'Dificil' : 'Hard'} value={hardCount} color={C.red}  bg={C.redBg}   />
+            <StatCard label={isPt ? 'Acertos' : 'Correct'} value={correctCount} color={C.green} bg={C.greenBg} />
+            <StatCard label={isPt ? 'Erros' : 'Wrong'}     value={wrongCount}   color={C.red}   bg={C.redBg}   />
           </View>
 
           {/* Next review */}
@@ -750,15 +753,7 @@ export default function ReviewSession() {
                     </AppText>
                   </View>
 
-                  {/* Rating buttons */}
-                  <AppText style={{ fontSize: 13, color: C.navyMid, textAlign: 'center', marginBottom: 10 }}>
-                    {isPt ? 'Como foi para voce?' : 'How did it go?'}
-                  </AppText>
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    <RatingButton label={isPt ? 'Dificil' : 'Hard'} color={C.red}   bg={C.redBg}   onPress={() => handleRating('hard')} flex={1} />
-                    <RatingButton label="Ok"                         color={C.gold}  bg={C.goldBg}  onPress={() => handleRating('ok')}   flex={1} />
-                    <RatingButton label={isPt ? 'Facil' : 'Easy'}  color={C.green} bg={C.greenBg} onPress={() => handleRating('easy')}  flex={1} />
-                  </View>
+                  {/* Proximo card automatico — sem self-rating */}
                 </View>
               ) : null}
             </View>
