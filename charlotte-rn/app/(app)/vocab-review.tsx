@@ -448,10 +448,12 @@ export default function VocabReview() {
         <Animated.View style={{ width: '100%', opacity: opacAnim, ...(Platform.OS === 'ios' ? { transform: [{ translateY: slideAnim }] } : {}) }}>
 
           {/* ── FRONT ── */}
-          <Animated.View style={{
-            backfaceVisibility: 'hidden',
-            transform: [{ perspective: 1200 }, { rotateY: frontRotate }],
-          }}>
+          <Animated.View
+            pointerEvents={flipped ? 'none' : 'auto'}
+            style={{
+              backfaceVisibility: 'hidden',
+              transform: [{ perspective: 1200 }, { rotateY: frontRotate }],
+            }}>
             <TouchableOpacity
               activeOpacity={0.95}
               onPress={handleFlip}
@@ -510,11 +512,13 @@ export default function VocabReview() {
           </Animated.View>
 
           {/* ── BACK ── */}
-          <Animated.View style={{
-            backfaceVisibility: 'hidden',
-            position: 'absolute', top: 0, left: 0, right: 0,
-            transform: [{ perspective: 1200 }, { rotateY: backRotate }],
-          }}>
+          <Animated.View
+            pointerEvents={flipped ? 'auto' : 'none'}
+            style={{
+              backfaceVisibility: 'hidden',
+              position: 'absolute', top: 0, left: 0, right: 0,
+              transform: [{ perspective: 1200 }, { rotateY: backRotate }],
+            }}>
             <View style={{
               backgroundColor: C.card, borderRadius: 28,
               padding: 28, minHeight: 320,
