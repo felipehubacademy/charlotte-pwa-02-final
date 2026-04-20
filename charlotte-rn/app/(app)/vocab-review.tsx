@@ -150,20 +150,21 @@ export default function VocabReview() {
     Animated.timing(flipAnim, {
       toValue: 1, duration: 180, useNativeDriver: true,
     }).start(() => {
-      // Swap content at edge — card is invisible
-      setFlipped(true);
+      // Set value to -90 BEFORE re-render to avoid flicker
       flipAnim.setValue(-1);
-      // Phase 2: rotate from edge back to flat (-90 → 0)
-      Animated.spring(flipAnim, {
-        toValue: 0, friction: 7, tension: 60, useNativeDriver: true,
-      }).start(() => {
-        // Slide up rating buttons
-        Animated.parallel([
-          Animated.spring(btnAnim, { toValue: 0, friction: 8, tension: 60, useNativeDriver: true }),
-          Animated.timing(btnOpac, { toValue: 1, duration: 200, useNativeDriver: true }),
-        ]).start();
+      setFlipped(true);
+      // Wait one frame for the re-render to settle at -90deg, then spring to 0
+      requestAnimationFrame(() => {
+        Animated.spring(flipAnim, {
+          toValue: 0, friction: 7, tension: 60, useNativeDriver: true,
+        }).start(() => {
+          // Slide up rating buttons
+          Animated.parallel([
+            Animated.spring(btnAnim, { toValue: 0, friction: 8, tension: 60, useNativeDriver: true }),
+            Animated.timing(btnOpac, { toValue: 1, duration: 200, useNativeDriver: true }),
+          ]).start();
+        });
       });
-    });
   }, [flipped, flipAnim, btnAnim, btnOpac]);
 
   // ── TTS ─────────────────────────────────────────────────────────────────────
