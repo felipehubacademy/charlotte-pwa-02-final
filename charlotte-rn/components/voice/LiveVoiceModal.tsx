@@ -225,6 +225,8 @@ export default function LiveVoiceModal({
   const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
   const wasConnectedRef     = React.useRef(false); // tracks if call ever reached connected state
   const farewellActiveRef   = React.useRef(false); // true when Charlotte is delivering the pool-exhausted farewell
+  const speechStartedAtRef  = React.useRef(0);     // Date.now() when VAD detected speech_started — used to filter short echo artifacts
+  const poolBaseRef         = React.useRef(levelPool); // secondsRemaining from DB at session start — used by session timer to count down correctly
 
   // ── WebRTC refs ────────────────────────────────────────────────────────────
   const pcRef             = React.useRef<InstanceType<typeof RTCPeerConnection> | null>(null);
@@ -397,6 +399,7 @@ export default function LiveVoiceModal({
     try {
       const { secondsRemaining } = await getLiveVoiceStatus(userLevel);
       setPoolRemaining(secondsRemaining);
+      poolBaseRef.current = secondsRemaining; // base para o session timer contar a partir do restante real
       if (secondsRemaining <= 0) {
         setPoolExhausted(true);
         setStatus('error');
@@ -420,11 +423,12 @@ export default function LiveVoiceModal({
     sessionStartRef.current = Date.now();
     clearSessionInterval();
     sessionIntervalRef.current = setInterval(() => {
-      const elapsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
-      const remaining = Math.max(0, levelPool - elapsed);
+      // Usa poolBaseRef (segundos restantes do DB ao abrir o modal) como base,
+      // não o pool total — assim o timer conta a partir do que realmente sobra.
+      const elapsedInSession = Math.floor((Date.now() - sessionStartRef.current) / 1000);
+      const remaining = Math.max(0, poolBaseRef.current - elapsedInSession);
       setPoolRemaining(remaining);
       if (remaining <= 0) {
-        // Pool esgotado → encerrar chamada
         setPoolExhausted(true);
       }
     }, 1000);
@@ -785,17 +789,23 @@ export default function LiveVoiceModal({
               break;
 
             case 'response.audio.done':
-              // Last audio chunk delivered to WebRTC.
-              // Stamp lastCharlotteDoneRef NOW so the 1500ms echo guard starts
-              // as early as possible — echo arrives quickly after audio plays.
-              // A 500ms delay on charlotteSpeakingRef lets the jitter buffer
-              // drain before we mark Charlotte as done for the speaking indicator.
+              // Último chunk de áudio entregue ao WebRTC.
+              // Estratégia anti-eco de 3 camadas:
+              //   1. Stampar lastCharlotteDoneRef agora (guard de 6000ms no speech_stopped)
+              //   2. Mutar fisicamente o mic por 2000ms — bloqueia eco de loudspeaker
+              //      no nível do hardware, antes de chegar ao VAD do servidor.
+              //      Após 2000ms: desmuta APENAS se o usuário não mutou manualmente.
+              //   3. Manter charlotteSpeakingRef=true por 500ms extras (drain do jitter buffer)
               responseActiveRef.current = false;
               lastCharlotteDoneRef.current = Date.now();
+              // Mute físico anti-eco: 2s de silêncio no mic após Charlotte terminar
+              applyMute(true);
               setTimeout(() => {
+                // Desmuta apenas se o usuário não pressionou mute manualmente
+                if (!isMutedRef.current) applyMute(false);
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
-              }, 500);
+              }, 2000);
               // Se era a despedida, fechar o modal ~1.5s após o áudio terminar
               if (farewellActiveRef.current) {
                 setTimeout(() => {
@@ -813,6 +823,7 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_started':
               // Usuario falou — pode ser interrupcao real ou eco da Charlotte.
+              speechStartedAtRef.current = Date.now(); // registrar início para cálculo de duração
               lastActivityRef.current = Date.now();
               setUserSpeaking(true);
               setInactivityWarning(false);
@@ -820,9 +831,8 @@ export default function LiveVoiceModal({
               warnStartRef.current = 0;
               if (charlotteSpeakingRef.current) {
                 // Interrupcao (ou eco enquanto Charlotte fala): cancelar
-                // resposta atual. lastCharlotteDone = now (sem offset) para
-                // que o echo guard de 3500ms em speech_stopped bloqueie o
-                // eco — o usuario pode falar de novo apos o guard expirar.
+                // resposta atual. lastCharlotteDone = now para que o echo guard
+                // em speech_stopped bloqueie eco subsequente.
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
                 lastCharlotteDoneRef.current = Date.now();
@@ -836,17 +846,18 @@ export default function LiveVoiceModal({
             case 'input_audio_buffer.speech_stopped':
               setUserSpeaking(false);
               // create_response:false — disparar response.create manualmente.
-              // Guards (ambos devem passar):
-              //   1. Charlotte nao pode estar falando (charlotteSpeakingRef).
-              //   2. >= 3500ms desde que o audio dela terminou — filtra eco
-              //      de reverberacao do ambiente que chega ao microfone apos
-              //      ela parar de falar.
-              //   3. Cooldown de 3000ms entre response.creates consecutivos —
-              //      impede loop infinito caso eco dispare multiplos ciclos.
+              // Três guards devem passar para filtrar eco e ruído ambiente:
+              //   1. Charlotte não pode estar falando (charlotteSpeakingRef).
+              //   2. Duração mínima de fala >= 500ms — eco e reverb duram < 200ms;
+              //      fala real dura > 500ms. Este é o filtro mais eficaz.
+              //   3. >= 6000ms desde que o áudio da Charlotte terminou — reverb
+              //      em ambiente fechado com loudspeaker pode durar 4-5s.
+              //   4. Cooldown de 3000ms entre response.creates consecutivos.
               if (!charlotteSpeakingRef.current) {
-                const msSinceDone   = Date.now() - lastCharlotteDoneRef.current;
-                const msSinceLast   = Date.now() - lastResponseCreateRef.current;
-                if (msSinceDone > 3500 && msSinceLast > 3000) {
+                const speechDuration  = Date.now() - speechStartedAtRef.current;
+                const msSinceDone     = Date.now() - lastCharlotteDoneRef.current;
+                const msSinceLast     = Date.now() - lastResponseCreateRef.current;
+                if (speechDuration > 500 && msSinceDone > 6000 && msSinceLast > 3000) {
                   lastResponseCreateRef.current = Date.now();
                   setTimeout(() => {
                     if (dcRef.current?.readyState === 'open') {
