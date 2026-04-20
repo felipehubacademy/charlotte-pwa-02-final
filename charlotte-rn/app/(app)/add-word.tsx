@@ -257,7 +257,7 @@ export default function AddWordScreen() {
         >
           <ArrowLeft size={22} color={C.navy} weight="bold" />
         </TouchableOpacity>
-        <AppText style={{ flex: 1, fontSize: 20, fontWeight: '800', color: C.navy, marginLeft: 12 }}>
+        <AppText style={{ flex: 1, fontSize: 20, fontWeight: '800', color: C.navy }}>
           {isPt ? 'Adicionar palavra' : 'Add word'}
         </AppText>
         </View>

@@ -156,24 +156,17 @@ export default function MyVocabularyScreen() {
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
             <ArrowLeft size={22} color={C.navy} weight="bold" />
           </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <AppText style={{ fontSize: 20, fontWeight: '800', color: C.navy }}>
-              {isPt ? 'Meu Vocabulário' : 'My Vocabulary'}
-            </AppText>
-            {items.length > 0 && (
-              <AppText style={{ fontSize: 12, color: C.muted }}>
-                {items.length} {isPt ? 'palavra' : 'word'}{items.length !== 1 ? 's' : ''}
-              </AppText>
-            )}
-          </View>
+          <AppText style={{ flex: 1, fontSize: 20, fontWeight: '800', color: C.navy }}>
+            {isPt ? 'Meu Vocabulário' : 'My Vocabulary'}
+          </AppText>
 
         </View>
       </SafeAreaView>
 
-      {/* Search bar */}
-      <View style={{ paddingHorizontal: 16, marginTop: 14, marginBottom: 10 }}>
+      {/* Search bar + word count */}
+      <View style={{ paddingHorizontal: 16, marginTop: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <View style={{
-          flexDirection: 'row', alignItems: 'center', gap: 8,
+          flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
           backgroundColor: C.inputBg, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 9,
         }}>
           <MagnifyingGlass size={16} color={C.muted} />
@@ -186,6 +179,11 @@ export default function MyVocabularyScreen() {
             returnKeyType="search"
           />
         </View>
+        {items.length > 0 && (
+          <AppText style={{ fontSize: 12, color: C.muted, flexShrink: 0 }}>
+            {items.length} {isPt ? (items.length === 1 ? 'palavra' : 'palavras') : (items.length === 1 ? 'word' : 'words')}
+          </AppText>
+        )}
       </View>
 
       {/* Category filter chips */}
