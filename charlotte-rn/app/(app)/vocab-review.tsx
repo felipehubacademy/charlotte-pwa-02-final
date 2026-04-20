@@ -107,7 +107,7 @@ export default function VocabReview() {
   const [totalXP,  setTotalXP]  = useState(0);
   const [ttsLoading, setTtsLoading] = useState(false);
 
-  // Fake-flip: 0→90 (disappear), swap content, -90→0 (reappear)
+  // Real flip: 0 = front, 1 = back (interpolated to 0→180deg)
   const flipAnim   = useRef(new Animated.Value(0)).current;
   // Card transition (rate animation)
   const slideAnim  = useRef(new Animated.Value(0)).current;
@@ -139,32 +139,22 @@ export default function VocabReview() {
 
   const current = cards[idx];
 
-  // ── Interpolation — rotateY for fake-flip ───────────────────────────────────
-  const cardRotate = flipAnim.interpolate({ inputRange: [-1, 0, 1], outputRange: ['-90deg', '0deg', '90deg'] });
+  // ── Interpolations — real 3D flip ───────────────────────────────────────────
+  const frontRotate = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] });
+  const backRotate  = flipAnim.interpolate({ inputRange: [0, 1], outputRange: ['180deg', '360deg'] });
 
-  // ── Flip card (fake 3D: 0→90, swap, -90→0) ──────────────────────────────────
+  // ── Flip card ────────────────────────────────────────────────────────────────
   const handleFlip = useCallback(() => {
     if (flipped) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Phase 1: rotate to edge (0 → 90)
     Animated.timing(flipAnim, {
-      toValue: 1, duration: 180, useNativeDriver: true,
+      toValue: 1, duration: 350, useNativeDriver: true,
     }).start(() => {
-      // Set value to -90 BEFORE re-render to avoid flicker
-      flipAnim.setValue(-1);
       setFlipped(true);
-      // Wait one frame for the re-render to settle at -90deg, then spring to 0
-      requestAnimationFrame(() => {
-        Animated.spring(flipAnim, {
-          toValue: 0, friction: 7, tension: 60, useNativeDriver: true,
-        }).start(() => {
-          // Slide up rating buttons
-          Animated.parallel([
-            Animated.spring(btnAnim, { toValue: 0, friction: 8, tension: 60, useNativeDriver: true }),
-            Animated.timing(btnOpac, { toValue: 1, duration: 200, useNativeDriver: true }),
-          ]).start();
-        });
-      });
+      Animated.parallel([
+        Animated.spring(btnAnim, { toValue: 0, friction: 8, tension: 60, useNativeDriver: true }),
+        Animated.timing(btnOpac, { toValue: 1, duration: 200, useNativeDriver: true }),
+      ]).start();
     });
   }, [flipped, flipAnim, btnAnim, btnOpac]);
 
@@ -399,14 +389,6 @@ export default function VocabReview() {
             </AppText>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => router.push({ pathname: '/(app)/add-word', params: { source: 'manual' } })}
-            style={{ marginTop: 10, borderRadius: 16, paddingVertical: 14, alignItems: 'center', borderWidth: 1.5, borderColor: C.border }}
-          >
-            <AppText style={{ color: C.navyMid, fontSize: 15, fontWeight: '600' }}>
-              {isPt ? 'Adicionar palavra' : 'Add a word'}
-            </AppText>
-          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     );
@@ -463,17 +445,13 @@ export default function VocabReview() {
 
       {/* Card area */}
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
-        <Animated.View style={{
-          width: '100%',
-          opacity: opacAnim,
-          transform: [
-            { perspective: 1200 },
-            { rotateY: cardRotate },
-            ...(Platform.OS === 'ios' ? [{ translateY: slideAnim }] : []),
-          ],
-        }}>
-          {!flipped ? (
-            /* ── FRONT ── */
+        <Animated.View style={{ width: '100%', opacity: opacAnim, ...(Platform.OS === 'ios' ? { transform: [{ translateY: slideAnim }] } : {}) }}>
+
+          {/* ── FRONT ── */}
+          <Animated.View style={{
+            backfaceVisibility: 'hidden',
+            transform: [{ perspective: 1200 }, { rotateY: frontRotate }],
+          }}>
             <TouchableOpacity
               activeOpacity={0.95}
               onPress={handleFlip}
@@ -529,8 +507,14 @@ export default function VocabReview() {
                 </AppText>
               </View>
             </TouchableOpacity>
-          ) : (
-            /* ── BACK ── */
+          </Animated.View>
+
+          {/* ── BACK ── */}
+          <Animated.View style={{
+            backfaceVisibility: 'hidden',
+            position: 'absolute', top: 0, left: 0, right: 0,
+            transform: [{ perspective: 1200 }, { rotateY: backRotate }],
+          }}>
             <View style={{
               backgroundColor: C.card, borderRadius: 28,
               padding: 28, minHeight: 320,
@@ -558,7 +542,8 @@ export default function VocabReview() {
                 </View>
               ) : null}
             </View>
-          )}
+          </Animated.View>
+
         </Animated.View>
       </View>
 
