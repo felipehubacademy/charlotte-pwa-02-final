@@ -1349,34 +1349,25 @@ export default function HomeScreen() {
             <View style={{
               backgroundColor: C.navy,
               paddingRight: 20, paddingTop: 0, paddingBottom: 0,
-              flexDirection: 'row', alignItems: 'flex-end', gap: 0,
+              flexDirection: 'row', alignItems: 'center', gap: 0,
               minHeight: 140,
             }}>
-              {/* Bust — bottom edge flush with navy strip bottom */}
+              {/* Bust — bottom edge flush com o strip */}
               <Image
                 source={require('@/assets/charlotte-bust.png')}
-                style={{ width: 118, height: 165, marginBottom: -15, flexShrink: 0 }}
+                style={{ width: 118, height: 165, marginBottom: -15, flexShrink: 0, alignSelf: 'flex-end' }}
                 resizeMode="contain"
               />
 
-              {/* Chat bubble with tail — paddingLeft matches triangle tip exactly */}
-              <View style={{ flex: 1, paddingBottom: 24, paddingTop: 16, paddingLeft: 7, position: 'relative' }}>
-                {/* Triangle tail — only visible once message is ready */}
-                {!greetingLoading && (
-                  <View style={{
-                    position: 'absolute',
-                    left: 0, top: 12,
-                    width: 0, height: 0,
-                    borderTopWidth: 6, borderBottomWidth: 6, borderRightWidth: 7,
-                    borderTopColor: 'transparent', borderBottomColor: 'transparent',
-                    borderRightColor: '#3B3A5A',
-                  }} />
-                )}
+              {/* Chat bubble — mesmo estilo do ChatBox, sem gambiarra de triângulo */}
+              <View style={{ flex: 1, paddingLeft: 10, paddingVertical: 16 }}>
                 <View style={{
                   backgroundColor: '#3B3A5A',
-                  borderRadius: 16,
-                  paddingHorizontal: 12,
-                  paddingVertical: greetingLoading ? 8 : 10,
+                  borderRadius: 18,
+                  borderBottomLeftRadius: 0,
+                  paddingHorizontal: 14,
+                  paddingVertical: greetingLoading ? 10 : 12,
+                  alignSelf: 'flex-start',
                 }}>
                   {(greetingLoading || !aiGreeting) ? (
                     <TypingDots />
