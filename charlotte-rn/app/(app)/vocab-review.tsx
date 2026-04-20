@@ -401,7 +401,7 @@ export default function VocabReview() {
   const catStyle = CATEGORY_COLORS[current.category] ?? { color: C.navyMid, bg: C.ghost };
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
+    <View style={{ flex: 1, backgroundColor: C.bg, position: 'relative' }}>
       {/* Status bar white */}
       <SafeAreaView edges={['top']} style={{ backgroundColor: C.card }}>
         <View style={{
@@ -608,63 +608,60 @@ export default function VocabReview() {
           ))}
         </View>
       </Animated.View>
-    </View>
 
-    {/* SR Info Modal */}
-    {showSRInfo && (
-      <View style={{
-        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(22,21,58,0.55)', justifyContent: 'flex-end',
-        zIndex: 200,
-      }}>
-        <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowSRInfo(false)} />
+      {/* SR Info Modal — dentro do root View para position:absolute funcionar */}
+      {showSRInfo && (
         <View style={{
-          backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28,
-          padding: 28, paddingBottom: insets.bottom + 28,
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(22,21,58,0.55)', justifyContent: 'flex-end',
+          zIndex: 200,
         }}>
-          <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy, marginBottom: 6 }}>
-            {isPt ? 'Como funciona a revisão?' : 'How does this work?'}
-          </AppText>
-          <AppText style={{ fontSize: 13, color: C.navyMid, lineHeight: 20, marginBottom: 20 }}>
-            {isPt
-              ? 'O sistema ajusta automaticamente quando cada palavra vai aparecer de novo, baseado em quão fácil foi lembrar.'
-              : 'The system automatically adjusts when each word comes back, based on how easy it was to remember.'}
-          </AppText>
-
-          {[
-            { label: isPt ? 'Difícil' : 'Hard', color: C.red,   bg: C.redBg,
-              desc: isPt ? 'Voltará em breve — precisa de mais prática.' : 'Comes back soon — needs more practice.' },
-            { label: 'Ok',                       color: C.gold,  bg: C.goldBg,
-              desc: isPt ? 'Intervalo moderado — você está no caminho certo.' : 'Moderate interval — you\'re on the right track.' },
-            { label: isPt ? 'Fácil' : 'Easy',   color: C.green, bg: C.greenBg,
-              desc: isPt ? 'Intervalo longo — você domina esta palavra.' : 'Long interval — you\'ve got this word down.' },
-          ].map(item => (
-            <View key={item.label} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
-              <View style={{
-                backgroundColor: item.bg, borderRadius: 8,
-                paddingHorizontal: 10, paddingVertical: 4, minWidth: 56, alignItems: 'center',
-              }}>
-                <AppText style={{ fontSize: 13, fontWeight: '700', color: item.color }}>{item.label}</AppText>
-              </View>
-              <AppText style={{ flex: 1, fontSize: 13, color: C.navyMid, lineHeight: 19, paddingTop: 2 }}>
-                {item.desc}
-              </AppText>
-            </View>
-          ))}
-
-          <TouchableOpacity
-            onPress={() => setShowSRInfo(false)}
-            style={{
-              marginTop: 8, backgroundColor: C.navy, borderRadius: 14,
-              paddingVertical: 14, alignItems: 'center',
-            }}
-          >
-            <AppText style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>
-              {isPt ? 'Entendi' : 'Got it'}
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setShowSRInfo(false)} />
+          <View style={{
+            backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            padding: 28, paddingBottom: insets.bottom + 28,
+          }}>
+            <AppText style={{ fontSize: 18, fontWeight: '800', color: C.navy, marginBottom: 6 }}>
+              {isPt ? 'Como funciona a revisão?' : 'How does this work?'}
             </AppText>
-          </TouchableOpacity>
+            <AppText style={{ fontSize: 13, color: C.navyMid, lineHeight: 20, marginBottom: 20 }}>
+              {isPt
+                ? 'O sistema ajusta automaticamente quando cada palavra vai aparecer de novo, baseado em quão fácil foi lembrar.'
+                : 'The system automatically adjusts when each word comes back, based on how easy it was to remember.'}
+            </AppText>
+
+            {[
+              { label: isPt ? 'Difícil' : 'Hard', color: C.red,  bg: C.redBg,
+                desc: isPt ? 'Voltará em breve — precisa de mais prática.' : 'Comes back soon — needs more practice.' },
+              { label: 'Ok',                       color: C.gold, bg: C.goldBg,
+                desc: isPt ? 'Intervalo moderado — você está no caminho certo.' : "Moderate interval — you're on the right track." },
+              { label: isPt ? 'Fácil' : 'Easy',   color: C.green, bg: C.greenBg,
+                desc: isPt ? 'Intervalo longo — você domina esta palavra.' : "Long interval — you've got this word down." },
+            ].map(item => (
+              <View key={item.label} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                <View style={{
+                  backgroundColor: item.bg, borderRadius: 8,
+                  paddingHorizontal: 10, paddingVertical: 4, minWidth: 56, alignItems: 'center',
+                }}>
+                  <AppText style={{ fontSize: 13, fontWeight: '700', color: item.color }}>{item.label}</AppText>
+                </View>
+                <AppText style={{ flex: 1, fontSize: 13, color: C.navyMid, lineHeight: 19, paddingTop: 2 }}>
+                  {item.desc}
+                </AppText>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              onPress={() => setShowSRInfo(false)}
+              style={{ marginTop: 8, backgroundColor: C.navy, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}
+            >
+              <AppText style={{ color: '#FFF', fontSize: 15, fontWeight: '700' }}>
+                {isPt ? 'Entendi' : 'Got it'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    )}
+      )}
+    </View>
   );
 }
