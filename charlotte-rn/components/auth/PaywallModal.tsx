@@ -1,18 +1,9 @@
 /**
  * components/auth/PaywallModal.tsx
  * Full-screen paywall shown when the user has no active subscription.
- * Replaces the old TrialExpiredModal (WhatsApp redirect) with a real
- * in-app purchase flow via RevenueCat.
  *
- * Layout:
- *  • Dark navy background (#07071C)
- *  • Charlotte avatar + headline
- *  • Feature highlights (3 bullets)
- *  • Annual card (highlighted — best value)
- *  • Monthly card
- *  • CTA button → purchase selected plan
- *  • "Restore purchases" link
- *  • "Sign out" ghost link
+ * Copy strategy: loss aversion — mostra o que o usuário vai perder,
+ * personalizado com nome + streak (fallback: XP) ja acumulado.
  */
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -21,11 +12,12 @@ import {
   ScrollView, Platform, Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { CheckCircle, SignOut, ArrowsClockwise, X } from 'phosphor-react-native';
+import { Fire, Trophy, MicrophoneStage, ChatCircleText, SignOut, ArrowsClockwise, X } from 'phosphor-react-native';
 import { usePaywallContext } from '@/lib/paywallContext';
 import { PurchasesPackage, PurchasesOffering } from 'react-native-purchases';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
 import {
   getOffering,
   purchasePackage,
@@ -45,38 +37,62 @@ const C = {
   white:      '#FFFFFF',
   muted:      '#9896B8',
   highlight:  'rgba(163,255,60,0.12)',
-  selected:   'rgba(163,255,60,0.08)',
+  lossRed:    '#FF4444',
+  lossRedBg:  'rgba(255,68,68,0.08)',
 };
 
-const FEATURES = [
-  { pt: 'Mini-aulas narradas por Charlotte',        en: 'Mini-lessons narrated by Charlotte' },
-  { pt: 'Exercícios de gramática e pronúncia',      en: 'Grammar & pronunciation exercises' },
-  { pt: 'Chat e chamadas em voz com IA',            en: 'AI chat & live voice calls' },
+const LOSE_ITEMS = [
+  { icon: <ChatCircleText size={18} color={C.greenDark} weight="fill" />, text: 'Conversas em tempo real com a Charlotte' },
+  { icon: <MicrophoneStage size={18} color={C.greenDark} weight="fill" />, text: 'Chamadas em voz e feedback de pronúncia' },
+  { icon: <Trophy size={18} color={C.greenDark} weight="fill" />, text: 'Lições, exercícios e progresso na trilha' },
 ];
 
 export function PaywallModal() {
   const { profile, hasAccess, signOut, refreshProfile } = useAuth();
   const { paywallOpen, closePaywall } = usePaywallContext();
   const insets = useSafeAreaInsets();
-  const isPt   = true; // Paywall sempre em PT-BR (Brasil)
 
-  // Mostra quando: trial expirou (hasAccess=false) OU quando aberto manualmente
-  const forcedOpen  = paywallOpen && !!profile && hasAccess;
-  const visible     = (!!profile && !hasAccess) || forcedOpen;
+  const forcedOpen = paywallOpen && !!profile && hasAccess;
+  const visible    = (!!profile && !hasAccess) || forcedOpen;
 
-  const [offering, setOffering]       = useState<PurchasesOffering | null>(null);
-  const [selected, setSelected]       = useState<string>(PRODUCT_YEARLY);
-  const [loading, setLoading]         = useState(false);
+  const [offering, setOffering]         = useState<PurchasesOffering | null>(null);
+  const [selected, setSelected]         = useState<string>(PRODUCT_YEARLY);
+  const [loading, setLoading]           = useState(false);
   const [loadingOffer, setLoadingOffer] = useState(true);
 
+  // Dados de progresso do usuario
+  const [streakDays, setStreakDays] = useState<number>(0);
+  const [totalXP, setTotalXP]       = useState<number>(0);
+  const [progressLoaded, setProgressLoaded] = useState(false);
+
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !profile?.id) return;
     setLoadingOffer(true);
+    // Timeout de 10s: se o RevenueCat nao responder (sandbox lento ou falha),
+    // libera o botao para que o usuario possa tentar — o handlePurchase
+    // exibe Alert explicativo se offering ainda for null.
+    const timeout = setTimeout(() => setLoadingOffer(false), 10000);
     getOffering().then(o => {
       setOffering(o);
       setLoadingOffer(false);
-    });
+    }).catch(() => {
+      setLoadingOffer(false);
+    }).finally(() => clearTimeout(timeout));
   }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !profile?.id || progressLoaded) return;
+    supabase
+      .from('charlotte_progress')
+      .select('streak_days, total_xp')
+      .eq('user_id', profile.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        setStreakDays(data?.streak_days ?? 0);
+        setTotalXP(data?.total_xp ?? 0);
+        setProgressLoaded(true);
+      });
+  }, [visible, profile?.id]);
 
   const selectedPkg = useCallback((): PurchasesPackage | null => {
     if (!offering) return null;
@@ -105,8 +121,8 @@ export function PaywallModal() {
       await refreshProfile();
     } else if (!result.success) {
       Alert.alert(
-        isPt ? 'Erro na compra' : 'Purchase failed',
-        isPt ? 'Não foi possível processar o pagamento. Tente novamente.' : 'Could not process payment. Please try again.',
+        'Erro na compra',
+        'Não foi possível processar o pagamento. Tente novamente.',
       );
     }
   };
@@ -122,14 +138,14 @@ export function PaywallModal() {
       const hasPremium = !!info.entitlements.active['premium'];
       if (!hasPremium) {
         Alert.alert(
-          isPt ? 'Nenhuma compra encontrada' : 'No purchases found',
-          isPt ? 'Não encontramos uma assinatura ativa para esta conta.' : 'No active subscription found for this account.',
+          'Nenhuma compra encontrada',
+          'Não encontramos uma assinatura ativa para esta conta.',
         );
       }
     }
   };
 
-  // ── Package display helpers ───────────────────────────────────────────────
+  // Package display helpers
   const monthlyPkg = offering?.availablePackages.find(
     p => p.product.identifier.includes('monthly')
   );
@@ -140,15 +156,29 @@ export function PaywallModal() {
   const monthlyPrice = monthlyPkg?.product.priceString ?? 'R$ 29,90';
   const yearlyPrice  = yearlyPkg?.product.priceString  ?? 'R$ 199,90';
 
-  // Monthly equivalent of yearly plan (divide by 12)
   const yearlyMonthly = yearlyPkg
     ? `${yearlyPkg.product.currencyCode} ${(yearlyPkg.product.price / 12).toFixed(2).replace('.', ',')}`
     : 'R$ 16,66';
 
+  // Headline personalizada: streak > 0 usa streak, senão usa XP
+  const firstName = profile?.name?.split(' ')[0] ?? '';
+  const useStreak = streakDays > 0;
+
+  const headline = firstName
+    ? useStreak
+      ? `${firstName}, sua sequência de ${streakDays} ${streakDays === 1 ? 'dia' : 'dias'} está em risco.`
+      : `${firstName}, você acumulou ${totalXP} XP praticando com a Charlotte.`
+    : useStreak
+      ? `Sua sequência de ${streakDays} ${streakDays === 1 ? 'dia' : 'dias'} está em risco.`
+      : `Você acumulou ${totalXP} XP praticando com a Charlotte.`;
+
+  const subheadline = 'Não deixe tudo isso ir embora. Continue de onde parou.';
+
   return (
     <Modal visible={visible} animationType="fade" transparent={false} statusBarTranslucent>
       <View style={{ flex: 1, backgroundColor: C.bg }}>
-        {/* Botão fechar — só quando aberto manualmente (trial ainda ativo) */}
+
+        {/* Botao fechar — so quando aberto manualmente (trial ainda ativo) */}
         {forcedOpen && (
           <TouchableOpacity
             onPress={closePaywall}
@@ -161,55 +191,77 @@ export function PaywallModal() {
             <X size={22} color={C.navyMid} weight="bold" />
           </TouchableOpacity>
         )}
+
         <ScrollView
           contentContainerStyle={{
-            paddingTop: insets.top + 24,
+            paddingTop: insets.top + 32,
             paddingBottom: insets.bottom + 24,
             paddingHorizontal: 24,
             alignItems: 'center',
           }}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Badge ── */}
+
+          {/* Icone de perda */}
           <View style={{
-            backgroundColor: C.highlight,
-            borderRadius: 20, borderWidth: 1, borderColor: 'rgba(61,136,0,0.20)',
-            paddingHorizontal: 14, paddingVertical: 5, marginBottom: 28,
+            width: 64, height: 64, borderRadius: 32,
+            backgroundColor: C.lossRedBg,
+            alignItems: 'center', justifyContent: 'center',
+            marginBottom: 20,
           }}>
-            <AppText style={{ color: C.greenDark, fontSize: 12, fontWeight: '700', letterSpacing: 0.5 }}>
-              {isPt ? '7 DIAS GRÁTIS' : '7-DAY FREE TRIAL'}
-            </AppText>
+            {useStreak
+              ? <Fire size={32} color={C.lossRed} weight="fill" />
+              : <Trophy size={32} color={C.lossRed} weight="fill" />
+            }
           </View>
 
-          {/* ── Headline ── */}
-          <AppText style={{ fontSize: 26, fontWeight: '800', color: C.navy, textAlign: 'center', marginBottom: 10, lineHeight: 34 }}>
-            {isPt ? 'Aprenda inglês com\nCharlotte AI' : 'Learn English with\nCharlotte AI'}
+          {/* Headline personalizada */}
+          <AppText style={{
+            fontSize: 22, fontWeight: '800', color: C.navy,
+            textAlign: 'center', marginBottom: 10, lineHeight: 30,
+          }}>
+            {headline}
           </AppText>
-          <AppText style={{ fontSize: 14, color: C.muted, textAlign: 'center', marginBottom: 32, lineHeight: 20 }}>
-            {isPt
-              ? 'Comece hoje. Cancele quando quiser.'
-              : 'Start today. Cancel anytime.'}
+          <AppText style={{
+            fontSize: 14, color: C.navyMid,
+            textAlign: 'center', marginBottom: 28, lineHeight: 20,
+          }}>
+            {subheadline}
           </AppText>
 
-          {/* ── Feature bullets ── */}
-          <View style={{ alignSelf: 'stretch', gap: 12, marginBottom: 32 }}>
-            {FEATURES.map((f, i) => (
+          {/* O que vai perder */}
+          <View style={{
+            alignSelf: 'stretch',
+            backgroundColor: C.card,
+            borderRadius: 16,
+            padding: 16,
+            marginBottom: 28,
+            gap: 14,
+            ...Platform.select({
+              ios:     { shadowColor: 'rgba(22,21,58,0.08)', shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+              android: { elevation: 2 },
+            }),
+          }}>
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.muted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 2 }}>
+              Você vai perder acesso a
+            </AppText>
+            {LOSE_ITEMS.map((item, i) => (
               <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <CheckCircle size={18} color={C.greenDark} weight="fill" />
+                {item.icon}
                 <AppText style={{ color: C.navyMid, fontSize: 14, flex: 1 }}>
-                  {isPt ? f.pt : f.en}
+                  {item.text}
                 </AppText>
               </View>
             ))}
           </View>
 
-          {/* ── Plan cards ── */}
+          {/* Plan cards */}
           {loadingOffer ? (
             <ActivityIndicator color={C.greenDark} style={{ marginVertical: 24 }} />
           ) : (
             <View style={{ alignSelf: 'stretch', gap: 12, marginBottom: 28 }}>
 
-              {/* Annual — highlighted */}
+              {/* Annual */}
               <TouchableOpacity
                 onPress={() => setSelected(yearlyPkg?.product.identifier ?? PRODUCT_YEARLY)}
                 activeOpacity={0.85}
@@ -219,39 +271,34 @@ export function PaywallModal() {
                   borderWidth: 2,
                   borderColor: selected.includes('yearly') ? C.greenDark : C.cardBorder,
                   padding: 18,
-                  shadowColor: 'rgba(22,21,58,0.08)',
-                  shadowOpacity: 1, shadowRadius: 8,
-                  shadowOffset: { width: 0, height: 2 },
-                  elevation: 2,
+                  ...Platform.select({
+                    ios:     { shadowColor: 'rgba(22,21,58,0.08)', shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 2 } },
+                    android: { elevation: selected.includes('yearly') ? 0 : 2 },
+                  }),
                 }}
               >
-                {/* Best value badge */}
                 <View style={{
                   position: 'absolute', top: -10, right: 16,
                   backgroundColor: C.greenDark, borderRadius: 10,
                   paddingHorizontal: 10, paddingVertical: 3,
                 }}>
                   <AppText style={{ color: C.white, fontSize: 11, fontWeight: '800' }}>
-                    {isPt ? 'MELHOR VALOR' : 'BEST VALUE'}
+                    MELHOR VALOR
                   </AppText>
                 </View>
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                   <View>
-                    <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '700' }}>
-                      {isPt ? 'Anual' : 'Annual'}
-                    </AppText>
+                    <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '700' }}>Anual</AppText>
                     <AppText style={{ color: C.muted, fontSize: 12, marginTop: 2 }}>
-                      {yearlyMonthly}/{isPt ? 'mês' : 'mo'}
+                      {yearlyMonthly}/mês
                     </AppText>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
                     <AppText style={{ color: C.greenDark, fontSize: 20, fontWeight: '800' }}>
                       {yearlyPrice}
                     </AppText>
-                    <AppText style={{ color: C.muted, fontSize: 11 }}>
-                      /{isPt ? 'ano' : 'year'}
-                    </AppText>
+                    <AppText style={{ color: C.muted, fontSize: 11 }}>/ano</AppText>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -266,23 +313,19 @@ export function PaywallModal() {
                   borderWidth: selected.includes('monthly') ? 2 : 1,
                   borderColor: selected.includes('monthly') ? C.greenDark : C.cardBorder,
                   padding: 18,
-                  shadowColor: 'rgba(22,21,58,0.06)',
-                  shadowOpacity: 1, shadowRadius: 6,
-                  shadowOffset: { width: 0, height: 1 },
-                  elevation: 1,
+                  ...Platform.select({
+                    ios:     { shadowColor: 'rgba(22,21,58,0.06)', shadowOpacity: 1, shadowRadius: 6, shadowOffset: { width: 0, height: 1 } },
+                    android: { elevation: selected.includes('monthly') ? 0 : 1 },
+                  }),
                 }}
               >
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '700' }}>
-                    {isPt ? 'Mensal' : 'Monthly'}
-                  </AppText>
+                  <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '700' }}>Mensal</AppText>
                   <View style={{ alignItems: 'flex-end' }}>
                     <AppText style={{ color: C.navy, fontSize: 20, fontWeight: '800' }}>
                       {monthlyPrice}
                     </AppText>
-                    <AppText style={{ color: C.muted, fontSize: 11 }}>
-                      /{isPt ? 'mês' : 'mo'}
-                    </AppText>
+                    <AppText style={{ color: C.muted, fontSize: 11 }}>/mês</AppText>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -290,7 +333,7 @@ export function PaywallModal() {
             </View>
           )}
 
-          {/* ── CTA Button ── */}
+          {/* CTA */}
           <TouchableOpacity
             onPress={handlePurchase}
             disabled={loading || loadingOffer}
@@ -308,41 +351,46 @@ export function PaywallModal() {
           >
             {loading
               ? <ActivityIndicator color={C.navy} />
-              : (
-                <AppText style={{ color: C.navy, fontSize: 16, fontWeight: '800' }}>
-                  {isPt ? 'Começar 7 dias grátis' : 'Start 7-day free trial'}
-                </AppText>
-              )
+              : (() => {
+                  const isYearly = selected.includes('yearly');
+                  const afterLabel = isYearly
+                    ? `depois ${yearlyPrice}/ano`
+                    : `depois ${monthlyPrice}/mês`;
+                  return (
+                    <View style={{ alignItems: 'center', gap: 2 }}>
+                      <AppText style={{ color: C.navy, fontSize: 16, fontWeight: '800' }}>
+                        +7 dias grátis
+                      </AppText>
+                      <AppText style={{ color: C.navy, fontSize: 12, fontWeight: '600', opacity: 0.7 }}>
+                        {afterLabel}
+                      </AppText>
+                    </View>
+                  );
+                })()
             }
           </TouchableOpacity>
 
           <AppText style={{ color: C.muted, fontSize: 11, textAlign: 'center', marginBottom: 24, lineHeight: 16 }}>
-            {isPt
-              ? 'Cancele antes do período de teste terminar e não será cobrado. Renovação automática.'
-              : 'Cancel before trial ends and you won\'t be charged. Auto-renews.'}
+            Ganhe +7 dias grátis ao assinar. Cancele antes e não será cobrado. Renovação automática.
           </AppText>
 
-          {/* ── Restore ── */}
+          {/* Restore */}
           <TouchableOpacity
             onPress={handleRestore}
             disabled={loading}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, marginBottom: 4 }}
           >
             <ArrowsClockwise size={14} color={C.muted} />
-            <AppText style={{ color: C.muted, fontSize: 13 }}>
-              {isPt ? 'Restaurar compras' : 'Restore purchases'}
-            </AppText>
+            <AppText style={{ color: C.muted, fontSize: 13 }}>Restaurar compras</AppText>
           </TouchableOpacity>
 
-          {/* ── Sign out ── */}
+          {/* Sign out */}
           <TouchableOpacity
             onPress={signOut}
             style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 }}
           >
             <SignOut size={14} color={C.muted} />
-            <AppText style={{ color: C.muted, fontSize: 13 }}>
-              {isPt ? 'Sair da conta' : 'Sign out'}
-            </AppText>
+            <AppText style={{ color: C.muted, fontSize: 13 }}>Sair da conta</AppText>
           </TouchableOpacity>
 
         </ScrollView>

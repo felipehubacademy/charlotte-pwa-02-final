@@ -239,6 +239,9 @@ export default function LiveVoiceModal({
   const charlotteSpeakingRef    = React.useRef(false);
   const responseActiveRef       = React.useRef(false);
   const lastCharlotteDoneRef    = React.useRef(0);
+  // Cooldown: timestamp do ultimo response.create enviado.
+  // Impede que eco em loop dispare multiplos response.creates seguidos.
+  const lastResponseCreateRef   = React.useRef(0);
 
   // ── Session tracking refs ─────────────────────────────────────────────────
   const sessionStartRef         = React.useRef<number>(0);      // Date.now() when segment started
@@ -304,10 +307,18 @@ export default function LiveVoiceModal({
   }, []);
 
   // ── Mute ──────────────────────────────────────────────────────────────────
+  // No react-native-webrtc, desabilitar o track via stream nao para o envio.
+  // É necessário desabilitar via RTCPeerConnection senders E via stream.
   const applyMute = React.useCallback((muted: boolean) => {
-    if (!localStreamRef.current) return;
-    localStreamRef.current.getAudioTracks().forEach((track: any) => {
+    // Via stream (fallback)
+    localStreamRef.current?.getAudioTracks().forEach((track: any) => {
       track.enabled = !muted;
+    });
+    // Via PC senders (método confiável no react-native-webrtc)
+    pcRef.current?.getSenders?.()?.forEach?.((sender: any) => {
+      if (sender?.track?.kind === 'audio') {
+        sender.track.enabled = !muted;
+      }
     });
   }, []);
 
@@ -591,6 +602,11 @@ export default function LiveVoiceModal({
         stopRingTone();
         setStatus('connected');
         wasConnectedRef.current = true;
+        // Inicializar o echo guard com timestamp atual — evita que o guard
+        // passe imediatamente (ref=0 → msSinceDone=∞) antes do primeiro
+        // audio da Charlotte terminar, o que causava eco da abertura virar
+        // turno do usuario.
+        lastCharlotteDoneRef.current = Date.now();
 
         const greeting = getRandomGreeting(userLevel);
         dc.send(JSON.stringify({
@@ -617,6 +633,12 @@ export default function LiveVoiceModal({
 
         setTimeout(() => {
           if (dcRef.current?.readyState === 'open') {
+            // Marcar Charlotte como falando ANTES do response.create —
+            // garante que charlotteSpeakingRef=true quando o VAD capturar
+            // o eco da abertura, bloqueando speech_stopped corretamente.
+            // Apenas o ref — sem setCharlotteSpeaking para evitar re-render
+            // que pode interferir no pipeline de audio no iOS.
+            charlotteSpeakingRef.current = true;
             dc.send(JSON.stringify({ type: 'response.create' }));
           }
         }, 500);
@@ -714,14 +736,17 @@ export default function LiveVoiceModal({
               break;
 
             case 'input_audio_buffer.speech_started':
-              // User spoke — could be an interruption while Charlotte is talking.
+              // Usuario falou — pode ser interrupcao real ou eco da Charlotte.
               lastActivityRef.current = Date.now();
               setUserSpeaking(true);
               setInactivityWarning(false);
               setWarningCountdown(30);
               warnStartRef.current = 0;
               if (charlotteSpeakingRef.current) {
-                // Interrupt: cancel Charlotte's current response immediately.
+                // Interrupcao (ou eco enquanto Charlotte fala): cancelar
+                // resposta atual. lastCharlotteDone = now (sem offset) para
+                // que o echo guard de 3500ms em speech_stopped bloqueie o
+                // eco — o usuario pode falar de novo apos o guard expirar.
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
                 lastCharlotteDoneRef.current = Date.now();
@@ -734,17 +759,19 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_stopped':
               setUserSpeaking(false);
-              // create_response:false — trigger response manually.
-              // Guards:
-              //   1. Charlotte must not be mid-response (charlotteSpeakingRef).
-              //   2. >= 1500ms since her audio finished (lastCharlotteDoneRef).
-              //      Filters room echo that the VAD may catch after she stops.
-              //      lastCharlotteDoneRef is stamped immediately on audio.done
-              //      so the guard window starts as early as possible.
-              //      Real user speech always arrives well after this window.
+              // create_response:false — disparar response.create manualmente.
+              // Guards (ambos devem passar):
+              //   1. Charlotte nao pode estar falando (charlotteSpeakingRef).
+              //   2. >= 3500ms desde que o audio dela terminou — filtra eco
+              //      de reverberacao do ambiente que chega ao microfone apos
+              //      ela parar de falar.
+              //   3. Cooldown de 3000ms entre response.creates consecutivos —
+              //      impede loop infinito caso eco dispare multiplos ciclos.
               if (!charlotteSpeakingRef.current) {
-                const msSinceDone = Date.now() - lastCharlotteDoneRef.current;
-                if (msSinceDone > 1500) {
+                const msSinceDone   = Date.now() - lastCharlotteDoneRef.current;
+                const msSinceLast   = Date.now() - lastResponseCreateRef.current;
+                if (msSinceDone > 3500 && msSinceLast > 3000) {
+                  lastResponseCreateRef.current = Date.now();
                   setTimeout(() => {
                     if (dcRef.current?.readyState === 'open') {
                       sendEvent({ type: 'response.create' });
