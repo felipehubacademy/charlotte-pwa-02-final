@@ -50,7 +50,7 @@ function buildPrompt(req: GreetingRequest): { system: string; user: string } {
     ctx.push(`No XP yet today. Short motivational nudge.`);
   }
 
-  const user = `${ctx.join(' | ')}\n\nWrite the greeting now. ONE sentence only. Max 20 words.`;
+  const user = `${ctx.join(' | ')}\n\nWrite the greeting now. ONE sentence only. MAX 12 WORDS. Short, punchy, no fluff.`;
 
   return { system, user };
 }
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
-      max_tokens: 60,
+      max_tokens: 30,
       temperature: 0.85,
       messages: [
         { role: 'system', content: system },
@@ -80,7 +80,10 @@ export async function POST(request: NextRequest) {
       ],
     });
 
-    const message = completion.choices[0]?.message?.content?.trim() ?? '';
+    const raw = completion.choices[0]?.message?.content?.trim() ?? '';
+    // Garantia server-side: nunca mais de 12 palavras, nunca mensagem cortada no meio
+    const words = raw.split(/\s+/);
+    const message = words.length <= 12 ? raw : words.slice(0, 12).join(' ');
     return NextResponse.json({ message });
   } catch (err) {
     console.error('Greeting API error:', err);
