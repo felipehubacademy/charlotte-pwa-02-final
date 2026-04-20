@@ -81,9 +81,9 @@ export async function POST(request: NextRequest) {
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? '';
-    // Garantia server-side: nunca mais de 12 palavras, nunca mensagem cortada no meio
+    // Se o modelo ignorou o limite, descarta — melhor sem mensagem que frase cortada
     const words = raw.split(/\s+/);
-    const message = words.length <= 12 ? raw : words.slice(0, 12).join(' ');
+    const message = words.length <= 15 ? raw : '';
     return NextResponse.json({ message });
   } catch (err) {
     console.error('Greeting API error:', err);
