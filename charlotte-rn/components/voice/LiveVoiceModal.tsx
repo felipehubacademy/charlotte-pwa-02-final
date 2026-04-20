@@ -515,26 +515,23 @@ export default function LiveVoiceModal({
       },
     });
 
-    // 3. Injetar instrução de despedida como mensagem de sistema
-    const farewellText = userLevel === 'Novice'
-      ? `Poxa ${userName}, seu tempo mensal de conversa ao vivo esgotou, mas logo voce ja volta a praticar. Te vejo em breve!`
-      : `Oh ${userName}, your monthly live conversation time is up — but you'll be back practising before you know it. See you soon!`;
+    // 3. Criar resposta com instructions override — sem poluir o histórico
+    const farewellInstruction = userLevel === 'Novice'
+      ? `Diga exatamente isto, com calor e naturalidade, como sua última mensagem: "Poxa ${userName}, seu tempo mensal de conversa ao vivo esgotou, mas logo você já volta a praticar. Te vejo em breve!" Não diga mais nada além disso.`
+      : `Say exactly this, warmly and naturally, as your last message: "Oh ${userName}, your monthly live conversation time is up — but you'll be back practising before you know it. See you soon!" Say nothing else.`;
 
-    sendEvent({
-      type: 'conversation.item.create',
-      item: {
-        type: 'message',
-        role: 'user',
-        content: [{ type: 'input_text', text: `[SYSTEM] Please say exactly the following as your final message and nothing else: "${farewellText}"` }],
-      },
-    });
-
-    // 4. Criar resposta para Charlotte entregar a despedida
     setTimeout(() => {
       if (dcRef.current?.readyState === 'open') {
         charlotteSpeakingRef.current = true;
         setCharlotteSpeaking(true);
-        sendEvent({ type: 'response.create' });
+        sendEvent({
+          type: 'response.create',
+          response: {
+            modalities: ['text', 'audio'],
+            instructions: farewellInstruction,
+            max_output_tokens: 80,
+          },
+        });
       }
     }, 200);
   }, [poolExhausted]); // eslint-disable-line
