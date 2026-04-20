@@ -288,6 +288,7 @@ export default function ReviewSession() {
         .from('sr_items')
         .select('id, source_type, source_id, card_type, user_level, topic_title, ease_factor, interval_days, repetitions, next_review_at')
         .eq('user_id', user.id)
+        .eq('source_type', 'topic')
         .lte('next_review_at', now)
         .order('next_review_at', { ascending: true })
         .limit(20);
@@ -298,42 +299,8 @@ export default function ReviewSession() {
         return;
       }
 
-      // Fetch vocabulary items needed for vocab SR cards
-      const vocabIds = (data ?? [])
-        .filter(r => r.source_type === 'vocabulary')
-        .map(r => r.source_id as string);
-
-      let vocabMap: Record<string, { term: string; definition: string; example: string | null; example_translation: string | null; category: string }> = {};
-      if (vocabIds.length > 0) {
-        const { data: vocabData } = await supabase
-          .from('user_vocabulary')
-          .select('id, term, definition, example, example_translation, category')
-          .in('id', vocabIds);
-        (vocabData ?? []).forEach(v => { vocabMap[v.id] = v; });
-      }
-
+      // Only topic SR cards — vocabulary has its own review screen (vocab-review)
       const mapped: SRCardItem[] = (data ?? []).map(r => {
-        if (r.source_type === 'vocabulary') {
-          const vocab = vocabMap[r.source_id as string];
-          if (!vocab) return null;
-          return {
-            id:           r.id,
-            cardType:     (r.card_type as CardType),
-            userLevel:    r.user_level ?? level,
-            moduleIndex:  -1,
-            topicIndex:   -1,
-            topicTitle:   vocab.term,
-            easeFactor:   r.ease_factor ?? 2.5,
-            intervalDays: r.interval_days ?? 0,
-            repetitions:  r.repetitions ?? 0,
-            // Vocabulary-specific extra data
-            vocabTerm:               vocab.term,
-            vocabDefinition:         vocab.definition,
-            vocabExample:            vocab.example ?? undefined,
-            vocabExampleTranslation: vocab.example_translation ?? undefined,
-            vocabCategory:           vocab.category,
-          } as SRCardItem;
-        }
         const parts = (r.source_id as string).split(':');
         return {
           id:           r.id,
