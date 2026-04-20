@@ -265,10 +265,11 @@ export default function ReviewSession() {
   const levelAccentBg: string = level === 'Novice' ? '#FFFBEB' : level === 'Inter' ? '#F5F3FF' : '#F0FDFA';
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [items,    setItems]    = useState<SRCardItem[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [cardIdx,  setCardIdx]  = useState(0);
-  const [phase,    setPhase]    = useState<'question' | 'rating' | 'summary'>('question');
+  const [items,         setItems]         = useState<SRCardItem[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [cardIdx,       setCardIdx]       = useState(0);
+  const [phase,         setPhase]         = useState<'question' | 'rating' | 'summary'>('question');
+  const [vocabDueCount, setVocabDueCount] = useState(0);
   const [userAnswer, setUserAnswer] = useState('');
   const [isCorrect,  setIsCorrect]  = useState<boolean | null>(null);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -325,6 +326,21 @@ export default function ReviewSession() {
     };
     load();
   }, [user?.id]);
+
+  // ── Fetch vocab due when summary is shown ─────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'summary' || !user?.id) return;
+    const fetchVocabDue = async () => {
+      const now = new Date().toISOString();
+      const { count } = await supabase
+        .from('user_vocabulary')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .lte('next_review_at', now);
+      setVocabDueCount(count ?? 0);
+    };
+    fetchVocabDue();
+  }, [phase, user?.id]);
 
   const currentItem     = items[cardIdx];
   const currentQuestion = currentItem ? generateCardQuestion(currentItem) : null;
@@ -576,6 +592,22 @@ export default function ReviewSession() {
               {isPt ? 'Voltar ao inicio' : 'Back to Home'}
             </AppText>
           </TouchableOpacity>
+
+          {vocabDueCount > 0 && (
+            <TouchableOpacity
+              onPress={() => router.replace('/(app)/vocab-review')}
+              activeOpacity={0.82}
+              style={{
+                marginTop: 12, backgroundColor: 'transparent',
+                borderRadius: 16, paddingVertical: 14, alignItems: 'center',
+                borderWidth: 1.5, borderColor: C.greenDark,
+              }}
+            >
+              <AppText style={{ color: C.greenDark, fontSize: 16, fontWeight: '800' }}>
+                {isPt ? 'Revisar vocabulário também' : 'Review vocabulary too'}
+              </AppText>
+            </TouchableOpacity>
+          )}
 
         </ScrollView>
       </SafeAreaView>

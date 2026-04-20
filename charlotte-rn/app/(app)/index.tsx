@@ -1526,56 +1526,66 @@ export default function HomeScreen() {
           {/* Review card (right, half width) — two states */}
           <TouchableOpacity
             onPress={() => {
-              if (pendingReviews.length === 0) return;
-              router.push('/(app)/review-session');
+              const srDue = pendingReviews.length > 0;
+              const vocabDue = vocabDueCount > 0;
+              if (!srDue && !vocabDue) return;
+              if (srDue) {
+                router.push('/(app)/review-session');
+              } else {
+                router.push('/(app)/vocab-review');
+              }
             }}
-            activeOpacity={pendingReviews.length > 0 ? 0.72 : 1}
+            activeOpacity={(pendingReviews.length > 0 || vocabDueCount > 0) ? 0.72 : 1}
             style={{
               flex: 1,
               borderRadius: 18,
-              backgroundColor: pendingReviews.length > 0 ? levelAccentBg : C.card,
+              backgroundColor: (pendingReviews.length > 0 || vocabDueCount > 0) ? levelAccentBg : C.card,
               borderWidth: 1,
-              borderColor: pendingReviews.length > 0 ? (levelAccent + '60') : C.navyGhost,
+              borderColor: (pendingReviews.length > 0 || vocabDueCount > 0) ? (levelAccent + '60') : C.navyGhost,
               padding: 16,
               gap: 10,
-              ...(pendingReviews.length > 0 ? { elevation: 0 } : cardShadow),
+              ...((pendingReviews.length > 0 || vocabDueCount > 0) ? { elevation: 0 } : cardShadow),
             }}
           >
             {/* badge */}
-            {pendingReviews.length > 0 && (
+            {(pendingReviews.length > 0 || vocabDueCount > 0) && (
               <View style={{
                 position: 'absolute', top: 10, right: 10,
                 backgroundColor: levelAccent, borderRadius: 10,
                 paddingHorizontal: 7, paddingVertical: 2, minWidth: 20, alignItems: 'center',
               }}>
                 <AppText style={{ color: '#FFF', fontSize: 10, fontWeight: '800' }}>
-                  {pendingReviews.length}
+                  {pendingReviews.length + vocabDueCount}
                 </AppText>
               </View>
             )}
             <View style={{
               width: 44, height: 44, borderRadius: 13,
-              backgroundColor: pendingReviews.length > 0 ? (levelAccent + '18') : C.navyGhost,
+              backgroundColor: (pendingReviews.length > 0 || vocabDueCount > 0) ? (levelAccent + '18') : C.navyGhost,
               alignItems: 'center', justifyContent: 'center',
             }}>
               <LightbulbFilament
                 size={24}
-                color={pendingReviews.length > 0 ? levelAccent : C.navyLight}
-                weight={pendingReviews.length > 0 ? 'fill' : 'regular'}
+                color={(pendingReviews.length > 0 || vocabDueCount > 0) ? levelAccent : C.navyLight}
+                weight={(pendingReviews.length > 0 || vocabDueCount > 0) ? 'fill' : 'regular'}
               />
             </View>
             <AppText style={{
               fontSize: 14, fontWeight: '800', letterSpacing: -0.2,
-              color: pendingReviews.length > 0 ? C.navy : C.navyLight,
+              color: (pendingReviews.length > 0 || vocabDueCount > 0) ? C.navy : C.navyLight,
             }}>
               {isPortuguese ? 'Revisão' : 'Review'}
             </AppText>
-            <AppText style={{ fontSize: 11, lineHeight: 15, color: pendingReviews.length > 0 ? C.navyMid : C.navyLight }}>
+            <AppText style={{ fontSize: 11, lineHeight: 15, color: (pendingReviews.length > 0 || vocabDueCount > 0) ? C.navyMid : C.navyLight }}>
               {pendingReviews.length > 0
                 ? (isPortuguese
                     ? `${pendingReviews.length} tópico${pendingReviews.length > 1 ? 's' : ''} pendente${pendingReviews.length > 1 ? 's' : ''}`
                     : `${pendingReviews.length} topic${pendingReviews.length > 1 ? 's' : ''} to review`)
-                : (isPortuguese ? 'Nada para hoje' : 'Nothing today')}
+                : vocabDueCount > 0
+                  ? (isPortuguese
+                      ? `${vocabDueCount} ${vocabDueCount === 1 ? 'palavra' : 'palavras'} para revisar`
+                      : `${vocabDueCount} vocab ${vocabDueCount === 1 ? 'word' : 'words'} to review`)
+                  : (isPortuguese ? 'Nada para hoje' : 'Nothing today')}
             </AppText>
           </TouchableOpacity>
 
@@ -1605,12 +1615,8 @@ export default function HomeScreen() {
             <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
               {isPortuguese ? 'Meu Vocabulário' : 'My Vocabulary'}
             </AppText>
-            <AppText style={{ fontSize: 11, color: vocabDueCount > 0 ? C.red : C.navyLight }}>
-              {vocabDueCount > 0
-                ? (isPortuguese
-                    ? `${vocabDueCount} ${vocabDueCount === 1 ? 'palavra' : 'palavras'} para revisar`
-                    : `${vocabDueCount} ${vocabDueCount === 1 ? 'word' : 'words'} to review`)
-                : (isPortuguese ? 'Palavras salvas & revisão' : 'Saved words & review')}
+            <AppText style={{ fontSize: 11, color: C.navyLight }}>
+              {isPortuguese ? 'Suas palavras salvas' : 'Your saved words'}
             </AppText>
           </View>
           <CaretRight size={16} color={C.navyLight} />

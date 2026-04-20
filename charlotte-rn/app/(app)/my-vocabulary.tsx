@@ -167,22 +167,6 @@ export default function MyVocabularyScreen() {
             )}
           </View>
 
-          {/* Botão de review — só quando há devidas */}
-          {!loading && dueCount > 0 && (
-            <TouchableOpacity
-              onPress={() => router.push('/(app)/vocab-review')}
-              style={{
-                flexDirection: 'row', alignItems: 'center', gap: 6,
-                backgroundColor: levelAccent, borderRadius: 20,
-                paddingHorizontal: 14, paddingVertical: 8,
-              }}
-            >
-              <ClockCountdown size={15} color="#FFFFFF" weight="fill" />
-              <AppText style={{ fontSize: 13, fontWeight: '700', color: '#FFFFFF' }}>
-                {dueCount}
-              </AppText>
-            </TouchableOpacity>
-          )}
         </View>
       </SafeAreaView>
 
