@@ -165,6 +165,7 @@ export default function VocabReview() {
           ]).start();
         });
       });
+    });
   }, [flipped, flipAnim, btnAnim, btnOpac]);
 
   // ── TTS ─────────────────────────────────────────────────────────────────────
