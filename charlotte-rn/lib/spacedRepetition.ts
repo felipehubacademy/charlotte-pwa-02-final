@@ -3,6 +3,7 @@
 // sr_items: pool unificado de tópicos da trilha + vocabulário do usuário.
 
 import { supabase } from './supabase';
+import { addDaysISO } from './dateUtils';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -70,8 +71,8 @@ export function calcNextReview(
     repetitions += 1;
   }
 
-  const nextReviewAt = new Date();
-  nextReviewAt.setDate(nextReviewAt.getDate() + intervalDays);
+  // addDaysISO: meia-noite local + N dias → UTC. Review disponível no fuso do usuário.
+  const nextReviewAt = new Date(addDaysISO(intervalDays));
 
   return { easeFactor, intervalDays, repetitions, nextReviewAt };
 }
@@ -90,7 +91,6 @@ export async function scheduleReviews(
   topicTitle: string,
 ): Promise<void> {
   const sourceId = `${level}:${moduleIndex}:${topicIndex}`;
-  const now = new Date();
 
   // Verificar se já existem itens para este tópico (evitar duplicatas em re-conclusão)
   const { data: existing } = await supabase
@@ -107,23 +107,19 @@ export async function scheduleReviews(
   const initialIntervals = [1, 3, 7, 14];
   const cardTypes: CardType[] = ['gap_fill', 'reverse', 'context_guess', 'charlotte_challenge'];
 
-  const rows = initialIntervals.map((days, i) => {
-    const reviewAt = new Date(now);
-    reviewAt.setDate(reviewAt.getDate() + days);
-    return {
-      user_id:       userId,
-      source_type:   'learn_topic',
-      source_id:     sourceId,
-      card_type:     cardTypes[i],
-      content:       {},
-      user_level:    level,
-      topic_title:   topicTitle,
-      ease_factor:   2.5,
-      interval_days: days,
-      repetitions:   0,
-      next_review_at: reviewAt.toISOString(),
-    };
-  });
+  const rows = initialIntervals.map((days, i) => ({
+    user_id:       userId,
+    source_type:   'learn_topic',
+    source_id:     sourceId,
+    card_type:     cardTypes[i],
+    content:       {},
+    user_level:    level,
+    topic_title:   topicTitle,
+    ease_factor:   2.5,
+    interval_days: days,
+    repetitions:   0,
+    next_review_at: addDaysISO(days), // meia-noite local + N dias
+  }));
 
   const { error } = await supabase.from('sr_items').insert(rows);
   if (error) console.warn('[spacedRep] scheduleReviews error:', error.message);
@@ -150,26 +146,21 @@ export async function scheduleVocabReviews(
     cardTypes = ['gap_fill', 'reverse'];
   }
 
-  const now = new Date();
   const initialIntervals = [1, 5]; // 2 cards: day 1 + day 5
 
-  const rows = initialIntervals.map((days, i) => {
-    const reviewAt = new Date(now);
-    reviewAt.setDate(reviewAt.getDate() + days);
-    return {
-      user_id:       userId,
-      source_type:   'vocabulary',
-      source_id:     vocabId,
-      card_type:     cardTypes[i] ?? cardTypes[0],
-      content:       {},
-      user_level:    level,
-      topic_title:   term,
-      ease_factor:   2.5,
-      interval_days: days,
-      repetitions:   0,
-      next_review_at: reviewAt.toISOString(),
-    };
-  });
+  const rows = initialIntervals.map((days, i) => ({
+    user_id:       userId,
+    source_type:   'vocabulary',
+    source_id:     vocabId,
+    card_type:     cardTypes[i] ?? cardTypes[0],
+    content:       {},
+    user_level:    level,
+    topic_title:   term,
+    ease_factor:   2.5,
+    interval_days: days,
+    repetitions:   0,
+    next_review_at: addDaysISO(days), // meia-noite local + N dias
+  }));
 
   const { error } = await supabase.from('sr_items').insert(rows);
   if (error) console.warn('[spacedRep] scheduleVocabReviews error:', error.message);

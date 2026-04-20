@@ -52,6 +52,7 @@ import { usePaywallContext } from '@/lib/paywallContext';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { VocabFAB } from '@/components/vocabulary/VocabFAB';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
+import { localMidnightUTC } from '@/lib/dateUtils';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -841,12 +842,14 @@ export default function HomeScreen() {
     if (!userId || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    // localMidnightUTC(): meia-noite de hoje no fuso local, convertida para UTC.
+    // Correto para qualquer país — não assume UTC=local.
+    const todayISO = localMidnightUTC().toISOString();
     const [prog, prac, achToday] = await Promise.all([
       supabase.from('charlotte_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
-      supabase.from('charlotte_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', today.toISOString()),
+      supabase.from('charlotte_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', todayISO),
       // Achievement bonuses earned today (go via direct UPDATE, not in charlotte_practices)
-      supabase.from('user_achievements').select('xp_bonus').eq('user_id', userId).gte('earned_at', today.toISOString()),
+      supabase.from('user_achievements').select('xp_bonus').eq('user_id', userId).gte('earned_at', todayISO),
     ]);
     const practices         = prac.data ?? [];
     const practicesXP       = practices.reduce((s, p) => s + (p.xp_earned ?? 0), 0);

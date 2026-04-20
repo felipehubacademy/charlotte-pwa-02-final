@@ -6,6 +6,7 @@
 // Reset automático no 1º dia de cada mês.
 
 import { supabase } from './supabase';
+import { localMonthStartStr } from './dateUtils';
 
 // ── Constantes ──────────────────────────────────────────────────────────────
 
@@ -24,12 +25,7 @@ export function getPoolForLevel(level: string): number {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function thisMonthFirstDay(): string {
-  const d    = new Date();
-  const yyyy = d.getFullYear();
-  const mm   = String(d.getMonth() + 1).padStart(2, '0');
-  return `${yyyy}-${mm}-01`;
-}
+// Usa localMonthStartStr() de dateUtils — respeita o fuso do device
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -53,7 +49,7 @@ export async function getLiveVoiceStatus(level?: string): Promise<LiveVoiceStatu
   } = await supabase.auth.getUser();
   if (!user || authErr) throw new Error('Not authenticated');
 
-  const thisMonth = thisMonthFirstDay();
+  const thisMonth = localMonthStartStr();
 
   const { data, error } = await supabase
     .from('charlotte_users')

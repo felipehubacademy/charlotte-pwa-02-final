@@ -35,26 +35,30 @@ export async function GET(req: NextRequest) {
 
   const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // ── Datas de referencia (UTC) ─────────────────────────────────────────────
-  const now   = new Date();
-  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  // ── Datas de referencia (UTC absoluto) ───────────────────────────────────
+  // O cron roda no servidor (UTC). Usamos timestamps absolutos — NÃO strings
+  // de data — para não assumir que meia-noite UTC = meia-noite do usuário.
+  //
+  // trial_ends_at é gravado como timestamptz no Supabase (UTC absoluto).
+  // Comparar com now.toISOString() é correto: "expirou se já passou deste momento".
+  const now = new Date();
 
-  // Daqui a 2 dias (inicio e fim)
-  const in2Days      = new Date(now);
-  in2Days.setDate(in2Days.getDate() + 2);
-  const in2DaysStart = in2Days.toISOString().split('T')[0] + 'T00:00:00.000Z';
-  const in2DaysEnd   = in2Days.toISOString().split('T')[0] + 'T23:59:59.999Z';
+  // Aviso de 2 dias: trial expira entre agora e 48h a partir de agora
+  const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+  const nowISO  = now.toISOString();
+  const in48hISO = in48h.toISOString();
 
   const results = { expiring: 0, expired: 0, errors: 0 };
 
-  // ── 1. Trial expirando em 2 dias ──────────────────────────────────────────
+  // ── 1. Trial expirando nas próximas 48h ──────────────────────────────────
+  // Compara timestamps absolutos UTC — correto para usuários em qualquer fuso.
   const { data: expiring } = await db
     .from('charlotte_users')
     .select('id, name, email, trial_ends_at')
     .eq('subscription_status', 'trial')
     .eq('is_institutional', false)
-    .gte('trial_ends_at', in2DaysStart)
-    .lte('trial_ends_at', in2DaysEnd);
+    .gt('trial_ends_at', nowISO)
+    .lte('trial_ends_at', in48hISO);
 
   for (const user of expiring ?? []) {
     const expiresAt = formatDatePT(user.trial_ends_at);
@@ -68,12 +72,14 @@ export async function GET(req: NextRequest) {
   }
 
   // ── 2. Trial vencido: atualiza DB e envia email ───────────────────────────
+  // Usa now.toISOString() — "expirou se trial_ends_at já passou deste momento".
+  // Não mais "antes de meia-noite UTC do dia X" que errava por fuso horário.
   const { data: expired } = await db
     .from('charlotte_users')
     .select('id, name, email')
     .eq('subscription_status', 'trial')
     .eq('is_institutional', false)
-    .lt('trial_ends_at', today + 'T00:00:00.000Z');
+    .lt('trial_ends_at', nowISO);
 
   for (const user of expired ?? []) {
     // Atualiza status no banco

@@ -3,6 +3,7 @@
 // Progresso rastreado client-side via dados da home (sem tabela extra).
 
 import { supabase } from './supabase';
+import { localWeekStartISO, localWeekStartStr } from './dateUtils';
 
 // ── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -82,18 +83,9 @@ const CHALLENGE_POOL: WeeklyChallenge[] = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Retorna a segunda-feira da semana atual (ISO date string YYYY-MM-DD). */
-function getWeekStart(): string {
-  const d = new Date();
-  const day = d.getDay(); // 0=dom, 1=seg, ..., 6=sab
-  const diff = day === 0 ? 6 : day - 1; // ajustar para seg=0
-  d.setDate(d.getDate() - diff);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
 /** Seleciona o desafio da semana baseado num seed determinístico. */
 function getWeekSeed(): number {
-  const ws = getWeekStart();
+  const ws = localWeekStartStr();
   let hash = 0;
   for (let i = 0; i < ws.length; i++) {
     hash = ws.charCodeAt(i) + ((hash << 5) - hash);
@@ -123,7 +115,7 @@ export function getWeeklyChallenge(
     c => !c.allowedLevels || c.allowedLevels.includes(userLevel)
   );
   const challenge = availablePool[seed % availablePool.length];
-  const weekStart = getWeekStart();
+  const weekStart = localWeekStartStr();
 
   let current = 0;
   switch (challenge.id) {
@@ -154,13 +146,13 @@ export async function fetchWeeklyData(userId: string): Promise<{
   weeklyAudios: number;
   weeklyGrammarMessages: number;
 }> {
-  const weekStart = getWeekStart();
-
+  // localWeekStartISO() retorna meia-noite da segunda-feira no fuso local,
+  // convertida para UTC — correto para qualquer país.
   const { data, error } = await supabase
     .from('charlotte_practices')
     .select('practice_type, xp_earned')
     .eq('user_id', userId)
-    .gte('created_at', `${weekStart}T00:00:00.000Z`);
+    .gte('created_at', localWeekStartISO());
 
   if (error || !data) return { weeklyMessages: 0, weeklyXP: 0, weeklyLessons: 0, weeklyAudios: 0, weeklyGrammarMessages: 0 };
 

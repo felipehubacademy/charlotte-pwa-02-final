@@ -1,11 +1,12 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { unstable_batchedUpdates } from 'react-native';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { unstable_batchedUpdates, AppState, AppStateStatus } from 'react-native';
 import { Session } from '@supabase/supabase-js';
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { supabase, UserProfile } from '@/lib/supabase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { initPurchases, identifyUser, resetUser } from '@/lib/purchases';
+import { deviceTimezone } from '@/lib/dateUtils';
 
 export interface AuthContextType {
   session: Session | null;
@@ -40,11 +41,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isFreshLogin, setIsFreshLogin] = useState(false);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
+  const sessionRef = useRef<Session | null>(null);
 
   usePushNotifications(session?.user?.id);
 
+  // Manter ref sincronizada para uso no AppState handler
+  useEffect(() => { sessionRef.current = session; }, [session]);
+
   // Initialise RevenueCat SDK once on mount (idempotent)
   useEffect(() => { initPurchases(); }, []);
+
+  // ── Refresh profile ao voltar para foreground ─────────────────────────────
+  // Garante que trial_ends_at, subscription_status e is_active estejam
+  // sempre atualizados sem depender de eventos push ou cron timing.
+  useEffect(() => {
+    const handleAppState = async (nextState: AppStateStatus) => {
+      if (nextState === 'active' && sessionRef.current?.user) {
+        const userId = sessionRef.current.user.id;
+        const updated = await fetchProfile(userId).catch(() => null);
+        if (updated) setProfile(updated);
+        // Salvar timezone do device para uso em triggers/crons server-side
+        void (async () => {
+          const tz = deviceTimezone();
+          await supabase.from('charlotte_users').update({ timezone: tz }).eq('id', userId);
+        })();
+      }
+    };
+
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, []);
 
   // ── Deep link handler: password reset email ────────────────────────────────
   // Supabase redirects to charlotte://auth/callback#access_token=...&type=recovery
@@ -197,6 +223,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (mounted && userProfile) setProfile(userProfile);
           // Identify user in RevenueCat so purchase history is linked
           identifyUser(userId);
+          // Salvar timezone do device para uso em crons e triggers server-side
+          void (async () => {
+            const tz = deviceTimezone();
+            await supabase.from('charlotte_users').update({ timezone: tz }).eq('id', userId);
+          })();
         }, 0);
       }
     );

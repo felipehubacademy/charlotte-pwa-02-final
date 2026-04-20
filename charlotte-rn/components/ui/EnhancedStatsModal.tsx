@@ -17,6 +17,7 @@ import { Achievement } from '@/lib/types/achievement';
 import LevelLeaderboard from '@/components/leaderboard/LevelLeaderboard';
 import { shareStreak, shareXP } from '@/lib/shareUtils';
 import { GENERAL_ACHIEVEMENTS, LEVEL_ACHIEVEMENTS } from '@/lib/achievementsCatalog';
+import { localMidnightUTC } from '@/lib/dateUtils';
 
 const ALL_CATALOG_ENTRIES = [...GENERAL_ACHIEVEMENTS, ...LEVEL_ACHIEVEMENTS];
 function resolveAchTitle(code: string, isPt: boolean): string | undefined {
@@ -139,7 +140,7 @@ export default function EnhancedStatsModal({
     if (!userId) return;
     setRealData(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+      const todayISO = localMidnightUTC().toISOString();
       const [statsRes, historyRes, todayPracticesRes, achievementsRes, todayAchievementsRes] = await Promise.all([
         supabase.from('charlotte_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
         supabase.from('charlotte_practices').select('practice_type,xp_earned,created_at')
@@ -147,12 +148,12 @@ export default function EnhancedStatsModal({
           .not('practice_type', 'like', 'achievement_reward_%')
           .order('created_at', { ascending: false }).limit(10),
         supabase.from('charlotte_practices').select('xp_earned')
-          .eq('user_id', userId).gte('created_at', todayStart.toISOString()),
+          .eq('user_id', userId).gte('created_at', todayISO),
         supabase.from('user_achievements').select('*').eq('user_id', userId)
           .order('earned_at', { ascending: false }).limit(50),
         supabase.from('user_achievements').select('achievement_name,xp_bonus,earned_at,category,rarity')
           .eq('user_id', userId)
-          .gte('earned_at', todayStart.toISOString())
+          .gte('earned_at', todayISO)
           .order('earned_at', { ascending: false }),
       ]);
 
