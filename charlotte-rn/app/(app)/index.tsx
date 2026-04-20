@@ -1090,6 +1090,10 @@ export default function HomeScreen() {
     _greetingLevelThisSession   = level;
 
     (async () => {
+      // Dots mínimo de 1.5s — Charlotte "digitando" mesmo que a API seja rápida
+      const minDotsMs = 1500;
+      const fetchStart = Date.now();
+
       try {
         const res = await fetch(`${API_BASE_URL}/api/greeting`, {
           method: 'POST',
@@ -1111,11 +1115,15 @@ export default function HomeScreen() {
           const json = await res.json();
           if (json.message) {
             _greetingTextThisSession = json.message;
-            // Batch: ambos mudam no mesmo render — sem flash do fallback hardcoded
-            unstable_batchedUpdates(() => {
-              setAiGreeting(json.message);
-              setGreetingLoading(false);
-            });
+            // Garante dots mínimo de 1.5s — sensação de "Charlotte digitando"
+            const elapsed = Date.now() - fetchStart;
+            const delay = Math.max(0, minDotsMs - elapsed);
+            setTimeout(() => {
+              unstable_batchedUpdates(() => {
+                setAiGreeting(json.message);
+                setGreetingLoading(false);
+              });
+            }, delay);
             return;
           }
         }
@@ -1347,12 +1355,12 @@ export default function HomeScreen() {
               {/* Bust — bottom edge flush with navy strip bottom */}
               <Image
                 source={require('@/assets/charlotte-bust.png')}
-                style={{ width: 118, height: 165, marginBottom: -15 }}
+                style={{ width: 118, height: 165, marginBottom: -15, flexShrink: 0 }}
                 resizeMode="contain"
               />
 
               {/* Chat bubble with tail — paddingLeft matches triangle tip exactly */}
-              <View style={{ flex: 1, paddingBottom: 18, paddingLeft: 7, position: 'relative' }}>
+              <View style={{ flex: 1, paddingBottom: 24, paddingTop: 16, paddingLeft: 7, position: 'relative' }}>
                 {/* Triangle tail — only visible once message is ready */}
                 {!greetingLoading && (
                   <View style={{
