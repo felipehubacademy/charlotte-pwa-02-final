@@ -279,10 +279,8 @@ export function PaywallModal() {
             ))}
           </View>
 
-          {/* Plan cards */}
-          {loadingOffer ? (
-            <ActivityIndicator color={C.greenDark} style={{ marginVertical: 24 }} />
-          ) : (
+          {/* Plan cards — sempre visíveis, spinner fica só no botão */}
+          {(
             <View style={{ alignSelf: 'stretch', gap: 12, marginBottom: 28 }}>
 
               {/* Annual */}
@@ -373,7 +371,7 @@ export function PaywallModal() {
               opacity: loading || loadingOffer ? 0.6 : 1,
             }}
           >
-            {loading
+            {(loading || loadingOffer)
               ? <ActivityIndicator color={C.navy} />
               : (() => {
                   const isYearly = selected.includes('yearly');
