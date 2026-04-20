@@ -1364,6 +1364,7 @@ export default function HomeScreen() {
                 <View style={{
                   backgroundColor: '#3B3A5A',
                   borderRadius: 18,
+                  borderTopLeftRadius: 0,
                   paddingHorizontal: 14,
                   paddingVertical: greetingLoading ? 10 : 12,
                   alignSelf: 'flex-start',
