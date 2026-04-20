@@ -1359,12 +1359,11 @@ export default function HomeScreen() {
                 resizeMode="contain"
               />
 
-              {/* Chat bubble — mesmo estilo do ChatBox, sem gambiarra de triângulo */}
-              <View style={{ flex: 1, paddingLeft: 10, paddingVertical: 16 }}>
+              {/* Chat bubble */}
+              <View style={{ flex: 1, paddingLeft: 10, paddingVertical: 16, justifyContent: 'center' }}>
                 <View style={{
                   backgroundColor: '#3B3A5A',
                   borderRadius: 18,
-                  borderBottomLeftRadius: 0,
                   paddingHorizontal: 14,
                   paddingVertical: greetingLoading ? 10 : 12,
                   alignSelf: 'flex-start',
