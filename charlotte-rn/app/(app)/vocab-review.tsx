@@ -17,12 +17,12 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, TouchableOpacity, Animated, Platform,
-  ActivityIndicator, ScrollView, Modal,
+  ActivityIndicator, ScrollView, Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import {
-  ArrowLeft, Trophy, Star, SpeakerHigh, X,
+  ArrowLeft, Trophy, Star, SpeakerHigh,
 } from 'phosphor-react-native';
 import * as Haptics from 'expo-haptics';
 import { AppText } from '@/components/ui/Text';
@@ -106,7 +106,12 @@ export default function VocabReview() {
   const [ratings,  setRatings]  = useState<SRRating[]>([]);
   const [totalXP,  setTotalXP]  = useState(0);
   const [ttsLoading, setTtsLoading] = useState(false);
-  const [showSRInfo, setShowSRInfo] = useState(false);
+  const showSRInfo = () => Alert.alert(
+    isPt ? 'Como funciona?' : 'How does this work?',
+    isPt
+      ? 'O sistema ajusta quando cada palavra volta baseado em quão fácil foi lembrar.\n\nDifícil — voltará em breve, precisa de mais prática.\n\nOk — intervalo moderado, você está no caminho.\n\nFácil — intervalo longo, você domina esta palavra.'
+      : 'The system adjusts when each word comes back based on how easy it was to remember.\n\nHard — comes back soon, needs more practice.\n\nOk — moderate interval, you\'re on the right track.\n\nEasy — long interval, you\'ve nailed this word.',
+  );
 
   // Real flip: 0 = front, 1 = back (interpolated to 0→180deg)
   const flipAnim   = useRef(new Animated.Value(0)).current;
@@ -577,7 +582,7 @@ export default function VocabReview() {
             {isPt ? 'como foi?' : 'how did it go?'}
           </AppText>
           <TouchableOpacity
-            onPress={() => setShowSRInfo(true)}
+            onPress={showSRInfo}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             style={{
               width: 16, height: 16, borderRadius: 8,
@@ -609,54 +614,6 @@ export default function VocabReview() {
         </View>
       </Animated.View>
 
-      {/* SR Info Modal */}
-      <Modal visible={showSRInfo} transparent animationType="fade" onRequestClose={() => setShowSRInfo(false)}>
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(22,21,58,0.52)', justifyContent: 'center', padding: 24 }}
-          activeOpacity={1}
-          onPress={() => setShowSRInfo(false)}
-        >
-          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
-            <View style={{ backgroundColor: C.card, borderRadius: 24, padding: 24 }}>
-
-              {/* Header */}
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <AppText style={{ fontSize: 17, fontWeight: '800', color: C.navy }}>
-                  {isPt ? 'Como funciona?' : 'How does this work?'}
-                </AppText>
-                <TouchableOpacity onPress={() => setShowSRInfo(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-                  <X size={20} color={C.navyLight} weight="bold" />
-                </TouchableOpacity>
-              </View>
-
-              <AppText style={{ fontSize: 13, color: C.navyMid, lineHeight: 20, marginBottom: 20 }}>
-                {isPt
-                  ? 'O sistema ajusta automaticamente quando cada palavra volta, baseado em quão fácil foi lembrar.'
-                  : 'The system automatically adjusts when each word comes back, based on how easy it was to remember.'}
-              </AppText>
-
-              {[
-                { label: isPt ? 'Difícil' : 'Hard', color: C.red,   bg: C.redBg,
-                  desc: isPt ? 'Voltará em breve — precisa de mais prática.' : 'Comes back soon — needs more practice.' },
-                { label: 'Ok',                       color: C.gold,  bg: C.goldBg,
-                  desc: isPt ? 'Intervalo moderado — você está no caminho.' : "Moderate interval — you're on the right track." },
-                { label: isPt ? 'Fácil' : 'Easy',   color: C.green, bg: C.greenBg,
-                  desc: isPt ? 'Intervalo longo — você domina esta palavra.' : "Long interval — you've nailed this word." },
-              ].map(item => (
-                <View key={item.label} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
-                  <View style={{ backgroundColor: item.bg, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, minWidth: 56, alignItems: 'center' }}>
-                    <AppText style={{ fontSize: 13, fontWeight: '700', color: item.color }}>{item.label}</AppText>
-                  </View>
-                  <AppText style={{ flex: 1, fontSize: 13, color: C.navyMid, lineHeight: 19, paddingTop: 2 }}>
-                    {item.desc}
-                  </AppText>
-                </View>
-              ))}
-
-            </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
-      </Modal>
     </View>
   );
 }
