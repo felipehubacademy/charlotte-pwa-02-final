@@ -68,16 +68,27 @@ export function PaywallModal() {
   useEffect(() => {
     if (!visible || !profile?.id) return;
     setLoadingOffer(true);
-    // Timeout de 10s: se o RevenueCat nao responder (sandbox lento ou falha),
-    // libera o botao para que o usuario possa tentar — o handlePurchase
-    // exibe Alert explicativo se offering ainda for null.
-    const timeout = setTimeout(() => setLoadingOffer(false), 10000);
-    getOffering().then(o => {
-      setOffering(o);
-      setLoadingOffer(false);
-    }).catch(() => {
-      setLoadingOffer(false);
-    }).finally(() => clearTimeout(timeout));
+    let cancelled = false;
+
+    const tryFetch = () => {
+      const timeout = setTimeout(() => { if (!cancelled) setLoadingOffer(false); }, 10000);
+      getOffering().then(o => {
+        if (cancelled) return;
+        if (o) {
+          setOffering(o);
+          setLoadingOffer(false);
+        } else {
+          // Nao carregou — libera botao e agenda retry em 8s
+          setLoadingOffer(false);
+          setTimeout(() => { if (!cancelled) tryFetch(); }, 8000);
+        }
+      }).catch(() => {
+        if (!cancelled) setLoadingOffer(false);
+      }).finally(() => clearTimeout(timeout));
+    };
+
+    tryFetch();
+    return () => { cancelled = true; };
   }, [visible]);
 
   useEffect(() => {
@@ -102,7 +113,17 @@ export function PaywallModal() {
   }, [offering, selected]);
 
   const handlePurchase = async () => {
-    const pkg = selectedPkg();
+    let pkg = selectedPkg();
+    // Se offering ainda nao carregou, tenta buscar de novo antes de desistir
+    if (!pkg) {
+      setLoadingOffer(true);
+      const o = await getOffering().catch(() => null);
+      if (o) setOffering(o);
+      setLoadingOffer(false);
+      pkg = o?.availablePackages.find(p => p.product.identifier === selected)
+        ?? o?.availablePackages[0]
+        ?? null;
+    }
     if (!pkg) {
       Alert.alert(
         'Planos indisponíveis',
@@ -194,13 +215,16 @@ export function PaywallModal() {
 
         <ScrollView
           contentContainerStyle={{
+            flexGrow: 1,
+            alignItems: 'center',
             paddingTop: insets.top + 32,
             paddingBottom: insets.bottom + 24,
-            paddingHorizontal: 24,
-            alignItems: 'center',
           }}
           showsVerticalScrollIndicator={false}
         >
+
+          {/* Container com largura maxima para iPad */}
+          <View style={{ width: '100%', maxWidth: 480, paddingHorizontal: 24, alignItems: 'center' }}>
 
           {/* Icone de perda */}
           <View style={{
@@ -392,6 +416,8 @@ export function PaywallModal() {
             <SignOut size={14} color={C.muted} />
             <AppText style={{ color: C.muted, fontSize: 13 }}>Sair da conta</AppText>
           </TouchableOpacity>
+
+          </View>{/* fim container iPad */}
 
         </ScrollView>
       </View>

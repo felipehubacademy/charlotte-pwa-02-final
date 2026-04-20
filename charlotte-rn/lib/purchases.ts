@@ -39,7 +39,7 @@ export const PRODUCT_YEARLY  = 'com.hubacademy.charlotte.yearly';
 // ── Init ──────────────────────────────────────────────────────────────────────
 export function initPurchases() {
   const apiKey = Platform.OS === 'ios' ? RC_IOS_KEY : RC_ANDROID_KEY;
-  Purchases.setLogLevel(LOG_LEVEL.ERROR); // only errors in production
+  Purchases.setLogLevel(LOG_LEVEL.DEBUG); // debug temporario para diagnostico
   Purchases.configure({ apiKey });
 }
 
