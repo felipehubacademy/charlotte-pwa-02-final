@@ -769,11 +769,10 @@ export default function LiveVoiceModal({
                   setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
                 }
 
-                // Se estávamos entregando a despedida do pool esgotado,
-                // aguardar o áudio terminar e então encerrar automaticamente.
+                // Despedida do pool esgotado: response.done dispara após todo o
+                // áudio ter sido enviado ao WebRTC. Aguardar 4s para o playback
+                // terminar no device, depois mostrar transcrição e fechar.
                 if (farewellActiveRef.current) {
-                  // Deixar response.audio.done controlar o fechamento via
-                  // um timeout de segurança de 5s caso o evento não chegue.
                   setTimeout(() => {
                     if (farewellActiveRef.current) {
                       farewellActiveRef.current = false;
@@ -781,9 +780,10 @@ export default function LiveVoiceModal({
                       consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
                       sessionAccumSecs.current = 0;
                       disconnect();
-                      onClose();
+                      // Mostrar transcrição (com o adeus da Charlotte) antes de fechar
+                      setShowTranscript(true);
                     }
-                  }, 5000);
+                  }, 4000);
                 }
               }
               break;
@@ -813,19 +813,10 @@ export default function LiveVoiceModal({
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
               }, 2000);
-              // Se era a despedida, fechar o modal ~1.5s após o áudio terminar
-              if (farewellActiveRef.current) {
-                setTimeout(() => {
-                  if (farewellActiveRef.current) {
-                    farewellActiveRef.current = false;
-                    const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
-                    consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
-                    sessionAccumSecs.current = 0;
-                    disconnect();
-                    onClose();
-                  }
-                }, 1500);
-              }
+              // Nota: o fechamento do modal na despedida é controlado pelo
+              // response.done (4s após), não aqui — response.audio.done dispara
+              // quando o servidor termina de ENVIAR o áudio, não quando o device
+              // termina de TOCAR. Fechar aqui cortaria Charlotte no meio da fala.
               break;
 
             case 'input_audio_buffer.speech_started':
