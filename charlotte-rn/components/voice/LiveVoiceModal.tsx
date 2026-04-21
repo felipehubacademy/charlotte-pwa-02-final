@@ -115,6 +115,30 @@ const GREETINGS: Record<'Novice' | 'Inter' | 'Advanced', string[]> = {
   ],
 };
 
+// ── Despedidas quando o pool mensal esgota ────────────────────────────────────
+// Mantidas curtas (12-15 palavras) para caber no buffer de 4s após audio.done.
+// {NAME} é substituído pelo primeiro nome do usuário.
+const FAREWELLS: Record<'Novice' | 'Inter' | 'Advanced', string[]> = {
+  Novice: [
+    'Poxa {NAME}, seu tempo de Live Voice acabou por este mês. A gente se vê em breve!',
+    'Ei {NAME}, nossos minutos acabaram por agora. Continua praticando que logo voltamos a conversar!',
+    'Olha {NAME}, seu tempo mensal chegou ao fim. Até a próxima, tá bom?',
+    'Opa {NAME}, seu tempo de conversa por este mês acabou. Te vejo em breve!',
+  ],
+  Inter: [
+    "Hey {NAME}, we're out of Live Voice time for this month. Catch you soon!",
+    "Oh {NAME}, your monthly time's up — keep practising, we'll chat again soon!",
+    "Alright {NAME}, looks like that's all the time we have for this month. Bye!",
+    "Well {NAME}, your Live Voice minutes just ran out. Talk to you next time!",
+  ],
+  Advanced: [
+    "Alright {NAME}, that's a wrap on our Live Voice for the month. Talk soon!",
+    "Hey {NAME}, we're out of time for this month — catch you next time!",
+    "Looks like we hit the monthly limit, {NAME}. See you soon!",
+    "Well {NAME}, your monthly Live Voice time's up. Bye for now!",
+  ],
+};
+
 // ── System prompts por nível ─────────────────────────────────────────────────────
 // IMPORTANT: never tell the model to "fill silence" or "keep talking" — this causes
 // Charlotte to monologue without user input when the VAD triggers on echo/ambient noise.
@@ -170,6 +194,11 @@ function getSystemPrompt(level: 'Novice' | 'Inter' | 'Advanced', name: string, g
 function getRandomGreeting(level: 'Novice' | 'Inter' | 'Advanced'): string {
   const list = GREETINGS[level];
   return list[Math.floor(Math.random() * list.length)];
+}
+
+function getRandomFarewell(level: 'Novice' | 'Inter' | 'Advanced', name: string): string {
+  const list = FAREWELLS[level];
+  return list[Math.floor(Math.random() * list.length)].replace('{NAME}', name);
 }
 
 function formatSecs(s: number): string {
@@ -516,10 +545,11 @@ export default function LiveVoiceModal({
       session: { turn_detection: null },
     });
 
-    // Enviar response.create com instructions override da despedida
+    // Sorteia uma despedida do pool (varia a cada pool-exhausted)
+    const farewellLine = getRandomFarewell(userLevel, userName);
     const farewellInstruction = userLevel === 'Novice'
-      ? `Diga exatamente isto, com calor e naturalidade, como sua última mensagem: "Poxa ${userName}, seu tempo mensal de conversa ao vivo esgotou, mas logo você já volta a praticar. Te vejo em breve!" Não diga mais nada além disso.`
-      : `Say exactly this, warmly and naturally, as your last message: "Oh ${userName}, your monthly live conversation time is up — but you'll be back practising before you know it. See you soon!" Say nothing else.`;
+      ? `Diga exatamente isto, com calor e naturalidade, como sua última mensagem: "${farewellLine}" Não diga mais nada além disso.`
+      : `Say exactly this, warmly and naturally, as your last message: "${farewellLine}" Say nothing else.`;
 
     setTimeout(() => {
       if (dcRef.current?.readyState === 'open') {
