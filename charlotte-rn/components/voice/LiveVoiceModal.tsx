@@ -224,7 +224,8 @@ export default function LiveVoiceModal({
   const [showTranscript, setShowTranscript]       = React.useState(false);
   const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
   const wasConnectedRef     = React.useRef(false); // tracks if call ever reached connected state
-  const farewellActiveRef      = React.useRef(false); // true when Charlotte is delivering the pool-exhausted farewell
+  const farewellPendingRef     = React.useRef(false); // pool esgotou, despedida pendente (aguardando momento seguro)
+  const farewellActiveRef      = React.useRef(false); // true quando a response.create da despedida já foi enviada
   const farewellAudioStartRef  = React.useRef(0);     // Date.now() do primeiro response.audio.delta da despedida
   const speechStartedAtRef  = React.useRef(0);     // Date.now() when VAD detected speech_started — used to filter short echo artifacts
   const poolBaseRef         = React.useRef(levelPool); // secondsRemaining from DB at session start — used by session timer to count down correctly
@@ -483,19 +484,15 @@ export default function LiveVoiceModal({
     }
   }, [warningCountdown, inactivityWarning]); // eslint-disable-line
 
-  // ── Auto-encerrar quando pool esgotado — Charlotte diz adeus antes ────────
-  React.useEffect(() => {
-    if (!poolExhausted || status !== 'connected') return;
-    if (farewellActiveRef.current) return; // já em andamento
-    farewellActiveRef.current = true;
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-    // Parar timers (não desconectar ainda)
-    clearSessionInterval();
-    clearInactivityInterval();
+  // ── Disparar a despedida (função pura — pode ser chamada de vários lugares)
+  const triggerFarewell = React.useCallback(() => {
+    // Idempotente: só executa uma vez
+    if (farewellActiveRef.current) return;
+    if (!farewellPendingRef.current) return;
 
     if (dcRef.current?.readyState !== 'open') {
-      // Data channel fechado — fallback imediato
-      farewellActiveRef.current = false;
+      // Data channel fechado — fallback: fechar direto com mensagem de erro
+      farewellPendingRef.current = false;
       const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
       consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
       sessionAccumSecs.current = 0;
@@ -509,23 +506,17 @@ export default function LiveVoiceModal({
       return;
     }
 
-    // 1. Cancelar resposta ativa (se houver)
-    if (responseActiveRef.current) {
-      sendEvent({ type: 'response.cancel' });
-      responseActiveRef.current = false;
-    }
-    charlotteSpeakingRef.current = false;
-    setCharlotteSpeaking(false);
+    // Marcar como ativa APÓS confirmar que vamos disparar
+    farewellActiveRef.current = true;
+    farewellPendingRef.current = false;
 
-    // 2. Desativar VAD — Charlotte não deve responder a mais nada do user
+    // Desativar VAD — Charlotte não deve reagir a mais nada do usuário
     sendEvent({
       type: 'session.update',
-      session: {
-        turn_detection: null,
-      },
+      session: { turn_detection: null },
     });
 
-    // 3. Criar resposta com instructions override — sem poluir o histórico
+    // Enviar response.create com instructions override da despedida
     const farewellInstruction = userLevel === 'Novice'
       ? `Diga exatamente isto, com calor e naturalidade, como sua última mensagem: "Poxa ${userName}, seu tempo mensal de conversa ao vivo esgotou, mas logo você já volta a praticar. Te vejo em breve!" Não diga mais nada além disso.`
       : `Say exactly this, warmly and naturally, as your last message: "Oh ${userName}, your monthly live conversation time is up — but you'll be back practising before you know it. See you soon!" Say nothing else.`;
@@ -544,6 +535,25 @@ export default function LiveVoiceModal({
         });
       }
     }, 200);
+  }, [sendEvent, disconnectWebRTC, userLevel, userName, levelPool]);
+
+  // ── Pool esgotado — preparar despedida (aguarda momento seguro) ────────────
+  React.useEffect(() => {
+    if (!poolExhausted || status !== 'connected') return;
+    if (farewellPendingRef.current || farewellActiveRef.current) return;
+
+    farewellPendingRef.current = true;
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    clearSessionInterval();
+    clearInactivityInterval();
+
+    // Se Charlotte NÃO está falando agora, dispara a despedida imediatamente.
+    // Se ela ESTÁ falando, espera — o handler de response.done chamará triggerFarewell
+    // quando a fala atual dela terminar naturalmente (fluxo muito mais suave).
+    if (!responseActiveRef.current) {
+      triggerFarewell();
+    }
+    // Se responseActive, não faz nada aqui — response.done handler cuida.
   }, [poolExhausted]); // eslint-disable-line
 
   // ── Disconnect WebRTC (sem fechar modal) ─────────────────────────────────
@@ -786,10 +796,16 @@ export default function LiveVoiceModal({
                   setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
                 }
 
-                // Despedida: fechamento é feito por response.audio.done (que
-                // dispara quando todo áudio foi enviado ao WebRTC). Este aqui
-                // é apenas um fallback de segurança de 10s caso audio.done
-                // nunca chegue por algum motivo.
+                // Se a despedida está PENDENTE (pool esgotou durante esta fala),
+                // disparar agora que Charlotte terminou a sentença dela naturalmente.
+                // Pequeno delay de 400ms para parecer natural (respiração entre frases).
+                if (farewellPendingRef.current && !farewellActiveRef.current) {
+                  setTimeout(() => {
+                    triggerFarewell();
+                  }, 400);
+                }
+                // Fallback de segurança de 12s caso o response.audio.done da
+                // despedida nunca chegue — evita modal travado.
                 if (farewellActiveRef.current) {
                   setTimeout(() => {
                     if (farewellActiveRef.current) {
@@ -801,7 +817,7 @@ export default function LiveVoiceModal({
                       disconnect();
                       setShowTranscript(true);
                     }
-                  }, 10000);
+                  }, 12000);
                 }
               }
               break;
@@ -877,7 +893,9 @@ export default function LiveVoiceModal({
               //   3. >= 6000ms desde que o áudio da Charlotte terminou — reverb
               //      em ambiente fechado com loudspeaker pode durar 4-5s.
               //   4. Cooldown de 3000ms entre response.creates consecutivos.
-              if (!charlotteSpeakingRef.current) {
+              if (!charlotteSpeakingRef.current
+                  && !farewellPendingRef.current
+                  && !farewellActiveRef.current) {
                 const speechDuration  = Date.now() - speechStartedAtRef.current;
                 const msSinceDone     = Date.now() - lastCharlotteDoneRef.current;
                 const msSinceLast     = Date.now() - lastResponseCreateRef.current;
@@ -1049,6 +1067,7 @@ export default function LiveVoiceModal({
       setConversationTurns([]);
       charlotteTextAccRef.current = '';
       wasConnectedRef.current = false;
+      farewellPendingRef.current = false;
       farewellActiveRef.current = false;
       farewellAudioStartRef.current = 0;
       sessionAccumSecs.current = 0;
