@@ -61,14 +61,54 @@ export async function resetUser() {
 }
 
 // ── Fetch current offering ────────────────────────────────────────────────────
-export async function getOffering(): Promise<PurchasesOffering | null> {
+export interface OfferingResult {
+  offering: PurchasesOffering | null;
+  errorMessage?: string;
+  diagnostics?: string;
+}
+
+export async function getOfferingDetailed(): Promise<OfferingResult> {
   try {
     const offerings = await Purchases.getOfferings();
-    return offerings.current ?? null;
-  } catch (e) {
+    const current = offerings.current;
+
+    if (current && current.availablePackages.length > 0) {
+      return { offering: current };
+    }
+
+    // Sem offering atual OU offering existe mas sem pacotes disponíveis
+    const allOfferings = Object.keys(offerings.all);
+    const diag = [
+      `Platform: ${Platform.OS}`,
+      `offerings.current: ${current ? current.identifier : 'null'}`,
+      `offerings.all keys: [${allOfferings.join(', ')}]`,
+      `current.packages: ${current?.availablePackages.length ?? 0}`,
+    ].join(' | ');
+
+    console.warn('[purchases] no current offering or no packages:', diag);
+
+    return {
+      offering: null,
+      errorMessage: current
+        ? 'Os produtos deste app ainda não estão prontos. Isso pode acontecer se os IAPs ainda não foram aprovados pela Apple ou se o Paid Apps Agreement não está ativo.'
+        : 'Nenhuma oferta de plano disponível. Verifique se o RevenueCat está conectado ao App Store Connect.',
+      diagnostics: diag,
+    };
+  } catch (e: any) {
+    const raw = e?.message ?? e?.code ?? String(e);
     console.warn('[purchases] getOffering error:', e);
-    return null;
+    return {
+      offering: null,
+      errorMessage: `Erro ao buscar planos: ${raw}`,
+      diagnostics: raw,
+    };
   }
+}
+
+// Legacy wrapper — mantém compatibilidade com callers existentes
+export async function getOffering(): Promise<PurchasesOffering | null> {
+  const r = await getOfferingDetailed();
+  return r.offering;
 }
 
 // ── Check entitlement ─────────────────────────────────────────────────────────

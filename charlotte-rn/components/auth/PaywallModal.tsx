@@ -20,6 +20,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
 import {
   getOffering,
+  getOfferingDetailed,
   purchasePackage,
   restorePurchases,
   syncSubscriptionToSupabase,
@@ -114,20 +115,31 @@ export function PaywallModal() {
 
   const handlePurchase = async () => {
     let pkg = selectedPkg();
+    let errorMsg: string | undefined;
+    let diagnostics: string | undefined;
     // Se offering ainda nao carregou, tenta buscar de novo antes de desistir
     if (!pkg) {
       setLoadingOffer(true);
-      const o = await getOffering().catch(() => null);
-      if (o) setOffering(o);
+      const r = await getOfferingDetailed();
       setLoadingOffer(false);
-      pkg = o?.availablePackages.find(p => p.product.identifier === selected)
-        ?? o?.availablePackages[0]
-        ?? null;
+      if (r.offering) {
+        setOffering(r.offering);
+        pkg = r.offering.availablePackages.find(p => p.product.identifier === selected)
+          ?? r.offering.availablePackages[0]
+          ?? null;
+      } else {
+        errorMsg = r.errorMessage;
+        diagnostics = r.diagnostics;
+      }
     }
     if (!pkg) {
       Alert.alert(
         'Planos indisponíveis',
-        'Os planos ainda não estão disponíveis. Tente novamente em alguns instantes.',
+        errorMsg ?? 'Os planos ainda não estão disponíveis. Tente novamente em alguns instantes.',
+        diagnostics ? [
+          { text: 'OK' },
+          { text: 'Ver detalhes', onPress: () => Alert.alert('Detalhes técnicos', diagnostics!) },
+        ] : undefined,
       );
       return;
     }
