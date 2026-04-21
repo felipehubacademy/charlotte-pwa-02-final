@@ -275,6 +275,10 @@ export default function LiveVoiceModal({
   }, []);
 
   // ── Audio mode ────────────────────────────────────────────────────────────
+  // NOTA: deixamos InCallManager ser o único dono do AVAudioSession durante
+  // a chamada. setAudioModeAsync não é chamado no fluxo de call porque sobrescreve
+  // o mode .voiceChat necessário para o AEC hardware do iOS. Essa função fica
+  // apenas como utilitária caso precise ser chamada fora do fluxo da chamada.
   const applyAudioMode = React.useCallback(async (speakerOn?: boolean) => {
     try {
       const useSpeaker = speakerOn !== undefined ? speakerOn : isSpeakerRef.current;
@@ -288,9 +292,10 @@ export default function LiveVoiceModal({
   }, []);
 
   // ── Ring tone ─────────────────────────────────────────────────────────────
+  // Toca dentro do AVAudioSession já configurado pelo InCallManager (mode .voiceChat).
+  // Não chama setAudioModeAsync para não quebrar o AEC.
   const startRingTone = React.useCallback(async () => {
     try {
-      await applyAudioMode(); // apenas playsInSilentMode, sem allowsRecording
       const wavBase64 = buildWav(generateRingPcm());
       const path = `${FileSystem.cacheDirectory}ring.wav`;
       await FileSystem.writeAsStringAsync(path, wavBase64, {
@@ -302,7 +307,7 @@ export default function LiveVoiceModal({
       ringPlayerRef.current.loop = true;
       ringPlayerRef.current.play();
     } catch (e) { console.warn('startRingTone:', e); }
-  }, [applyAudioMode]);
+  }, []);
 
   const stopRingTone = React.useCallback(() => {
     ringPlayerRef.current?.pause();
@@ -550,8 +555,7 @@ export default function LiveVoiceModal({
     pcRef.current?.close();
     pcRef.current = null;
     stopRingTone();
-    InCallManager.stop();
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    InCallManager.stop(); // devolve o AVAudioSession ao estado anterior
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setCharlotteSpeaking(false);
@@ -590,6 +594,18 @@ export default function LiveVoiceModal({
         setStatus('error');
         return;
       }
+
+      // CAMINHO A: InCallManager é a PRIMEIRA coisa a tocar no AVAudioSession.
+      // Ele configura category=.playAndRecord + mode=.voiceChat, que é o que o
+      // iOS precisa para ativar o Voice Processing I/O unit (AEC hardware).
+      // Nenhum setAudioModeAsync é chamado no fluxo de chamada para não sobrescrever.
+      InCallManager.start({ media: 'audio' });
+      InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+
+      // 500ms para o AVAudioSession estabilizar no mode .voiceChat antes do
+      // getUserMedia. Sem esse delay, o audio unit do mic pode ser criado
+      // durante a transição e acabar sem AEC.
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       await startRingTone();
 
@@ -694,13 +710,16 @@ export default function LiveVoiceModal({
           }
         }, 500);
 
-        InCallManager.start({ media: 'audio' });
-        // Android: InCallManager.start needs a moment to initialise the audio
-        // session before setForceSpeakerphoneOn takes effect — without the delay
-        // the call starts on earpiece even when isSpeaker=true.
-        setTimeout(() => {
-          InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
-        }, Platform.OS === 'android' ? 300 : 0);
+        // InCallManager.start foi chamado antes do getUserMedia para garantir
+        // que o AVAudioSession esteja em .voiceChat mode quando o WebRTC
+        // inicializa o audio unit do mic (ativa AEC hardware no iOS).
+        // setForceSpeakerphoneOn também foi chamado antes, mas repetimos aqui
+        // para Android que pode precisar depois do setup completo do audio session.
+        if (Platform.OS === 'android') {
+          setTimeout(() => {
+            InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+          }, 300);
+        }
 
         // Iniciar timers
         startSessionTimer();
@@ -767,16 +786,11 @@ export default function LiveVoiceModal({
                   setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
                 }
 
-                // Despedida do pool esgotado.
-                // farewellAudioStartRef marca quando o primeiro audio.delta chegou.
-                // Queremos esperar pelo menos 6s desde o início do áudio para
-                // garantir que o playback terminou no device antes de desconectar.
-                // Se response.done chegou antes dos 6s, esperamos o resto.
-                // Se chegou depois (improvável), aguardamos 1.5s de margem.
+                // Despedida: fechamento é feito por response.audio.done (que
+                // dispara quando todo áudio foi enviado ao WebRTC). Este aqui
+                // é apenas um fallback de segurança de 10s caso audio.done
+                // nunca chegue por algum motivo.
                 if (farewellActiveRef.current) {
-                  const audioStart = farewellAudioStartRef.current || Date.now();
-                  const elapsed = Date.now() - audioStart;
-                  const waitMs = Math.max(1500, 6500 - elapsed);
                   setTimeout(() => {
                     if (farewellActiveRef.current) {
                       farewellActiveRef.current = false;
@@ -787,7 +801,7 @@ export default function LiveVoiceModal({
                       disconnect();
                       setShowTranscript(true);
                     }
-                  }, waitMs);
+                  }, 10000);
                 }
               }
               break;
@@ -804,23 +818,31 @@ export default function LiveVoiceModal({
               // Estratégia anti-eco de 3 camadas:
               //   1. Stampar lastCharlotteDoneRef agora (guard de 6000ms no speech_stopped)
               //   2. Mutar fisicamente o mic por 2000ms — bloqueia eco de loudspeaker
-              //      no nível do hardware, antes de chegar ao VAD do servidor.
-              //      Após 2000ms: desmuta APENAS se o usuário não mutou manualmente.
               //   3. Manter charlotteSpeakingRef=true por 500ms extras (drain do jitter buffer)
               responseActiveRef.current = false;
               lastCharlotteDoneRef.current = Date.now();
-              // Mute físico anti-eco: 2s de silêncio no mic após Charlotte terminar
               applyMute(true);
               setTimeout(() => {
-                // Desmuta apenas se o usuário não pressionou mute manualmente
                 if (!isMutedRef.current) applyMute(false);
                 charlotteSpeakingRef.current = false;
                 setCharlotteSpeaking(false);
               }, 2000);
-              // Nota: o fechamento do modal na despedida é controlado pelo
-              // response.done (4s após), não aqui — response.audio.done dispara
-              // quando o servidor termina de ENVIAR o áudio, não quando o device
-              // termina de TOCAR. Fechar aqui cortaria Charlotte no meio da fala.
+              // Despedida: servidor terminou de enviar o áudio. O playback ainda
+              // está acontecendo no device (jitter buffer tem ~300-800ms).
+              // Aguardar 4s para garantir que o playback termine antes de desconectar.
+              if (farewellActiveRef.current) {
+                setTimeout(() => {
+                  if (farewellActiveRef.current) {
+                    farewellActiveRef.current = false;
+                    farewellAudioStartRef.current = 0;
+                    const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
+                    consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
+                    sessionAccumSecs.current = 0;
+                    disconnect();
+                    setShowTranscript(true);
+                  }
+                }, 4000);
+              }
               break;
 
             case 'input_audio_buffer.speech_started':
@@ -942,8 +964,7 @@ export default function LiveVoiceModal({
     pcRef.current?.close();
     pcRef.current = null;
     stopRingTone();
-    InCallManager.stop();
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    InCallManager.stop(); // devolve o AVAudioSession ao estado anterior
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setStatus('disconnected');
