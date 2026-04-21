@@ -747,19 +747,20 @@ export default function LiveVoiceModal({
             max_response_output_tokens: 400,
             input_audio_transcription: { model: 'whisper-1' },
             // Redução de ruído server-side específica para alto-falante —
-            // a OpenAI processa o áudio do mic ANTES do VAD/Whisper, removendo
-            // ruído ambiente e supressão adicional de eco antes de detectar fala.
+            // processa mic ANTES do VAD/Whisper, removendo ruído ambiente
+            // e suprimindo parte do eco antes da detecção de fala.
             input_audio_noise_reduction: { type: 'far_field' },
             turn_detection: {
-              // semantic_vad usa entendimento de linguagem (não só energia
-              // acústica como server_vad) para decidir se foi fala real ou eco/ruído.
-              // eagerness: 'low' = mais conservador, ignora mais borderline-cases.
-              type: 'semantic_vad',
-              eagerness: 'low',
-              // Disable auto-response: the app sends response.create manually
-              // after speech_stopped so Charlotte never self-triggers on echo.
+              // server_vad: threshold 0.90 filtra ruído de baixa energia.
+              // silence_duration 1500ms evita interrupção por pausas naturais.
+              // (semantic_vad foi testado mas causou latência alta e cortes
+              // em meio de resposta — provável incompatibilidade com o fluxo
+              // de create_response:false + response.cancel manual.)
+              type: 'server_vad',
+              threshold: 0.90,
+              prefix_padding_ms: 400,
+              silence_duration_ms: 1500,
               create_response: false,
-              interrupt_response: false,
             },
           },
         }));
