@@ -274,14 +274,16 @@ export default function LiveVoiceModal({
   }, []);
 
   // ── Audio mode ────────────────────────────────────────────────────────────
+  // IMPORTANTE: nunca chamar setAudioModeAsync com allowsRecording:true antes
+  // do getUserMedia — isso seta AVAudioSessionModeDefault que desativa o AEC
+  // hardware do iOS. O InCallManager.start() (mode VoiceChat) deve ser o dono
+  // exclusivo do AVAudioSession durante a chamada.
   const applyAudioMode = React.useCallback(async (speakerOn?: boolean) => {
     try {
-      const useSpeaker = speakerOn !== undefined ? speakerOn : isSpeakerRef.current;
+      // Apenas playsInSilentMode — sem allowsRecording para não corromper o
+      // AVAudioSession mode que o InCallManager configura com VoiceChat.
       await setAudioModeAsync({
-        allowsRecording: true,
         playsInSilentMode: true,
-        interruptionMode: 'doNotMix',
-        shouldRouteThroughEarpiece: !useSpeaker,
       });
     } catch (e) { console.warn('applyAudioMode:', e); }
   }, []);
@@ -289,7 +291,7 @@ export default function LiveVoiceModal({
   // ── Ring tone ─────────────────────────────────────────────────────────────
   const startRingTone = React.useCallback(async () => {
     try {
-      await applyAudioMode();
+      await applyAudioMode(); // apenas playsInSilentMode, sem allowsRecording
       const wavBase64 = buildWav(generateRingPcm());
       const path = `${FileSystem.cacheDirectory}ring.wav`;
       await FileSystem.writeAsStringAsync(path, wavBase64, {
@@ -549,8 +551,7 @@ export default function LiveVoiceModal({
     pcRef.current?.close();
     pcRef.current = null;
     stopRingTone();
-    InCallManager.stop();
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    InCallManager.stop(); // devolve AVAudioSession ao estado anterior automaticamente
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setCharlotteSpeaking(false);
@@ -624,10 +625,17 @@ export default function LiveVoiceModal({
 
       stopRingTone();
 
-      // echoCancellation removes Charlotte's speaker output from the mic signal
-      // before it reaches the server VAD — this is the correct way to prevent
-      // Charlotte from "hearing herself". noiseSuppression and autoGainControl
-      // improve speech quality on mobile.
+      // CRÍTICO: InCallManager.start() deve ser chamado ANTES de getUserMedia.
+      // Ele configura o AVAudioSession com PlayAndRecord + VoiceChat mode, que
+      // é o que o iOS precisa para ativar o Voice Processing I/O unit (AEC hardware).
+      // Se getUserMedia rodar com mode Default (estado do expo-audio), o WebRTC
+      // inicializa o pipeline de áudio sem AEC — e não reativa retroativamente.
+      InCallManager.start({ media: 'audio' });
+      // Dar 150ms para o AVAudioSession estabilizar antes do getUserMedia
+      await new Promise(resolve => setTimeout(resolve, 150));
+
+      // echoCancellation agora funciona: o AVAudioSession já está em VoiceChat
+      // mode quando o WebRTC inicializa o Voice Processing I/O unit.
       const stream = await mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -693,10 +701,9 @@ export default function LiveVoiceModal({
           }
         }, 500);
 
-        InCallManager.start({ media: 'audio' });
-        // Android: InCallManager.start needs a moment to initialise the audio
-        // session before setForceSpeakerphoneOn takes effect — without the delay
-        // the call starts on earpiece even when isSpeaker=true.
+        // InCallManager.start já foi chamado antes do getUserMedia para garantir
+        // que o AVAudioSession esteja em VoiceChat mode quando o WebRTC inicializa.
+        // Aqui apenas configura o routing do speaker.
         setTimeout(() => {
           InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
         }, Platform.OS === 'android' ? 300 : 0);
@@ -940,8 +947,7 @@ export default function LiveVoiceModal({
     pcRef.current?.close();
     pcRef.current = null;
     stopRingTone();
-    InCallManager.stop();
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    InCallManager.stop(); // devolve AVAudioSession ao estado anterior automaticamente
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setStatus('disconnected');
