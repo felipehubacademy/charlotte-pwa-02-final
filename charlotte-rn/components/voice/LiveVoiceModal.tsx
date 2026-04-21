@@ -207,6 +207,25 @@ function formatSecs(s: number): string {
   return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
 }
 
+// Calcula sobreposição de palavras entre dois textos (0..1).
+// Usado para detectar quando Whisper transcreveu a própria Charlotte como se
+// fosse o usuário (eco). Ignora palavras curtas (< 3 chars) porque elas aparecem
+// naturalmente em qualquer texto e confundiriam o sinal.
+function wordOverlap(a: string, b: string): number {
+  const tokenize = (s: string) => new Set(
+    s.toLowerCase()
+      .replace(/[.,!?;:'"()\[\]—–-]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= 3)
+  );
+  const wordsA = tokenize(a);
+  const wordsB = tokenize(b);
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  let common = 0;
+  wordsA.forEach(w => { if (wordsB.has(w)) common++; });
+  return common / Math.min(wordsA.size, wordsB.size);
+}
+
 type ConnectionStatus = 'idle' | 'disconnected' | 'connecting' | 'connected' | 'error';
 
 interface ConversationTurn {
@@ -253,6 +272,7 @@ export default function LiveVoiceModal({
   const [showTranscript, setShowTranscript]       = React.useState(false);
   const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
   const wasConnectedRef     = React.useRef(false); // tracks if call ever reached connected state
+  const lastCharlotteTextRef   = React.useRef(''); // última fala completa da Charlotte — usado para detectar eco via sobreposição de texto
   const farewellPendingRef     = React.useRef(false); // pool esgotou, despedida pendente (aguardando momento seguro)
   const farewellActiveRef      = React.useRef(false); // true quando a response.create da despedida já foi enviada
   const farewellAudioStartRef  = React.useRef(0);     // Date.now() do primeiro response.audio.delta da despedida
@@ -726,14 +746,20 @@ export default function LiveVoiceModal({
             output_audio_format: 'pcm16',
             max_response_output_tokens: 400,
             input_audio_transcription: { model: 'whisper-1' },
+            // Redução de ruído server-side específica para alto-falante —
+            // a OpenAI processa o áudio do mic ANTES do VAD/Whisper, removendo
+            // ruído ambiente e supressão adicional de eco antes de detectar fala.
+            input_audio_noise_reduction: { type: 'far_field' },
             turn_detection: {
-              type: 'server_vad',
-              threshold: 0.90,
-              prefix_padding_ms: 400,
-              silence_duration_ms: 1500,
+              // semantic_vad usa entendimento de linguagem (não só energia
+              // acústica como server_vad) para decidir se foi fala real ou eco/ruído.
+              // eagerness: 'low' = mais conservador, ignora mais borderline-cases.
+              type: 'semantic_vad',
+              eagerness: 'low',
               // Disable auto-response: the app sends response.create manually
               // after speech_stopped so Charlotte never self-triggers on echo.
               create_response: false,
+              interrupt_response: false,
             },
           },
         }));
@@ -824,6 +850,7 @@ export default function LiveVoiceModal({
 
                 if (charlotteText) {
                   setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
+                  lastCharlotteTextRef.current = charlotteText; // usado para detecção de eco
                 }
 
                 // Se a despedida está PENDENTE (pool esgotou durante esta fala),
@@ -853,9 +880,23 @@ export default function LiveVoiceModal({
               break;
 
             case 'conversation.item.input_audio_transcription.completed':
-              // User's speech transcription
+              // Transcrição do que o servidor processou como fala do usuário.
+              // ECHO DETECTION: se o texto transcrito tem alta sobreposição com
+              // o que a Charlotte acabou de dizer, é eco — descarta sem adicionar
+              // ao histórico e sem disparar response.create.
               if (msg.transcript?.trim()) {
-                setConversationTurns(prev => [...prev, { role: 'user', text: msg.transcript.trim() }]);
+                const userText = msg.transcript.trim();
+                const overlap = wordOverlap(userText, lastCharlotteTextRef.current);
+                if (overlap >= 0.5 && lastCharlotteTextRef.current.length > 0) {
+                  // É eco — ignora silenciosamente. Também marca como "ainda
+                  // falando" para o speech_stopped não disparar response.create.
+                  console.log(`[LiveVoice] echo detected (overlap ${(overlap * 100).toFixed(0)}%): "${userText.slice(0, 60)}"`);
+                  // Previne o próximo response.create no speech_stopped:
+                  // atualiza lastResponseCreateRef para forçar o cooldown a bloquear.
+                  lastResponseCreateRef.current = Date.now();
+                  break;
+                }
+                setConversationTurns(prev => [...prev, { role: 'user', text: userText }]);
               }
               break;
 
@@ -1098,6 +1139,7 @@ export default function LiveVoiceModal({
       setShowTranscript(false);
       setConversationTurns([]);
       charlotteTextAccRef.current = '';
+      lastCharlotteTextRef.current = '';
       wasConnectedRef.current = false;
       farewellPendingRef.current = false;
       farewellActiveRef.current = false;
