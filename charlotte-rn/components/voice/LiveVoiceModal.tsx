@@ -874,8 +874,10 @@ export default function LiveVoiceModal({
                 setCharlotteSpeaking(false);
               }, 2000);
               // Despedida: servidor terminou de enviar o áudio. O playback ainda
-              // está acontecendo no device (jitter buffer tem ~300-800ms).
-              // Aguardar 4s para garantir que o playback termine antes de desconectar.
+              // está rolando no device — o jitter buffer do WebRTC no iOS pode
+              // ficar 1-2s atrás do audio.done em condições normais, e até mais
+              // em rede instável. Buffer de 7s garante que o usuário ouça a frase
+              // toda antes do disconnect. Extra é silêncio, não prejudica UX.
               if (farewellActiveRef.current) {
                 setTimeout(() => {
                   if (farewellActiveRef.current) {
@@ -887,7 +889,7 @@ export default function LiveVoiceModal({
                     disconnect();
                     setShowTranscript(true);
                   }
-                }, 4000);
+                }, 7000);
               }
               break;
 
