@@ -224,7 +224,8 @@ export default function LiveVoiceModal({
   const [showTranscript, setShowTranscript]       = React.useState(false);
   const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
   const wasConnectedRef     = React.useRef(false); // tracks if call ever reached connected state
-  const farewellActiveRef   = React.useRef(false); // true when Charlotte is delivering the pool-exhausted farewell
+  const farewellActiveRef      = React.useRef(false); // true when Charlotte is delivering the pool-exhausted farewell
+  const farewellAudioStartRef  = React.useRef(0);     // Date.now() do primeiro response.audio.delta da despedida
   const speechStartedAtRef  = React.useRef(0);     // Date.now() when VAD detected speech_started — used to filter short echo artifacts
   const poolBaseRef         = React.useRef(levelPool); // secondsRemaining from DB at session start — used by session timer to count down correctly
 
@@ -274,16 +275,14 @@ export default function LiveVoiceModal({
   }, []);
 
   // ── Audio mode ────────────────────────────────────────────────────────────
-  // IMPORTANTE: nunca chamar setAudioModeAsync com allowsRecording:true antes
-  // do getUserMedia — isso seta AVAudioSessionModeDefault que desativa o AEC
-  // hardware do iOS. O InCallManager.start() (mode VoiceChat) deve ser o dono
-  // exclusivo do AVAudioSession durante a chamada.
   const applyAudioMode = React.useCallback(async (speakerOn?: boolean) => {
     try {
-      // Apenas playsInSilentMode — sem allowsRecording para não corromper o
-      // AVAudioSession mode que o InCallManager configura com VoiceChat.
+      const useSpeaker = speakerOn !== undefined ? speakerOn : isSpeakerRef.current;
       await setAudioModeAsync({
+        allowsRecording: true,
         playsInSilentMode: true,
+        interruptionMode: 'doNotMix',
+        shouldRouteThroughEarpiece: !useSpeaker,
       });
     } catch (e) { console.warn('applyAudioMode:', e); }
   }, []);
@@ -551,7 +550,8 @@ export default function LiveVoiceModal({
     pcRef.current?.close();
     pcRef.current = null;
     stopRingTone();
-    InCallManager.stop(); // devolve AVAudioSession ao estado anterior automaticamente
+    InCallManager.stop();
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setCharlotteSpeaking(false);
@@ -625,17 +625,10 @@ export default function LiveVoiceModal({
 
       stopRingTone();
 
-      // CRÍTICO: InCallManager.start() deve ser chamado ANTES de getUserMedia.
-      // Ele configura o AVAudioSession com PlayAndRecord + VoiceChat mode, que
-      // é o que o iOS precisa para ativar o Voice Processing I/O unit (AEC hardware).
-      // Se getUserMedia rodar com mode Default (estado do expo-audio), o WebRTC
-      // inicializa o pipeline de áudio sem AEC — e não reativa retroativamente.
-      InCallManager.start({ media: 'audio' });
-      // Dar 150ms para o AVAudioSession estabilizar antes do getUserMedia
-      await new Promise(resolve => setTimeout(resolve, 150));
-
-      // echoCancellation agora funciona: o AVAudioSession já está em VoiceChat
-      // mode quando o WebRTC inicializa o Voice Processing I/O unit.
+      // echoCancellation removes Charlotte's speaker output from the mic signal
+      // before it reaches the server VAD — this is the correct way to prevent
+      // Charlotte from "hearing herself". noiseSuppression and autoGainControl
+      // improve speech quality on mobile.
       const stream = await mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -701,9 +694,10 @@ export default function LiveVoiceModal({
           }
         }, 500);
 
-        // InCallManager.start já foi chamado antes do getUserMedia para garantir
-        // que o AVAudioSession esteja em VoiceChat mode quando o WebRTC inicializa.
-        // Aqui apenas configura o routing do speaker.
+        InCallManager.start({ media: 'audio' });
+        // Android: InCallManager.start needs a moment to initialise the audio
+        // session before setForceSpeakerphoneOn takes effect — without the delay
+        // the call starts on earpiece even when isSpeaker=true.
         setTimeout(() => {
           InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
         }, Platform.OS === 'android' ? 300 : 0);
@@ -733,6 +727,10 @@ export default function LiveVoiceModal({
                 setCharlotteSpeaking(true);
                 setUserSpeaking(false);
                 sendEvent({ type: 'input_audio_buffer.clear' });
+              }
+              // Registrar quando o áudio da despedida começou a chegar
+              if (farewellActiveRef.current && farewellAudioStartRef.current === 0) {
+                farewellAudioStartRef.current = Date.now();
               }
               break;
 
@@ -769,21 +767,27 @@ export default function LiveVoiceModal({
                   setConversationTurns(prev => [...prev, { role: 'assistant', text: charlotteText }]);
                 }
 
-                // Despedida do pool esgotado: response.done dispara após todo o
-                // áudio ter sido enviado ao WebRTC. Aguardar 4s para o playback
-                // terminar no device, depois mostrar transcrição e fechar.
+                // Despedida do pool esgotado.
+                // farewellAudioStartRef marca quando o primeiro audio.delta chegou.
+                // Queremos esperar pelo menos 6s desde o início do áudio para
+                // garantir que o playback terminou no device antes de desconectar.
+                // Se response.done chegou antes dos 6s, esperamos o resto.
+                // Se chegou depois (improvável), aguardamos 1.5s de margem.
                 if (farewellActiveRef.current) {
+                  const audioStart = farewellAudioStartRef.current || Date.now();
+                  const elapsed = Date.now() - audioStart;
+                  const waitMs = Math.max(1500, 6500 - elapsed);
                   setTimeout(() => {
                     if (farewellActiveRef.current) {
                       farewellActiveRef.current = false;
+                      farewellAudioStartRef.current = 0;
                       const secsUsed = sessionAccumSecs.current + Math.floor((Date.now() - sessionStartRef.current) / 1000);
                       consumeLiveVoiceSeconds(secsUsed).catch(console.warn);
                       sessionAccumSecs.current = 0;
                       disconnect();
-                      // Mostrar transcrição (com o adeus da Charlotte) antes de fechar
                       setShowTranscript(true);
                     }
-                  }, 4000);
+                  }, waitMs);
                 }
               }
               break;
@@ -938,7 +942,8 @@ export default function LiveVoiceModal({
     pcRef.current?.close();
     pcRef.current = null;
     stopRingTone();
-    InCallManager.stop(); // devolve AVAudioSession ao estado anterior automaticamente
+    InCallManager.stop();
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setStatus('disconnected');
@@ -1024,6 +1029,7 @@ export default function LiveVoiceModal({
       charlotteTextAccRef.current = '';
       wasConnectedRef.current = false;
       farewellActiveRef.current = false;
+      farewellAudioStartRef.current = 0;
       sessionAccumSecs.current = 0;
       warnStartRef.current = 0;
       loadPool().then(remaining => {
