@@ -273,6 +273,7 @@ export default function LiveVoiceModal({
   const charlotteTextAccRef = React.useRef(''); // accumulates Charlotte's text deltas
   const wasConnectedRef     = React.useRef(false); // tracks if call ever reached connected state
   const lastCharlotteTextRef   = React.useRef(''); // última fala completa da Charlotte — usado para detectar eco via sobreposição de texto
+  const pendingResponseTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null); // timer agendado em speech_stopped, cancelado se eco detectado antes
   const farewellPendingRef     = React.useRef(false); // pool esgotou, despedida pendente (aguardando momento seguro)
   const farewellActiveRef      = React.useRef(false); // true quando a response.create da despedida já foi enviada
   const farewellAudioStartRef  = React.useRef(0);     // Date.now() do primeiro response.audio.delta da despedida
@@ -608,6 +609,10 @@ export default function LiveVoiceModal({
 
   // ── Disconnect WebRTC (sem fechar modal) ─────────────────────────────────
   const disconnectWebRTC = React.useCallback(() => {
+    if (pendingResponseTimerRef.current) {
+      clearTimeout(pendingResponseTimerRef.current);
+      pendingResponseTimerRef.current = null;
+    }
     localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
     localStreamRef.current = null;
     dcRef.current?.close();
@@ -746,10 +751,6 @@ export default function LiveVoiceModal({
             output_audio_format: 'pcm16',
             max_response_output_tokens: 400,
             input_audio_transcription: { model: 'whisper-1' },
-            // Redução de ruído server-side específica para alto-falante —
-            // processa mic ANTES do VAD/Whisper, removendo ruído ambiente
-            // e suprimindo parte do eco antes da detecção de fala.
-            input_audio_noise_reduction: { type: 'far_field' },
             turn_detection: {
               // server_vad: threshold 0.90 filtra ruído de baixa energia.
               // silence_duration 1500ms evita interrupção por pausas naturais.
@@ -881,23 +882,38 @@ export default function LiveVoiceModal({
               break;
 
             case 'conversation.item.input_audio_transcription.completed':
-              // Transcrição do que o servidor processou como fala do usuário.
-              // ECHO DETECTION: se o texto transcrito tem alta sobreposição com
-              // o que a Charlotte acabou de dizer, é eco — descarta sem adicionar
-              // ao histórico e sem disparar response.create.
-              if (msg.transcript?.trim()) {
-                const userText = msg.transcript.trim();
-                const overlap = wordOverlap(userText, lastCharlotteTextRef.current);
-                if (overlap >= 0.5 && lastCharlotteTextRef.current.length > 0) {
-                  // É eco — ignora silenciosamente. Também marca como "ainda
-                  // falando" para o speech_stopped não disparar response.create.
-                  console.log(`[LiveVoice] echo detected (overlap ${(overlap * 100).toFixed(0)}%): "${userText.slice(0, 60)}"`);
-                  // Previne o próximo response.create no speech_stopped:
-                  // atualiza lastResponseCreateRef para forçar o cooldown a bloquear.
-                  lastResponseCreateRef.current = Date.now();
+              // Transcrição chegou. Decidir: é eco ou fala real?
+              // Se eco → cancelar response.create pendente (não adicionar ao histórico).
+              // Se fala real → disparar response.create imediatamente (sem esperar fallback).
+              {
+                const userText = msg.transcript?.trim() ?? '';
+                const isEcho = userText.length > 0
+                  && lastCharlotteTextRef.current.length > 0
+                  && wordOverlap(userText, lastCharlotteTextRef.current) >= 0.5;
+
+                if (isEcho) {
+                  console.log(`[LiveVoice] echo blocked: "${userText.slice(0, 60)}"`);
+                  if (pendingResponseTimerRef.current) {
+                    clearTimeout(pendingResponseTimerRef.current);
+                    pendingResponseTimerRef.current = null;
+                  }
                   break;
                 }
-                setConversationTurns(prev => [...prev, { role: 'user', text: userText }]);
+
+                if (userText) {
+                  setConversationTurns(prev => [...prev, { role: 'user', text: userText }]);
+                }
+
+                // Transcrição não-eco chegou: se ainda há timer pendente, disparar
+                // response.create agora (sem esperar o fallback de 2.5s).
+                if (pendingResponseTimerRef.current) {
+                  clearTimeout(pendingResponseTimerRef.current);
+                  pendingResponseTimerRef.current = null;
+                  if (dcRef.current?.readyState === 'open' && userText) {
+                    lastResponseCreateRef.current = Date.now();
+                    sendEvent({ type: 'response.create' });
+                  }
+                }
               }
               break;
 
@@ -959,14 +975,18 @@ export default function LiveVoiceModal({
 
             case 'input_audio_buffer.speech_stopped':
               setUserSpeaking(false);
-              // create_response:false — disparar response.create manualmente.
-              // Três guards devem passar para filtrar eco e ruído ambiente:
-              //   1. Charlotte não pode estar falando (charlotteSpeakingRef).
-              //   2. Duração mínima de fala >= 500ms — eco e reverb duram < 200ms;
-              //      fala real dura > 500ms. Este é o filtro mais eficaz.
-              //   3. >= 6000ms desde que o áudio da Charlotte terminou — reverb
-              //      em ambiente fechado com loudspeaker pode durar 4-5s.
-              //   4. Cooldown de 3000ms entre response.creates consecutivos.
+              // ESTRATÉGIA DE FILTRO DE ECO:
+              // Em vez de disparar response.create imediatamente (que fazia
+              // Charlotte responder ao próprio eco antes da transcrição chegar),
+              // agendamos um timer de fallback de 2.5s. A transcrição geralmente
+              // chega em 500-1500ms. Quando chega, o handler de transcription.completed:
+              //   - Se for eco (sobreposição >50% com a última fala da Charlotte):
+              //     cancela o timer → Charlotte não responde ao eco.
+              //   - Se for fala real: cancela o timer e dispara response.create
+              //     imediatamente (zero latência extra).
+              // Se transcrição nunca chegar em 2.5s (raro): timer expira e
+              // response.create dispara mesmo assim, para não deixar o usuário
+              // sem resposta.
               if (!charlotteSpeakingRef.current
                   && !farewellPendingRef.current
                   && !farewellActiveRef.current) {
@@ -974,12 +994,16 @@ export default function LiveVoiceModal({
                 const msSinceDone     = Date.now() - lastCharlotteDoneRef.current;
                 const msSinceLast     = Date.now() - lastResponseCreateRef.current;
                 if (speechDuration > 500 && msSinceDone > 6000 && msSinceLast > 3000) {
-                  lastResponseCreateRef.current = Date.now();
-                  setTimeout(() => {
+                  if (pendingResponseTimerRef.current) {
+                    clearTimeout(pendingResponseTimerRef.current);
+                  }
+                  pendingResponseTimerRef.current = setTimeout(() => {
+                    pendingResponseTimerRef.current = null;
                     if (dcRef.current?.readyState === 'open') {
+                      lastResponseCreateRef.current = Date.now();
                       sendEvent({ type: 'response.create' });
                     }
-                  }, 150);
+                  }, 2500);
                 }
               }
               break;
