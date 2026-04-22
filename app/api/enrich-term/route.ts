@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,8 +28,9 @@ function normalizeTerm(term: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const raw   = req.nextUrl.searchParams.get('term')?.trim();
-  const level = req.nextUrl.searchParams.get('level') ?? 'Inter';
+  const raw    = req.nextUrl.searchParams.get('term')?.trim();
+  const level  = req.nextUrl.searchParams.get('level') ?? 'Inter';
+  const userId = req.nextUrl.searchParams.get('userId');
 
   if (!raw) {
     return NextResponse.json({ error: 'Missing term' }, { status: 400 });
@@ -85,6 +87,15 @@ Return ONLY the raw JSON object, no markdown, no explanation.`;
       ],
       temperature: 0.3,
       max_tokens: 400,
+    });
+
+    logOpenAIUsage({
+      userId,
+      endpoint: '/api/enrich-term',
+      model: 'gpt-4o-mini',
+      promptTokens:     completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      totalTokens:      completion.usage?.total_tokens,
     });
 
     const raw_resp = completion.choices[0]?.message?.content ?? '{}';

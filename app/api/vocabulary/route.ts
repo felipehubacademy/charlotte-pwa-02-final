@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 export async function POST(request: NextRequest) {
   try {
-    const { term, level } = await request.json() as { term: string; level: string };
+    const { term, level, userId } = await request.json() as { term: string; level: string; userId?: string };
     if (!term?.trim()) {
       return NextResponse.json({ error: 'term required' }, { status: 400 });
     }
@@ -45,6 +46,15 @@ Return ONLY the raw JSON object, no markdown.`;
       ],
       temperature: 0.3,
       max_tokens: 300,
+    });
+
+    logOpenAIUsage({
+      userId: userId ?? null,
+      endpoint: '/api/vocabulary',
+      model: 'gpt-4o-mini',
+      promptTokens:     completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      totalTokens:      completion.usage?.total_tokens,
     });
 
     const raw = completion.choices[0]?.message?.content ?? '{}';

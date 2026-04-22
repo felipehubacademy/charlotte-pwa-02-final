@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { text } = body as { text: string };
+    const { text, userId } = body as { text: string; userId?: string };
 
     if (!text || text.trim().length < 3) {
       return NextResponse.json({ corrections: [] });
@@ -67,6 +68,15 @@ Output format: [{"heard": "word", "likely": "world"}, ...]`,
       ],
       temperature: 0.2,
       max_tokens: 120,
+    });
+
+    logOpenAIUsage({
+      userId: userId ?? null,
+      endpoint: '/api/pronunciation-semantic',
+      model: 'gpt-4o-mini',
+      promptTokens:     completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      totalTokens:      completion.usage?.total_tokens,
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? '[]';

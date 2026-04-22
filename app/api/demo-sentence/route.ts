@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { words } = body as { words: string[] };
+    const { words, userId } = body as { words: string[]; userId?: string };
 
     if (!words || words.length === 0) {
       return NextResponse.json({ error: 'words array is required' }, { status: 400 });
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
       ],
       temperature: 0.7,
       max_tokens: 200,
+    });
+
+    logOpenAIUsage({
+      userId: userId ?? null,
+      endpoint: '/api/demo-sentence',
+      model: 'gpt-4o-mini',
+      promptTokens:     completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      totalTokens:      completion.usage?.total_tokens,
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() ?? '';

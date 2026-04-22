@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
     // Obter o FormData do request
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
+    const userId   = (formData.get('userId') as string | null) ?? null;
 
     if (!audioFile) {
       return NextResponse.json(
@@ -92,13 +94,24 @@ export async function POST(request: NextRequest) {
     // Transcrever com Whisper
     // prompt: discourage semantic correction so minimal-pair errors are preserved
     // (e.g. user says "word" instead of "world" — without this Whisper auto-corrects)
+    // verbose_json gives us audio duration for cost tracking
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',
       language: 'en',
-      response_format: 'json',
+      response_format: 'verbose_json',
       temperature: 0.2,
       prompt: 'Transcribe exactly what was said, word for word, without correcting or improving the speech.',
+    });
+
+    // Verbose response inclui `duration` em segundos
+    const audioSeconds = (transcription as any).duration as number | undefined;
+
+    logOpenAIUsage({
+      userId,
+      endpoint: '/api/transcribe',
+      model: 'whisper-1',
+      audioSeconds: audioSeconds ?? 0,
     });
 
     console.log('Transcription result:', transcription.text);

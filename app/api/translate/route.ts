@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { text, userLevel } = body as { text?: string; userLevel?: string };
+    const { text, userLevel, userId } = body as { text?: string; userLevel?: string; userId?: string };
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ success: false, error: 'text is required' }, { status: 400 });
@@ -56,6 +57,15 @@ export async function POST(request: NextRequest) {
         },
         { role: 'user', content: text },
       ],
+    });
+
+    logOpenAIUsage({
+      userId: userId ?? null,
+      endpoint: '/api/translate',
+      model: 'gpt-4.1-nano',
+      promptTokens:     completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      totalTokens:      completion.usage?.total_tokens,
     });
 
     const translatedText = completion.choices[0]?.message?.content?.trim();

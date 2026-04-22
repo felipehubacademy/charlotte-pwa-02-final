@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -76,7 +77,7 @@ Return ONLY valid JSON:
 
 export async function POST(req: NextRequest) {
   try {
-    const { type, level } = (await req.json()) as { type: ExerciseType; level: string };
+    const { type, level, userId } = (await req.json()) as { type: ExerciseType; level: string; userId?: string };
 
     const safeLevel = (level in SYSTEM ? level : 'Inter') as string;
     const safeType: ExerciseType = (['fill_gap', 'fix_error', 'read_answer'].includes(type) ? type : 'fill_gap') as ExerciseType;
@@ -89,6 +90,15 @@ export async function POST(req: NextRequest) {
       max_tokens: 300,
       temperature: 0.9,
       response_format: { type: 'json_object' },
+    });
+
+    logOpenAIUsage({
+      userId: userId ?? null,
+      endpoint: '/api/learn-grammar',
+      model: 'gpt-4o-mini',
+      promptTokens:     completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      totalTokens:      completion.usage?.total_tokens,
     });
 
     const raw = completion.choices[0]?.message?.content ?? '{}';

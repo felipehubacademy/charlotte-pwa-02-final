@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,7 @@ interface GreetingRequest {
   hour: number;           // 0–23 local hour
   level: 'Novice' | 'Inter' | 'Advanced';
   isNewUser?: boolean;    // from profile.first_welcome_done — reliable flag
+  userId?: string;
 }
 
 function buildPrompt(req: GreetingRequest): { system: string; user: string } {
@@ -78,6 +80,15 @@ export async function POST(request: NextRequest) {
         { role: 'system', content: system },
         { role: 'user',   content: user },
       ],
+    });
+
+    logOpenAIUsage({
+      userId: body.userId ?? null,
+      endpoint: '/api/greeting',
+      model: 'gpt-4o-mini',
+      promptTokens:     completion.usage?.prompt_tokens,
+      completionTokens: completion.usage?.completion_tokens,
+      totalTokens:      completion.usage?.total_tokens,
     });
 
     const message = completion.choices[0]?.message?.content?.trim() ?? '';

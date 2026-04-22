@@ -2,14 +2,47 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { grammarAnalysisService } from '@/lib/grammar-analysis';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { logOpenAIUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || 'placeholder',
 });
+
+// ── Cost tracking via AsyncLocalStorage ──────────────────────────────────────
+// O /api/assistant tem 15+ chamadas openai.chat.completions.create espalhadas
+// por vários helpers. Em vez de passar userId por cada assinatura, usamos
+// um ALS setado no entry point da POST e um patch do método create para
+// logar automaticamente. Escopo do patch é APENAS esta instancia do openai.
+const assistantCtx = new AsyncLocalStorage<{ userId: string | null; endpoint: string }>();
+
+(function patchOpenAIForLogging() {
+  const originalCreate = openai.chat.completions.create.bind(openai.chat.completions);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (openai.chat.completions as any).create = async function (params: any, ...rest: any[]) {
+    const result: any = await (originalCreate as any)(params, ...rest);
+    try {
+      const ctx = assistantCtx.getStore();
+      if (ctx && result?.usage) {
+        logOpenAIUsage({
+          userId:           ctx.userId,
+          endpoint:         ctx.endpoint,
+          model:            String(params?.model ?? 'gpt-4o-mini'),
+          promptTokens:     result.usage.prompt_tokens,
+          completionTokens: result.usage.completion_tokens,
+          totalTokens:      result.usage.total_tokens,
+        });
+      }
+    } catch {
+      // nunca quebrar a resposta do assistant por causa do logger
+    }
+    return result;
+  };
+})();
 
 // ✅ Interface atualizada para aceitar contexto conversacional e imagens
 interface AssistantRequest {
@@ -54,6 +87,14 @@ function extractVocabSuggestions(text: string): string[] {
 }
 
 export async function POST(request: NextRequest) {
+  // Extraimos userId antes de abrir o ALS, para que todas as chamadas
+  // openai.chat.completions.create nos helpers abaixo sejam logadas
+  // automaticamente pelo patch acima.
+  const userIdHeader = request.headers.get('x-user-id');
+  return assistantCtx.run({ userId: userIdHeader, endpoint: '/api/assistant' }, () => handleAssistantPOST(request, userIdHeader));
+}
+
+async function handleAssistantPOST(request: NextRequest, userId: string | null) {
   try {
     console.log('Assistant API: Processing request...');
 
@@ -69,7 +110,6 @@ export async function POST(request: NextRequest) {
     const { transcription, pronunciationData, userLevel, userName, messageType, conversationContext, imageData, mode } = body;
 
     // ── Rate limit check ─────────────────────────────────────────────────────
-    const userId = request.headers.get('x-user-id');
     if (userId) {
       const limit = await checkRateLimit(userId, userLevel, mode);
       if (limit) {
