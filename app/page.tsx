@@ -1,12 +1,11 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import StoreCTA from '@/components/StoreCTA';
 
 export const metadata: Metadata = {
   title: 'Charlotte — Fale inglês com IA',
   description: 'Aprenda inglês conversando com uma IA que ouve, corrige e te evolui. 7 dias grátis.',
 };
-
-const STORE_URL = 'https://apps.apple.com/app/charlotte-fale-ingles-com-ia/id6760943273';
 
 export default function Page() {
   return (
@@ -60,13 +59,7 @@ export default function Page() {
           <a href="#suporte" style={{ fontSize: 14, color: '#4B4A72', fontWeight: 500 }}>Suporte</a>
         </div>
 
-        <a href={STORE_URL} className="nav-cta" style={{
-          background: '#16153A', color: '#fff',
-          fontSize: 13, fontWeight: 700,
-          padding: '9px 20px', borderRadius: 10,
-        }}>
-          Baixar grátis
-        </a>
+        <StoreCTA variant="nav" label="Baixar grátis" className="nav-cta" />
       </nav>
 
       {/* ── HERO ─────────────────────────────────────────────────────────── */}
@@ -87,7 +80,7 @@ export default function Page() {
             borderRadius: 100, padding: '5px 14px', marginBottom: 28,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3D8800', display: 'inline-block' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#3D8800' }}>Disponível no iOS</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#3D8800' }}>Disponível no Google Play</span>
           </div>
 
           <h1 style={{
@@ -107,20 +100,7 @@ export default function Page() {
 
           {/* CTA */}
           <div className="hero-cta" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <a href={STORE_URL} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 12,
-              background: '#16153A', color: '#fff',
-              borderRadius: 14, padding: '14px 24px',
-              boxShadow: '0 8px 24px rgba(22,21,58,0.20)',
-            }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-              </svg>
-              <div>
-                <div style={{ fontSize: 10, opacity: 0.6, lineHeight: 1 }}>Baixar na</div>
-                <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.3 }}>App Store</div>
-              </div>
-            </a>
+            <StoreCTA variant="hero" label="Baixar o app" />
             <span style={{ fontSize: 13, color: '#9896B8' }}>7 dias grátis · sem cartão</span>
           </div>
         </div>
@@ -350,7 +330,7 @@ export default function Page() {
 
           <div className="steps-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 40 }}>
             {[
-              { n: 1, title: 'Baixe o app', desc: 'Disponível no iOS. Instale e crie sua conta em menos de 2 minutos.' },
+              { n: 1, title: 'Baixe o app', desc: 'Disponível no Google Play. Instale e crie sua conta em menos de 2 minutos.' },
               { n: 2, title: 'Faça o teste de nível', desc: 'Charlotte avalia seu inglês e monta uma trilha personalizada para você.' },
               { n: 3, title: 'Comece a falar', desc: 'Converse, pratique pronúncia e complete missões diárias. Sem enrolação.' },
             ].map(s => (
@@ -409,17 +389,9 @@ export default function Page() {
             ))}
           </div>
 
-          <a href={STORE_URL} className="pricing-cta" style={{
-            display: 'inline-block',
-            background: '#A3FF3C', color: '#16153A',
-            fontWeight: 800, fontSize: 16,
-            padding: '16px 48px', borderRadius: 14,
-            boxShadow: '0 4px 20px rgba(163,255,60,0.35)',
-          }}>
-            Experimentar 7 dias grátis
-          </a>
+          <StoreCTA variant="pricing" label="Experimentar 7 dias grátis" className="pricing-cta" />
           <p style={{ fontSize: 12, color: '#9896B8', marginTop: 16 }}>
-            Cancele quando quiser direto pelo App Store.
+            Cancele quando quiser direto na loja.
           </p>
         </div>
       </section>
@@ -431,7 +403,7 @@ export default function Page() {
             Precisando de ajuda?
           </h2>
           <p style={{ fontSize: 15, color: '#4B4A72', lineHeight: 1.75, marginBottom: 28 }}>
-            Nossa equipe responde em até 24h. Para dúvidas sobre assinatura, cancele direto pelo App Store.
+            Nossa equipe responde em até 24h. Para dúvidas sobre assinatura, cancele direto na loja.
           </p>
           <a href="mailto:contato@hubacademybr.com" style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
