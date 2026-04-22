@@ -71,6 +71,9 @@ export default function WelcomeModal({ userId, userLevel, userName }: WelcomeMod
   const ringAnim     = useRef(new Animated.Value(1)).current;
   const playerRef    = useRef<AudioPlayer | null>(null);
   const pollRef      = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioEndedRef = useRef(false);
+  const dismissedRef  = useRef(false);
 
   // Mostrar apenas em logins reais (SIGNED_IN), nunca na abertura do app.
   // Primeiro acesso: tratado pelo vídeo — este modal só exibe quando first_welcome_done = true.
@@ -94,14 +97,53 @@ export default function WelcomeModal({ userId, userLevel, userName }: WelcomeMod
     });
   }, [isFreshLogin, profile]); // eslint-disable-line
 
-  // Poll player time for karaoke
+  // handleDismiss declarado antes dos useEffects que o referenciam
+  const handleDismiss = () => {
+    // Idempotent — auto-dismiss timers + manual tap podem chamar em paralelo
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
+
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
+    playerRef.current?.pause();
+    playerRef.current?.remove();
+    playerRef.current = null;
+
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
+      Animated.timing(scaleAnim, { toValue: 0.9, duration: 250, useNativeDriver: true }),
+    ]).start(() => {
+      setVisible(false);
+      clearFreshLogin();
+      // Salva data de hoje para nao mostrar de novo até amanhã
+      const LAST_SHOWN_KEY = `welcome_last_shown_${userId}`;
+      SecureStore.setItemAsync(LAST_SHOWN_KEY, todayDateKey()).catch(() => {});
+    });
+  };
+
+  // Poll player time for karaoke + detect audio end for auto-dismiss
   useEffect(() => {
     pollRef.current = setInterval(() => {
-      if (playerRef.current?.playing) {
-        setCurrentTime(playerRef.current.currentTime ?? 0);
+      const p = playerRef.current;
+      if (!p) return;
+      if (p.playing) {
+        setCurrentTime(p.currentTime ?? 0);
+      }
+      // Audio ended — schedule auto-dismiss after 2.5s grace period
+      // so user can read the subtitle. Guards against Apple "unresponsive"
+      // rejection when reviewer doesn't tap the small hint.
+      const duration = p.duration ?? 0;
+      if (!audioEndedRef.current && duration > 0 && (p.currentTime ?? 0) >= duration - 0.1 && !p.playing) {
+        audioEndedRef.current = true;
+        if (!autoDismissTimerRef.current) {
+          autoDismissTimerRef.current = setTimeout(() => { handleDismiss(); }, 2500);
+        }
       }
     }, 40);
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+      if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
+    };
   }, []);
 
   // Load + play on visible — always returning user (pool)
@@ -128,6 +170,14 @@ export default function WelcomeModal({ userId, userLevel, userName }: WelcomeMod
     });
 
     loadAndPlay(id).catch(() => {});
+
+    // Hard fallback: dismiss automatically after 12s regardless of audio state.
+    // This guarantees the modal never blocks the app if the network is slow
+    // or the audio fails to load on the reviewer's device (Apple rejection
+    // reason "unresponsive after launch" was caused by reviewer not tapping
+    // the low-contrast hint).
+    const hardTimer = setTimeout(() => { handleDismiss(); }, 12000);
+    return () => clearTimeout(hardTimer);
   }, [visible]); // eslint-disable-line
 
   const loadAndPlay = async (id: string) => {
@@ -169,24 +219,6 @@ export default function WelcomeModal({ userId, userLevel, userName }: WelcomeMod
     } catch (e) {
       console.warn('[WelcomeModal] load error:', e);
     }
-  };
-
-  const handleDismiss = () => {
-    if (pollRef.current) clearInterval(pollRef.current);
-    playerRef.current?.pause();
-    playerRef.current?.remove();
-    playerRef.current = null;
-
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
-      Animated.timing(scaleAnim, { toValue: 0.9, duration: 250, useNativeDriver: true }),
-    ]).start(() => {
-      setVisible(false);
-      clearFreshLogin();
-      // Salva data de hoje para nao mostrar de novo até amanhã
-      const LAST_SHOWN_KEY = `welcome_last_shown_${userId}`;
-      SecureStore.setItemAsync(LAST_SHOWN_KEY, todayDateKey()).catch(() => {});
-    });
   };
 
   if (!visible) return null;
@@ -260,11 +292,20 @@ export default function WelcomeModal({ userId, userLevel, userName }: WelcomeMod
             </AppText>
           </Animated.View>
 
-          {/* Tap hint */}
-          <Animated.View style={{ position: 'absolute', bottom: insets.bottom + 40, opacity: textFadeAnim }}>
-            <AppText style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13, letterSpacing: 0.5 }}>
-              {isPt ? 'toque para continuar' : 'tap to continue'}
-            </AppText>
+          {/* Continue button — visivel e obvio (evita rejeicao Apple "unresponsive") */}
+          <Animated.View style={{ position: 'absolute', bottom: insets.bottom + 48, opacity: textFadeAnim }}>
+            <View style={{
+              paddingHorizontal: 32,
+              paddingVertical: 14,
+              borderRadius: 999,
+              backgroundColor: 'rgba(163,255,60,0.15)',
+              borderWidth: 1.5,
+              borderColor: '#A3FF3C',
+            }}>
+              <AppText style={{ color: '#A3FF3C', fontSize: 15, fontWeight: '700', letterSpacing: 0.3 }}>
+                {isPt ? 'Toque para continuar' : 'Tap to continue'}
+              </AppText>
+            </View>
           </Animated.View>
         </TouchableOpacity>
       </Animated.View>

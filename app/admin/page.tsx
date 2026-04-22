@@ -656,6 +656,18 @@ export default function AdminPage() {
           }}>Admin</span>
         </div>
         <div className="admin-header-actions" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a
+            href="/admin/metrics"
+            style={{
+              backgroundColor: 'transparent', border: `1px solid ${C.border}`,
+              color: C.navyMid, fontSize: 13, padding: '7px 14px',
+              borderRadius: 8, cursor: 'pointer',
+              textDecoration: 'none',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            Métricas
+          </a>
           <button
             onClick={() => fetchData(secret)}
             title="Atualizar"
