@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * StoreCTA — botão que leva pra loja certa baseado no device.
@@ -36,9 +37,13 @@ function detectPlatform(): Platform {
 export default function StoreCTA({ variant, label, className }: Props) {
   const [platform, setPlatform] = useState<Platform>('desktop');
   const [modalOpen, setModalOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { setPlatform(detectPlatform()); }, []);
+  useEffect(() => {
+    setPlatform(detectPlatform());
+    setMounted(true); // garante que createPortal só roda client-side
+  }, []);
 
   // Fecha modal ao clicar fora ou Esc
   useEffect(() => {
@@ -112,7 +117,7 @@ export default function StoreCTA({ variant, label, className }: Props) {
         {variant === 'hero' ? hero : label}
       </button>
 
-      {modalOpen && (
+      {modalOpen && mounted && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -222,7 +227,8 @@ export default function StoreCTA({ variant, label, className }: Props) {
               7 dias grátis · sem cartão
             </p>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );
