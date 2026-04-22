@@ -14,7 +14,7 @@ import { createPortal } from 'react-dom';
 
 const APP_STORE_URL = 'https://apps.apple.com/app/id6760943273';
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.hubacademy.charlotte';
-const APP_STORE_AVAILABLE = false; // Flag: true quando Apple aprovar
+const APP_STORE_AVAILABLE = true; // ativado — link dará 404 até Apple aprovar a submissão 1.0 (89)
 
 type Variant = 'nav' | 'hero' | 'pricing';
 
@@ -100,7 +100,7 @@ export default function StoreCTA({ variant, label, className }: Props) {
         <path d="M12 2L3 14h9l-1 8 10-12h-9l1-8z"/>
       </svg>
       <div>
-        <div style={{ fontSize: 10, opacity: 0.6, lineHeight: 1 }}>Baixar no</div>
+        <div style={{ fontSize: 10, opacity: 0.6, lineHeight: 1 }}>Experimente</div>
         <div style={{ fontSize: 16, fontWeight: 800, lineHeight: 1.3 }}>{label}</div>
       </div>
     </>
@@ -158,7 +158,7 @@ export default function StoreCTA({ variant, label, className }: Props) {
               fontSize: 22, fontWeight: 800, color: '#16153A',
               marginBottom: 8, letterSpacing: '-0.5px',
             }}>
-              Baixe o Charlotte
+              Baixe a Charlotte
             </h3>
             <p style={{
               fontSize: 14, color: '#4B4A72', marginBottom: 24,
@@ -167,58 +167,44 @@ export default function StoreCTA({ variant, label, className }: Props) {
               Escolha a loja do seu dispositivo.
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <a
-                href={PLAY_STORE_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => setModalOpen(false)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  gap: 12, background: '#16153A', color: '#fff',
-                  padding: '14px 20px', borderRadius: 12,
-                  fontWeight: 700, fontSize: 15,
-                }}
-              >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3.6 1.7c-.3.3-.5.8-.5 1.4v17.8c0 .6.2 1.1.5 1.4l.1.1L13.5 12.6v-.2L3.7 1.6l-.1.1zM17.1 9.5L14.3 12l2.8 2.5c1.6-.9 2.4-1.4 2.4-2.5s-.8-1.6-2.4-2.5zM14.3 12l-10.6 10.3c.6.6 1.5.6 2.5.1l11.6-6.6L14.3 12zm-8.1-11c-1-.5-1.9-.4-2.5.1L14.3 11.4 16.6 9.1 5.9 2.8c-.1-.1-.1-.1-.2-.1s-.3-.2-.4-.3z"/>
-                </svg>
-                Baixar no Google Play
-              </a>
-
-              {APP_STORE_AVAILABLE ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+              {APP_STORE_AVAILABLE && (
                 <a
                   href={APP_STORE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() => setModalOpen(false)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    gap: 12, background: '#fff', color: '#16153A',
-                    padding: '14px 20px', borderRadius: 12,
-                    fontWeight: 700, fontSize: 15,
-                    border: '1.5px solid #E8E7F0',
-                  }}
+                  aria-label="Baixar na App Store"
+                  style={{ display: 'block', width: 170, transition: 'opacity 0.15s' }}
+                  onMouseOver={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.85'; }}
+                  onMouseOut={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = '1'; }}
                 >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                  </svg>
-                  Baixar na App Store
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/images/store-badges/app-store-pt.svg"
+                    alt="Download on the App Store"
+                    style={{ display: 'block', width: '100%', height: 'auto' }}
+                  />
                 </a>
-              ) : (
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  gap: 10, background: '#F4F3FA', color: '#9896B8',
-                  padding: '14px 20px', borderRadius: 12,
-                  fontWeight: 600, fontSize: 14,
-                  border: '1.5px dashed #D8D7E5',
-                }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-                  </svg>
-                  App Store — em breve
-                </div>
               )}
+
+              <a
+                href={PLAY_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setModalOpen(false)}
+                aria-label="Disponível no Google Play"
+                style={{ display: 'block', width: 170, transition: 'opacity 0.15s' }}
+                onMouseOver={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = '0.85'; }}
+                onMouseOut={(e) => { (e.currentTarget as HTMLAnchorElement).style.opacity = '1'; }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/store-badges/google-play-pt.png"
+                  alt="Disponível no Google Play"
+                  style={{ display: 'block', width: '100%', height: 'auto' }}
+                />
+              </a>
             </div>
 
             <p style={{

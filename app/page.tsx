@@ -80,7 +80,7 @@ export default function Page() {
             borderRadius: 100, padding: '5px 14px', marginBottom: 28,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3D8800', display: 'inline-block' }} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: '#3D8800' }}>Disponível no Google Play</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#3D8800' }}>Disponível no iOS e Android</span>
           </div>
 
           <h1 style={{
@@ -100,7 +100,7 @@ export default function Page() {
 
           {/* CTA */}
           <div className="hero-cta" style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
-            <StoreCTA variant="hero" label="Baixar o app" />
+            <StoreCTA variant="hero" label="a Charlotte" />
             <span style={{ fontSize: 13, color: '#9896B8' }}>7 dias grátis · sem cartão</span>
           </div>
         </div>
@@ -330,7 +330,7 @@ export default function Page() {
 
           <div className="steps-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 40 }}>
             {[
-              { n: 1, title: 'Baixe o app', desc: 'Disponível no Google Play. Instale e crie sua conta em menos de 2 minutos.' },
+              { n: 1, title: 'Baixe a Charlotte', desc: 'Disponível no iOS e Android. Instale e crie sua conta em menos de 2 minutos.' },
               { n: 2, title: 'Faça o teste de nível', desc: 'Charlotte avalia seu inglês e monta uma trilha personalizada para você.' },
               { n: 3, title: 'Comece a falar', desc: 'Converse, pratique pronúncia e complete missões diárias. Sem enrolação.' },
             ].map(s => (
