@@ -82,7 +82,7 @@ export default function SignupScreen() {
             <View style={{
               width: 96, height: 96, borderRadius: 48,
               borderWidth: 3, borderColor: C.green,
-              overflow: 'hidden', backgroundColor: C.card,
+              overflow: 'hidden', backgroundColor: C.navy,
               shadowColor: C.green, shadowOpacity: 0.3,
               shadowRadius: 16, shadowOffset: { width: 0, height: 4 },
             }}>
@@ -148,7 +148,7 @@ export default function SignupScreen() {
               width: 100, height: 100, borderRadius: 50,
               borderWidth: 3, borderColor: C.green,
               overflow: 'hidden', marginBottom: 16,
-              backgroundColor: C.card,
+              backgroundColor: C.navy,
               shadowColor: C.navy, shadowOpacity: 0.12,
               shadowRadius: 20, shadowOffset: { width: 0, height: 6 },
             }}>

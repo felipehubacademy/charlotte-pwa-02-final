@@ -29,10 +29,10 @@ import { supabase } from '@/lib/supabase';
 // ── API Keys ──────────────────────────────────────────────────────────────────
 // Replace REVENUECAT_IOS_KEY and REVENUECAT_ANDROID_KEY with your actual keys
 // from RevenueCat Dashboard → Project Settings → API Keys → Public app-specific keys
-const RC_IOS_KEY     = 'appl_ZfuDMNvBXEVXSjWSAErBuihcPv';
+const RC_IOS_KEY     = 'appl_ZfuDMNvBXEVXSjWSAErBuiihcPv';
 const RC_ANDROID_KEY = 'goog_hIkklVeoKyULqjSKpqojZUiZwVg';
 
-export const ENTITLEMENT_ID = 'premium';
+export const ENTITLEMENT_ID = 'Premium';
 export const PRODUCT_MONTHLY = 'com.hubacademy.charlotte.monthly';
 export const PRODUCT_YEARLY  = 'com.hubacademy.charlotte.yearly';
 
@@ -46,7 +46,13 @@ export function initPurchases() {
 // ── Identify user ─────────────────────────────────────────────────────────────
 export async function identifyUser(userId: string) {
   try {
-    await Purchases.logIn(userId);
+    console.log('[purchases] identifyUser START', userId);
+    const r = await Purchases.logIn(userId);
+    console.log('[purchases] identifyUser OK', {
+      created: r.created,
+      anonymous: r.customerInfo.originalAppUserId?.startsWith('$RCAnonymousID'),
+      activeEntitlements: Object.keys(r.customerInfo.entitlements.active),
+    });
   } catch (e) {
     console.warn('[purchases] identifyUser error:', e);
   }
@@ -111,6 +117,14 @@ export async function getOffering(): Promise<PurchasesOffering | null> {
   return r.offering;
 }
 
+// ── Listen for customer info updates (purchases, renewals, expirations) ─────
+// Used in AuthProvider to sync local profile state immediately on purchase,
+// independent of Supabase write / replication delay.
+export function onCustomerInfoUpdate(cb: (info: CustomerInfo) => void): () => void {
+  Purchases.addCustomerInfoUpdateListener(cb);
+  return () => Purchases.removeCustomerInfoUpdateListener(cb);
+}
+
 // ── Check entitlement ─────────────────────────────────────────────────────────
 export async function checkPremiumAccess(): Promise<boolean> {
   try {
@@ -125,42 +139,87 @@ export async function checkPremiumAccess(): Promise<boolean> {
 // ── Purchase a package ────────────────────────────────────────────────────────
 export async function purchasePackage(
   pkg: import('react-native-purchases').PurchasesPackage,
-): Promise<{ success: boolean; customerInfo?: CustomerInfo; cancelled?: boolean }> {
+): Promise<{ success: boolean; customerInfo?: CustomerInfo; cancelled?: boolean; errorCode?: number }> {
   try {
     const { customerInfo } = await Purchases.purchasePackage(pkg);
     return { success: true, customerInfo };
   } catch (e: any) {
     if (e?.userCancelled) return { success: false, cancelled: true };
-    console.warn('[purchases] purchasePackage error:', e);
-    return { success: false };
+    // e?.code pode vir string ('7') ou number — normaliza
+    const rawCode = e?.code;
+    const errorCode = typeof rawCode === 'number' ? rawCode : Number(rawCode);
+    return { success: false, errorCode: Number.isFinite(errorCode) ? errorCode : undefined };
   }
 }
 
 // ── Restore purchases ─────────────────────────────────────────────────────────
-export async function restorePurchases(): Promise<CustomerInfo | null> {
+export interface RestoreResult {
+  success: boolean;
+  hasPremium: boolean;
+  customerInfo?: CustomerInfo;
+  errorCode?: number;
+}
+
+export async function restorePurchases(): Promise<RestoreResult> {
   try {
     const info = await Purchases.restorePurchases();
-    return info;
-  } catch (e) {
-    console.warn('[purchases] restorePurchases error:', e);
-    return null;
+    return {
+      success: true,
+      hasPremium: !!info.entitlements.active[ENTITLEMENT_ID],
+      customerInfo: info,
+    };
+  } catch (e: any) {
+    const rawCode = e?.code;
+    const errorCode = typeof rawCode === 'number' ? rawCode : Number(rawCode);
+    return {
+      success: false,
+      hasPremium: false,
+      errorCode: Number.isFinite(errorCode) ? errorCode : undefined,
+    };
   }
 }
 
 // ── Sync to Supabase ──────────────────────────────────────────────────────────
-// Called after purchase or restore — keeps our DB in sync with RevenueCat.
-// RevenueCat webhook also does this server-side, but this is the client-side
-// immediate update so the user doesn't have to wait for the webhook.
+// Called after purchase/restore and on app foreground — keeps DB in sync com RC.
+// RevenueCat webhook também faz isso server-side, mas este é o sync client-side
+// imediato para não depender do webhook.
+//
+// IMPORTANTE: respeita o grace period de novos usuários (status='none'/null/'trial'):
+// quando RC não tem entitlement ativa, só força 'expired' se o user ANTES tinha
+// status pago ('active'|'expired'|'cancelled'). Para novos que nunca pagaram,
+// preserva o status atual (ex: 'none' durante placement test).
+//
+// Retorna: status final gravado (pra caller saber se houve force-expire).
 export async function syncSubscriptionToSupabase(
   userId: string,
   customerInfo: CustomerInfo,
-) {
+  opts?: { previousStatus?: string | null },
+): Promise<{ updated: boolean; hasPremium: boolean }> {
   const hasPremium = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
 
+  // Map product identifier to 'monthly' | 'yearly' | null
+  const activeProduct = customerInfo.activeSubscriptions?.[0] ?? null;
+  const product: 'monthly' | 'yearly' | null =
+    activeProduct === PRODUCT_MONTHLY ? 'monthly' :
+    activeProduct === PRODUCT_YEARLY  ? 'yearly'  : null;
+
+  // Grace period guard: se não tem premium E user nunca teve status pago,
+  // preserva o status atual (evita sobrescrever 'none' → 'expired').
+  const hadPaidStatus =
+    opts?.previousStatus === 'active' ||
+    opts?.previousStatus === 'expired' ||
+    opts?.previousStatus === 'cancelled';
+
+  if (!hasPremium && !hadPaidStatus) {
+    return { updated: false, hasPremium: false };
+  }
+
   const update: Record<string, unknown> = {
-    subscription_status: hasPremium ? 'active' : 'expired',
-    is_active: hasPremium,
-    updated_at: new Date().toISOString(),
+    subscription_status:     hasPremium ? 'active' : 'expired',
+    is_active:               hasPremium,
+    subscription_product:    hasPremium ? product : null,
+    subscription_expires_at: customerInfo.latestExpirationDate ?? null,
+    updated_at:              new Date().toISOString(),
   };
 
   const { error } = await supabase
@@ -168,5 +227,9 @@ export async function syncSubscriptionToSupabase(
     .update(update)
     .eq('id', userId);
 
-  if (error) console.warn('[purchases] syncSubscriptionToSupabase error:', error.message);
+  if (error) {
+    console.warn('[purchases] syncSubscriptionToSupabase error:', error.message);
+    return { updated: false, hasPremium };
+  }
+  return { updated: true, hasPremium };
 }

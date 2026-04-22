@@ -6,26 +6,42 @@ import {
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   RecordingPresets,
+  IOSOutputFormat,
+  AudioQuality,
 } from 'expo-audio';
+import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 
-// ── WAV/PCM preset for Azure Speech SDK ─────────────────────────
-// Azure Pronunciation Assessment requires PCM audio (16kHz, 16-bit, mono).
-// On iOS, LinearPCM output satisfies this directly without any server-side
-// conversion. On Android we keep M4A since Azure support there is secondary.
-export const PRONUNCIATION_RECORDING_OPTIONS = {
-  ...RecordingPresets.HIGH_QUALITY,
+// ── Preset otimizado para Azure Speech SDK ────────────────────────
+// iOS  → WAV LinearPCM 16kHz mono  → servidor declara getWaveFormatPCM(16000,16,1)
+// Android → OGG/OPUS 16kHz mono   → servidor declara getCompressedFormat(OGG_OPUS)
+export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
   ios: {
     extension: '.wav',
-    outputFormat: 'lpcm' as any,  // IOSOutputFormat.LINEARPCM
-    audioQuality: 127,            // IOSAudioQuality.MAX
     sampleRate: 16000,
-    linearPCMBitDepth: 16,
-    linearPCMIsBigEndian: false,
-    linearPCMIsFloat: false,
+    numberOfChannels: 1,
+    bitRate: 256000,
+    ios: {
+      outputFormat: IOSOutputFormat.LINEARPCM,
+      audioQuality: AudioQuality.MAX,
+      linearPCMBitDepth: 16 as 8 | 16 | 24 | 32,
+      linearPCMIsBigEndian: false,
+      linearPCMIsFloat: false,
+    },
   },
-} as typeof RecordingPresets.HIGH_QUALITY;
+  android: {
+    extension: '.ogg',
+    sampleRate: 16000,
+    numberOfChannels: 1,
+    bitRate: 64000,
+    android: {
+      outputFormat: 'ogg' as any,
+      audioEncoder: 'opus' as any,
+    },
+  },
+  default: RecordingPresets.HIGH_QUALITY,
+});
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -181,11 +197,12 @@ export function useAudioRecorder(
 export async function transcribeAudio(audioUri: string): Promise<string | null> {
   try {
     const isWav = audioUri.toLowerCase().endsWith('.wav');
+    const isOgg = audioUri.toLowerCase().endsWith('.ogg');
     const formData = new FormData();
     formData.append('audio', {
-      uri: audioUri,
-      name: isWav ? 'recording.wav' : 'recording.m4a',
-      type: isWav ? 'audio/wav' : 'audio/m4a',
+      uri:  audioUri,
+      name: isWav ? 'recording.wav' : isOgg ? 'recording.ogg' : 'recording.m4a',
+      type: isWav ? 'audio/wav'     : isOgg ? 'audio/ogg'     : 'audio/m4a',
     } as any);
 
     const response = await fetch(`${API_BASE_URL}/api/transcribe`, {

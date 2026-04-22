@@ -18,7 +18,7 @@ import { useTotalXP } from '@/hooks/useTotalXP';
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import Constants from 'expo-constants';
-import { useAudioRecorder, RecordingPresets } from 'expo-audio';
+import { useAudioRecorder, RecordingPresets, IOSOutputFormat, AudioQuality } from 'expo-audio';
 import { useMessageAudioPlayer } from '@/hooks/useMessageAudioPlayer';
 
 // ── Palette ────────────────────────────────────────────────────
@@ -190,7 +190,35 @@ export default function LearnPronunciationScreen() {
   const charlottePlayId = 'charlotte-learn-phrase';
   const isPlaying = playingMessageId === charlottePlayId;
 
-  const recorder     = useAudioRecorder(RecordingPresets.HIGH_QUALITY, 10); // 10s max
+  // Preset otimizado para Azure Speech: iOS → WAV PCM 16kHz mono, Android → OGG/OPUS 16kHz mono
+  const PRONUNCIATION_PRESET = Platform.select({
+    ios: {
+      extension: '.wav',
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      bitRate: 256000,
+      ios: {
+        outputFormat: IOSOutputFormat.LINEARPCM,
+        audioQuality: AudioQuality.MAX,
+        linearPCMBitDepth: 16 as 8 | 16 | 24 | 32,
+        linearPCMIsBigEndian: false,
+        linearPCMIsFloat: false,
+      },
+    },
+    android: {
+      extension: '.ogg',
+      sampleRate: 16000,
+      numberOfChannels: 1,
+      bitRate: 64000,
+      android: {
+        outputFormat: 'ogg' as any,
+        audioEncoder: 'opus' as any,
+      },
+    },
+    default: RecordingPresets.HIGH_QUALITY,
+  })!;
+
+  const recorder     = useAudioRecorder(PRONUNCIATION_PRESET, 10); // 10s max
   const recordingRef = useRef(false);
   const resultAnim   = useRef(new Animated.Value(0)).current;
 
@@ -281,13 +309,16 @@ export default function LearnPronunciationScreen() {
       const audioUri = recorder.uri;
       if (!audioUri || !phrase) { setStatus('error'); return; }
 
-      // Use same FormData pattern as useChat.ts — no FileReader needed
+      // Detectar formato pelo URI para declarar Content-Type correto ao servidor
       const isWav = audioUri.toLowerCase().endsWith('.wav');
+      const isOgg = audioUri.toLowerCase().endsWith('.ogg');
+      const audioName = isWav ? 'recording.wav' : isOgg ? 'recording.ogg' : 'recording.m4a';
+      const audioType = isWav ? 'audio/wav' : isOgg ? 'audio/ogg' : 'audio/x-m4a';
       const formData = new FormData();
       formData.append('audio', {
         uri:  audioUri,
-        name: isWav ? 'recording.wav' : 'recording.m4a',
-        type: isWav ? 'audio/wav'     : 'audio/x-m4a',
+        name: audioName,
+        type: audioType,
       } as unknown as Blob);
       formData.append('referenceText', phrase.text); // ← precise reference text mode
 

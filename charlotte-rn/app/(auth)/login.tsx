@@ -76,7 +76,7 @@ export default function LoginScreen() {
               width: 100, height: 100, borderRadius: 50,
               borderWidth: 3, borderColor: C.green,
               overflow: 'hidden', marginBottom: 18,
-              backgroundColor: C.card,
+              backgroundColor: C.navy,
               shadowColor: C.navy, shadowOpacity: 0.12,
               shadowRadius: 20, shadowOffset: { width: 0, height: 6 },
             }}>

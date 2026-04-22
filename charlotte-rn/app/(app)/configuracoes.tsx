@@ -220,21 +220,50 @@ export default function ConfiguracoesScreen() {
 
   const handleRestorePurchases = async () => {
     setRestoringPurchases(true);
-    try {
-      await restorePurchases();
-      await refreshProfile();
+    const r = await restorePurchases();
+    await refreshProfile();
+    setRestoringPurchases(false);
+
+    if (r.hasPremium) {
       Alert.alert(
         isPt ? 'Compras restauradas' : 'Purchases restored',
         isPt ? 'Sua assinatura foi atualizada.' : 'Your subscription has been updated.',
       );
-    } catch (e: any) {
-      Alert.alert(
-        isPt ? 'Nenhuma compra encontrada' : 'No purchases found',
-        isPt ? 'Não encontramos compras anteriores para esta conta.' : 'No previous purchases found for this account.',
-      );
-    } finally {
-      setRestoringPurchases(false);
+      return;
     }
+
+    const isReceiptInUse = r.errorCode === 7;
+    const supportEmail = 'suporte@hubacademybr.com';
+    const subject = encodeURIComponent(
+      isReceiptInUse
+        ? (isPt ? 'Assinatura vinculada a outra conta' : 'Subscription linked to another account')
+        : (isPt ? 'Restaurar compra' : 'Restore purchase'),
+    );
+    const body = encodeURIComponent(
+      isPt
+        ? `Olá! Tentei restaurar minha assinatura no app.\n\nMeu email Charlotte: ${profile?.email ?? ''}\n\nPode me ajudar?`
+        : `Hi! I tried to restore my subscription in the app.\n\nMy Charlotte email: ${profile?.email ?? ''}\n\nCan you help?`,
+    );
+
+    Alert.alert(
+      isReceiptInUse
+        ? (isPt ? 'Assinatura vinculada a outra conta' : 'Subscription linked to another account')
+        : (isPt ? 'Nenhuma assinatura encontrada nesta conta' : 'No subscription found for this account'),
+      isReceiptInUse
+        ? (isPt
+            ? 'Esta conta Apple já tem uma assinatura Charlotte ativa em outro usuário. Entre com a conta Charlotte original ou fale com o suporte.'
+            : 'This Apple account already has an active Charlotte subscription on another user. Sign in with the original Charlotte account or contact support.')
+        : (isPt
+            ? 'Não encontramos assinatura Charlotte vinculada a este usuário.\n\nSe você já comprou antes, pode ser que a assinatura esteja em outra conta Charlotte. Entre com a conta original ou fale com o suporte.'
+            : 'No Charlotte subscription found for this user.\n\nIf you bought before, the subscription may be under another Charlotte account. Sign in with the original account or contact support.'),
+      [
+        { text: 'OK' },
+        {
+          text: isPt ? 'Falar com suporte' : 'Contact support',
+          onPress: () => Linking.openURL(`mailto:${supportEmail}?subject=${subject}&body=${body}`),
+        },
+      ],
+    );
   };
 
   const handleSignOut = () => {

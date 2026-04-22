@@ -472,11 +472,12 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         let azureAvailable = false;
         try {
           const isWav = audioUri.toLowerCase().endsWith('.wav');
+          const isOgg = audioUri.toLowerCase().endsWith('.ogg');
           const formData = new FormData();
           formData.append('audio', {
-            uri: audioUri,
-            name: isWav ? 'recording.wav' : 'recording.m4a',
-            type: isWav ? 'audio/wav' : 'audio/x-m4a',
+            uri:  audioUri,
+            name: isWav ? 'recording.wav' : isOgg ? 'recording.ogg' : 'recording.m4a',
+            type: isWav ? 'audio/wav'     : isOgg ? 'audio/ogg'     : 'audio/x-m4a',
           } as unknown as Blob);
           // Always pass Whisper's transcript as reference — Azure reference mode
           // gives proper per-word errorType detection and reliable scores.

@@ -9,7 +9,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Modal, View, TouchableOpacity, ActivityIndicator,
-  ScrollView, Platform, Alert,
+  ScrollView, Platform, Alert, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fire, Trophy, MicrophoneStage, ChatCircleText, SignOut, ArrowsClockwise, X } from 'phosphor-react-native';
@@ -25,6 +25,8 @@ import {
   restorePurchases,
   syncSubscriptionToSupabase,
   PRODUCT_YEARLY,
+  ENTITLEMENT_ID,
+  identifyUser,
 } from '@/lib/purchases';
 
 const C = {
@@ -144,37 +146,103 @@ export function PaywallModal() {
       return;
     }
     setLoading(true);
+    // Salvaguarda: garante que a compra seja vinculada ao UUID do Supabase
+    // e não a um $RCAnonymousID. identifyUser é idempotente.
+    if (profile?.id) await identifyUser(profile.id);
     const result = await purchasePackage(pkg);
-    setLoading(false);
 
-    if (result.cancelled) return;
+    if (result.cancelled) {
+      setLoading(false);
+      return;
+    }
 
     if (result.success && result.customerInfo && profile?.id) {
-      await syncSubscriptionToSupabase(profile.id, result.customerInfo);
+      // Mantém loading até o listener destravar hasAccess — evita usuário
+      // achar que deu erro e clicar de novo entre purchase success e paywall fechar.
+      await syncSubscriptionToSupabase(profile.id, result.customerInfo).catch(() => {});
       await refreshProfile();
-    } else if (!result.success) {
-      Alert.alert(
-        'Erro na compra',
-        'Não foi possível processar o pagamento. Tente novamente.',
-      );
+      return;
+    }
+
+    setLoading(false);
+    if (!result.success) {
+      // Code 7 (RECEIPT_ALREADY_IN_USE_ERROR): essa Apple Account já tem
+      // assinatura vinculada a outra conta Charlotte. Oferece restaurar
+      // (que também vai falhar, mas é o fluxo que o user entende) ou explica.
+      if (result.errorCode === 7) {
+        Alert.alert(
+          'Assinatura vinculada a outra conta',
+          'Esta conta Apple já tem uma assinatura Charlotte ativa em outro usuário do app.\n\nEntre com a conta Charlotte que fez a compra original, ou fale com o suporte.',
+          [
+            { text: 'OK' },
+            {
+              text: 'Falar com suporte',
+              onPress: () => {
+                const subject = encodeURIComponent('Assinatura vinculada a outra conta');
+                const body = encodeURIComponent(
+                  `Olá! Tentei assinar no app mas apareceu mensagem de que minha conta Apple já tem assinatura em outro usuário.\n\nMeu email Charlotte: ${profile?.email ?? ''}\n\nPode me ajudar?`,
+                );
+                Linking.openURL(`mailto:suporte@hubacademybr.com?subject=${subject}&body=${body}`);
+              },
+            },
+          ],
+        );
+      } else {
+        Alert.alert(
+          'Erro na compra',
+          'Não foi possível processar o pagamento. Tente novamente em alguns instantes.',
+        );
+      }
     }
   };
 
+  // Libera loading quando o paywall deixar de ser visível (compra efetivada).
+  // Fallback de 8s caso o listener não dispare, pra não travar o botão.
+  useEffect(() => {
+    if (!loading) return;
+    if (!visible) {
+      setLoading(false);
+      return;
+    }
+    const safety = setTimeout(() => setLoading(false), 8000);
+    return () => clearTimeout(safety);
+  }, [visible, loading]);
+
   const handleRestore = async () => {
     setLoading(true);
-    const info = await restorePurchases();
+    const r = await restorePurchases();
     setLoading(false);
 
-    if (info && profile?.id) {
-      await syncSubscriptionToSupabase(profile.id, info);
+    if (r.success && r.customerInfo && profile?.id) {
+      await syncSubscriptionToSupabase(profile.id, r.customerInfo);
       await refreshProfile();
-      const hasPremium = !!info.entitlements.active['premium'];
-      if (!hasPremium) {
-        Alert.alert(
-          'Nenhuma compra encontrada',
-          'Não encontramos uma assinatura ativa para esta conta.',
-        );
-      }
+    }
+
+    if (!r.hasPremium) {
+      const isReceiptInUse = r.errorCode === 7;
+      Alert.alert(
+        isReceiptInUse
+          ? 'Assinatura vinculada a outra conta'
+          : 'Nenhuma assinatura encontrada nesta conta',
+        isReceiptInUse
+          ? 'Esta conta Apple já tem uma assinatura Charlotte ativa em outro usuário. Entre com a conta Charlotte original ou fale com o suporte.'
+          : 'Não encontramos assinatura Charlotte vinculada a este usuário.\n\nSe você já comprou antes, pode ser que a assinatura esteja em outra conta Charlotte. Entre com a conta original ou fale com o suporte.',
+        [
+          { text: 'OK' },
+          {
+            text: 'Falar com suporte',
+            onPress: () => {
+              const subject = encodeURIComponent(
+                isReceiptInUse ? 'Assinatura vinculada a outra conta' : 'Restaurar compra',
+              );
+              const body = encodeURIComponent(
+                `Olá! Tentei restaurar minha assinatura no app.\n\nMeu email Charlotte: ${profile?.email ?? ''}\n\nPode me ajudar?`,
+              );
+              Linking.openURL(`mailto:suporte@hubacademybr.com?subject=${subject}&body=${body}`);
+            },
+          },
+        ],
+      );
     }
   };
 
@@ -384,7 +452,16 @@ export function PaywallModal() {
             }}
           >
             {(loading || loadingOffer)
-              ? <ActivityIndicator color={C.navy} />
+              ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <ActivityIndicator color={C.navy} />
+                  {loading && (
+                    <AppText style={{ color: C.navy, fontSize: 14, fontWeight: '700' }}>
+                      Confirmando compra…
+                    </AppText>
+                  )}
+                </View>
+              )
               : (() => {
                   const isYearly = selected.includes('yearly');
                   const afterLabel = isYearly

@@ -1250,7 +1250,7 @@ export default function LiveVoiceModal({
                     {!isUser && (
                       <Image
                         source={require('../../assets/charlotte-avatar.png')}
-                        style={{ width: 28, height: 28, borderRadius: 14, marginRight: 8, marginTop: 2, flexShrink: 0 }}
+                        style={{ width: 28, height: 28, borderRadius: 14, marginRight: 8, marginTop: 2, flexShrink: 0, backgroundColor: '#16153A' }}
                       />
                     )}
                     <View style={{
@@ -1390,6 +1390,7 @@ export default function LiveVoiceModal({
                       ? '#A3FF3C'
                       : '#F97316',
                   opacity: isPaused ? 0.6 : 1,
+                  backgroundColor: '#16153A',
                 }}
                 resizeMode="cover"
               />

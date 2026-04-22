@@ -5,7 +5,11 @@ import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { supabase, UserProfile } from '@/lib/supabase';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { initPurchases, identifyUser, resetUser } from '@/lib/purchases';
+import Purchases from 'react-native-purchases';
+import {
+  initPurchases, identifyUser, resetUser, onCustomerInfoUpdate,
+  ENTITLEMENT_ID, PRODUCT_MONTHLY, PRODUCT_YEARLY, syncSubscriptionToSupabase,
+} from '@/lib/purchases';
 import { deviceTimezone } from '@/lib/dateUtils';
 
 export interface AuthContextType {
@@ -51,13 +55,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialise RevenueCat SDK once on mount (idempotent)
   useEffect(() => { initPurchases(); }, []);
 
+  // Sincroniza profile local com RevenueCat em tempo real após compra/renewal/expiração.
+  // Evita depender da escrita no Supabase (que pode sofrer delay ou ser bloqueada por RLS)
+  // para destravar o paywall imediatamente após um purchase bem-sucedido.
+  useEffect(() => {
+    const unsubscribe = onCustomerInfoUpdate((info) => {
+      const hasPremium = !!info.entitlements.active[ENTITLEMENT_ID];
+      const activeProduct = info.activeSubscriptions?.[0] ?? null;
+      const nextProduct: 'monthly' | 'yearly' | null =
+        activeProduct === PRODUCT_MONTHLY ? 'monthly' :
+        activeProduct === PRODUCT_YEARLY  ? 'yearly'  : null;
+      const nextExpires = info.latestExpirationDate ?? null;
+
+      setProfile(prev => {
+        if (!prev || prev.is_institutional) return prev;
+        const nextStatus  = hasPremium ? 'active' : prev.subscription_status;
+        const nextActive  = hasPremium ? true     : prev.is_active;
+        const nextProd    = hasPremium ? nextProduct : prev.subscription_product;
+        const nextExpAt   = hasPremium ? nextExpires : prev.subscription_expires_at;
+        if (
+          prev.subscription_status === nextStatus &&
+          prev.is_active === nextActive &&
+          prev.subscription_product === nextProd &&
+          prev.subscription_expires_at === nextExpAt
+        ) return prev;
+        return {
+          ...prev,
+          subscription_status:     nextStatus,
+          is_active:               nextActive,
+          subscription_product:    nextProd,
+          subscription_expires_at: nextExpAt,
+        };
+      });
+    });
+    return unsubscribe;
+  }, []);
+
   // ── Refresh profile ao voltar para foreground ─────────────────────────────
   // Garante que trial_ends_at, subscription_status e is_active estejam
   // sempre atualizados sem depender de eventos push ou cron timing.
+  //
+  // Também valida entitlement no RevenueCat e re-sincroniza com Supabase.
+  // Fecha a brecha onde user A compra, compra é transferida pra user B no RC
+  // (via Transfer Behavior ou restore em outro device), mas Supabase de A
+  // continua 'active' por nunca ter sido avisado.
   useEffect(() => {
     const handleAppState = async (nextState: AppStateStatus) => {
       if (nextState === 'active' && sessionRef.current?.user) {
         const userId = sessionRef.current.user.id;
+
+        // 1) Valida entitlement com RC antes de ler o profile. Se RC não tem
+        //    entitlement ativa E user já tinha status pago no Supabase, força
+        //    'expired' (fecha brecha de transfer). Respeita grace (status='none').
+        try {
+          const current = await fetchProfile(userId).catch(() => null);
+          const info = await Purchases.getCustomerInfo();
+          await syncSubscriptionToSupabase(userId, info, {
+            previousStatus: current?.subscription_status ?? null,
+          });
+        } catch (e) {
+          console.warn('[AuthProvider] foreground RC check error:', e);
+        }
+
+        // 2) Re-lê profile (agora possivelmente corrigido pelo sync acima).
         const updated = await fetchProfile(userId).catch(() => null);
         if (updated) setProfile(updated);
         // Salvar timezone do device para uso em triggers/crons server-side
@@ -110,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[AuthProvider] fetchProfile start for:', userId);
     const queryPromise = supabase
       .from('charlotte_users')
-      .select('id, email, name, charlotte_level, placement_test_done, first_welcome_done, is_institutional, is_active, subscription_status, trial_ends_at, must_change_password, avatar_url')
+      .select('id, email, name, charlotte_level, placement_test_done, first_welcome_done, is_institutional, is_active, subscription_status, trial_ends_at, must_change_password, avatar_url, subscription_product, subscription_expires_at')
       .eq('id', userId)
       .single();
 
@@ -216,13 +276,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userId = session.user.id;
         // setTimeout(0) yields back to the JS event loop so the Supabase
         // client completes its own async work before we hit the DB.
+        // Identifica no RevenueCat IMEDIATAMENTE (fora do setTimeout) para
+        // garantir que qualquer compra subsequente seja vinculada ao UUID
+        // correto, e não a um $RCAnonymousID. logIn é idempotente.
+        identifyUser(userId);
+
         setTimeout(async () => {
           if (!mounted) return;
           console.log('[AuthProvider] fetchProfile deferred start for:', userId);
           const userProfile = await fetchProfile(userId);
           if (mounted && userProfile) setProfile(userProfile);
-          // Identify user in RevenueCat so purchase history is linked
-          identifyUser(userId);
           // Salvar timezone do device para uso em crons e triggers server-side
           void (async () => {
             const tz = deviceTimezone();
