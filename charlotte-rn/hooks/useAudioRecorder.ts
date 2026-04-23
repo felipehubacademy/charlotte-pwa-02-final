@@ -15,7 +15,13 @@ import Constants from 'expo-constants';
 
 // ── Preset otimizado para Azure Speech SDK ────────────────────────
 // iOS  → WAV LinearPCM 16kHz mono  → servidor declara getWaveFormatPCM(16000,16,1)
-// Android → OGG/OPUS 16kHz mono   → servidor declara getCompressedFormat(OGG_OPUS)
+// Android → AMR-WB 16kHz mono      → servidor declara getCompressedFormat(AMRWB)
+//
+// expo-audio (SDK 54) nao suporta 'ogg'/'opus' — os valores causam crash ao
+// construir AudioRecorder no runtime nativo. AMR-WB e um codec de fala
+// desenhado justamente para reconhecimento (16kHz, wideband) e esta na lista
+// de AndroidAudioEncoder suportada pelo expo-audio e de getCompressedFormat
+// suportada pelo Azure Speech SDK.
 export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
   ios: {
     extension: '.wav',
@@ -31,13 +37,13 @@ export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
     },
   },
   android: {
-    extension: '.ogg',
+    extension: '.amr',
     sampleRate: 16000,
     numberOfChannels: 1,
-    bitRate: 64000,
+    bitRate: 23850, // AMR-WB max bitrate
     android: {
-      outputFormat: 'ogg' as any,
-      audioEncoder: 'opus' as any,
+      outputFormat: 'amrwb',
+      audioEncoder: 'amr_wb',
     },
   },
   default: RecordingPresets.HIGH_QUALITY,
@@ -196,13 +202,15 @@ export function useAudioRecorder(
  */
 export async function transcribeAudio(audioUri: string): Promise<string | null> {
   try {
-    const isWav = audioUri.toLowerCase().endsWith('.wav');
-    const isOgg = audioUri.toLowerCase().endsWith('.ogg');
+    const lower = audioUri.toLowerCase();
+    const isWav = lower.endsWith('.wav');
+    const isOgg = lower.endsWith('.ogg');
+    const isAmr = lower.endsWith('.amr');
     const formData = new FormData();
     formData.append('audio', {
       uri:  audioUri,
-      name: isWav ? 'recording.wav' : isOgg ? 'recording.ogg' : 'recording.m4a',
-      type: isWav ? 'audio/wav'     : isOgg ? 'audio/ogg'     : 'audio/m4a',
+      name: isWav ? 'recording.wav' : isAmr ? 'recording.amr' : isOgg ? 'recording.ogg' : 'recording.m4a',
+      type: isWav ? 'audio/wav'     : isAmr ? 'audio/amr'     : isOgg ? 'audio/ogg'     : 'audio/m4a',
     } as any);
 
     const response = await fetch(`${API_BASE_URL}/api/transcribe`, {

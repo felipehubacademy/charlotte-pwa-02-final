@@ -206,13 +206,13 @@ export default function LearnPronunciationScreen() {
       },
     },
     android: {
-      extension: '.ogg',
+      extension: '.amr',
       sampleRate: 16000,
       numberOfChannels: 1,
-      bitRate: 64000,
+      bitRate: 23850,
       android: {
-        outputFormat: 'ogg' as any,
-        audioEncoder: 'opus' as any,
+        outputFormat: 'amrwb',
+        audioEncoder: 'amr_wb',
       },
     },
     default: RecordingPresets.HIGH_QUALITY,
@@ -310,10 +310,12 @@ export default function LearnPronunciationScreen() {
       if (!audioUri || !phrase) { setStatus('error'); return; }
 
       // Detectar formato pelo URI para declarar Content-Type correto ao servidor
-      const isWav = audioUri.toLowerCase().endsWith('.wav');
-      const isOgg = audioUri.toLowerCase().endsWith('.ogg');
-      const audioName = isWav ? 'recording.wav' : isOgg ? 'recording.ogg' : 'recording.m4a';
-      const audioType = isWav ? 'audio/wav' : isOgg ? 'audio/ogg' : 'audio/x-m4a';
+      const lower = audioUri.toLowerCase();
+      const isWav = lower.endsWith('.wav');
+      const isOgg = lower.endsWith('.ogg');
+      const isAmr = lower.endsWith('.amr');
+      const audioName = isWav ? 'recording.wav' : isAmr ? 'recording.amr' : isOgg ? 'recording.ogg' : 'recording.m4a';
+      const audioType = isWav ? 'audio/wav'     : isAmr ? 'audio/amr'     : isOgg ? 'audio/ogg'     : 'audio/x-m4a';
       const formData = new FormData();
       formData.append('audio', {
         uri:  audioUri,

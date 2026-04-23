@@ -406,9 +406,21 @@ export class AzureSpeechOfficialService {
         return sdk.AudioConfig.fromStreamInput(pushStream);
       }
 
-      // Android grava OGG/OPUS 16kHz mono → declara OGG_OPUS
+      // Android (expo-audio SDK 54) grava AMR-WB 16kHz mono → declara AMR_WB
+      if (mimeType.includes('amr')) {
+        console.log('✅ Format: AMR-WB — using getCompressedFormat(AMR_WB)');
+        const audioFormat = sdk.AudioStreamFormat.getCompressedFormat(sdk.AudioFormatTag.AMR_WB);
+        const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
+        pushStream.write(arrayBuffer);
+        pushStream.close();
+        return sdk.AudioConfig.fromStreamInput(pushStream);
+      }
+
+      // Legacy path — older Android builds produced OGG/OPUS. Kept as fallback
+      // while older client builds are still in the wild (pre-fix for expo-audio
+      // SDK 54 enum bug). Can be removed once all clients are on ≥ fix build.
       if (mimeType.includes('ogg') || mimeType.includes('opus')) {
-        console.log('✅ Format: OGG_OPUS — using getCompressedFormat(OGG_OPUS)');
+        console.log('✅ Format: OGG_OPUS (legacy) — using getCompressedFormat(OGG_OPUS)');
         const audioFormat = sdk.AudioStreamFormat.getCompressedFormat(sdk.AudioFormatTag.OGG_OPUS);
         const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
         pushStream.write(arrayBuffer);
