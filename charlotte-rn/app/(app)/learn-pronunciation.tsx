@@ -206,13 +206,13 @@ export default function LearnPronunciationScreen() {
       },
     },
     android: {
-      extension: '.amr',
+      extension: '.m4a',
       sampleRate: 16000,
       numberOfChannels: 1,
-      bitRate: 23850,
+      bitRate: 96000,
       android: {
-        outputFormat: 'amrwb',
-        audioEncoder: 'amr_wb',
+        outputFormat: 'mpeg4',
+        audioEncoder: 'aac',
       },
     },
     default: RecordingPresets.HIGH_QUALITY,

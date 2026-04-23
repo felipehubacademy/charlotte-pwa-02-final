@@ -3,7 +3,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { logOpenAIUsage } from '@/lib/openai-usage';
-import { transcribeWithAzure } from '@/lib/azure-speech-sdk';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,29 +91,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ transcription: '', success: true });
     }
 
-    // Dual backend based on format:
-    //   - AMR (Android expo-audio) → Azure Speech SDK (Whisper does not support AMR)
-    //   - everything else         → OpenAI Whisper (better accuracy, cheaper)
-    const isAmr = audioFile.type.includes('amr') || audioFile.name.toLowerCase().endsWith('.amr');
-
-    if (isAmr) {
-      console.log('🎤 AMR detected — routing to Azure Speech SDK');
-      const blob = new Blob([await audioFile.arrayBuffer()], { type: 'audio/amr' });
-      const azure = await transcribeWithAzure(blob, 'en-US');
-      if (!azure.success) {
-        console.error('❌ Azure transcription failed:', azure.error);
-        return NextResponse.json(
-          { error: 'Failed to transcribe audio', details: azure.error },
-          { status: 500 },
-        );
-      }
-      console.log('✅ Azure transcription:', azure.text);
-      return NextResponse.json({ transcription: azure.text, success: true });
-    }
-
     // Whisper path — discourage semantic correction so minimal-pair errors
     // are preserved (e.g. user says "word" instead of "world").
     // verbose_json gives us audio duration for cost tracking.
+    // Accepts: flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm.
+    // iOS sends .wav, Android sends .m4a — both supported natively.
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
       model: 'whisper-1',

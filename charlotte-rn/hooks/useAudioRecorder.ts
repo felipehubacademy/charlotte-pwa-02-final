@@ -13,21 +13,14 @@ import { Platform } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 
-// ── Preset otimizado para Azure Speech SDK ────────────────────────
-// iOS  → WAV LinearPCM 16kHz mono  → servidor declara getWaveFormatPCM(16000,16,1)
-// Android → AMR-WB 16kHz mono      → servidor declara getCompressedFormat(AMR_WB)
-//
-// Por que AMR-WB: expo-audio (SDK 54) so aceita encoders em
-// {'default','amr_nb','amr_wb','aac','he_aac','aac_eld'}. Desses, apenas
-// AMR_WB esta na lista oficial do Azure Speech SDK getCompressedFormat
-// (PCM, MuLaw, Siren, MP3, OGG_OPUS, WEBM_OPUS, ALaw, FLAC, OPUS, AMR_WB,
-// G722). AAC nao esta na lista, entao nao daria pra fazer pronunciation
-// assessment sem transcoding.
-//
-// OpenAI Whisper nao aceita AMR diretamente — o /api/transcribe detecta
-// Content-Type 'audio/amr' e roteia pra Azure Speech SDK (recognizeOnceAsync)
-// em vez do Whisper. Resultado: transcricao + pronunciation ambos funcionam
-// no Android com um unico formato de gravacao.
+// ── Preset otimizado por plataforma ────────────────────────────────
+// iOS  → WAV LinearPCM 16kHz mono (servidor declara getWaveFormatPCM)
+// Android → MPEG-4 AAC (Whisper aceita .m4a nativamente). Pronunciation
+//           assessment em Android fica temporariamente indisponivel ate
+//           termos transcode server-side para Azure — AAC nao esta na
+//           lista de getCompressedFormat do Azure SDK nem do REST.
+//           Decisao consciente: chat funcionando em ambas plataformas >
+//           pronunciation em nenhuma.
 export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
   ios: {
     extension: '.wav',
@@ -43,13 +36,13 @@ export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
     },
   },
   android: {
-    extension: '.amr',
+    extension: '.m4a',
     sampleRate: 16000,
     numberOfChannels: 1,
-    bitRate: 23850, // AMR-WB max bitrate
+    bitRate: 96000,
     android: {
-      outputFormat: 'amrwb',
-      audioEncoder: 'amr_wb',
+      outputFormat: 'mpeg4',
+      audioEncoder: 'aac',
     },
   },
   default: RecordingPresets.HIGH_QUALITY,
