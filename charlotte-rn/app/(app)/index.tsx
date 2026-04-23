@@ -33,6 +33,7 @@ import {
   Headphones,
   LightbulbFilament,
   BookOpen,
+  Flag,
 } from 'phosphor-react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
@@ -54,6 +55,7 @@ import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { VocabFAB } from '@/components/vocabulary/VocabFAB';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 import { localMidnightUTC } from '@/lib/dateUtils';
+import { HomeData, Mission, buildMissions } from '@/lib/missions';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -104,28 +106,7 @@ const DAILY_XP_GOAL = 100;
 
 // ── Types ─────────────────────────────────────────────────────
 
-interface HomeData {
-  streakDays: number;
-  totalXP: number;
-  todayXP: number;
-  rank: number | null;
-  todayMessages: number;
-  todayAudios: number;
-}
-
-interface Mission {
-  id: string;
-  label: string;
-  sub: string;
-  xpReward: number;
-  completed: boolean;
-  progress: number;
-  progressLabel: string;
-  accentColor: string;
-  accentBg: string;
-  icon: React.ReactNode;
-  doneIcon: React.ReactNode;
-}
+// HomeData and Mission are imported from lib/missions
 
 interface ModeCard {
   mode: ChatMode | 'live';
@@ -523,257 +504,6 @@ function XPRing({ todayXP, goal }: { todayXP: number; goal: number }) {
       </AppText>
     </View>
   );
-}
-
-// ── Daily mission pool + seeded rotation ─────────────────────
-//
-// 8 mission templates — 3 are picked each day using a day-based seed.
-// Same missions all day; different missions tomorrow.
-// IDs must stay stable — they're used as `mission_reward_<id>` in DB.
-
-interface MissionTemplate {
-  id: string;
-  label:  (isPt: boolean) => string;
-  sub:    (isPt: boolean) => string;
-  xpReward: number;
-  accentColor: string;
-  accentBg:   string;
-  icon:    React.ReactElement;
-  levels: 'all' | 'pronunciation'; // 'pronunciation' = only Inter/Advanced
-  eligible?:        (d: HomeData) => boolean; // if absent, always eligible
-  getCompleted:     (d: HomeData) => boolean;
-  getProgress:      (d: HomeData) => number;
-  getProgressLabel: (d: HomeData, isPt: boolean) => string;
-}
-
-const MISSION_POOL: MissionTemplate[] = [
-
-  // ── Família: Mensagens ────────────────────────────────────────
-  {
-    id: 'messages_3',
-    label: isPt => isPt ? 'Envie 3 mensagens' : 'Send 3 messages',
-    sub:   isPt => isPt ? 'Qualquer modo de prática vale' : 'Any practice mode counts',
-    xpReward: 12, accentColor: C.greenDark, accentBg: C.greenBg, levels: 'all',
-    icon: <ChatTeardropText size={22} color={C.greenDark} weight="fill" />,
-    getCompleted:     d => d.todayMessages >= 3,
-    getProgress:      d => Math.min(d.todayMessages / 3, 1),
-    getProgressLabel: d => `${Math.min(d.todayMessages, 3)} / 3`,
-  },
-  {
-    id: 'messages_5',
-    label: isPt => isPt ? 'Envie 5 mensagens' : 'Send 5 messages',
-    sub:   isPt => isPt ? 'Mantenha o ritmo hoje' : 'Keep the rhythm going today',
-    xpReward: 20, accentColor: C.greenDark, accentBg: C.greenBg, levels: 'all',
-    icon: <ChatTeardropText size={22} color={C.greenDark} weight="fill" />,
-    getCompleted:     d => d.todayMessages >= 5,
-    getProgress:      d => Math.min(d.todayMessages / 5, 1),
-    getProgressLabel: d => `${Math.min(d.todayMessages, 5)} / 5`,
-  },
-  {
-    id: 'messages_10',
-    label: isPt => isPt ? 'Envie 10 mensagens' : 'Send 10 messages',
-    sub:   isPt => isPt ? 'Uma sessão completa de prática' : 'A full practice session',
-    xpReward: 35, accentColor: C.greenDark, accentBg: C.greenBg, levels: 'all',
-    icon: <ChatTeardropText size={22} color={C.greenDark} weight="fill" />,
-    getCompleted:     d => d.todayMessages >= 10,
-    getProgress:      d => Math.min(d.todayMessages / 10, 1),
-    getProgressLabel: d => `${Math.min(d.todayMessages, 10)} / 10`,
-  },
-  {
-    id: 'messages_20',
-    label: isPt => isPt ? 'Envie 20 mensagens' : 'Send 20 messages',
-    sub:   isPt => isPt ? 'Dia de praticar muito!' : 'Make today count!',
-    xpReward: 60, accentColor: C.greenDark, accentBg: C.greenBg, levels: 'all',
-    icon: <ChatTeardropText size={22} color={C.greenDark} weight="fill" />,
-    getCompleted:     d => d.todayMessages >= 20,
-    getProgress:      d => Math.min(d.todayMessages / 20, 1),
-    getProgressLabel: d => `${Math.min(d.todayMessages, 20)} / 20`,
-  },
-
-  // ── Família: XP ──────────────────────────────────────────────
-  {
-    id: 'xp_20',
-    label: isPt => isPt ? 'Ganhe 20 XP' : 'Earn 20 XP',
-    sub:   isPt => isPt ? 'Um começo rápido!' : 'A quick start!',
-    xpReward: 8, accentColor: C.gold, accentBg: '#FFFBEB', levels: 'all',
-    icon: <Lightning size={22} color={C.gold} weight="fill" />,
-    getCompleted:     d => d.todayXP >= 20,
-    getProgress:      d => Math.min(d.todayXP / 20, 1),
-    getProgressLabel: d => `${Math.min(d.todayXP, 20)} / 20 XP`,
-  },
-  {
-    id: 'xp_50',
-    label: isPt => isPt ? 'Ganhe 50 XP hoje' : 'Earn 50 XP today',
-    sub:   isPt => isPt ? 'Mantenha a conversa fluindo' : 'Keep the conversation going',
-    xpReward: 15, accentColor: C.gold, accentBg: '#FFFBEB', levels: 'all',
-    icon: <Lightning size={22} color={C.gold} weight="fill" />,
-    getCompleted:     d => d.todayXP >= 50,
-    getProgress:      d => Math.min(d.todayXP / 50, 1),
-    getProgressLabel: d => `${Math.min(d.todayXP, 50)} / 50 XP`,
-  },
-  {
-    id: 'xp_100',
-    label: isPt => isPt ? 'Ganhe 100 XP hoje' : 'Earn 100 XP today',
-    sub:   isPt => isPt ? 'Vá além do básico hoje!' : 'Push beyond the basics!',
-    xpReward: 25, accentColor: C.gold, accentBg: '#FFFBEB', levels: 'all',
-    icon: <Lightning size={22} color={C.gold} weight="fill" />,
-    getCompleted:     d => d.todayXP >= 100,
-    getProgress:      d => Math.min(d.todayXP / 100, 1),
-    getProgressLabel: d => `${Math.min(d.todayXP, 100)} / 100 XP`,
-  },
-
-  // ── Família: Streak ───────────────────────────────────────────
-  // Requer prática HOJE (todayXP > 0) além do streak acumulado,
-  // para evitar mostrar "Concluída" antes de qualquer ação no dia.
-  {
-    id: 'streak_2',
-    label: isPt => isPt ? 'Sequência de 2 dias' : '2-day streak',
-    sub:   isPt => isPt ? 'Pratique hoje e mantenha a sequência!' : 'Practice today and keep it going!',
-    xpReward: 20, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
-    icon: <Fire size={22} color={C.orange} weight="fill" />,
-    // Only appears when the user is 1 step away (streak >= 1) — completable today
-    eligible:         d => d.streakDays >= 1,
-    getCompleted:     d => d.streakDays >= 2 && d.todayXP > 0,
-    getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 2, 1) : Math.min(d.streakDays / 2, 0.9),
-    getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 2)} / 2 ${isPt ? 'dias' : 'days'}`,
-  },
-  {
-    id: 'streak_10',
-    label: isPt => isPt ? 'Sequência de 10 dias' : '10-day streak',
-    sub:   isPt => isPt ? 'Você está no caminho certo!' : 'You\'re on a roll!',
-    xpReward: 80, accentColor: C.orange, accentBg: '#FFF3ED', levels: 'all',
-    icon: <Fire size={22} color={C.orange} weight="fill" />,
-    // Only appears when the user is 1 step away (streak >= 9) — completable today
-    eligible:         d => d.streakDays >= 9,
-    getCompleted:     d => d.streakDays >= 10 && d.todayXP > 0,
-    getProgress:      d => d.todayXP > 0 ? Math.min(d.streakDays / 10, 1) : Math.min(d.streakDays / 10, 0.9),
-    getProgressLabel: (d, isPt) => `${Math.min(d.streakDays, 10)} / 10 ${isPt ? 'dias' : 'days'}`,
-  },
-
-  // ── Família: Texto ────────────────────────────────────────────
-  {
-    id: 'text_3',
-    label: isPt => isPt ? 'Escreva 3 mensagens' : 'Write 3 text messages',
-    sub:   isPt => isPt ? 'Pratique no Grammar ou Chat' : 'Practice in Grammar or Chat mode',
-    xpReward: 15, accentColor: C.pink, accentBg: C.pinkBg, levels: 'all',
-    icon: <TextT size={22} color={C.pink} weight="fill" />,
-    getCompleted:     d => (d.todayMessages - d.todayAudios) >= 3,
-    getProgress:      d => Math.min((d.todayMessages - d.todayAudios) / 3, 1),
-    getProgressLabel: d => `${Math.min(d.todayMessages - d.todayAudios, 3)} / 3`,
-  },
-  {
-    id: 'text_7',
-    label: isPt => isPt ? 'Escreva 7 mensagens' : 'Write 7 text messages',
-    sub:   isPt => isPt ? 'Treine sua escrita em inglês' : 'Train your written English',
-    xpReward: 28, accentColor: C.pink, accentBg: C.pinkBg, levels: 'all',
-    icon: <TextT size={22} color={C.pink} weight="fill" />,
-    getCompleted:     d => (d.todayMessages - d.todayAudios) >= 7,
-    getProgress:      d => Math.min((d.todayMessages - d.todayAudios) / 7, 1),
-    getProgressLabel: d => `${Math.min(d.todayMessages - d.todayAudios, 7)} / 7`,
-  },
-
-  // ── Família: Áudio (Inter/Advanced) ──────────────────────────
-  {
-    id: 'audio_1',
-    label: isPt => isPt ? 'Grave sua voz' : 'Record your voice',
-    sub:   isPt => isPt ? 'Segure o microfone e fale algo' : 'Hold the mic and say something',
-    xpReward: 15, accentColor: C.blue, accentBg: C.blueBg, levels: 'pronunciation',
-    icon: <Microphone size={22} color={C.blue} weight="fill" />,
-    getCompleted:     d => d.todayAudios >= 1,
-    getProgress:      d => d.todayAudios >= 1 ? 1 : 0,
-    getProgressLabel: (d, isPt) => d.todayAudios >= 1 ? (isPt ? 'Feito' : 'Done') : '0 / 1',
-  },
-  {
-    id: 'audio_3',
-    label: isPt => isPt ? 'Grave 3 áudios' : 'Record 3 voice messages',
-    sub:   isPt => isPt ? 'Pratique a pronúncia com áudios' : 'Work on your pronunciation',
-    xpReward: 30, accentColor: C.blue, accentBg: C.blueBg, levels: 'pronunciation',
-    icon: <Microphone size={22} color={C.blue} weight="fill" />,
-    getCompleted:     d => d.todayAudios >= 3,
-    getProgress:      d => Math.min(d.todayAudios / 3, 1),
-    getProgressLabel: d => `${Math.min(d.todayAudios, 3)} / 3`,
-  },
-  {
-    id: 'audio_5',
-    label: isPt => isPt ? 'Grave 5 áudios' : 'Record 5 voice messages',
-    sub:   isPt => isPt ? 'Foco total na pronúncia hoje' : 'Full pronunciation focus today',
-    xpReward: 45, accentColor: C.blue, accentBg: C.blueBg, levels: 'pronunciation',
-    icon: <Microphone size={22} color={C.blue} weight="fill" />,
-    getCompleted:     d => d.todayAudios >= 5,
-    getProgress:      d => Math.min(d.todayAudios / 5, 1),
-    getProgressLabel: d => `${Math.min(d.todayAudios, 5)} / 5`,
-  },
-];
-
-/** Fisher-Yates shuffle seeded with a simple LCG — deterministic. */
-function seededShuffle<T>(arr: T[], seed: number): T[] {
-  const out = [...arr];
-  let s = seed | 1; // ensure non-zero
-  const rand = () => {
-    s = Math.imul(s ^ (s >>> 15), s | 1);
-    s ^= s + Math.imul(s ^ (s >>> 7), s | 61);
-    return ((s ^ (s >>> 14)) >>> 0) / 0x100000000;
-  };
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
-// Mission families — one picked per family per day (no duplicates within family)
-const MISSION_FAMILIES: Record<string, string[]> = {
-  messages: ['messages_3', 'messages_5', 'messages_10', 'messages_20'],
-  xp:       ['xp_20', 'xp_50', 'xp_100'],
-  streak:   ['streak_2', 'streak_10'],
-  text:     ['text_3', 'text_7'],
-  audio:    ['audio_1', 'audio_3', 'audio_5'],
-};
-
-function buildMissions(data: HomeData, level: UserLevel): Mission[] {
-  const hasPronunciation = LEVEL_CONFIG[level].tabs.includes('pronunciation');
-  const isPt = level === 'Novice';
-
-  // Day seed — changes once per UTC day; offset by level so each level rotates differently
-  const dayNum = Math.floor(Date.now() / 86400000);
-  const lvlOff = level === 'Novice' ? 0 : level === 'Inter' ? 137 : 271;
-
-  // Pick one template per family using day seed, then pick 3 families for today
-  const familyKeys = Object.keys(MISSION_FAMILIES);
-  const shuffledFamilies = seededShuffle(familyKeys, dayNum + lvlOff);
-
-  // Exclude audio family for Novice (no pronunciation tab)
-  const eligibleFamilies = shuffledFamilies.filter(f =>
-    f !== 'audio' || hasPronunciation
-  );
-
-  const selected: MissionTemplate[] = [];
-  for (const family of eligibleFamilies) {
-    if (selected.length === 3) break;
-    // Filter by family membership AND by data-driven eligibility (e.g. streak threshold)
-    const candidates = MISSION_POOL.filter(t =>
-      MISSION_FAMILIES[family].includes(t.id) &&
-      (!t.eligible || t.eligible(data))
-    );
-    if (candidates.length === 0) continue; // skip family — no completable mission today
-    const shuffledCandidates = seededShuffle(candidates, dayNum + lvlOff + family.length);
-    if (shuffledCandidates[0]) selected.push(shuffledCandidates[0]);
-  }
-
-  // Pick 3 missions for today
-  return selected.map(t => ({
-    id:            t.id,
-    label:         t.label(isPt),
-    sub:           t.sub(isPt),
-    xpReward:      t.xpReward,
-    completed:     t.getCompleted(data),
-    progress:      t.getProgress(data),
-    progressLabel: t.getProgressLabel(data, isPt),
-    accentColor:   t.accentColor,
-    accentBg:      t.accentBg,
-    icon:          t.icon,
-    doneIcon:      <CheckCircle size={26} color={t.accentColor} weight="fill" />,
-  }));
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1414,77 +1144,41 @@ export default function HomeScreen() {
         </View>
 
         {/* ══════════════════════════════════════════
-            DAILY MISSIONS — zigzag path nodes
+            GOALS BANNER — taps to /goals
         ══════════════════════════════════════════ */}
-        <SectionHeader label={isPortuguese ? 'Missões do dia' : 'Daily Missions'} badge={`${doneMissions}/${missions.length}`} isPt={isPortuguese} />
-
-        <View style={{ paddingHorizontal: 20 }}>
-          {missions.map((m, index) => (
-            <MissionNode
-              key={m.id}
-              mission={m}
-              alignRight={index % 2 === 1}
-              showConnector={index < missions.length - 1}
-              isPt={isPortuguese}
-            />
-          ))}
-        </View>
-
-        {/* ══════════════════════════════════════════
-            WEEKLY CHALLENGE — um desafio por semana
-        ══════════════════════════════════════════ */}
-        {weeklyState && (
-          <>
-          <SectionHeader label={isPortuguese ? 'Desafio da semana' : 'Weekly Challenge'} />
-          <View style={{ paddingHorizontal: 20, marginBottom: 4 }}>
-            <View style={{
-              borderRadius: 18, overflow: 'hidden',
-              backgroundColor: weeklyState.challenge.bgColor,
-              borderWidth: 1,
-              borderColor: weeklyState.challenge.color + '25',
-              ...cardShadow,
-            }}>
-              <View style={{ paddingHorizontal: 18, paddingVertical: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <AppText style={{ fontSize: 10, fontWeight: '800', color: weeklyState.challenge.color, letterSpacing: 0.8, textTransform: 'uppercase' }}>
-                      {isPortuguese ? 'Desafio da semana' : 'Weekly Challenge'}
-                    </AppText>
-                    {weeklyState.completed && (
-                      <View style={{ backgroundColor: weeklyState.challenge.color + '20', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                        <AppText style={{ fontSize: 9, fontWeight: '800', color: weeklyState.challenge.color }}>
-                          {isPortuguese ? 'COMPLETO' : 'DONE'}
-                        </AppText>
-                      </View>
-                    )}
-                  </View>
-                  <AppText style={{ fontSize: 11, fontWeight: '700', color: weeklyState.challenge.color }}>
-                    +{weeklyState.challenge.xpReward} XP
-                  </AppText>
-                </View>
-                <AppText style={{ fontSize: 15, fontWeight: '700', color: C.navy, marginBottom: 2 }}>
-                  {isPortuguese ? weeklyState.challenge.title.pt : weeklyState.challenge.title.en}
-                </AppText>
-                <AppText style={{ fontSize: 12, color: C.navyMid, marginBottom: 10 }}>
-                  {isPortuguese ? weeklyState.challenge.sub.pt : weeklyState.challenge.sub.en}
-                </AppText>
-                {/* Progress bar */}
-                <View style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(22,21,58,0.06)' }}>
-                  <View style={{
-                    height: 8, borderRadius: 4,
-                    backgroundColor: weeklyState.challenge.color,
-                    width: `${Math.round((weeklyState.current / weeklyState.challenge.target) * 100)}%`,
-                    maxWidth: '100%',
-                  }} />
-                </View>
-                <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 4, textAlign: 'right' }}>
-                  {weeklyState.current} / {weeklyState.challenge.target} {isPortuguese ? weeklyState.challenge.unit.pt : weeklyState.challenge.unit.en}
-                </AppText>
-              </View>
-            </View>
+        <TouchableOpacity
+          onPress={() => router.push('/(app)/goals')}
+          activeOpacity={0.78}
+          style={{
+            marginHorizontal: 20, marginTop: 14,
+            backgroundColor: C.card,
+            borderRadius: 14, borderWidth: 1, borderColor: C.navyGhost,
+            paddingHorizontal: 16, paddingVertical: 12,
+            flexDirection: 'row', alignItems: 'center', gap: 10,
+            ...cardShadow,
+          }}
+        >
+          <View style={{
+            width: 36, height: 36, borderRadius: 10,
+            backgroundColor: levelAccentBg,
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Flag size={20} color={levelAccent} weight="fill" />
           </View>
-          </>
-        )}
+          <View style={{ flex: 1 }}>
+            <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
+              {isPortuguese ? 'Metas' : 'Goals'}
+            </AppText>
+            <AppText style={{ fontSize: 11, color: C.navyLight }}>
+              {doneMissions}/{missions.length} {isPortuguese ? 'missões' : 'missions'}
+              {weeklyState ? (weeklyState.completed
+                ? (isPortuguese ? ' · Desafio completo' : ' · Challenge done')
+                : ` · ${Math.round((weeklyState.current / weeklyState.challenge.target) * 100)}% ${isPortuguese ? 'semanal' : 'weekly'}`)
+                : ''}
+            </AppText>
+          </View>
+          <CaretRight size={16} color={C.navyLight} />
+        </TouchableOpacity>
 
         {/* ══════════════════════════════════════════
             LEARN — structured lessons
@@ -1850,97 +1544,6 @@ function SectionHeader({ label, badge, isPt }: { label: string; badge?: string; 
           <AppText style={{ fontSize: 12, fontWeight: '700', color: C.navyMid }}>{badge} {isPt ? 'feito' : 'done'}</AppText>
         </View>
       ) : null}
-    </View>
-  );
-}
-
-// Mission node — circular, zigzag, with connector line between them
-
-function MissionNode({ mission, alignRight, showConnector, isPt }: {
-  mission: Mission;
-  alignRight: boolean;
-  showConnector: boolean;
-  isPt?: boolean;
-}) {
-  const NODE = 58;
-
-  return (
-    <View style={{ marginBottom: showConnector ? 10 : 0 }}>
-      <View style={{
-        flexDirection: alignRight ? 'row-reverse' : 'row',
-        alignItems: 'center',
-      }}>
-        {/* Circle node */}
-        <View style={{
-          width: NODE, height: NODE, borderRadius: NODE / 2,
-          backgroundColor: mission.completed ? mission.accentBg : C.card,
-          borderWidth: 1.5,
-          borderColor: mission.completed ? `${mission.accentColor}40` : C.navyGhost,
-          alignItems: 'center', justifyContent: 'center',
-          flexShrink: 0,
-          ...cardShadow,
-        }}>
-          {mission.completed ? mission.doneIcon : mission.icon}
-        </View>
-
-        {/* Horizontal connector — links THIS circle to THIS card */}
-        <View style={{ width: 14, height: 1.5, backgroundColor: C.navyGhost, flexShrink: 0 }} />
-
-        {/* Card content */}
-        <View style={{
-          flex: 1,
-          backgroundColor: C.card,
-          borderRadius: 16,
-          padding: 11,
-          borderWidth: 1,
-          borderColor: mission.completed ? `${mission.accentColor}30` : C.navyGhost,
-          ...cardShadow,
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <AppText style={{
-              flex: 1, fontSize: 14, fontWeight: '700',
-              color: mission.completed ? C.navyLight : C.navy,
-              textDecorationLine: mission.completed ? 'line-through' : 'none',
-            }}>
-              {mission.label}
-            </AppText>
-            <View style={{
-              backgroundColor: mission.completed ? C.greenBg : C.bg,
-              borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3,
-            }}>
-              <AppText style={{
-                fontSize: 11, fontWeight: '800',
-                color: mission.completed ? C.greenDark : C.navyLight,
-              }}>
-                +{mission.xpReward} XP
-              </AppText>
-            </View>
-          </View>
-
-          {mission.completed ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
-              <CheckCircle size={12} color={mission.accentColor} weight="fill" />
-              <AppText style={{ fontSize: 12, color: C.navyLight }}>{isPt ? 'Concluída hoje' : 'Completed today'}</AppText>
-            </View>
-          ) : (
-            <AppText style={{ fontSize: 12, color: C.navyLight, marginTop: 3 }}>
-              {mission.sub}
-            </AppText>
-          )}
-
-          {!mission.completed && mission.progress > 0 && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <View style={{ flex: 1, height: 4, backgroundColor: C.navyGhost, borderRadius: 2, overflow: 'hidden' }}>
-                <View style={{ height: '100%', width: `${mission.progress * 100}%`,
-                  backgroundColor: mission.accentColor, borderRadius: 2 }} />
-              </View>
-              <AppText style={{ fontSize: 10, color: C.navyLight, fontWeight: '600' }}>
-                {mission.progressLabel}
-              </AppText>
-            </View>
-          )}
-        </View>
-      </View>
     </View>
   );
 }
