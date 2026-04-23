@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assessPronunciationOfficial } from '@/lib/azure-speech-sdk';
 import { transcodeToWavPcm16k, needsTranscode, guessExtension } from '@/lib/audio-transcode';
+import { logAzureSpeechUsage } from '@/lib/openai-usage';
 
 interface APIResponse {
   success: boolean;
@@ -124,6 +125,7 @@ export async function POST(request: NextRequest) {
     //    passar pelo ffmpeg server-side antes)
     const rawBuffer = await audioFile.arrayBuffer();
     let audioBlob: Blob;
+    let audioDurationSeconds = 0;
     if (needsTranscode(audioFile.type, audioFile.name)) {
       const ext = guessExtension(audioFile.type, audioFile.name);
       console.log(`🔄 Transcoding ${audioFile.type} (.${ext}) → WAV PCM 16k mono`);
@@ -131,8 +133,12 @@ export async function POST(request: NextRequest) {
       const wav = await transcodeToWavPcm16k(rawBuffer, ext);
       console.log(`✅ Transcoded ${rawBuffer.byteLength} → ${wav.byteLength} bytes in ${Date.now() - t0}ms`);
       audioBlob = new Blob([wav], { type: 'audio/wav' });
+      // WAV PCM 16kHz mono 16-bit: 32 000 bytes/sec
+      audioDurationSeconds = Math.max(0, (wav.byteLength - 44) / 32000);
     } else {
       audioBlob = new Blob([rawBuffer], { type: audioFile.type });
+      // Fallback estimate for pre-encoded WAV
+      audioDurationSeconds = Math.max(0, (rawBuffer.byteLength - 44) / 32000);
     }
 
     // 🎯 EXECUTAR AZURE SPEECH SDK ASSESSMENT DEFINITIVO
@@ -171,7 +177,12 @@ export async function POST(request: NextRequest) {
 
       // Converter para formato compatível com o frontend
       const apiResult = convertDefinitiveToAPIFormat(sdkResult.result);
-      
+
+      logAzureSpeechUsage({
+        audioSeconds: audioDurationSeconds,
+        meta: { referenceText: referenceText?.slice(0, 80) ?? null },
+      });
+
       return NextResponse.json({
         success: true,
         result: apiResult

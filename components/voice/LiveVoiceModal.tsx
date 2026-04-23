@@ -230,7 +230,14 @@ const LiveVoiceModal: React.FC<LiveVoiceModalProps> = ({
         }
 
         console.log('✅ Live voice practice saved with achievements XP:', finalXP + achievementBonusXP);
-        
+
+        // Log Realtime API usage for cost tracking in /admin/metrics
+        fetch('/api/log-realtime-usage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.entra_id, durationSeconds: totalSeconds }),
+        }).catch(() => {}); // fire-and-forget
+
         // Callback para atualizar XP na UI (incluindo bônus de achievements)
         onXPGained?.(finalXP + achievementBonusXP);
       }

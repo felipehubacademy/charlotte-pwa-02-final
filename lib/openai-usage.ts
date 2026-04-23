@@ -41,20 +41,41 @@ export const PRICING = {
     perMinute: 0.006,  // USD / minute
   },
 
-  // Realtime voice (gpt-realtime / gpt-4o-realtime-preview)
-  // Precos atuais: input audio $40/1M tokens (~$0.06/min), output audio $80/1M tokens (~$0.24/min)
-  // Aqui a gente ja recebe os minutos do billing do RealTime API.
+  // Realtime voice
   'gpt-realtime': {
-    audioInputPerMin:  0.06,   // USD / min de audio entrada
-    audioOutputPerMin: 0.24,   // USD / min de audio saida
-    textInput:  5.00,          // USD / 1M text input tokens (system prompts)
-    textOutput: 20.00,         // USD / 1M text output tokens
+    audioInputPerMin:  0.06,
+    audioOutputPerMin: 0.24,
+    textInput:  5.00,
+    textOutput: 20.00,
   },
   'gpt-4o-realtime-preview': {
     audioInputPerMin:  0.06,
     audioOutputPerMin: 0.24,
     textInput:  5.00,
     textOutput: 20.00,
+  },
+  'gpt-4o-realtime-preview-2024-12-17': {
+    audioInputPerMin:  0.06,
+    audioOutputPerMin: 0.24,
+    textInput:  5.00,
+    textOutput: 20.00,
+  },
+  'gpt-4o-mini-realtime-preview': {
+    audioInputPerMin:  0.01,
+    audioOutputPerMin: 0.02,
+    textInput:  1.25,
+    textOutput: 5.00,
+  },
+
+  // ElevenLabs TTS — Creator plan ~$0.30 / 1 000 chars
+  'eleven_multilingual_v2': {
+    perChar: 0.000300,         // USD / character
+  },
+
+  // Azure Cognitive Services Speech — Pronunciation Assessment (Standard S0)
+  // $1.00 / audio hour = $0.000278 / second
+  'azure-speech-pronunciation': {
+    perSecond: 0.000278,       // USD / second of audio processed
   },
 } as const;
 
@@ -94,6 +115,16 @@ export function computeCostUSD(r: OpenAIUsageRecord): number {
     return round6(minutes * p.perMinute);
   }
 
+  // ElevenLabs: per character (stored in promptTokens as char count)
+  if ((p as any).perChar != null) {
+    return round6((r.promptTokens ?? 0) * (p as any).perChar);
+  }
+
+  // Azure Speech: per second of audio (stored in audioSeconds)
+  if ((p as any).perSecond != null) {
+    return round6((r.audioSeconds ?? 0) * (p as any).perSecond);
+  }
+
   // Chat / text: per token
   if (p.input != null) {
     const inCost  = ((r.promptTokens     ?? 0) / 1_000_000) * p.input;
@@ -125,6 +156,38 @@ function round6(n: number): number {
  *     totalTokens:      completion.usage?.total_tokens,
  *   });
  */
+/** Shorthand for ElevenLabs TTS calls. charCount = text.length */
+export function logElevenLabsUsage(opts: {
+  userId?: string | null;
+  endpoint: string;
+  charCount: number;
+  model?: string;
+  meta?: Record<string, unknown>;
+}): void {
+  logOpenAIUsage({
+    userId:       opts.userId,
+    endpoint:     opts.endpoint,
+    model:        opts.model ?? 'eleven_multilingual_v2',
+    promptTokens: opts.charCount,   // chars stored as promptTokens
+    meta:         opts.meta,
+  });
+}
+
+/** Shorthand for Azure Speech pronunciation assessment calls. */
+export function logAzureSpeechUsage(opts: {
+  userId?: string | null;
+  audioSeconds: number;
+  meta?: Record<string, unknown>;
+}): void {
+  logOpenAIUsage({
+    userId:       opts.userId,
+    endpoint:     '/api/pronunciation',
+    model:        'azure-speech-pronunciation',
+    audioSeconds: opts.audioSeconds,
+    meta:         opts.meta,
+  });
+}
+
 export function logOpenAIUsage(rec: OpenAIUsageRecord): void {
   // Fire-and-forget
   (async () => {

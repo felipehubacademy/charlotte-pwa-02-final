@@ -675,17 +675,17 @@ export default function MetricsPage() {
   const tabCosts = () => (
     <>
       {g?.openai.tableMissing && (
-        <div className="adm-alert warn" style={{ marginBottom: 14 }}><TriangleAlert size={14} /> Tabela de custos OpenAI não encontrada.</div>
+        <div className="adm-alert warn" style={{ marginBottom: 14 }}><TriangleAlert size={14} /> Tabela de custos não encontrada (openai_usage).</div>
       )}
-      <Sec>OpenAI — Resumo</Sec>
+      <Sec>APIs Externas — Resumo</Sec>
       <div className="adm-grid" style={{ marginBottom: 20 }}>
         <div className="col-4">
-          <KpiCard label="Custo Total" display={g ? fmtBRL(g.openai.totalCost) : '—'}
+          <KpiCard label="Custo Total APIs" display={g ? fmtBRL(g.openai.totalCost) : '—'}
             dlt={prev && g ? pctDelta(g.openai.totalCost, prev.totalCost) : undefined}
-            ctx="no período" accent="var(--warn)" delay={0} />
+            ctx="OpenAI + ElevenLabs + Azure" accent="var(--warn)" delay={0} />
         </div>
-        <div className="col-4"><KpiCard label="Custo/Assinante" display={g ? fmtBRL(g.openai.costPerActiveSub) : '—'} ctx="custo / assinante ativo" delay={60} /></div>
-        <div className="col-4"><KpiCard label="Chamadas API" value={g?.openai.callCount} ctx="requisições à OpenAI" delay={120} /></div>
+        <div className="col-4"><KpiCard label="Custo/Assinante" display={g ? fmtBRL(g.openai.costPerActiveSub) : '—'} ctx="custo total / assinante ativo" delay={60} /></div>
+        <div className="col-4"><KpiCard label="Requisições" value={g?.openai.callCount} ctx="chamadas a APIs externas no período" delay={120} /></div>
       </div>
 
       {g && (
@@ -702,15 +702,26 @@ export default function MetricsPage() {
             <div className="adm-panel">
               <div className="adm-panel-hdr"><span className="adm-panel-title">Por Endpoint</span></div>
               <table className="adm-table">
-                <thead><tr><th>Endpoint</th><th style={{ textAlign: 'right' }}>Custo</th><th style={{ textAlign: 'right' }}>Chamadas</th></tr></thead>
+                <thead><tr><th>Endpoint</th><th>Provider</th><th style={{ textAlign: 'right' }}>Custo</th><th style={{ textAlign: 'right' }}>Chamadas</th></tr></thead>
                 <tbody>
-                  {g.openai.byEndpoint.map(e => (
-                    <tr key={e.endpoint}>
-                      <td style={{ maxWidth: 200 }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{e.endpoint}</span></td>
-                      <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtBRL(e.cost)}</span></td>
-                      <td style={{ textAlign: 'right' }}><span className="num">{fmtN(e.calls)}</span></td>
-                    </tr>
-                  ))}
+                  {g.openai.byEndpoint.map(e => {
+                    const prov = e.endpoint.startsWith('/api/tts') ? 'ElevenLabs'
+                      : e.endpoint === '/api/pronunciation' ? 'Azure'
+                      : e.endpoint === '/api/realtime-token' ? 'Realtime'
+                      : 'OpenAI';
+                    const provColor = prov === 'ElevenLabs' ? 'var(--accent)'
+                      : prov === 'Azure' ? 'var(--ok)'
+                      : prov === 'Realtime' ? 'var(--brand)'
+                      : 'var(--t3)';
+                    return (
+                      <tr key={e.endpoint}>
+                        <td style={{ maxWidth: 180 }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{e.endpoint}</span></td>
+                        <td><span style={{ fontSize: 11, fontWeight: 600, color: provColor }}>{prov}</span></td>
+                        <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtBRL(e.cost)}</span></td>
+                        <td style={{ textAlign: 'right' }}><span className="num">{fmtN(e.calls)}</span></td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

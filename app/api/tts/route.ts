@@ -2,6 +2,7 @@
 // Used as fallback when pre-generated CDN files are not available.
 
 import { NextRequest, NextResponse } from 'next/server';
+import { logElevenLabsUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +50,8 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await res.arrayBuffer());
     const base64 = buffer.toString('base64');
+
+    logElevenLabsUsage({ endpoint: '/api/tts', charCount: text.length });
 
     return NextResponse.json({ audio: base64, mimeType: 'audio/mp3' });
 

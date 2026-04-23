@@ -13,6 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { logElevenLabsUsage } from '@/lib/openai-usage';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,6 +81,8 @@ export async function GET(req: NextRequest) {
 
   const audioBuffer = await elRes.arrayBuffer();
   const filePath    = `${slug}.mp3`;
+
+  logElevenLabsUsage({ endpoint: '/api/tts-cached', charCount: term.length });
 
   // ── 3. Upload to Supabase Storage ─────────────────────────────────────────
   const { error: uploadError } = await supabase.storage
