@@ -13,6 +13,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
+import AnimatedXPBadge from '@/components/ui/AnimatedXPBadge';
 import { CURRICULUM, TrailLevel } from '@/data/curriculum';
 import { calcNextReview, SRRating } from '@/lib/spacedRepetition';
 
@@ -175,21 +176,22 @@ function generateCardQuestion(item: SRCardItem): CardQuestion | null {
     }
 
     case 'reverse': {
-      // Pick a fill_gap or word_bank exercise — show the answer, ask user to recall the sentence
+      // Pick a fill_gap or word_bank exercise — ask user to recall the answer
+      // from the blanked sentence (hint). Do NOT expose ex.explanation here:
+      // it contains the rule + example with the answer itself, which would
+      // turn recall into recognition.
       const ex = grammar.find(e => e.type === 'fill_gap')
               ?? grammar.find(e => e.type === 'word_bank')
               ?? grammar[1]
               ?? grammar[0];
-      // Show explanation as context, ask for the word/phrase
       return {
         cardType:    'reverse',
         instruction: isPt
-          ? `Tópico: "${topic.title}"\nDigite a palavra ou expressão correta:`
-          : `Topic: "${topic.title}"\nType the correct word or expression:`,
-        sentence:    ex.explanation,
+          ? `Tópico: "${topic.title}"\nComplete com a palavra ou expressão correta:`
+          : `Topic: "${topic.title}"\nComplete with the correct word or expression:`,
+        // No sentence: the blanked phrase in `hint` is the actual exercise.
         answer:      ex.answer,
-        hint:        isPt ? `Dica: "${ex.sentence?.replace('_____', '___')}"`
-                           : `Hint: "${ex.sentence?.replace('_____', '___')}"`,
+        hint:        ex.sentence?.replace('_____', '___') ?? '',
         explanation: ex.explanation,
       };
     }
@@ -275,8 +277,6 @@ export default function ReviewSession() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [ratings,  setRatings]  = useState<SRRating[]>([]);
   const [totalXP,  setTotalXP]  = useState(0);
-  const [showXP,   setShowXP]   = useState(false);
-  const [xpValue,  setXpValue]  = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   // ── Load items ─────────────────────────────────────────────────────────────
@@ -387,10 +387,8 @@ export default function ReviewSession() {
       xp_earned:     xp,
     }).then(({ error }) => { if (error) console.warn('[ReviewSession] xp error:', error.message); });
 
-    // Show XP badge
-    setXpValue(xp);
-    setShowXP(true);
-    setTimeout(() => setShowXP(false), 1200);
+    // XP badge animation is triggered automatically when totalXP updates
+    // (AnimatedXPBadge watches the xp prop and fires triggerToast on increase).
 
     // Advance
     animateNext(() => {
@@ -624,13 +622,6 @@ export default function ReviewSession() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={insets.top + 10}
       >
-        {/* XP toast */}
-        {showXP && (
-          <View style={{ position: 'absolute', top: insets.top + 60, right: 24, zIndex: 100, backgroundColor: C.greenBg, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6, borderWidth: 1, borderColor: C.green + '40' }}>
-            <AppText style={{ fontSize: 15, fontWeight: '800', color: C.green }}>+{xpValue} XP</AppText>
-          </View>
-        )}
-
         {/* Top bar */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
           <TouchableOpacity onPress={() => router.back()} style={{ padding: 8, marginRight: 4 }}>
@@ -641,6 +632,9 @@ export default function ReviewSession() {
               height: 6, borderRadius: 3, backgroundColor: levelAccent,
               width: `${((cardIdx + (phase === 'rating' ? 1 : 0)) / items.length) * 100}%`,
             }} />
+          </View>
+          <View style={{ marginRight: 6 }}>
+            <AnimatedXPBadge xp={totalXP} />
           </View>
           <AppText style={{ fontSize: 13, color: C.navyMid, minWidth: 48, textAlign: 'right' }}>
             {cardIdx + 1}/{items.length}
