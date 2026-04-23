@@ -19,11 +19,11 @@ const ADMIN_CSS = `
   --accent-ring:  rgba(99,102,241,0.30);
   --accent-border:rgba(99,102,241,0.35);
 
-  --brand:     #A3FF3C;
-  --brand-dim: rgba(163,255,60,0.10);
-  --brand-border:rgba(163,255,60,0.25);
+  --brand:        #3D7200;
+  --brand-dim:    rgba(61,114,0,0.08);
+  --brand-border: rgba(61,114,0,0.20);
 
-  --ok:       #10B981;  --ok-dim:   rgba(16,185,129,0.12);
+  --ok:       #0E9B6A;  --ok-dim:   rgba(14,155,106,0.10);
   --warn:     #F59E0B;  --warn-dim: rgba(245,158,11,0.12);
   --err:      #EF4444;  --err-dim:  rgba(239,68,68,0.12);
   --neutral:  #6B7280;
