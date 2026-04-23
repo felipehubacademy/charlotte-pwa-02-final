@@ -632,6 +632,13 @@ export async function transcribeWithAzure(
     const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=${encodeURIComponent(language)}&format=detailed`;
     const arrayBuffer = await audioBlob.arrayBuffer();
 
+    // Peek at the file magic — AMR-WB must start with '#!AMR-WB\n', AMR-NB
+    // with '#!AMR\n'. Mismatched magic vs Content-Type is the usual cause of
+    // silent decode failure (Azure accepts the request but cannot extract
+    // speech).
+    const head = Buffer.from(arrayBuffer.slice(0, 16)).toString('ascii');
+    console.log(`🎧 Audio head ASCII: ${JSON.stringify(head)} (${arrayBuffer.byteLength} bytes, Content-Type: ${contentType})`);
+
     const res = await fetch(url, {
       method: 'POST',
       headers: {
@@ -642,13 +649,16 @@ export async function transcribeWithAzure(
       body: arrayBuffer,
     });
 
+    const rawBody = await res.text();
+    console.log(`📡 Azure REST ${res.status} — body: ${rawBody.slice(0, 500)}`);
+
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      return { success: false, text: '', error: `Azure REST ${res.status}: ${body.slice(0, 200)}` };
+      return { success: false, text: '', error: `Azure REST ${res.status}: ${rawBody.slice(0, 200)}` };
     }
 
-    const json: any = await res.json();
-    // RecognitionStatus values: Success | NoMatch | InitialSilenceTimeout | ...
+    let json: any;
+    try { json = JSON.parse(rawBody); } catch { json = {}; }
+
     if (json.RecognitionStatus === 'Success') {
       return {
         success: true,
