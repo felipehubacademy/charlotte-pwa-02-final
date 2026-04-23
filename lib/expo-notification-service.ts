@@ -1301,8 +1301,12 @@ export async function sendEngagementPushes(supabase: any): Promise<void> {
     const fourWeeksAgo = new Date(now.getTime() - 28 * 86400000).toISOString();
 
     // 1. Fetch all candidate users (with token) and their timezones.
+    //    Query the underlying charlotte.users table directly so we can read
+    //    last_practice_at (the public.charlotte_users compatibility view was
+    //    created before that column existed and does not expose it).
     const { data: users, error: usersErr } = await supabase
-      .from('charlotte_users')
+      .schema('charlotte')
+      .from('users')
       .select('id, name, expo_push_token, charlotte_level, timezone, last_practice_at, trial_ends_at, subscription_status, subscription_expires_at, is_institutional')
       .not('expo_push_token', 'is', null);
     if (usersErr) { console.error('❌ [Engagement] users query:', usersErr.message); return; }
