@@ -396,22 +396,14 @@ export class AzureSpeechOfficialService {
     try {
       const arrayBuffer = await audioBlob.arrayBuffer();
 
-      // iOS grava WAV PCM 16kHz mono → declara PCM corretamente
-      if (mimeType.includes('wav') || mimeType.includes('wave')) {
-        console.log('✅ Format: WAV PCM — using getWaveFormatPCM(16000, 16, 1)');
-        const audioFormat = sdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
-        const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
-        pushStream.write(arrayBuffer);
-        pushStream.close();
-        return sdk.AudioConfig.fromStreamInput(pushStream);
+      // Every call site transcodes to WAV PCM 16 kHz mono upstream (iOS
+      // records it natively; Android m4a goes through /api/pronunciation's
+      // ffmpeg step). PCM is the only codec the Node Speech SDK can decode
+      // without GStreamer, so we always declare it here.
+      if (!(mimeType.includes('wav') || mimeType.includes('wave'))) {
+        console.warn(`⚠️ Unexpected non-WAV mime reached AudioConfig: ${mimeType} — declaring PCM anyway`);
       }
-
-      // Nota: AMR nao chega aqui — assessPronunciationOfficial detecta antes
-      // e delega para assessPronunciationViaRest (o SDK Node nao tem
-      // getCompressedFormat porque exige GStreamer nativo, ausente em serverless).
-
-      // Fallback para M4A/AAC legado (iOS anterior à mudança) — tenta PCM como antes
-      console.warn('⚠️ Unknown format:', mimeType, '— falling back to PCM declaration (may be inaccurate)');
+      console.log('✅ Format: WAV PCM — using getWaveFormatPCM(16000, 16, 1)');
       const audioFormat = sdk.AudioStreamFormat.getWaveFormatPCM(16000, 16, 1);
       const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
       pushStream.write(arrayBuffer);
@@ -597,218 +589,14 @@ export class AzureSpeechOfficialService {
   }
 }
 
-// 🎯 SIMPLE TRANSCRIPTION via Azure REST API (no SDK, no GStreamer).
-// Used by /api/transcribe when the uploaded audio is in a format Whisper
-// cannot consume (currently: AMR-WB from Android expo-audio builds).
-//
-// Why not the SDK: getCompressedFormat() is only available in the browser
-// build; on Node it throws "is not a function" because compressed codec
-// support requires GStreamer installed on the host, which is absent on
-// Vercel serverless. The REST endpoint accepts AMR directly via
-// Content-Type, no native deps required.
-export async function transcribeWithAzure(
-  audioBlob: Blob,
-  language: string = 'en-US',
-): Promise<{ success: boolean; text: string; durationSeconds?: number; error?: string }> {
-  try {
-    const region = process.env.AZURE_SPEECH_REGION;
-    const key    = process.env.AZURE_SPEECH_KEY;
-    if (!region || !key) {
-      return { success: false, text: '', error: 'Azure Speech credentials not configured' };
-    }
-
-    const mime = audioBlob.type ?? '';
-    // Map our blob mime to Azure REST content-type. AMR-WB clients send
-    // audio/amr or audio/amr-wb; we pick the matching codec header.
-    let contentType: string | null = null;
-    if (mime.includes('amr-wb') || mime.includes('amrwb')) contentType = 'audio/amr-wb';
-    else if (mime.includes('amr'))                         contentType = 'audio/amr-wb'; // expo-audio amr_wb output
-    else if (mime.includes('ogg') || mime.includes('opus')) contentType = 'audio/ogg; codecs=opus';
-    else if (mime.includes('wav') || mime.includes('wave')) contentType = 'audio/wav; codecs=audio/pcm; samplerate=16000';
-    if (!contentType) {
-      return { success: false, text: '', error: `Unsupported content-type for Azure REST: ${mime}` };
-    }
-
-    const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=${encodeURIComponent(language)}&format=detailed`;
-    const arrayBuffer = await audioBlob.arrayBuffer();
-
-    // Peek at the file magic — AMR-WB must start with '#!AMR-WB\n', AMR-NB
-    // with '#!AMR\n'. Mismatched magic vs Content-Type is the usual cause of
-    // silent decode failure (Azure accepts the request but cannot extract
-    // speech).
-    const head = Buffer.from(arrayBuffer.slice(0, 16)).toString('ascii');
-    console.log(`🎧 Audio head ASCII: ${JSON.stringify(head)} (${arrayBuffer.byteLength} bytes, Content-Type: ${contentType})`);
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': key,
-        'Content-Type': contentType,
-        'Accept': 'application/json',
-      },
-      body: arrayBuffer,
-    });
-
-    const rawBody = await res.text();
-    console.log(`📡 Azure REST ${res.status} — body: ${rawBody.slice(0, 500)}`);
-
-    if (!res.ok) {
-      return { success: false, text: '', error: `Azure REST ${res.status}: ${rawBody.slice(0, 200)}` };
-    }
-
-    let json: any;
-    try { json = JSON.parse(rawBody); } catch { json = {}; }
-
-    if (json.RecognitionStatus === 'Success') {
-      return {
-        success: true,
-        text: json.DisplayText ?? json.NBest?.[0]?.Display ?? '',
-        durationSeconds: (json.Duration ?? 0) / 1e7,
-      };
-    }
-    if (json.RecognitionStatus === 'NoMatch' || json.RecognitionStatus === 'InitialSilenceTimeout') {
-      return { success: true, text: '' };
-    }
-    return { success: false, text: '', error: `Azure RecognitionStatus=${json.RecognitionStatus}` };
-  } catch (error: any) {
-    console.error('❌ transcribeWithAzure failed:', error);
-    return { success: false, text: '', error: error?.message ?? 'Unknown error' };
-  }
-}
-
-// 🎯 REST-based pronunciation assessment — used for formats the Node SDK
-// cannot decode without GStreamer (currently: AMR-WB from Android builds).
-// Same Azure service, same scoring engine — just the HTTP transport.
-export async function assessPronunciationViaRest(
-  audioBlob: Blob,
-  referenceText: string,
-  userLevel: 'Novice' | 'Inter' | 'Advanced' = 'Inter',
-): Promise<AudioProcessingResult> {
-  try {
-    const region = process.env.AZURE_SPEECH_REGION;
-    const key    = process.env.AZURE_SPEECH_KEY;
-    if (!region || !key) {
-      return { success: false, error: 'Azure Speech credentials not configured', shouldRetry: false };
-    }
-
-    const mime = audioBlob.type ?? '';
-    let contentType: string | null = null;
-    if (mime.includes('amr-wb') || mime.includes('amrwb')) contentType = 'audio/amr-wb';
-    else if (mime.includes('amr'))                          contentType = 'audio/amr-wb';
-    else if (mime.includes('ogg') || mime.includes('opus')) contentType = 'audio/ogg; codecs=opus';
-    else if (mime.includes('wav') || mime.includes('wave')) contentType = 'audio/wav; codecs=audio/pcm; samplerate=16000';
-    if (!contentType) {
-      return { success: false, error: `Unsupported content-type: ${mime}`, shouldRetry: false };
-    }
-
-    const pronConfig = {
-      ReferenceText: referenceText,
-      GradingSystem: 'HundredMark',
-      Granularity: 'Phoneme',
-      Dimension: 'Comprehensive',
-      EnableMiscue: true,
-      NBestPhonemeCount: 5,
-      EnableProsodyAssessment: true,
-    };
-    const pronHeader = Buffer.from(JSON.stringify(pronConfig), 'utf-8').toString('base64');
-
-    const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed`;
-    const arrayBuffer = await audioBlob.arrayBuffer();
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': key,
-        'Content-Type': contentType,
-        'Accept': 'application/json',
-        'Pronunciation-Assessment': pronHeader,
-      },
-      body: arrayBuffer,
-    });
-
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      return { success: false, error: `Azure REST ${res.status}: ${body.slice(0, 300)}`, shouldRetry: false };
-    }
-
-    const json: any = await res.json();
-    if (json.RecognitionStatus !== 'Success') {
-      const status = json.RecognitionStatus as string;
-      const retriable = status === 'NoMatch' || status === 'InitialSilenceTimeout';
-      return {
-        success: false,
-        error: `Azure RecognitionStatus=${status}`,
-        shouldRetry: retriable,
-        retryReason: retriable ? 'Speech not detected clearly' : undefined,
-      };
-    }
-
-    const nbest = json.NBest?.[0];
-    const pa    = nbest?.PronunciationAssessment ?? {};
-    const wordsRaw: any[] = nbest?.Words ?? [];
-
-    // Flatten phoneme list across words and generate simple feedback
-    const phonemes: PhonemeResult[] = [];
-    const words: WordResult[] = wordsRaw.map((w: any) => {
-      const wordPhonemes: any[] = w.Phonemes ?? [];
-      for (const p of wordPhonemes) {
-        phonemes.push({
-          phoneme: p.Phoneme,
-          accuracyScore: p.PronunciationAssessment?.AccuracyScore ?? 0,
-          nbestPhonemes: p.PronunciationAssessment?.NBestPhonemes,
-          offset: p.Offset ?? 0,
-          duration: p.Duration ?? 0,
-        });
-      }
-      return {
-        word: w.Word,
-        accuracyScore: w.PronunciationAssessment?.AccuracyScore ?? 0,
-        errorType: w.PronunciationAssessment?.ErrorType,
-        syllables: (w.Syllables ?? []).map((s: any) => ({
-          syllable: s.Syllable,
-          accuracyScore: s.PronunciationAssessment?.AccuracyScore ?? 0,
-          offset: s.Offset ?? 0,
-          duration: s.Duration ?? 0,
-        })),
-      };
-    });
-
-    const feedback: string[] = [];
-    const problems = words.filter(w => (w.accuracyScore ?? 100) < 70);
-    if (problems.length > 0) {
-      const list = problems.slice(0, 3).map(w => `"${w.word}"`).join(', ');
-      feedback.push(
-        userLevel === 'Novice'
-          ? `Pratique a pronúncia de: ${list}`
-          : `Practice these words: ${list}`,
-      );
-    }
-
-    return {
-      success: true,
-      result: {
-        text: nbest?.Display ?? nbest?.Lexical ?? json.DisplayText ?? '',
-        accuracyScore:     pa.AccuracyScore ?? 0,
-        fluencyScore:      pa.FluencyScore ?? 0,
-        completenessScore: pa.CompletenessScore ?? 0,
-        pronunciationScore: pa.PronScore ?? 0,
-        prosodyScore:      pa.ProsodyScore,
-        words,
-        phonemes,
-        feedback,
-        confidence:         nbest?.Confidence ?? 0,
-        assessmentMethod:   'azure-sdk-official',
-        sessionId: Date.now().toString(),
-      },
-    };
-  } catch (error: any) {
-    console.error('❌ assessPronunciationViaRest failed:', error);
-    return { success: false, error: error?.message ?? 'Unknown error', shouldRetry: false };
-  }
-}
-
 // 🎯 FUNÇÃO PRINCIPAL OFICIAL PARA EXPORTAÇÃO
-// Detects format and delegates: AMR → REST, WAV/others → SDK path.
+// All incoming audio is WAV PCM by the time it gets here:
+//   - iOS records WAV directly
+//   - Android records m4a/AAC and /api/pronunciation transcodes to WAV
+//     via lib/audio-transcode.ts before calling this
+// The Node build of the Speech SDK cannot decode compressed codecs
+// (getCompressedFormat requires GStreamer, absent on Vercel), hence the
+// server-side transcode step upstream.
 export async function assessPronunciationOfficial(
   audioBlob: Blob,
   referenceText?: string,
@@ -821,13 +609,6 @@ export async function assessPronunciationOfficial(
     hasReference: !!referenceText,
     referenceLength: referenceText?.length || 0,
   });
-
-  const mime = audioBlob.type ?? '';
-  // AMR cannot be decoded by the Node SDK — use REST API instead.
-  if (mime.includes('amr')) {
-    console.log('🎤 AMR detected — using Azure REST pronunciation assessment');
-    return assessPronunciationViaRest(audioBlob, referenceText || '', userLevel);
-  }
 
   try {
     const service = new AzureSpeechOfficialService();

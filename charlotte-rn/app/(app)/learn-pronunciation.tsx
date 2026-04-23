@@ -309,13 +309,13 @@ export default function LearnPronunciationScreen() {
       const audioUri = recorder.uri;
       if (!audioUri || !phrase) { setStatus('error'); return; }
 
-      // Detectar formato pelo URI para declarar Content-Type correto ao servidor
+      // Detectar formato pelo URI para declarar Content-Type correto ao servidor.
+      // iOS grava .wav PCM; Android grava .m4a (AAC/MPEG-4) e o servidor
+      // transcodifica para WAV antes de chamar Azure.
       const lower = audioUri.toLowerCase();
       const isWav = lower.endsWith('.wav');
-      const isOgg = lower.endsWith('.ogg');
-      const isAmr = lower.endsWith('.amr');
-      const audioName = isWav ? 'recording.wav' : isAmr ? 'recording.amr' : isOgg ? 'recording.ogg' : 'recording.m4a';
-      const audioType = isWav ? 'audio/wav'     : isAmr ? 'audio/amr'     : isOgg ? 'audio/ogg'     : 'audio/x-m4a';
+      const audioName = isWav ? 'recording.wav' : 'recording.m4a';
+      const audioType = isWav ? 'audio/wav'     : 'audio/x-m4a';
       const formData = new FormData();
       formData.append('audio', {
         uri:  audioUri,

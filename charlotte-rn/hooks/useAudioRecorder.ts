@@ -206,14 +206,13 @@ export function useAudioRecorder(
 export async function transcribeAudio(audioUri: string): Promise<string | null> {
   try {
     const lower = audioUri.toLowerCase();
-    const isWav = lower.endsWith('.wav');
-    const isOgg = lower.endsWith('.ogg');
-    const isAmr = lower.endsWith('.amr');
+    const isWav = lower.endsWith('.wav'); // iOS
+    // Android falls through to m4a (AAC/MPEG-4).
     const formData = new FormData();
     formData.append('audio', {
       uri:  audioUri,
-      name: isWav ? 'recording.wav' : isAmr ? 'recording.amr' : isOgg ? 'recording.ogg' : 'recording.m4a',
-      type: isWav ? 'audio/wav'     : isAmr ? 'audio/amr'     : isOgg ? 'audio/ogg'     : 'audio/m4a',
+      name: isWav ? 'recording.wav' : 'recording.m4a',
+      type: isWav ? 'audio/wav'     : 'audio/m4a',
     } as any);
 
     const response = await fetch(`${API_BASE_URL}/api/transcribe`, {
