@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { assessPronunciationOfficial } from '@/lib/azure-speech-sdk';
+import { transcodeToWavPcm16k, needsTranscode, guessExtension } from '@/lib/audio-transcode';
 
 interface APIResponse {
   success: boolean;
@@ -118,10 +119,21 @@ export async function POST(request: NextRequest) {
       vercelRegion: process.env.VERCEL_REGION
     });
 
-    // ✅ CONVERTER FILE PARA BLOB
-    const audioBlob = new Blob([await audioFile.arrayBuffer()], { 
-      type: audioFile.type 
-    });
+    // ✅ CONVERTER FILE PARA BLOB (transcodifica para WAV PCM se necessario —
+    //    Azure Speech SDK em Node so decoda WAV; AAC/m4a/webm/etc precisam
+    //    passar pelo ffmpeg server-side antes)
+    const rawBuffer = await audioFile.arrayBuffer();
+    let audioBlob: Blob;
+    if (needsTranscode(audioFile.type, audioFile.name)) {
+      const ext = guessExtension(audioFile.type, audioFile.name);
+      console.log(`🔄 Transcoding ${audioFile.type} (.${ext}) → WAV PCM 16k mono`);
+      const t0 = Date.now();
+      const wav = await transcodeToWavPcm16k(rawBuffer, ext);
+      console.log(`✅ Transcoded ${rawBuffer.byteLength} → ${wav.byteLength} bytes in ${Date.now() - t0}ms`);
+      audioBlob = new Blob([wav], { type: 'audio/wav' });
+    } else {
+      audioBlob = new Blob([rawBuffer], { type: audioFile.type });
+    }
 
     // 🎯 EXECUTAR AZURE SPEECH SDK ASSESSMENT DEFINITIVO
     console.log('🎯 Calling definitive Azure Speech SDK Assessment...');
