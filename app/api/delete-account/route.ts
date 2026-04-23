@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     //    o deleteUser() abaixo ja cuida de tudo — estas chamadas sao best-effort.
     const charlotteTables = ['practices', 'progress', 'leaderboard_cache'];
     for (const table of charlotteTables) {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .schema('charlotte')
         .from(table)
         .delete()
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // charlotte.users usa 'id' como PK, nao 'user_id'
-    const { error: usersErr } = await supabase
+    const { error: usersErr } = await (supabase as any)
       .schema('charlotte')
       .from('users')
       .delete()

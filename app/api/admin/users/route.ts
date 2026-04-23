@@ -11,6 +11,26 @@ import { inviteTemplate } from '@/lib/email-templates';
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET ?? '';
 
+interface CharlotteUser {
+  id: string; email: string; name: string | null;
+  charlotte_level: string | null; is_institutional: boolean;
+  is_active: boolean; subscription_status: string;
+  trial_ends_at: string | null; must_change_password: boolean;
+  placement_test_done: boolean; created_at: string;
+  [key: string]: unknown;
+}
+interface Practice {
+  user_id: string; xp_earned: number | null;
+  practice_type: string; created_at: string;
+}
+interface LearnProgress {
+  user_id: string; completed: unknown; module_index: number | null;
+  topic_index: number | null; level: string | null;
+}
+interface UserProgress {
+  user_id: string; streak_days: number | null; longest_streak: number | null;
+}
+
 function checkAuth(req: NextRequest) {
   const auth = req.headers.get('x-admin-secret') ?? req.nextUrl.searchParams.get('secret') ?? '';
   return ADMIN_SECRET && auth === ADMIN_SECRET;
@@ -29,10 +49,10 @@ export async function GET(req: NextRequest) {
     { data: learnProgress },
     { data: userProgress },
   ] = await Promise.all([
-    supabase.from('charlotte_users').select('*').order('created_at', { ascending: false }),
-    supabase.from('charlotte_practices').select('user_id, xp_earned, practice_type, created_at'),
-    supabase.from('learn_progress').select('user_id, completed, module_index, topic_index, level'),
-    supabase.from('user_progress').select('user_id, streak_days, longest_streak'),
+    supabase.from('charlotte_users').select('*').order('created_at', { ascending: false }) as unknown as Promise<{ data: CharlotteUser[] | null; error: { message: string } | null }>,
+    supabase.from('charlotte_practices').select('user_id, xp_earned, practice_type, created_at') as unknown as Promise<{ data: Practice[] | null; error: unknown }>,
+    supabase.from('learn_progress').select('user_id, completed, module_index, topic_index, level') as unknown as Promise<{ data: LearnProgress[] | null; error: unknown }>,
+    supabase.from('user_progress').select('user_id, streak_days, longest_streak') as unknown as Promise<{ data: UserProgress[] | null; error: unknown }>,
   ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
