@@ -195,7 +195,15 @@ export async function syncSubscriptionToSupabase(
   customerInfo: CustomerInfo,
   opts?: { previousStatus?: string | null },
 ): Promise<{ updated: boolean; hasPremium: boolean }> {
-  const hasPremium = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
+  // Defesa contra cache stale do RC: mesmo que entitlements.active diga que
+  // está ativo, se latestExpirationDate ja passou, trata como expirado.
+  // Isso fecha a brecha onde o SDK retorna dados em cache apos a expiracao.
+  const rawActive = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
+  const expiresAtRaw = customerInfo.latestExpirationDate;
+  const expiredByDate = expiresAtRaw
+    ? new Date(expiresAtRaw).getTime() < Date.now()
+    : false;
+  const hasPremium = rawActive && !expiredByDate;
 
   // Map product identifier to 'monthly' | 'yearly' | null.
   //

@@ -109,6 +109,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         //    'expired' (fecha brecha de transfer). Respeita grace (status='none').
         try {
           const current = await fetchProfile(userId).catch(() => null);
+          // Invalida cache do RC para forcar busca fresh — sem isso,
+          // getCustomerInfo pode retornar entitlement stale apos expiracao.
+          await Purchases.invalidateCustomerInfoCache().catch(() => {});
           const info = await Purchases.getCustomerInfo();
           await syncSubscriptionToSupabase(userId, info, {
             previousStatus: current?.subscription_status ?? null,
@@ -358,7 +361,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (noSub) return true;
     // (c) Usuário inativo com assinatura = sem acesso
     if (!profile.is_active) return false;
-    if (profile.subscription_status === 'active') return true;
+    if (profile.subscription_status === 'active') {
+      // Defesa local: se expires_at ja passou, bloqueia mesmo que o banco
+      // ainda nao tenha sido atualizado pelo webhook/sync.
+      if (profile.subscription_expires_at && new Date(profile.subscription_expires_at) < new Date()) {
+        return false;
+      }
+      return true;
+    }
     if (profile.subscription_status === 'trial') {
       if (!profile.trial_ends_at) return false;
       return new Date(profile.trial_ends_at) > new Date();
