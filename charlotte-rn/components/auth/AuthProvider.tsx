@@ -361,9 +361,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (noSub) return true;
     // (c) Usuário inativo com assinatura = sem acesso
     if (!profile.is_active) return false;
-    if (profile.subscription_status === 'active') {
-      // Defesa local: se expires_at ja passou, bloqueia mesmo que o banco
-      // ainda nao tenha sido atualizado pelo webhook/sync.
+    // 'cancelled' = auto-renew desligado mas acesso valido ate expires_at.
+    // 'active'    = assinatura renovando normalmente.
+    // Ambos dependem de expires_at estar no futuro — defesa local contra
+    // webhook/sync atrasado.
+    if (profile.subscription_status === 'active' || profile.subscription_status === 'cancelled') {
       if (profile.subscription_expires_at && new Date(profile.subscription_expires_at) < new Date()) {
         return false;
       }

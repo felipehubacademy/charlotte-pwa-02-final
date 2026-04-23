@@ -21,11 +21,18 @@ const supabase = createClient(
 
 const WEBHOOK_SECRET = process.env.REVENUECAT_WEBHOOK_SECRET ?? '';
 
-// RevenueCat event types that affect subscription status
-const ACTIVE_EVENTS   = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE']);
-const EXPIRED_EVENTS  = new Set(['EXPIRATION', 'CANCELLATION', 'BILLING_ISSUE']);
-const TRIAL_EVENTS    = new Set(['TRIAL_STARTED']);
-const TRIAL_CONVERTED = new Set(['TRIAL_CONVERTED']);
+// RevenueCat event types that affect subscription status.
+//
+// Distincao importante:
+//   CANCELLATION = user desligou auto-renew; ainda tem acesso ate expires_at
+//   EXPIRATION   = assinatura terminou de fato; acesso revogado
+//   REFUND       = reembolso emitido; acesso revogado imediato
+//   BILLING_ISSUE = falha no pagamento; acesso revogado ate resolver
+const ACTIVE_EVENTS     = new Set(['INITIAL_PURCHASE', 'RENEWAL', 'UNCANCELLATION', 'PRODUCT_CHANGE']);
+const CANCELLED_EVENTS  = new Set(['CANCELLATION']);
+const EXPIRED_EVENTS    = new Set(['EXPIRATION', 'REFUND', 'BILLING_ISSUE']);
+const TRIAL_EVENTS      = new Set(['TRIAL_STARTED']);
+const TRIAL_CONVERTED   = new Set(['TRIAL_CONVERTED']);
 
 export async function POST(req: NextRequest) {
   // ── Auth ─────────────────────────────────────────────────────────────────
@@ -60,6 +67,11 @@ export async function POST(req: NextRequest) {
     isActive           = true;
   } else if (TRIAL_EVENTS.has(eventType)) {
     subscriptionStatus = 'trial';
+    isActive           = true;
+  } else if (CANCELLED_EVENTS.has(eventType)) {
+    // User desligou auto-renew mas ainda tem acesso ate expires_at.
+    // hasAccess no client valida subscription_expires_at antes de liberar.
+    subscriptionStatus = 'cancelled';
     isActive           = true;
   } else if (EXPIRED_EVENTS.has(eventType)) {
     subscriptionStatus = 'expired';

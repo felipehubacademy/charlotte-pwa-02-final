@@ -198,12 +198,17 @@ export async function syncSubscriptionToSupabase(
   // Defesa contra cache stale do RC: mesmo que entitlements.active diga que
   // está ativo, se latestExpirationDate ja passou, trata como expirado.
   // Isso fecha a brecha onde o SDK retorna dados em cache apos a expiracao.
-  const rawActive = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
+  const entitlement = customerInfo.entitlements.active[ENTITLEMENT_ID];
+  const rawActive = !!entitlement;
   const expiresAtRaw = customerInfo.latestExpirationDate;
   const expiredByDate = expiresAtRaw
     ? new Date(expiresAtRaw).getTime() < Date.now()
     : false;
   const hasPremium = rawActive && !expiredByDate;
+  // User cancelou auto-renew mas ainda tem acesso ate expires_at.
+  // RC sinaliza via willRenew=false na entitlement ativa.
+  const willRenew = entitlement?.willRenew ?? true;
+  const isCancelled = hasPremium && !willRenew;
 
   // Map product identifier to 'monthly' | 'yearly' | null.
   //
@@ -235,7 +240,7 @@ export async function syncSubscriptionToSupabase(
   }
 
   const update: Record<string, unknown> = {
-    subscription_status:     hasPremium ? 'active' : 'expired',
+    subscription_status:     hasPremium ? (isCancelled ? 'cancelled' : 'active') : 'expired',
     is_active:               hasPremium,
     subscription_product:    hasPremium ? product : null,
     subscription_expires_at: customerInfo.latestExpirationDate ?? null,
