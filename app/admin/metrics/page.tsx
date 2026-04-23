@@ -35,6 +35,32 @@ interface MetricsResponse {
     topUsers:   Array<{ userId: string; email: string | null; name: string | null; cost: number }>;
     timeseries: Array<{ date: string; cost: number }>;
   };
+  mrrHealth: {
+    newMrr: number;
+    churnedMrr: number;
+    quickRatio: number;
+    newInRange:     { monthly: number; yearly: number; count: number };
+    churnedInRange: { monthly: number; yearly: number; count: number };
+    mrrTrend: Array<{ week: string; amount: number }>;
+  };
+  engagement: {
+    dau: number; wau: number; mau: number;
+    stickinessPct: number | null;
+    dauTimeseries: Array<{ date: string; dau: number }>;
+  };
+  activationFunnel: Array<{ stage: string; label: string; count: number; eligibleDenominator?: number }>;
+  streakDistribution: Array<{ bucket: string; count: number }>;
+  notifications: {
+    tableMissing: boolean;
+    activeTokens: number;
+    totalUsers: number;
+    sent: number;
+    failed: number;
+    deliveryRatePct: number | null;
+    byType: Array<{ type: string; sent: number; uniqueUsers: number }>;
+    byCategory: { core: number; prevention: number; revenue: number; winback: number };
+    timeseries: Array<{ date: string; count: number }>;
+  };
 }
 
 // ── Palette (mesmo do /admin) ────────────────────────────────────────────────
@@ -241,6 +267,98 @@ export default function MetricsPage() {
             </Grid>
 
             {/* ════════════════════════════════════════════════════════ */}
+            {/* SAUDE DO MRR — new / churned / quick ratio + trend chart */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Saude do MRR</SectionTitle>
+            <Grid cols={4}>
+              <KpiCard label="Novo MRR no periodo" value={`$${data.mrrHealth.newMrr}`} sub={`${data.mrrHealth.newInRange.count} assinaturas novas`} accent={C.greenDark} />
+              <KpiCard label="Churned MRR" value={`$${data.mrrHealth.churnedMrr}`} sub={`${data.mrrHealth.churnedInRange.count} perdas`} accent={C.red} />
+              <KpiCard label="Quick Ratio" value={data.mrrHealth.quickRatio.toFixed(2)} sub={data.mrrHealth.quickRatio >= 4 ? 'saudavel (>=4)' : data.mrrHealth.quickRatio >= 1 ? 'crescendo' : 'encolhendo'} accent={data.mrrHealth.quickRatio >= 4 ? C.greenDark : data.mrrHealth.quickRatio >= 1 ? C.orange : C.red} />
+              <KpiCard label="Delta MRR" value={`$${round2(data.mrrHealth.newMrr - data.mrrHealth.churnedMrr)}`} sub="novo - churn" accent={data.mrrHealth.newMrr >= data.mrrHealth.churnedMrr ? C.greenDark : C.red} />
+            </Grid>
+            {data.mrrHealth.mrrTrend.length > 0 && (
+              <ChartCard title="Novo MRR por semana (12 semanas)">
+                <MiniBars data={data.mrrHealth.mrrTrend.map(d => ({ label: d.week.slice(5), value: d.amount }))} formatValue={v => `$${v}`} barColor={C.greenDark} />
+              </ChartCard>
+            )}
+
+            {/* ════════════════════════════════════════════════════════ */}
+            {/* ENGAGEMENT — DAU / WAU / MAU + stickiness + chart       */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Engagement</SectionTitle>
+            <Grid cols={4}>
+              <KpiCard label="DAU" value={data.engagement.dau} sub="users ativos hoje" accent={C.navy} />
+              <KpiCard label="WAU" value={data.engagement.wau} sub="ativos ultimos 7d" accent={C.navy} />
+              <KpiCard label="MAU" value={data.engagement.mau} sub="ativos ultimos 30d" accent={C.navy} />
+              <KpiCard
+                label="Stickiness (DAU/MAU)"
+                value={data.engagement.stickinessPct != null ? `${data.engagement.stickinessPct}%` : '—'}
+                sub={data.engagement.stickinessPct != null && data.engagement.stickinessPct >= 20 ? 'bom (>=20%)' : 'a melhorar'}
+                accent={data.engagement.stickinessPct != null && data.engagement.stickinessPct >= 20 ? C.greenDark : C.orange}
+              />
+            </Grid>
+            {data.engagement.dauTimeseries.length > 0 && (
+              <ChartCard title="DAU por dia (90 dias)">
+                <MiniBars data={data.engagement.dauTimeseries.map(d => ({ label: d.date.slice(5), value: d.dau }))} barColor={C.navy} />
+              </ChartCard>
+            )}
+
+            {/* ════════════════════════════════════════════════════════ */}
+            {/* FUNIL DE ATIVACAO                                       */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Funil de ativacao (no periodo)</SectionTitle>
+            <FunnelChart stages={data.activationFunnel} />
+
+            {/* ════════════════════════════════════════════════════════ */}
+            {/* DISTRIBUICAO DE STREAKS                                 */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Distribuicao de streaks (nao-institucionais)</SectionTitle>
+            <ChartCard title="Usuarios por faixa de streak">
+              <MiniBars
+                data={data.streakDistribution.map(d => ({ label: `${d.bucket} dias`, value: d.count }))}
+                barColor={C.blue}
+                widthPerBar={80}
+              />
+            </ChartCard>
+
+            {/* ════════════════════════════════════════════════════════ */}
+            {/* PUSH NOTIFICATIONS                                      */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Push notifications (no periodo)</SectionTitle>
+            {data.notifications.tableMissing ? (
+              <div style={{ background: '#FFF7ED', border: `1px solid #FED7AA`, color: C.orange, padding: 16, borderRadius: 12, fontSize: 14, lineHeight: 1.5 }}>
+                Tabela <code>notifications.notification_logs</code> nao encontrada.
+              </div>
+            ) : (
+              <>
+                <Grid cols={4}>
+                  <KpiCard label="Tokens ativos" value={data.notifications.activeTokens} sub={`de ${data.notifications.totalUsers} users`} accent={C.greenDark} />
+                  <KpiCard label="Pushes enviados" value={data.notifications.sent} sub="status = sent" accent={C.navy} />
+                  <KpiCard label="Falhas" value={data.notifications.failed} sub="status = failed" accent={data.notifications.failed > 0 ? C.red : C.navyLight} />
+                  <KpiCard label="Taxa de entrega" value={data.notifications.deliveryRatePct != null ? `${data.notifications.deliveryRatePct}%` : '—'} sub="sent / (sent + failed)" accent={data.notifications.deliveryRatePct != null && data.notifications.deliveryRatePct >= 95 ? C.greenDark : C.orange} />
+                </Grid>
+                <Grid cols={4}>
+                  <KpiCard label="Core" value={data.notifications.byCategory.core} sub="daily/praise/streak/goal/weekly/xp" accent={C.navy} />
+                  <KpiCard label="Prevention" value={data.notifications.byCategory.prevention} sub="proativos" accent={C.blue} />
+                  <KpiCard label="Revenue" value={data.notifications.byCategory.revenue} sub="trial/sub" accent={C.orange} />
+                  <KpiCard label="Winback" value={data.notifications.byCategory.winback} sub="re-engajamento" accent={C.red} />
+                </Grid>
+                {data.notifications.byType.length > 0 && (
+                  <TableCard
+                    title="Por tipo"
+                    rows={data.notifications.byType.map(r => [r.type, `${r.sent}`, `${r.uniqueUsers}`])}
+                    cols={['Tipo', 'Envios', 'Users unicos']}
+                  />
+                )}
+                {data.notifications.timeseries.length > 0 && (
+                  <ChartCard title="Pushes por dia">
+                    <MiniBars data={data.notifications.timeseries.map(d => ({ label: d.date.slice(5), value: d.count }))} barColor={C.blue} />
+                  </ChartCard>
+                )}
+              </>
+            )}
+
+            {/* ════════════════════════════════════════════════════════ */}
             {/* CAMADA 2 — CUSTO OPENAI                                */}
             {/* ════════════════════════════════════════════════════════ */}
             <SectionTitle>Custo OpenAI (no periodo)</SectionTitle>
@@ -377,3 +495,95 @@ function MiniBarChart({ data }: { data: Array<{ date: string; cost: number }> })
 }
 
 function round2(n: number): number { return Math.round(n * 100) / 100; }
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ background: C.card, padding: 20, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 16 }}>
+      <div style={{ fontSize: 14, fontWeight: 800, color: C.navy, marginBottom: 16 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
+
+// MiniBars — bar chart generico, uso em MRR trend / DAU / streak / push timeline.
+function MiniBars({
+  data,
+  barColor = C.navy,
+  widthPerBar = 24,
+  formatValue,
+}: {
+  data: Array<{ label: string; value: number }>;
+  barColor?: string;
+  widthPerBar?: number;
+  formatValue?: (v: number) => string;
+}) {
+  const max = Math.max(...data.map(d => d.value), 0.01);
+  const fmt = formatValue ?? ((v: number) => `${v}`);
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 140, overflowX: 'auto', paddingBottom: 28 }}>
+      {data.map((d, i) => (
+        <div key={`${d.label}-${i}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: widthPerBar, position: 'relative' }}>
+          <div
+            title={`${d.label}: ${fmt(d.value)}`}
+            style={{
+              width: widthPerBar * 0.7,
+              height: `${(d.value / max) * 100}%`,
+              minHeight: d.value > 0 ? 2 : 0,
+              background: barColor,
+              borderRadius: '4px 4px 0 0',
+            }}
+          />
+          <div style={{
+            position: 'absolute', bottom: -22,
+            fontSize: 9, color: C.navyLight,
+            transform: 'rotate(-30deg)', transformOrigin: 'center',
+            whiteSpace: 'nowrap',
+          }}>
+            {d.label}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// FunnelChart — barras empilhadas horizontais mostrando queda a cada estagio.
+function FunnelChart({ stages }: { stages: Array<{ stage: string; label: string; count: number; eligibleDenominator?: number }> }) {
+  const top = stages[0]?.count ?? 0;
+  return (
+    <div style={{ background: C.card, padding: 20, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 16 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {stages.map((s, i) => {
+          const denom = s.eligibleDenominator ?? top;
+          const pct = denom === 0 ? 0 : (s.count / denom) * 100;
+          const prev = i > 0 ? stages[i - 1].count : null;
+          const dropPct = prev != null && prev > 0 ? Math.round(((prev - s.count) / prev) * 100) : null;
+          return (
+            <div key={s.stage} style={{ display: 'grid', gridTemplateColumns: '200px 1fr 160px', gap: 12, alignItems: 'center' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.navy }}>{s.label}</div>
+              <div style={{ height: 28, background: C.navyGhost, borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                <div style={{
+                  width: `${Math.max(pct, 2)}%`,
+                  height: '100%',
+                  background: i === stages.length - 1 ? C.greenDark : C.blue,
+                  transition: 'width 0.3s',
+                }} />
+                <div style={{
+                  position: 'absolute', top: 0, left: 8, height: '100%',
+                  display: 'flex', alignItems: 'center',
+                  fontSize: 12, fontWeight: 700, color: '#fff',
+                  textShadow: '0 0 4px rgba(0,0,0,0.25)',
+                }}>
+                  {s.count}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: C.navyLight, textAlign: 'right' }}>
+                {Math.round(pct)}%{dropPct != null ? ` · -${dropPct}% vs anterior` : ''}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

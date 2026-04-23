@@ -66,8 +66,13 @@ export async function GET(req: NextRequest) {
     subscription_product: string | null;
     subscription_expires_at: string | null;
     trial_ends_at: string | null;
+    placement_test_done: boolean;
+    expo_push_token: string | null;
   };
   type PracticeRow = { user_id: string; created_at: string; xp_earned: number | null };
+  type PracticeWideRow = { user_id: string; created_at: string };
+  type ProgressRow = { user_id: string; streak_days: number | null; total_xp: number | null };
+  type NotifRow = { user_id: string; notification_type: string; status: string; created_at: string };
   type UsageRow = {
     user_id: string | null;
     endpoint: string;
@@ -82,23 +87,37 @@ export async function GET(req: NextRequest) {
     created_at: string;
   };
 
-  // Fetch bases in parallel
-  const [usersRes, practicesRes, usageRes] = await Promise.all([
-    supabase.from('charlotte_users').select('id, email, name, created_at, charlotte_level, is_institutional, subscription_status, subscription_product, subscription_expires_at, trial_ends_at'),
-    supabase.from('charlotte_practices').select('user_id, created_at, xp_earned').gte('created_at', from.toISOString()),
+  // Fetch bases in parallel.
+  // practicesAll (last 90d) powers DAU/WAU/MAU charts and retention cohorts;
+  // practicesRange (in selected range) powers funnel + period-specific sums.
+  const d90 = new Date();
+  d90.setDate(d90.getDate() - 90);
+  const [usersRes, practicesRangeRes, practicesWideRes, progressRes, usageRes, notifRes, placementRes] = await Promise.all([
+    supabase.from('charlotte_users').select('id, email, name, created_at, charlotte_level, is_institutional, subscription_status, subscription_product, subscription_expires_at, trial_ends_at, placement_test_done, expo_push_token'),
+    supabase.from('charlotte_practices').select('user_id, created_at, xp_earned').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
+    supabase.from('charlotte_practices').select('user_id, created_at').gte('created_at', d90.toISOString()),
+    supabase.from('charlotte_progress').select('user_id, streak_days, total_xp'),
     // openai_usage pode nao existir ainda — catch silencioso
     supabase.from('openai_usage').select('user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, audio_seconds, audio_input_min, audio_output_min, cost_usd, created_at').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
+    // notification_logs tambem pode nao existir
+    supabase.from('notification_logs').select('user_id, notification_type, status, created_at').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
+    // users.placement_test_done ja veio no users select acima; placementRes fica vazio por ora
+    Promise.resolve({ data: null, error: null }),
   ]);
 
-  if (usersRes.error)     return NextResponse.json({ error: usersRes.error.message },     { status: 500 });
-  if (practicesRes.error) return NextResponse.json({ error: practicesRes.error.message }, { status: 500 });
+  if (usersRes.error)          return NextResponse.json({ error: usersRes.error.message },          { status: 500 });
+  if (practicesRangeRes.error) return NextResponse.json({ error: practicesRangeRes.error.message }, { status: 500 });
 
-  const users     = (usersRes.data     ?? []) as unknown as UserRow[];
-  const practices = (practicesRes.data ?? []) as unknown as PracticeRow[];
-  const usage     = (usageRes.data     ?? []) as unknown as UsageRow[];
+  const users          = (usersRes.data          ?? []) as unknown as UserRow[];
+  const practices      = (practicesRangeRes.data ?? []) as unknown as PracticeRow[];
+  const practicesWide  = (practicesWideRes.data  ?? []) as unknown as PracticeWideRow[];
+  const progress       = (progressRes.data       ?? []) as unknown as ProgressRow[];
+  const usage          = (usageRes.data          ?? []) as unknown as UsageRow[];
+  const notifs         = (notifRes.data          ?? []) as unknown as NotifRow[];
 
-  // usageErr pode ser "relation does not exist" se o user ainda nao rodou a migration
+  // Tabela pode nao existir em algum ambiente (migration pendente).
   const usageTableMissing = Boolean(usageRes.error);
+  const notifTableMissing = Boolean(notifRes.error);
 
   // ─────────────────────────────────────────────────────────────────────────
   // CAMADA 1 — RECEITA & RETENCAO
@@ -255,6 +274,212 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 3 — MRR TREND / QUICK RATIO (item 1)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // New MRR no periodo — assinaturas ativas criadas dentro do range, × rate.
+  const newInRange = activeSubs.filter(u => {
+    const c = new Date(u.created_at);
+    return c >= from && c <= to;
+  });
+  const newMonthly = newInRange.filter(u => u.subscription_product === 'monthly').length;
+  const newYearly  = newInRange.filter(u => u.subscription_product === 'yearly').length;
+  const newMrr = (newMonthly * MONTHLY_PRICE_USD) + (newYearly * YEARLY_PRICE_USD / 12);
+
+  // Churned MRR no periodo — assinaturas expiradas/canceladas com
+  // subscription_expires_at dentro do range.
+  const churnedInRange = nonInstitutional.filter(u => {
+    if (u.subscription_status !== 'cancelled' && u.subscription_status !== 'expired') return false;
+    if (!u.subscription_expires_at) return false;
+    const exp = new Date(u.subscription_expires_at);
+    return exp >= from && exp <= to;
+  });
+  const churnedMonthly = churnedInRange.filter(u => u.subscription_product === 'monthly').length;
+  const churnedYearly  = churnedInRange.filter(u => u.subscription_product === 'yearly').length;
+  const churnedMrr = (churnedMonthly * MONTHLY_PRICE_USD) + (churnedYearly * YEARLY_PRICE_USD / 12);
+
+  const quickRatio = churnedMrr <= 0.001
+    ? (newMrr > 0 ? 99 : 0)
+    : round2(newMrr / churnedMrr);
+
+  // Novos assinantes por semana (12 semanas) — usado em MRR trend chart.
+  const mrrWeekly: Record<string, number> = {};
+  const d84 = new Date(); d84.setDate(d84.getDate() - 84);
+  for (const u of nonInstitutional) {
+    if (u.subscription_status !== 'active' && u.subscription_status !== 'cancelled' && u.subscription_status !== 'expired') continue;
+    const c = new Date(u.created_at);
+    if (c < d84) continue;
+    const weekStart = new Date(c);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7));
+    const key = weekStart.toISOString().slice(0, 10);
+    const rate = u.subscription_product === 'yearly' ? YEARLY_PRICE_USD / 12 : MONTHLY_PRICE_USD;
+    mrrWeekly[key] = (mrrWeekly[key] ?? 0) + rate;
+  }
+  const mrrTrend = Object.entries(mrrWeekly)
+    .map(([week, amount]) => ({ week, amount: round2(amount) }))
+    .sort((a, b) => a.week.localeCompare(b.week));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 4 — ENGAGEMENT / DAU-WAU-MAU (item 2)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const nowTs = Date.now();
+  const practicesWideByUser = new Map<string, number[]>();
+  for (const p of practicesWide) {
+    const uid = String(p.user_id);
+    const ts  = new Date(p.created_at).getTime();
+    if (!practicesWideByUser.has(uid)) practicesWideByUser.set(uid, []);
+    practicesWideByUser.get(uid)!.push(ts);
+  }
+
+  const oneDay = 86400000;
+  const dauUsers = new Set<string>();
+  const wauUsers = new Set<string>();
+  const mauUsers = new Set<string>();
+  for (const [uid, tsArr] of practicesWideByUser) {
+    for (const t of tsArr) {
+      const age = nowTs - t;
+      if (age <= oneDay)     dauUsers.add(uid);
+      if (age <= 7 * oneDay) wauUsers.add(uid);
+      if (age <= 30 * oneDay) mauUsers.add(uid);
+    }
+  }
+  const dau = dauUsers.size;
+  const wau = wauUsers.size;
+  const mau = mauUsers.size;
+  const stickinessPct = mau === 0 ? null : Math.round((dau / mau) * 100);
+
+  // DAU por dia — ultimos 90 dias.
+  const dauByDay: Record<string, Set<string>> = {};
+  for (let i = 0; i < 90; i++) {
+    const d = new Date(nowTs - i * oneDay);
+    dauByDay[d.toISOString().slice(0, 10)] = new Set();
+  }
+  for (const p of practicesWide) {
+    const day = (p.created_at as string).slice(0, 10);
+    if (dauByDay[day]) dauByDay[day].add(String(p.user_id));
+  }
+  const dauTimeseries = Object.entries(dauByDay)
+    .map(([date, s]) => ({ date, dau: s.size }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 5 — FUNIL DE ATIVACAO (item 3)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Cohort: nao-institucionais criados no range.
+  const funnelCohort = nonInstitutional.filter(u => {
+    const c = new Date(u.created_at);
+    return c >= from && c <= to;
+  });
+
+  // Mapa de pratica (agora usa practicesWide por ser cohort potencialmente maior
+  // que o range selecionado — ex: range 7d mas funil fica em 90d).
+  const funnelPracticeCount = new Map<string, number>();
+  for (const p of practicesWide) {
+    const uid = String(p.user_id);
+    funnelPracticeCount.set(uid, (funnelPracticeCount.get(uid) ?? 0) + 1);
+  }
+
+  const signups       = funnelCohort.length;
+  const didPlacement  = funnelCohort.filter(u => u.placement_test_done === true).length;
+  const firstPractice = funnelCohort.filter(u => (funnelPracticeCount.get(String(u.id)) ?? 0) >= 1).length;
+  const threePractices = funnelCohort.filter(u => (funnelPracticeCount.get(String(u.id)) ?? 0) >= 3).length;
+  const trialToPaid   = funnelCohort.filter(u =>
+    u.trial_ends_at != null &&
+    (u.subscription_status === 'active' || u.subscription_status === 'cancelled' || u.subscription_status === 'expired')
+  ).length;
+
+  // Retained 30d entre cohort users com idade ≥ 30 dias.
+  const retained30Base = funnelCohort.filter(u => {
+    const age = (nowTs - new Date(u.created_at).getTime()) / oneDay;
+    return age >= 30;
+  });
+  const retained30 = retained30Base.filter(u => {
+    const created = new Date(u.created_at).getTime();
+    const tsArr = practicesWideByUser.get(String(u.id)) ?? [];
+    return tsArr.some(t => (t - created) >= 30 * oneDay);
+  }).length;
+
+  const funnelStages = [
+    { stage: 'signup',          label: 'Signup',                 count: signups },
+    { stage: 'placement',       label: 'Placement test done',    count: didPlacement },
+    { stage: 'first_practice',  label: '1a pratica',             count: firstPractice },
+    { stage: 'three_practices', label: '3+ praticas',            count: threePractices },
+    { stage: 'trial_to_paid',   label: 'Trial → pago',           count: trialToPaid },
+    { stage: 'retained_30d',    label: 'Retidos 30d',
+      count: retained30, eligibleDenominator: retained30Base.length },
+  ];
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 6 — STREAK DISTRIBUTION (item 4)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const nonInstIds = new Set(nonInstitutional.map(u => String(u.id)));
+  const streakBuckets = { '0': 0, '1-3': 0, '4-7': 0, '8-14': 0, '15-30': 0, '30+': 0 };
+  let usersWithProgress = 0;
+  for (const p of progress) {
+    if (!nonInstIds.has(String(p.user_id))) continue;
+    const s = p.streak_days ?? 0;
+    usersWithProgress += 1;
+    if (s === 0) streakBuckets['0']  += 1;
+    else if (s <= 3)  streakBuckets['1-3']  += 1;
+    else if (s <= 7)  streakBuckets['4-7']  += 1;
+    else if (s <= 14) streakBuckets['8-14'] += 1;
+    else if (s <= 30) streakBuckets['15-30'] += 1;
+    else              streakBuckets['30+']  += 1;
+  }
+  const streakDistribution = Object.entries(streakBuckets).map(([bucket, count]) => ({ bucket, count }));
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 7 — PUSH NOTIFICATIONS (item 5)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const activeTokens = users.filter(u => u.expo_push_token && u.expo_push_token.startsWith('ExponentPushToken[')).length;
+
+  const sentNotifs   = notifs.filter(n => n.status === 'sent' && n.notification_type !== 'scheduler_lock');
+  const failedNotifs = notifs.filter(n => n.status === 'failed');
+  const totalAttempts = sentNotifs.length + failedNotifs.length;
+  const deliveryRatePct = totalAttempts === 0 ? null : Math.round((sentNotifs.length / totalAttempts) * 100);
+
+  // Por tipo
+  const byNotifType: Record<string, { sent: number; users: Set<string> }> = {};
+  for (const n of sentNotifs) {
+    const key = n.notification_type;
+    if (!byNotifType[key]) byNotifType[key] = { sent: 0, users: new Set() };
+    byNotifType[key].sent += 1;
+    byNotifType[key].users.add(String(n.user_id));
+  }
+  const notificationsByType = Object.entries(byNotifType)
+    .map(([type, v]) => ({ type, sent: v.sent, uniqueUsers: v.users.size }))
+    .sort((a, b) => b.sent - a.sent);
+
+  // Por categoria (engagement atual ja define os 15 tipos de re-engagement).
+  const CORE_TYPES = new Set(['streak_reminder', 'daily_reminder', 'charlotte_message', 'xp_milestone', 'goal_reminder', 'weekly_challenge']);
+  const PREVENTION_TYPES = new Set(['streak_saver', 'streak_milestone_ahead', 'level_imminent', 'micro_checkin', 'cadence_drop', 'weekly_recap', 'charlotte_checkin']);
+  const REVENUE_TYPES = new Set(['trial_ending_72h', 'trial_ending_24h', 'sub_expired_1d']);
+  const WINBACK_TYPES = new Set(['streak_broken', 'reengagement_3d', 'reengagement_7d', 'reengagement_14d', 'reengagement_30d']);
+
+  const notifsByCategory = { core: 0, prevention: 0, revenue: 0, winback: 0 };
+  for (const n of sentNotifs) {
+    if      (CORE_TYPES.has(n.notification_type))       notifsByCategory.core       += 1;
+    else if (PREVENTION_TYPES.has(n.notification_type)) notifsByCategory.prevention += 1;
+    else if (REVENUE_TYPES.has(n.notification_type))    notifsByCategory.revenue    += 1;
+    else if (WINBACK_TYPES.has(n.notification_type))    notifsByCategory.winback    += 1;
+  }
+
+  // Timeline por dia
+  const notifsByDay: Record<string, number> = {};
+  for (const n of sentNotifs) {
+    const day = (n.created_at as string).slice(0, 10);
+    notifsByDay[day] = (notifsByDay[day] ?? 0) + 1;
+  }
+  const notifsTimeseries = Object.entries(notifsByDay)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // ─────────────────────────────────────────────────────────────────────────
   return NextResponse.json({
     range: { from: from.toISOString(), to: to.toISOString(), days },
     revenue: {
@@ -282,6 +507,33 @@ export async function GET(req: NextRequest) {
       byModel,
       topUsers,
       timeseries,
+    },
+    // ── New sections (high-priority pack) ───────────────────────────────
+    mrrHealth: {
+      newMrr:      round2(newMrr),
+      churnedMrr:  round2(churnedMrr),
+      quickRatio,
+      newInRange:     { monthly: newMonthly,     yearly: newYearly,     count: newInRange.length },
+      churnedInRange: { monthly: churnedMonthly, yearly: churnedYearly, count: churnedInRange.length },
+      mrrTrend,
+    },
+    engagement: {
+      dau, wau, mau,
+      stickinessPct,
+      dauTimeseries,
+    },
+    activationFunnel: funnelStages,
+    streakDistribution,
+    notifications: {
+      tableMissing: notifTableMissing,
+      activeTokens,
+      totalUsers: users.length,
+      sent: sentNotifs.length,
+      failed: failedNotifs.length,
+      deliveryRatePct,
+      byType: notificationsByType,
+      byCategory: notifsByCategory,
+      timeseries: notifsTimeseries,
     },
   });
 }
