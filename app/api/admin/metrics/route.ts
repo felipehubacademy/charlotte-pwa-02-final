@@ -256,7 +256,7 @@ export async function GET(req: NextRequest) {
     costByEndpoint[r.endpoint].tokens += (r.total_tokens || 0);
   }
   const byEndpoint = Object.entries(costByEndpoint)
-    .map(([endpoint, v]) => ({ endpoint, ...v, cost: round2(v.cost) }))
+    .map(([endpoint, v]) => ({ endpoint, ...v, cost: round6(v.cost) }))
     .sort((a, b) => b.cost - a.cost);
 
   // Por model
@@ -268,7 +268,7 @@ export async function GET(req: NextRequest) {
     costByModel[r.model].tokens += (r.total_tokens || 0);
   }
   const byModel = Object.entries(costByModel)
-    .map(([model, v]) => ({ model, ...v, cost: round2(v.cost) }))
+    .map(([model, v]) => ({ model, ...v, cost: round6(v.cost) }))
     .sort((a, b) => b.cost - a.cost);
 
   // Top 10 users por custo
@@ -285,7 +285,7 @@ export async function GET(req: NextRequest) {
         userId,
         email: u?.email ?? null,
         name:  u?.name  ?? null,
-        cost:  round2(cost),
+        cost:  round6(cost),
       };
     })
     .sort((a, b) => b.cost - a.cost)
@@ -301,7 +301,7 @@ export async function GET(req: NextRequest) {
     costPerDay[day] = (costPerDay[day] ?? 0) + Number(r.cost_usd || 0);
   }
   const timeseries = Object.entries(costPerDay)
-    .map(([date, cost]) => ({ date, cost: round2(cost) }))
+    .map(([date, cost]) => ({ date, cost: round6(cost) }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -651,7 +651,7 @@ export async function GET(req: NextRequest) {
     dau:      prevDauUsers.size,
     mau:      prevMau,
     notificationsSent: prevSent,
-    totalCost: round2(prevCost),
+    totalCost: round6(prevCost),
   };
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -733,9 +733,9 @@ export async function GET(req: NextRequest) {
     retention,
     openai: {
       tableMissing: usageTableMissing,
-      totalCost: round2(totalCost),
+      totalCost: round6(totalCost),
       callCount,
-      costPerActiveSub: round4(costPerActiveSub),
+      costPerActiveSub: round6(costPerActiveSub),
       byEndpoint,
       byModel,
       topUsers,
@@ -780,3 +780,4 @@ export async function GET(req: NextRequest) {
 
 function round2(n: number): number { return Math.round(n * 100) / 100; }
 function round4(n: number): number { return Math.round(n * 10000) / 10000; }
+function round6(n: number): number { return Math.round(n * 1000000) / 1000000; }

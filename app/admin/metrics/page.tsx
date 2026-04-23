@@ -59,6 +59,13 @@ type Tab = 'overview' | 'engagement' | 'retention' | 'push' | 'costs';
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const fmtBRL = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const fmtN   = (v: number) => v.toLocaleString('pt-BR');
+const fmtUSD = (v: number): string => {
+  if (v === 0) return 'US$ 0.00';
+  const abs = Math.abs(v);
+  if (abs >= 0.10)  return `US$ ${v.toFixed(2)}`;
+  if (abs >= 0.001) return `US$ ${v.toFixed(4)}`;
+  return `US$ ${v.toFixed(6)}`;
+};
 const fmtPct = (v: number | null) => v == null ? '—' : `${v.toFixed(1)}%`;
 const fmtHrs = (h: number | null) => h == null ? '—' : h < 1 ? `${Math.round(h * 60)}min` : `${h.toFixed(1)}h`;
 const pctDelta = (curr: number, prev: number): number | null => prev ? ((curr - prev) / prev) * 100 : null;
@@ -680,11 +687,11 @@ export default function MetricsPage() {
       <Sec>APIs Externas — Resumo</Sec>
       <div className="adm-grid" style={{ marginBottom: 20 }}>
         <div className="col-4">
-          <KpiCard label="Custo Total APIs" display={g ? fmtBRL(g.openai.totalCost) : '—'}
+          <KpiCard label="Custo Total APIs" display={g ? fmtUSD(g.openai.totalCost) : '—'}
             dlt={prev && g ? pctDelta(g.openai.totalCost, prev.totalCost) : undefined}
             ctx="OpenAI + ElevenLabs + Azure" accent="var(--warn)" delay={0} />
         </div>
-        <div className="col-4"><KpiCard label="Custo/Assinante" display={g ? fmtBRL(g.openai.costPerActiveSub) : '—'} ctx="custo total / assinante ativo" delay={60} /></div>
+        <div className="col-4"><KpiCard label="Custo/Assinante" display={g ? fmtUSD(g.openai.costPerActiveSub) : '—'} ctx="custo total / assinante ativo" delay={60} /></div>
         <div className="col-4"><KpiCard label="Requisições" value={g?.openai.callCount} ctx="chamadas a APIs externas no período" delay={120} /></div>
       </div>
 
@@ -717,7 +724,7 @@ export default function MetricsPage() {
                       <tr key={e.endpoint}>
                         <td style={{ maxWidth: 180 }}><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{e.endpoint}</span></td>
                         <td><span style={{ fontSize: 11, fontWeight: 600, color: provColor }}>{prov}</span></td>
-                        <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtBRL(e.cost)}</span></td>
+                        <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtUSD(e.cost)}</span></td>
                         <td style={{ textAlign: 'right' }}><span className="num">{fmtN(e.calls)}</span></td>
                       </tr>
                     );
@@ -735,7 +742,7 @@ export default function MetricsPage() {
                   {g.openai.byModel.map(m => (
                     <tr key={m.model}>
                       <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{m.model}</span></td>
-                      <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtBRL(m.cost)}</span></td>
+                      <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtUSD(m.cost)}</span></td>
                       <td style={{ textAlign: 'right' }}><span className="num">{fmtN(m.tokens)}</span></td>
                     </tr>
                   ))}
@@ -757,7 +764,7 @@ export default function MetricsPage() {
                       <tr key={u.userId}>
                         <td>{u.name ?? <span style={{ color: 'var(--t3)' }}>—</span>}</td>
                         <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{u.email ?? '—'}</span></td>
-                        <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtBRL(u.cost)}</span></td>
+                        <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtUSD(u.cost)}</span></td>
                       </tr>
                     ))}
                   </tbody>
