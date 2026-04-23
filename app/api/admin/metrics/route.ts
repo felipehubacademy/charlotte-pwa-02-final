@@ -44,6 +44,13 @@ function parseRange(req: NextRequest): { from: Date; to: Date; days: number } {
   return { from: f, to: now, days };
 }
 
+// Segmentation filters (?level=Novice&plan=monthly&institutional=no).
+function parseFilters(req: NextRequest) {
+  const level  = req.nextUrl.searchParams.get('level') || null;         // Novice | Inter | Advanced
+  const plan   = req.nextUrl.searchParams.get('plan')  || null;         // trial | monthly | yearly
+  return { level, plan };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/admin/metrics
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,6 +59,10 @@ export async function GET(req: NextRequest) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { from, to, days } = parseRange(req);
+  const filters = parseFilters(req);
+  // Previous period of the SAME length, ending where current starts.
+  const prevTo   = new Date(from.getTime() - 1);
+  const prevFrom = new Date(prevTo.getTime() - days * 86400000);
   const supabase = getSupabaseAdmin();
 
   // Types locais (Supabase retorna `unknown` sem tipagem global)
@@ -108,12 +119,32 @@ export async function GET(req: NextRequest) {
   if (usersRes.error)          return NextResponse.json({ error: usersRes.error.message },          { status: 500 });
   if (practicesRangeRes.error) return NextResponse.json({ error: practicesRangeRes.error.message }, { status: 500 });
 
-  const users          = (usersRes.data          ?? []) as unknown as UserRow[];
-  const practices      = (practicesRangeRes.data ?? []) as unknown as PracticeRow[];
-  const practicesWide  = (practicesWideRes.data  ?? []) as unknown as PracticeWideRow[];
-  const progress       = (progressRes.data       ?? []) as unknown as ProgressRow[];
+  const usersAll       = (usersRes.data          ?? []) as unknown as UserRow[];
+  let   practices      = (practicesRangeRes.data ?? []) as unknown as PracticeRow[];
+  let   practicesWide  = (practicesWideRes.data  ?? []) as unknown as PracticeWideRow[];
+  let   progress       = (progressRes.data       ?? []) as unknown as ProgressRow[];
   const usage          = (usageRes.data          ?? []) as unknown as UsageRow[];
-  const notifs         = (notifRes.data          ?? []) as unknown as NotifRow[];
+  let   notifs         = (notifRes.data          ?? []) as unknown as NotifRow[];
+
+  // Apply segmentation filters early so every downstream metric respects them.
+  let users = usersAll;
+  if (filters.level) {
+    users = users.filter(u => u.charlotte_level === filters.level);
+  }
+  if (filters.plan) {
+    // 'trial' filters by status; 'monthly' / 'yearly' filters by product.
+    if (filters.plan === 'trial') users = users.filter(u => u.subscription_status === 'trial');
+    else if (filters.plan === 'monthly' || filters.plan === 'yearly') {
+      users = users.filter(u => u.subscription_product === filters.plan);
+    }
+  }
+  const filteredIds = new Set(users.map(u => String(u.id)));
+  if (filters.level || filters.plan) {
+    practices     = practices.filter(p => filteredIds.has(String(p.user_id)));
+    practicesWide = practicesWide.filter(p => filteredIds.has(String(p.user_id)));
+    progress      = progress.filter(p => filteredIds.has(String(p.user_id)));
+    notifs        = notifs.filter(n => filteredIds.has(String(n.user_id)));
+  }
 
   // Tabela pode nao existir em algum ambiente (migration pendente).
   const usageTableMissing = Boolean(usageRes.error);
@@ -480,6 +511,208 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 8 — RETENTION CURVES por cohort semanal (item 6)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Ultimas 8 cohorts semanais + survival rate a cada semana ate 8 semanas.
+  const weeksAgo = (n: number) => {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); // Mon start
+    d.setUTCDate(d.getUTCDate() - n * 7);
+    return d;
+  };
+  const cohortWeeks: { start: Date; end: Date }[] = [];
+  for (let w = 7; w >= 0; w--) {
+    const start = weeksAgo(w);
+    const end   = new Date(start.getTime() + 7 * oneDay - 1);
+    cohortWeeks.push({ start, end });
+  }
+
+  const retentionCohorts = cohortWeeks.map(({ start, end }) => {
+    const cohort = users.filter(u => {
+      const c = new Date(u.created_at);
+      return c >= start && c <= end;
+    });
+    const size = cohort.length;
+    const survivalAt = (weeksOffset: number) => {
+      if (size === 0) return null;
+      const threshold = weeksOffset * 7 * oneDay;
+      const retainedCount = cohort.filter(u => {
+        const age = nowTs - new Date(u.created_at).getTime();
+        if (age < threshold) return null;
+        const tsArr = practicesWideByUser.get(String(u.id)) ?? [];
+        const created = new Date(u.created_at).getTime();
+        return tsArr.some(t => (t - created) >= threshold);
+      }).filter(Boolean).length;
+      // Eligible = cohort size (they've all aged at least weeksOffset weeks
+      // only if the cohort's end >= weeksOffset weeks ago).
+      const cohortOldestAge = nowTs - start.getTime();
+      if (cohortOldestAge < threshold) return null;
+      return Math.round((retainedCount / size) * 100);
+    };
+    return {
+      cohort: start.toISOString().slice(0, 10),
+      size,
+      survival: {
+        w1: survivalAt(1), w2: survivalAt(2), w3: survivalAt(3),
+        w4: survivalAt(4), w6: survivalAt(6), w8: survivalAt(8),
+      },
+    };
+  });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 9 — TIME TO FIRST VALUE (item 7)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const ttfvHours: number[] = [];
+  for (const u of users) {
+    const arr = practicesWideByUser.get(String(u.id)) ?? [];
+    if (!arr.length) continue;
+    const first = Math.min(...arr);
+    const createdAt = new Date(u.created_at).getTime();
+    const hours = (first - createdAt) / 3600000;
+    if (hours < 0) continue; // impossible, defensive
+    ttfvHours.push(hours);
+  }
+  ttfvHours.sort((a, b) => a - b);
+  const percentile = (arr: number[], p: number) =>
+    arr.length === 0 ? null : arr[Math.min(arr.length - 1, Math.floor(arr.length * p))];
+  const ttfvBuckets = [
+    { bucket: '<1h',     min: 0,      max: 1 },
+    { bucket: '1-24h',   min: 1,      max: 24 },
+    { bucket: '1-3d',    min: 24,     max: 72 },
+    { bucket: '3-7d',    min: 72,     max: 168 },
+    { bucket: '7-30d',   min: 168,    max: 720 },
+    { bucket: '>30d',    min: 720,    max: Infinity },
+  ];
+  const ttfvDistribution = ttfvBuckets.map(b => ({
+    bucket: b.bucket,
+    count:  ttfvHours.filter(h => h >= b.min && h < b.max).length,
+  }));
+  const timeToFirstValue = {
+    sampleSize: ttfvHours.length,
+    medianHours: percentile(ttfvHours, 0.5),
+    p90Hours:    percentile(ttfvHours, 0.9),
+    distribution: ttfvDistribution,
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 10 — PRACTICE HEATMAP hora local × dia da semana (item 11)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Assume BRT (UTC-3) por enquanto — maioria dos users. Poderia virar
+  // per-user timezone depois quando a base diversificar.
+  const heatmap: number[][] = Array.from({ length: 7 }, () => Array(24).fill(0));
+  for (const p of practicesWide) {
+    const d = new Date(p.created_at);
+    const brt = new Date(d.getTime() - 3 * 3600000);
+    const dow = brt.getUTCDay(); // 0 = Sunday
+    const h   = brt.getUTCHours();
+    heatmap[dow][h] += 1;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 11 — PREVIOUS PERIOD comparison (itens 9 e 10)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Key metrics recomputed for prevFrom..prevTo so the UI pode mostrar
+  // trend arrows e detectar anomalias.
+  const prevPracticesByUser = new Map<string, number[]>();
+  for (const p of practicesWide) {
+    const t = new Date(p.created_at).getTime();
+    if (t < prevFrom.getTime() || t > prevTo.getTime()) continue;
+    const uid = String(p.user_id);
+    if (!prevPracticesByUser.has(uid)) prevPracticesByUser.set(uid, []);
+    prevPracticesByUser.get(uid)!.push(t);
+  }
+  const prevDauUsers = new Set<string>();
+  for (const [uid, arr] of prevPracticesByUser) {
+    const mostRecent = Math.max(...arr);
+    if ((prevTo.getTime() - mostRecent) <= oneDay) prevDauUsers.add(uid);
+  }
+  const prevMau = prevPracticesByUser.size;
+  const prevNewUsers = users.filter(u => {
+    const c = new Date(u.created_at);
+    return c >= prevFrom && c <= prevTo;
+  }).length;
+  const prevSent = notifs.filter(n =>
+    n.status === 'sent' &&
+    n.notification_type !== 'scheduler_lock' &&
+    new Date(n.created_at) >= prevFrom && new Date(n.created_at) <= prevTo,
+  ).length;
+  const prevCost = usage
+    .filter(r => new Date(r.created_at) >= prevFrom && new Date(r.created_at) <= prevTo)
+    .reduce((s, r) => s + Number(r.cost_usd || 0), 0);
+
+  const previousPeriod = {
+    range: { from: prevFrom.toISOString(), to: prevTo.toISOString() },
+    newUsers: prevNewUsers,
+    dau:      prevDauUsers.size,
+    mau:      prevMau,
+    notificationsSent: prevSent,
+    totalCost: round2(prevCost),
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // CAMADA 12 — ALERTAS / ANOMALIAS (item 10)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  type Alert = { severity: 'warn' | 'critical'; message: string };
+  const alerts: Alert[] = [];
+
+  // Churn alert
+  if (churnPct != null && churnPct >= 10) {
+    alerts.push({
+      severity: churnPct >= 20 ? 'critical' : 'warn',
+      message: `Churn em ${churnPct}% — acima do saudavel (<10%).`,
+    });
+  }
+
+  // Stickiness
+  if (stickinessPct != null && stickinessPct < 20 && mau > 0) {
+    alerts.push({
+      severity: 'warn',
+      message: `Stickiness (DAU/MAU) em ${stickinessPct}% — abaixo do benchmark de 20%.`,
+    });
+  }
+
+  // Delivery rate
+  if (deliveryRatePct != null && deliveryRatePct < 95 && totalAttempts >= 10) {
+    alerts.push({
+      severity: deliveryRatePct < 85 ? 'critical' : 'warn',
+      message: `Taxa de entrega de push em ${deliveryRatePct}%. Verifique tokens/FCM.`,
+    });
+  }
+
+  // Cost per active sub up > 30%
+  const prevCostPerActive = activeSubs.length > 0 ? prevCost / activeSubs.length : 0;
+  if (prevCostPerActive > 0 && costPerActiveSub > prevCostPerActive * 1.3) {
+    const pctUp = Math.round(((costPerActiveSub - prevCostPerActive) / prevCostPerActive) * 100);
+    alerts.push({
+      severity: 'warn',
+      message: `Custo por assinante subiu ${pctUp}% vs periodo anterior.`,
+    });
+  }
+
+  // DAU dropping vs prev
+  if (prevDauUsers.size >= 5 && dau < prevDauUsers.size * 0.7) {
+    const pctDown = Math.round(((prevDauUsers.size - dau) / prevDauUsers.size) * 100);
+    alerts.push({
+      severity: 'warn',
+      message: `DAU caiu ${pctDown}% vs periodo anterior.`,
+    });
+  }
+
+  // Trial conversion tanking
+  if (trialConversionPct != null && trialConversionPct < 15 && hadTrial >= 10) {
+    alerts.push({
+      severity: 'warn',
+      message: `Conversao trial → pago em ${trialConversionPct}%. Benchmark SaaS: 25-40%.`,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
   return NextResponse.json({
     range: { from: from.toISOString(), to: to.toISOString(), days },
     revenue: {
@@ -535,6 +768,13 @@ export async function GET(req: NextRequest) {
       byCategory: notifsByCategory,
       timeseries: notifsTimeseries,
     },
+    // ── Medium priority + polish (items 6–11) ──────────────────────────
+    retentionCohorts,
+    timeToFirstValue,
+    practiceHeatmap: heatmap,
+    previousPeriod,
+    alerts,
+    filters,
   });
 }
 

@@ -61,6 +61,31 @@ interface MetricsResponse {
     byCategory: { core: number; prevention: number; revenue: number; winback: number };
     timeseries: Array<{ date: string; count: number }>;
   };
+  retentionCohorts: Array<{
+    cohort: string;
+    size: number;
+    survival: {
+      w1: number | null; w2: number | null; w3: number | null;
+      w4: number | null; w6: number | null; w8: number | null;
+    };
+  }>;
+  timeToFirstValue: {
+    sampleSize: number;
+    medianHours: number | null;
+    p90Hours: number | null;
+    distribution: Array<{ bucket: string; count: number }>;
+  };
+  practiceHeatmap: number[][]; // 7×24
+  previousPeriod: {
+    range: { from: string; to: string };
+    newUsers: number;
+    dau: number;
+    mau: number;
+    notificationsSent: number;
+    totalCost: number;
+  };
+  alerts: Array<{ severity: 'warn' | 'critical'; message: string }>;
+  filters: { level: string | null; plan: string | null };
 }
 
 // ── Palette (mesmo do /admin) ────────────────────────────────────────────────
@@ -93,13 +118,18 @@ export default function MetricsPage() {
   const [preset, setPreset]       = useState<RangePreset>('30d');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo]     = useState('');
+  const [levelFilter, setLevelFilter] = useState<string>('');
+  const [planFilter,  setPlanFilter]  = useState<string>('');
 
   useEffect(() => {
     const s = sessionStorage.getItem('admin_secret');
     if (s) { setSecret(s); setAuthed(true); }
   }, []);
 
-  const fetchMetrics = useCallback(async (s: string, p: RangePreset, f: string, t: string) => {
+  const fetchMetrics = useCallback(async (
+    s: string, p: RangePreset, f: string, t: string,
+    level: string, plan: string,
+  ) => {
     setLoading(true);
     setError('');
     try {
@@ -110,6 +140,8 @@ export default function MetricsPage() {
       } else {
         qs.set('days', p.replace('d', ''));
       }
+      if (level) qs.set('level', level);
+      if (plan)  qs.set('plan',  plan);
       const res = await fetch(`/api/admin/metrics?${qs}`, { headers: { 'x-admin-secret': s } });
       if (res.status === 401) { setError('Senha incorreta.'); setAuthed(false); return; }
       const json = await res.json();
@@ -125,8 +157,8 @@ export default function MetricsPage() {
   useEffect(() => {
     if (!authed || !secret) return;
     if (preset === 'custom' && (!customFrom || !customTo)) return;
-    fetchMetrics(secret, preset, customFrom, customTo);
-  }, [authed, secret, preset, customFrom, customTo, fetchMetrics]);
+    fetchMetrics(secret, preset, customFrom, customTo, levelFilter, planFilter);
+  }, [authed, secret, preset, customFrom, customTo, levelFilter, planFilter, fetchMetrics]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -224,6 +256,65 @@ export default function MetricsPage() {
           {loading && <span style={{ color: C.navyLight, fontSize: 13, marginLeft: 'auto' }}>carregando...</span>}
         </div>
 
+        {/* ── Segmentation filters ──────────────────────────────────── */}
+        <div style={{ background: C.card, padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 24, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ color: C.navyMid, fontSize: 13, fontWeight: 700 }}>Segmentar por:</span>
+          <select
+            value={levelFilter}
+            onChange={(e) => setLevelFilter(e.target.value)}
+            style={{ padding: '7px 10px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}
+          >
+            <option value="">Todos os niveis</option>
+            <option value="Novice">Novice</option>
+            <option value="Inter">Inter</option>
+            <option value="Advanced">Advanced</option>
+          </select>
+          <select
+            value={planFilter}
+            onChange={(e) => setPlanFilter(e.target.value)}
+            style={{ padding: '7px 10px', border: `1px solid ${C.border}`, borderRadius: 8, fontSize: 13, fontFamily: 'inherit', background: '#fff' }}
+          >
+            <option value="">Todos os planos</option>
+            <option value="trial">Trial</option>
+            <option value="monthly">Monthly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+          {(levelFilter || planFilter) && (
+            <button
+              onClick={() => { setLevelFilter(''); setPlanFilter(''); }}
+              style={{ padding: '6px 12px', background: 'transparent', color: C.navyMid, border: `1px solid ${C.border}`, borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, fontFamily: 'inherit' }}
+            >
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
+        {/* ── Alerts banner ─────────────────────────────────────────── */}
+        {data && data.alerts && data.alerts.length > 0 && (
+          <div style={{ marginBottom: 24 }}>
+            {data.alerts.map((a, i) => (
+              <div
+                key={i}
+                style={{
+                  background: a.severity === 'critical' ? '#FEE2E2' : '#FEF3C7',
+                  border: `1px solid ${a.severity === 'critical' ? '#FECACA' : '#FDE68A'}`,
+                  color: a.severity === 'critical' ? '#991B1B' : '#92400E',
+                  padding: '12px 16px',
+                  borderRadius: 10,
+                  fontSize: 13,
+                  marginBottom: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>{a.severity === 'critical' ? '🚨' : '⚠️'}</span>
+                <span>{a.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {error && (
           <div style={{ background: '#FEF2F2', color: C.red, padding: 14, borderRadius: 10, marginBottom: 16, fontSize: 14 }}>
             {error}
@@ -261,7 +352,13 @@ export default function MetricsPage() {
 
             <SectionTitle>Base de usuarios</SectionTitle>
             <Grid cols={3}>
-              <KpiCard label={`Novos no periodo`} value={data.revenue.newUsers} sub={`${data.range.days} dias`} accent={C.navy} />
+              <KpiCard
+                label={`Novos no periodo`}
+                value={data.revenue.newUsers}
+                sub={`${data.range.days} dias`}
+                accent={C.navy}
+                trendDelta={trendDelta(data.revenue.newUsers, data.previousPeriod.newUsers)}
+              />
               <KpiCard label="Nao-institucionais" value={data.revenue.totalNonInstitutional} sub="base B2C" accent={C.navy} />
               <KpiCard label="Total de usuarios" value={data.revenue.totalUsers} sub="B2C + B2B" accent={C.navy} />
             </Grid>
@@ -287,9 +384,21 @@ export default function MetricsPage() {
             {/* ════════════════════════════════════════════════════════ */}
             <SectionTitle>Engagement</SectionTitle>
             <Grid cols={4}>
-              <KpiCard label="DAU" value={data.engagement.dau} sub="users ativos hoje" accent={C.navy} />
+              <KpiCard
+                label="DAU"
+                value={data.engagement.dau}
+                sub="users ativos hoje"
+                accent={C.navy}
+                trendDelta={trendDelta(data.engagement.dau, data.previousPeriod.dau)}
+              />
               <KpiCard label="WAU" value={data.engagement.wau} sub="ativos ultimos 7d" accent={C.navy} />
-              <KpiCard label="MAU" value={data.engagement.mau} sub="ativos ultimos 30d" accent={C.navy} />
+              <KpiCard
+                label="MAU"
+                value={data.engagement.mau}
+                sub="ativos ultimos 30d"
+                accent={C.navy}
+                trendDelta={trendDelta(data.engagement.mau, data.previousPeriod.mau)}
+              />
               <KpiCard
                 label="Stickiness (DAU/MAU)"
                 value={data.engagement.stickinessPct != null ? `${data.engagement.stickinessPct}%` : '—'}
@@ -359,6 +468,52 @@ export default function MetricsPage() {
             )}
 
             {/* ════════════════════════════════════════════════════════ */}
+            {/* RETENTION CURVES por cohort semanal                     */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Retention por cohort semanal (8 ultimas)</SectionTitle>
+            <RetentionCohortTable cohorts={data.retentionCohorts} />
+
+            {/* ════════════════════════════════════════════════════════ */}
+            {/* TIME TO FIRST VALUE                                     */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Time to first value</SectionTitle>
+            <Grid cols={3}>
+              <KpiCard
+                label="Mediana (P50)"
+                value={data.timeToFirstValue.medianHours != null ? formatHours(data.timeToFirstValue.medianHours) : '—'}
+                sub="do signup a 1a pratica"
+                accent={C.blue}
+              />
+              <KpiCard
+                label="P90"
+                value={data.timeToFirstValue.p90Hours != null ? formatHours(data.timeToFirstValue.p90Hours) : '—'}
+                sub="90% dos users"
+                accent={C.blue}
+              />
+              <KpiCard
+                label="Amostra"
+                value={data.timeToFirstValue.sampleSize}
+                sub="users com 1a pratica"
+                accent={C.navy}
+              />
+            </Grid>
+            {data.timeToFirstValue.distribution.length > 0 && (
+              <ChartCard title="Distribuicao TTFV">
+                <MiniBars
+                  data={data.timeToFirstValue.distribution.map(d => ({ label: d.bucket, value: d.count }))}
+                  barColor={C.blue}
+                  widthPerBar={80}
+                />
+              </ChartCard>
+            )}
+
+            {/* ════════════════════════════════════════════════════════ */}
+            {/* PRACTICE HEATMAP hora BRT × dia da semana              */}
+            {/* ════════════════════════════════════════════════════════ */}
+            <SectionTitle>Horario de pratica (heatmap, ultimos 90d, BRT)</SectionTitle>
+            <PracticeHeatmap matrix={data.practiceHeatmap} />
+
+            {/* ════════════════════════════════════════════════════════ */}
             {/* CAMADA 2 — CUSTO OPENAI                                */}
             {/* ════════════════════════════════════════════════════════ */}
             <SectionTitle>Custo OpenAI (no periodo)</SectionTitle>
@@ -423,7 +578,15 @@ function Grid({ cols, children }: { cols: number; children: React.ReactNode }) {
   );
 }
 
-function KpiCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: string }) {
+function KpiCard({
+  label, value, sub, accent, trendDelta: delta,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  accent?: string;
+  trendDelta?: { pct: number | null; up: boolean | null };
+}) {
   return (
     <div style={{
       background: C.card,
@@ -432,9 +595,125 @@ function KpiCard({ label, value, sub, accent }: { label: string; value: string |
       padding: '20px 22px',
       boxShadow: C.shadow,
     }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: C.navyLight, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 12 }}>{label}</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: C.navyLight, letterSpacing: '0.5px', textTransform: 'uppercase' }}>{label}</div>
+        {delta && delta.pct != null && (
+          <div style={{
+            fontSize: 11, fontWeight: 700,
+            color: delta.up ? C.greenDark : C.red,
+            background: delta.up ? 'rgba(61,136,0,0.08)' : 'rgba(239,68,68,0.08)',
+            padding: '2px 8px', borderRadius: 8,
+          }}>
+            {delta.up ? '↑' : '↓'} {Math.abs(delta.pct)}%
+          </div>
+        )}
+      </div>
       <div style={{ fontSize: 28, fontWeight: 900, color: accent ?? C.navy, letterSpacing: '-0.5px', lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontSize: 11, color: C.navyLight, marginTop: 6 }}>{sub}</div>}
+    </div>
+  );
+}
+
+function trendDelta(curr: number, prev: number): { pct: number | null; up: boolean | null } {
+  if (prev <= 0) return { pct: null, up: null };
+  const diff = curr - prev;
+  const pct = Math.round((diff / prev) * 100);
+  return { pct, up: diff >= 0 };
+}
+
+function formatHours(h: number): string {
+  if (h < 1)  return `${Math.round(h * 60)}min`;
+  if (h < 48) return `${Math.round(h)}h`;
+  const d = h / 24;
+  if (d < 14) return `${d.toFixed(1)}d`;
+  return `${Math.round(d)}d`;
+}
+
+function RetentionCohortTable({ cohorts }: { cohorts: MetricsResponse['retentionCohorts'] }) {
+  const cell = (v: number | null) => v == null ? '—' : `${v}%`;
+  const color = (v: number | null) => {
+    if (v == null) return C.navyGhost;
+    if (v >= 50) return 'rgba(61,136,0,0.18)';
+    if (v >= 30) return 'rgba(234,88,12,0.15)';
+    if (v >= 15) return 'rgba(234,88,12,0.08)';
+    return 'rgba(239,68,68,0.08)';
+  };
+  return (
+    <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 16, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: C.navyGhost }}>
+            {['Cohort (semana)', 'Size', 'W1', 'W2', 'W3', 'W4', 'W6', 'W8'].map(h => (
+              <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 700, color: C.navyMid, fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {cohorts.map(c => (
+            <tr key={c.cohort} style={{ borderTop: `1px solid ${C.border}` }}>
+              <td style={{ padding: '10px 16px', color: C.navy, fontWeight: 600 }}>{c.cohort}</td>
+              <td style={{ padding: '10px 16px', color: C.navyMid }}>{c.size}</td>
+              {(['w1', 'w2', 'w3', 'w4', 'w6', 'w8'] as const).map(k => (
+                <td key={k} style={{ padding: '10px 16px', background: color(c.survival[k]), color: C.navy }}>
+                  {cell(c.survival[k])}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PracticeHeatmap({ matrix }: { matrix: number[][] }) {
+  const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
+  let max = 0;
+  for (const row of matrix) for (const v of row) if (v > max) max = v;
+  const cell = (v: number) => {
+    if (max === 0) return '#F4F3FA';
+    const a = v / max;
+    // navy alpha escalando
+    return `rgba(22, 21, 58, ${0.06 + a * 0.74})`;
+  };
+  return (
+    <div style={{ background: C.card, padding: 20, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 16, overflowX: 'auto' }}>
+      <table style={{ borderCollapse: 'separate', borderSpacing: 3, fontSize: 10 }}>
+        <thead>
+          <tr>
+            <th style={{ padding: '4px 8px' }}></th>
+            {Array.from({ length: 24 }, (_, h) => (
+              <th key={h} style={{ padding: '4px', color: C.navyLight, fontWeight: 600, width: 22 }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {days.map((d, di) => (
+            <tr key={d}>
+              <td style={{ padding: '4px 8px', color: C.navyMid, fontWeight: 700, fontSize: 11 }}>{d}</td>
+              {matrix[di].map((v, h) => (
+                <td
+                  key={h}
+                  title={`${d} ${h}h: ${v} praticas`}
+                  style={{
+                    width: 22, height: 22,
+                    background: cell(v),
+                    color: v > max * 0.5 ? '#fff' : C.navyMid,
+                    textAlign: 'center',
+                    borderRadius: 3,
+                    fontWeight: v > 0 ? 600 : 400,
+                  }}
+                >
+                  {v > 0 ? v : ''}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ fontSize: 11, color: C.navyLight, marginTop: 12 }}>
+        Pratica por hora × dia da semana (BRT). Max: {max} em uma celula.
+      </div>
     </div>
   );
 }
