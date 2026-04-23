@@ -197,11 +197,23 @@ export async function syncSubscriptionToSupabase(
 ): Promise<{ updated: boolean; hasPremium: boolean }> {
   const hasPremium = !!customerInfo.entitlements.active[ENTITLEMENT_ID];
 
-  // Map product identifier to 'monthly' | 'yearly' | null
-  const activeProduct = customerInfo.activeSubscriptions?.[0] ?? null;
+  // Map product identifier to 'monthly' | 'yearly' | null.
+  //
+  // Android Google Play Billing v5+ retorna activeSubscriptions como
+  // "productId:basePlanId" (ex: "com.hubacademy.charlotte.monthly:monthly").
+  // iOS StoreKit retorna apenas "com.hubacademy.charlotte.monthly".
+  //
+  // Prioridade: entitlement.productIdentifier (geralmente limpo), depois
+  // activeSubscriptions[0] com split(':') como fallback. Match por startsWith
+  // pra cobrir qualquer variação futura do formato Android.
+  const entitlementProduct =
+    customerInfo.entitlements.active[ENTITLEMENT_ID]?.productIdentifier ?? null;
+  const activeProductRaw = customerInfo.activeSubscriptions?.[0] ?? null;
+  const activeProductNormalized = activeProductRaw?.split(':')[0] ?? null;
+  const candidate = entitlementProduct ?? activeProductNormalized ?? '';
   const product: 'monthly' | 'yearly' | null =
-    activeProduct === PRODUCT_MONTHLY ? 'monthly' :
-    activeProduct === PRODUCT_YEARLY  ? 'yearly'  : null;
+    candidate.startsWith(PRODUCT_MONTHLY) ? 'monthly' :
+    candidate.startsWith(PRODUCT_YEARLY)  ? 'yearly'  : null;
 
   // Grace period guard: se não tem premium E user nunca teve status pago,
   // preserva o status atual (evita sobrescrever 'none' → 'expired').
