@@ -93,12 +93,16 @@ function pickTemplate(
 }
 
 // ── Core send function ───────────────────────────────────────────────────────
-async function sendExpoPush(messages: ExpoMessage[]): Promise<{ sent: number; errors: number }> {
+async function sendExpoPush(
+  messages: ExpoMessage[],
+  supabase?: any,
+): Promise<{ sent: number; errors: number }> {
   if (messages.length === 0) return { sent: 0, errors: 0 };
 
   let sent = 0;
   let errors = 0;
   const BATCH_SIZE = 100;
+  const invalidTokens: string[] = [];
 
   for (let i = 0; i < messages.length; i += BATCH_SIZE) {
     const batch = messages.slice(i, i + BATCH_SIZE);
@@ -120,14 +124,36 @@ async function sendExpoPush(messages: ExpoMessage[]): Promise<{ sent: number; er
           sent += 1;
         } else {
           errors += 1;
-          const token = batch[idx]?.to?.slice(0, 30) ?? 'unknown';
+          const token = batch[idx]?.to ?? '';
           const details = r.details ? ` details=${JSON.stringify(r.details)}` : '';
-          console.error(`❌ [Expo] token=${token} error="${r.message ?? 'unknown'}"${details}`);
+          console.error(`❌ [Expo] token=${token.slice(0, 30)} error="${r.message ?? 'unknown'}"${details}`);
+          // Collect tokens for users who uninstalled or revoked credentials —
+          // these are gone for good, drop them from the DB.
+          if (r.details?.error === 'DeviceNotRegistered' && token) {
+            invalidTokens.push(token);
+          }
         }
       });
     } catch (e) {
       console.error('❌ Expo Push batch error:', e);
       errors += batch.length;
+    }
+  }
+
+  // Token cleanup — null out dead tokens so we stop trying to send to them.
+  if (supabase && invalidTokens.length > 0) {
+    try {
+      const { error } = await supabase
+        .from('charlotte_users')
+        .update({ expo_push_token: null })
+        .in('expo_push_token', invalidTokens);
+      if (error) {
+        console.warn('⚠️ [Expo] token cleanup error:', error.message);
+      } else {
+        console.log(`🧹 [Expo] Cleared ${invalidTokens.length} dead token(s)`);
+      }
+    } catch (e) {
+      console.warn('⚠️ [Expo] token cleanup exception:', e);
     }
   }
 
@@ -191,7 +217,7 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
       };
     });
 
-    const { sent, errors } = await sendExpoPush(messages);
+    const { sent, errors } = await sendExpoPush(messages, supabase);
     console.log(`✅ [Expo] Streak reminders: ${sent} sent, ${errors} errors`);
   } catch (e) {
     console.error('❌ [Expo] Streak reminder error:', e);
@@ -257,7 +283,7 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
       return { to: u.expo_push_token, ...msg, data: { screen: 'chat', type: 'daily_reminder' }, sound: 'default', priority: 'high' };
     });
 
-    const { sent, errors } = await sendExpoPush(messages);
+    const { sent, errors } = await sendExpoPush(messages, supabase);
     console.log(`✅ [Expo] Daily reminders: ${sent} sent, ${errors} errors`);
   } catch (e) {
     console.error('❌ [Expo] Daily reminder error:', e);
@@ -319,7 +345,7 @@ export async function sendCharlotteMessages(supabase: any): Promise<void> {
       return { to: u.expo_push_token, ...msg, data: { screen: 'chat', type: 'charlotte_message' }, sound: 'default', priority: 'high' };
     });
 
-    const { sent, errors } = await sendExpoPush(messages);
+    const { sent, errors } = await sendExpoPush(messages, supabase);
     console.log(`✅ [Expo] Charlotte praise: ${sent} sent, ${errors} errors`);
   } catch (e) {
     console.error('❌ [Expo] Charlotte message error:', e);
@@ -349,7 +375,7 @@ export async function sendXPMilestoneNotification(
       data: { screen: 'chat', type: 'xp_milestone', milestone },
       sound: 'default',
       priority: 'high',
-    }]);
+    }], supabase);
 
     console.log(`✅ [Expo] XP milestone ${milestone} sent to ${userId}`);
   } catch (e) {
@@ -357,20 +383,134 @@ export async function sendXPMilestoneNotification(
   }
 }
 
-// ── runAll: called by scheduler ──────────────────────────────────────────────
-// Fixed schedule — optimise with analytics once we have data on when users study.
-// Current times (UTC):
-//   14h UTC = 11h BRT  → daily reminder (morning, before lunch)
-//   21h UTC = 18h BRT  → praise for who practiced + streak reminder (end of day)
-export async function runExpoNotifications(supabase: any, hour: number): Promise<void> {
-  if (hour === 14) {
-    // Morning: remind everyone who hasn't practiced yet
-    await sendDailyReminders(supabase);
-  }
+// ── 5. Goal reminders ────────────────────────────────────────────────────────
+// Users close to their weekly XP goal (80–99% of WEEKLY_XP_GOAL) get a nudge
+// in late afternoon. Helps convert near-misses into completed weeks.
+const WEEKLY_XP_GOAL = 100;
 
-  if (hour === 21) {
-    // Evening: celebrate who practiced today + warn streak at risk
-    await sendCharlotteMessages(supabase);
-    await sendStreakReminders(supabase);
+export async function sendGoalReminders(supabase: any): Promise<void> {
+  console.log('🎯 [Expo] Checking goal reminders...');
+  try {
+    const weekStart = new Date();
+    weekStart.setUTCHours(0, 0, 0, 0);
+    weekStart.setUTCDate(weekStart.getUTCDate() - ((weekStart.getUTCDay() + 6) % 7)); // Mon start
+
+    // Sum XP per user this week
+    const { data: rows, error } = await supabase
+      .from('charlotte_practices')
+      .select('user_id, xp_earned')
+      .gte('created_at', weekStart.toISOString());
+    if (error) { console.error('❌ [Expo] goal query error:', error.message); return; }
+
+    const xpByUser = new Map<string, number>();
+    for (const r of (rows ?? []) as any[]) {
+      xpByUser.set(r.user_id, (xpByUser.get(r.user_id) ?? 0) + (r.xp_earned ?? 0));
+    }
+
+    const near = Array.from(xpByUser.entries())
+      .filter(([, xp]) => xp >= WEEKLY_XP_GOAL * 0.8 && xp < WEEKLY_XP_GOAL)
+      .map(([userId, xp]) => ({ userId, xp, missing: WEEKLY_XP_GOAL - xp }));
+
+    if (!near.length) { console.log('✅ [Expo] No users near weekly goal'); return; }
+
+    const cuUsers = await fetchCharlotteUsers(supabase, near.map(n => n.userId));
+    const missingMap = Object.fromEntries(near.map(n => [n.userId, n.missing]));
+
+    const messages: ExpoMessage[] = cuUsers.map((u: any) => {
+      const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
+      const isNovice  = u.charlotte_level === 'Novice';
+      const missing   = missingMap[u.id] ?? 0;
+      const title = isNovice ? '🎯 Meta quase lá!' : '🎯 Almost at your goal!';
+      const body  = isNovice
+        ? `${firstName}, só faltam ${missing} XP para completar sua meta semanal!`
+        : `${firstName}, only ${missing} XP to hit your weekly goal!`;
+      return {
+        to: u.expo_push_token,
+        title, body,
+        data: { screen: 'chat', type: 'goal_reminder', missingXP: missing },
+        sound: 'default',
+        priority: 'high',
+      };
+    });
+
+    const { sent, errors } = await sendExpoPush(messages, supabase);
+    console.log(`✅ [Expo] Goal reminders: ${sent} sent, ${errors} errors`);
+  } catch (e) {
+    console.error('❌ [Expo] Goal reminder error:', e);
+  }
+}
+
+// ── 6. Weekly challenge ──────────────────────────────────────────────────────
+// Monday morning broadcast to users who practiced at least once last week.
+// Challenge title rotates deterministically by ISO week number so everyone
+// receives the same theme at the same time.
+const WEEKLY_CHALLENGES_PT = [
+  { title: '💪 Desafio da semana', body: 'Essa semana, fale 3 frases em inglês sobre seu final de semana!' },
+  { title: '🎧 Desafio da semana', body: 'Ouça a Charlotte e repita 5 frases com entonação natural.' },
+  { title: '📝 Desafio da semana', body: 'Escreva um parágrafo sobre um hobby usando o passado simples.' },
+  { title: '🗣️ Desafio da semana', body: 'Conte uma história curta em 1 minuto — sem pausas!' },
+  { title: '🔁 Desafio da semana', body: 'Use 3 phrasal verbs novos em conversas esta semana.' },
+  { title: '✨ Desafio da semana', body: 'Pronuncie as vogais longas/curtas em 5 palavras diferentes.' },
+  { title: '🎯 Desafio da semana', body: 'Faça 5 sessões de chat de pelo menos 3 minutos cada.' },
+  { title: '🔥 Desafio da semana', body: 'Complete 7 dias de streak — um pouquinho por dia!' },
+];
+const WEEKLY_CHALLENGES_EN = [
+  { title: '💪 Weekly challenge', body: 'This week, say 3 sentences about your weekend in English!' },
+  { title: '🎧 Weekly challenge', body: 'Listen to Charlotte and repeat 5 phrases with natural intonation.' },
+  { title: '📝 Weekly challenge', body: 'Write a paragraph about a hobby using the simple past.' },
+  { title: '🗣️ Weekly challenge', body: 'Tell a short story in 1 minute — no pauses!' },
+  { title: '🔁 Weekly challenge', body: 'Use 3 new phrasal verbs in conversations this week.' },
+  { title: '✨ Weekly challenge', body: 'Pronounce long/short vowels in 5 different words.' },
+  { title: '🎯 Weekly challenge', body: 'Do 5 chat sessions of at least 3 minutes each.' },
+  { title: '🔥 Weekly challenge', body: 'Keep a 7-day streak — a little every day!' },
+];
+
+function isoWeekNumber(d: Date): number {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+export async function sendWeeklyChallenges(supabase: any): Promise<void> {
+  console.log('💪 [Expo] Sending weekly challenges...');
+  try {
+    const now = new Date();
+    const lastWeek = new Date(now.getTime() - 7 * 86400000);
+
+    // Users active in last 7 days
+    const { data: activeRows, error: activeErr } = await supabase
+      .from('charlotte_practices')
+      .select('user_id')
+      .gte('created_at', lastWeek.toISOString());
+    if (activeErr) { console.error('❌ [Expo] active-users query error:', activeErr.message); return; }
+    const activeIds = [...new Set((activeRows ?? []).map((r: any) => r.user_id))] as string[];
+    if (!activeIds.length) { console.log('✅ [Expo] No active users last week'); return; }
+
+    const cuUsers = await fetchCharlotteUsers(supabase, activeIds);
+    if (!cuUsers.length) return;
+
+    const weekIdx = isoWeekNumber(now) % WEEKLY_CHALLENGES_PT.length;
+    const chPt = WEEKLY_CHALLENGES_PT[weekIdx];
+    const chEn = WEEKLY_CHALLENGES_EN[weekIdx];
+
+    const messages: ExpoMessage[] = cuUsers.map((u: any) => {
+      const isNovice = u.charlotte_level === 'Novice';
+      const ch = isNovice ? chPt : chEn;
+      return {
+        to: u.expo_push_token,
+        title: ch.title,
+        body: ch.body,
+        data: { screen: 'chat', type: 'weekly_challenge', weekIdx },
+        sound: 'default',
+        priority: 'high',
+      };
+    });
+
+    const { sent, errors } = await sendExpoPush(messages, supabase);
+    console.log(`✅ [Expo] Weekly challenges: ${sent} sent, ${errors} errors (week ${weekIdx})`);
+  } catch (e) {
+    console.error('❌ [Expo] Weekly challenge error:', e);
   }
 }

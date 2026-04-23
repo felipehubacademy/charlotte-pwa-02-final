@@ -1,157 +1,152 @@
+/**
+ * app/api/notifications/scheduler/route.ts
+ *
+ * RN-only notification scheduler. Called by cron-job.org at specific times
+ * via GET with a Bearer token. Also supports manual triggering via POST or
+ * a `?force_task=TYPE` query param (protected by CRON_SECRET).
+ *
+ * Cron-job.org schedule (America/Sao_Paulo timezone):
+ *   - 11h BRT (14h UTC): daily_reminder for users who haven't practiced today
+ *   - 18h BRT (21h UTC): praise for who practiced + streak reminder for who didn't
+ *   - 16h BRT (19h UTC): goal_reminder for users close to weekly XP goal
+ *   - Mon 9h BRT (12h UTC): weekly_challenge for users active last 7 days
+ *
+ * PWA web-push paths were removed — PWA is being deprecated.
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import NotificationScheduler from '@/lib/notification-scheduler';
-import { runExpoNotifications } from '@/lib/expo-notification-service';
+import {
+  sendDailyReminders,
+  sendCharlotteMessages,
+  sendStreakReminders,
+  sendGoalReminders,
+  sendWeeklyChallenges,
+} from '@/lib/expo-notification-service';
 import { getSupabase } from '@/lib/supabase';
 
-/**
- * 🕐 API para executar o sistema de agendamento de notificações
- * Executado automaticamente pelo Vercel Cron ou chamadas autenticadas
- */
-export async function POST(request: NextRequest) {
+const CRON_SECRET = process.env.CRON_SECRET ?? '';
+
+type TaskType = 'daily' | 'praise' | 'streak' | 'goal' | 'weekly';
+
+function isAuthorized(request: NextRequest): boolean {
+  const authHeader = request.headers.get('authorization') ?? '';
+  const userAgent  = request.headers.get('user-agent') ?? '';
+  if (CRON_SECRET && authHeader === `Bearer ${CRON_SECRET}`) return true;
+  // cron-job.org sends its UA even without CRON_SECRET matching — accept as fallback
+  // only if the secret is not configured (dev environments).
+  if (!CRON_SECRET && userAgent.includes('cron-job.org')) return true;
+  return false;
+}
+
+async function runTask(task: TaskType): Promise<{ task: TaskType }> {
+  const supabase = getSupabase();
+  if (!supabase) throw new Error('Supabase client unavailable');
+
+  switch (task) {
+    case 'daily':
+      await sendDailyReminders(supabase);
+      break;
+    case 'praise':
+      await sendCharlotteMessages(supabase);
+      break;
+    case 'streak':
+      await sendStreakReminders(supabase);
+      break;
+    case 'goal':
+      await sendGoalReminders(supabase);
+      break;
+    case 'weekly':
+      await sendWeeklyChallenges(supabase);
+      break;
+    default:
+      throw new Error(`Unknown task: ${task}`);
+  }
+  return { task };
+}
+
+function tasksForHour(hourUTC: number, dayOfWeekUTC: number): TaskType[] {
+  // Scheduled times (UTC) — assumes users' local = BRT for now.
+  // TODO: per-user timezone support.
+  const tasks: TaskType[] = [];
+  if (hourUTC === 14) tasks.push('daily');               // 11h BRT
+  if (hourUTC === 19) tasks.push('goal');                // 16h BRT
+  if (hourUTC === 21) tasks.push('praise', 'streak');    // 18h BRT
+  if (dayOfWeekUTC === 1 && hourUTC === 12) tasks.push('weekly'); // Mon 9h BRT
+  return tasks;
+}
+
+export async function GET(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const forceTask = url.searchParams.get('force_task') as TaskType | null;
+
   try {
-    console.log('📋 [SCHEDULER API] Starting scheduled notification tasks...');
-    
-    // Validação do CRON_SECRET
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (forceTask) {
+      const result = await runTask(forceTask);
+      return NextResponse.json({
+        success: true,
+        forced: true,
+        timestamp: new Date().toISOString(),
+        ...result,
+      });
     }
 
-    const body = await request.json().catch(() => ({}));
-    const { taskType } = body;
+    const now       = new Date();
+    const hourUTC   = now.getUTCHours();
+    const dayUTC    = now.getUTCDay();
+    const scheduled = tasksForHour(hourUTC, dayUTC);
 
-    // Executar task específica ou todas
-    switch (taskType) {
-      case 'streak_reminders':
-        await NotificationScheduler.checkStreakReminders();
-        break;
-      
-      case 'weekly_challenges':
-        await NotificationScheduler.sendWeeklyChallenges();
-        break;
-      
-      case 'practice_reminders':
-        await NotificationScheduler.sendPracticeReminders();
-        break;
-      
-      case 'goal_reminders':
-        await NotificationScheduler.checkGoalReminders();
-        break;
-      
-      case 'all':
-      default:
-        await NotificationScheduler.runScheduledTasks();
-        break;
+    if (scheduled.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: `No scheduled tasks for ${hourUTC}:00 UTC (day ${dayUTC})`,
+        timestamp: now.toISOString(),
+      });
     }
 
+    const results = await Promise.allSettled(scheduled.map(runTask));
     return NextResponse.json({
       success: true,
-      message: `✅ Scheduler task "${taskType || 'all'}" completed successfully`,
-      timestamp: new Date().toISOString()
+      hourUTC,
+      dayUTC,
+      results: results.map((r, i) => ({
+        task: scheduled[i],
+        status: r.status,
+        error: r.status === 'rejected' ? String(r.reason) : undefined,
+      })),
+      timestamp: now.toISOString(),
     });
-
   } catch (error) {
-    console.error('❌ [SCHEDULER API] Error:', error);
-    
+    console.error('❌ [SCHEDULER] Error:', error);
     return NextResponse.json({
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }, { status: 500 });
   }
 }
 
-/**
- * 📊 GET - Status do scheduler e próximas execuções
- * Também executa tarefas quando chamado pelo Vercel Cron
- */
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
+  if (!isAuthorized(request)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
-    const userAgent = request.headers.get('user-agent') || '';
-    const authHeader = request.headers.get('authorization');
-    // Accept: Vercel Cron, GitHub Actions, or cron-job.org (authenticated via CRON_SECRET)
-    const isVercelCron =
-      userAgent.includes('vercel-cron') ||
-      userAgent.includes('github-actions-cron') ||
-      userAgent.includes('cron-job.org') ||
-      authHeader === `Bearer ${process.env.CRON_SECRET}`;
-    
-    console.log(`🕐 [SCHEDULER API] GET request - User-Agent: ${userAgent}, isVercelCron: ${isVercelCron}`);
-    
-    // Se for chamada do Vercel Cron, executar tarefas
-    if (isVercelCron) {
-      console.log('🕐 [SCHEDULER API] Vercel Cron detected, executing scheduled tasks...');
-
-      const supabase = getSupabase();
-      const hour = new Date().getUTCHours();
-
-      // Web push (PWA users)
-      await NotificationScheduler.runScheduledTasks();
-
-      // Expo push (React Native users)
-      if (supabase) {
-        await runExpoNotifications(supabase, hour);
-      }
-
-      return NextResponse.json({
-        success: true,
-        message: '✅ Vercel Cron: Scheduled tasks completed successfully',
-        timestamp: new Date().toISOString(),
-        source: 'vercel-cron'
-      });
+    const body = await request.json().catch(() => ({}));
+    const task = body.task as TaskType | undefined;
+    if (!task) {
+      return NextResponse.json({ error: 'Missing body.task' }, { status: 400 });
     }
-    
-    // Para outras chamadas GET, exigir autenticação
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const now = new Date();
-    const hour = now.getHours();
-    const dayOfWeek = now.getDay();
-    
-    const nextTasks = [];
-    
-    // Calcular próximas execuções
-    if (dayOfWeek === 1 && hour < 9) {
-      nextTasks.push('Weekly challenges today at 9:00');
-    } else if (dayOfWeek !== 1) {
-      const daysUntilMonday = (8 - dayOfWeek) % 7;
-      nextTasks.push(`Weekly challenges in ${daysUntilMonday} days`);
-    }
-    
-    if (hour < 19) {
-      nextTasks.push(`Goal reminders today at 19:00`);
-    } else {
-      nextTasks.push(`Goal reminders tomorrow at 19:00`);
-    }
-    
-    if (hour < 21) {
-      nextTasks.push(`Streak reminders today at 21:00`);
-    } else {
-      nextTasks.push(`Streak reminders tomorrow at 21:00`);
-    }
-    
-    nextTasks.push(`Practice reminders every hour`);
-
-    return NextResponse.json({
-      success: true,
-      status: 'active',
-      currentTime: now.toISOString(),
-      nextTasks,
-      availableEndpoints: {
-        'POST /api/notifications/scheduler': 'Execute scheduled tasks',
-        'POST /api/notifications/scheduler with taskType': 'Execute specific task',
-        'GET /api/notifications/scheduler': 'Get scheduler status'
-      }
-    });
-
+    const result = await runTask(task);
+    return NextResponse.json({ success: true, ...result, timestamp: new Date().toISOString() });
   } catch (error) {
-    console.error('❌ [SCHEDULER API] Status error:', error);
-    
+    console.error('❌ [SCHEDULER] Error:', error);
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
   }
-} 
+}
