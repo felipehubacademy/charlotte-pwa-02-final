@@ -1,6 +1,8 @@
 // lib/expo-notification-service.ts
 // Sends push notifications to React Native (Charlotte AI) via Expo Push API
 
+import { randomUUID } from 'crypto';
+
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 interface ExpoMessage {
@@ -301,7 +303,10 @@ async function logRnPushes(
   }>,
 ): Promise<void> {
   if (!rows.length) return;
+  // Generate ids client-side — the public.notification_logs view path does
+  // not always propagate the underlying gen_random_uuid() default on insert.
   const payload = rows.map(r => ({
+    id:                 randomUUID(),
     user_id:            r.userId,
     notification_type:  r.type,
     status:             r.status ?? 'sent',
