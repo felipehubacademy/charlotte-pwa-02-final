@@ -203,6 +203,14 @@ async function warmEngagementGptPools(types: { type: string; needsPt: boolean; n
   await Promise.allSettled(jobs);
 }
 
+// Renders a streak count with the correct unit + plural for the locale.
+// Keeps templates grammatical for both streak=1 and streak>1 without
+// requiring verb-agreement gymnastics per variant.
+function streakDaysLabel(n: number, isNovice: boolean): string {
+  if (isNovice) return n === 1 ? '1 dia' : `${n} dias`;
+  return n === 1 ? '1 day' : `${n} days`;
+}
+
 // Stable hash for a template (ignoring placeholders) so we can recognise
 // the same variant across users and avoid repeating it to the same user.
 function variantHash(tpl: MsgTemplate): string {
@@ -596,7 +604,7 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
       const picked = pickCoreTemplate(
         'streak_reminder',
         isNovice,
-        { name: firstName, streak: days },
+        { name: firstName, streak: days, streakDays: streakDaysLabel(days, isNovice) },
         recentHashes.get(u.id) ?? new Set(),
       );
       if (!picked) continue;
@@ -778,7 +786,7 @@ export async function sendCharlotteMessages(supabase: any): Promise<void> {
       fetchRecentVariantHashes(supabase, allowedIds, 'charlotte_message'),
     ]);
 
-    const fallbackNovice   = { title: 'Otimo trabalho hoje!', body: '{name}, voce praticou hoje e ganhou {xp} XP! Continue assim.' };
+    const fallbackNovice   = { title: 'Ótimo trabalho hoje!', body: '{name}, você praticou hoje e ganhou {xp} XP! Continue assim.' };
     const fallbackAdvanced = { title: 'Great work today!',    body: '{name}, you practiced today and earned {xp} XP! Keep it up.' };
 
     console.log(`💬 [Expo] Sending praise to ${cuUsers.length} users...`);
@@ -1403,30 +1411,30 @@ const ENGAGEMENT_TEMPLATES: Record<string, ReengTemplates> = {
 const CORE_TEMPLATES: Record<string, ReengTemplates> = {
   streak_reminder: {
     pt: [
-      { title: '🔥 Streak em risco!', body: 'Sua sequência de {streak} dias está em risco. Pratique agora com a Charlotte!' },
-      { title: '⏰ Última chance hoje', body: '{name}, {streak} dias merecem continuar. Uma sessão curta agora salva.' },
-      { title: '🔥 Não quebra sua sequência', body: '{name}, cada dia constrói o próximo. {streak} dias esperam você.' },
-      { title: '💪 {streak} dias de orgulho', body: '{name}, mantém o ritmo. Poucos minutinhos fazem toda a diferença.' },
-      { title: '⚡ Mantenha a chama', body: '{name}, sua sequência de {streak} dias merece mais um hoje.' },
-      { title: '🌟 Segura esse ritmo', body: '{streak} dias, {name}. Não vamos deixar esfriar agora.' },
+      { title: '🔥 Streak em risco!', body: 'Sua sequência de {streakDays} está em risco. Pratique agora com a Charlotte!' },
+      { title: '⏰ Última chance hoje', body: '{name}, sua sequência de {streakDays} merece continuar. Uma sessão curta agora salva.' },
+      { title: '🔥 Não quebra sua sequência', body: '{name}, cada dia constrói o próximo. {streakDays} esperando você.' },
+      { title: '💪 {streakDays} de orgulho', body: '{name}, mantém o ritmo. Poucos minutinhos fazem toda a diferença.' },
+      { title: '⚡ Mantenha a chama', body: '{name}, sua sequência de {streakDays} merece mais um hoje.' },
+      { title: '🌟 Segura esse ritmo', body: '{streakDays}, {name}. Não vamos deixar esfriar agora.' },
     ],
     en: [
       { title: '🔥 Streak at risk!', body: 'Your {streak}-day streak is at risk. Practice with Charlotte now!' },
-      { title: '⏰ Last chance today', body: '{name}, {streak} days deserve to continue. A quick session now saves it.' },
-      { title: '🔥 Don\'t break the chain', body: '{name}, each day builds the next. {streak} days waiting for you.' },
-      { title: '💪 {streak} days of pride', body: '{name}, keep the rhythm. A few minutes make all the difference.' },
+      { title: '⏰ Last chance today', body: '{name}, your streak deserves to continue. A quick session now saves it.' },
+      { title: '🔥 Don\'t break the chain', body: '{name}, each day builds the next. {streakDays} waiting for you.' },
+      { title: '💪 {streakDays} of pride', body: '{name}, keep the rhythm. A few minutes make all the difference.' },
       { title: '⚡ Keep the fire going', body: '{name}, your {streak}-day streak deserves one more today.' },
-      { title: '🌟 Hold the momentum', body: '{streak} days, {name}. Let\'s not let it cool down now.' },
+      { title: '🌟 Hold the momentum', body: '{streakDays}, {name}. Let\'s not let it cool down now.' },
     ],
   },
   goal_reminder: {
     pt: [
-      { title: '🎯 Meta quase lá!', body: '{name}, só faltam {missingXp} XP para completar sua meta semanal!' },
+      { title: '🎯 Meta quase lá!', body: '{name}, só {missingXp} XP para completar sua meta semanal!' },
       { title: '✨ Reta final da semana', body: '{name}, {missingXp} XP e você fecha a semana com chave de ouro.' },
-      { title: '🚀 Falta pouco', body: '{missingXp} XP te separam da meta, {name}. Bora?' },
+      { title: '🚀 Falta pouco', body: '{missingXp} XP de distância da meta, {name}. Bora?' },
       { title: '💪 Você está perto', body: '{name}, só {missingXp} XP e a meta semanal é sua.' },
       { title: '🏆 Meta ao alcance', body: '{name}, {missingXp} XP de distância. Uma sessão curta fecha.' },
-      { title: '⚡ Fecha a semana', body: '{name}, faltam {missingXp} XP. Vamos terminar forte?' },
+      { title: '⚡ Fecha a semana', body: '{name}, {missingXp} XP até o fim. Vamos terminar forte?' },
     ],
     en: [
       { title: '🎯 Almost at your goal!', body: '{name}, only {missingXp} XP to hit your weekly goal!' },
