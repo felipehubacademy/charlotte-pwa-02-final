@@ -155,7 +155,23 @@ async function registerForPushNotifications(): Promise<string | null> {
 }
 
 // ── Save token to Supabase ───────────────────────────────────────────────────
+// Invariant: a given Expo push token belongs to exactly one charlotte_users
+// row at a time. When the same physical device logs into a second account
+// (common in testing), we must clear the token from the prior owner, otherwise
+// every cron sends N copies to the same device — one per account still
+// listing it.
 async function saveTokenToSupabase(userId: string, token: string) {
+  // 1. Clear this token from any other user that still has it.
+  const { error: clearErr } = await supabase
+    .from('charlotte_users')
+    .update({ expo_push_token: null })
+    .eq('expo_push_token', token)
+    .neq('id', userId);
+  if (clearErr) {
+    console.warn('⚠️ Push token takeover clear error:', clearErr.message);
+  }
+
+  // 2. Assign it to the current user.
   const { error, data } = await supabase
     .from('charlotte_users')
     .update({ expo_push_token: token })
