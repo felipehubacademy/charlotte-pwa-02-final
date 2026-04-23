@@ -56,7 +56,7 @@ interface WelcomeModalProps {
 
 export default function WelcomeModal({ userId, userLevel, userName }: WelcomeModalProps) {
   const insets         = useSafeAreaInsets();
-  const { isFreshLogin, clearFreshLogin, profile } = useAuth();
+  const { isFreshLogin, clearFreshLogin, profile, hasAccess } = useAuth();
 
   const [visible, setVisible]         = useState(false);
   const [timings, setTimings]         = useState<WordTiming[]>([]);
@@ -78,10 +78,17 @@ export default function WelcomeModal({ userId, userLevel, userName }: WelcomeMod
   // Mostrar apenas em logins reais (SIGNED_IN), nunca na abertura do app.
   // Primeiro acesso: tratado pelo vídeo — este modal só exibe quando first_welcome_done = true.
   // Acessos seguintes: no maximo 1x por dia (compara data atual com SecureStore).
+  // IMPORTANTE: nunca exibir quando user nao tem acesso (paywall ativo) —
+  // senao welcome abre em cima do paywall e bloqueia a compra.
   useEffect(() => {
     if (!isFreshLogin || !profile) return;
     // Nunca exibir para usuários que ainda não viram o vídeo de intro
     if (!profile.first_welcome_done) {
+      clearFreshLogin();
+      return;
+    }
+    // Nunca exibir se o paywall vai bloquear o app (trial expirado, sub expirada, etc)
+    if (!hasAccess) {
       clearFreshLogin();
       return;
     }
@@ -95,7 +102,7 @@ export default function WelcomeModal({ userId, userLevel, userName }: WelcomeMod
     }).catch(() => {
       setVisible(true);
     });
-  }, [isFreshLogin, profile]); // eslint-disable-line
+  }, [isFreshLogin, profile, hasAccess]); // eslint-disable-line
 
   // handleDismiss declarado antes dos useEffects que o referenciam
   const handleDismiss = () => {
