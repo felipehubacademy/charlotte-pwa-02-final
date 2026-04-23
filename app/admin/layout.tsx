@@ -3,16 +3,16 @@
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { Users, BarChart2, ChevronLeft, ChevronRight, Shield, Bell, LogOut, Zap } from 'lucide-react';
+import { Users, BarChart2, ChevronLeft, ChevronRight, Shield, Bell, LogOut } from 'lucide-react';
 
 // ── Design tokens ───────────────────────────────────────────────────────────
 const ADMIN_CSS = `
 .admin-root {
-  --bg:  #07070F;
-  --s1:  #0C0C1A;
-  --s2:  #111120;
-  --s3:  #171728;
-  --s4:  #1D1D32;
+  --bg:  #F6F6FA;
+  --s1:  #FFFFFF;
+  --s2:  #F0F0F6;
+  --s3:  #E8E8F0;
+  --s4:  #DDDDE8;
 
   --accent:       #6366F1;
   --accent-dim:   rgba(99,102,241,0.12);
@@ -28,19 +28,19 @@ const ADMIN_CSS = `
   --err:      #EF4444;  --err-dim:  rgba(239,68,68,0.12);
   --neutral:  #6B7280;
 
-  --t1: rgba(255,255,255,0.92);
-  --t2: rgba(255,255,255,0.55);
-  --t3: rgba(255,255,255,0.28);
+  --t1: rgba(0,0,0,0.85);
+  --t2: rgba(0,0,0,0.50);
+  --t3: rgba(0,0,0,0.32);
 
-  --b1: rgba(255,255,255,0.05);
-  --b2: rgba(255,255,255,0.09);
-  --b3: rgba(255,255,255,0.15);
+  --b1: rgba(0,0,0,0.06);
+  --b2: rgba(0,0,0,0.10);
+  --b3: rgba(0,0,0,0.18);
 
   --r1: 6px; --r2: 10px; --r3: 16px; --r4: 24px;
 
-  --sh1: 0 1px 3px rgba(0,0,0,0.6);
-  --sh2: 0 4px 20px rgba(0,0,0,0.55), 0 1px 4px rgba(0,0,0,0.3);
-  --sh3: 0 24px 64px rgba(0,0,0,0.7);
+  --sh1: 0 1px 3px rgba(0,0,0,0.08);
+  --sh2: 0 4px 20px rgba(0,0,0,0.10), 0 1px 4px rgba(0,0,0,0.06);
+  --sh3: 0 24px 64px rgba(0,0,0,0.14);
 
   --font-sans: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;
@@ -236,7 +236,7 @@ const ADMIN_CSS = `
 
 .adm-topbar {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(7,7,15,0.85);
+  background: rgba(246,246,250,0.85);
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border-bottom: 1px solid var(--b1);
@@ -395,7 +395,7 @@ const ADMIN_CSS = `
   100% { background-position: 600px 0; }
 }
 .skeleton {
-  background: linear-gradient(90deg, var(--s2) 25%, var(--s3) 50%, var(--s2) 75%);
+  background: linear-gradient(90deg, var(--s3) 25%, var(--s4) 50%, var(--s3) 75%);
   background-size: 1200px 100%;
   animation: shimmer 1.6s infinite linear;
   border-radius: var(--r1);
@@ -411,7 +411,7 @@ const ADMIN_CSS = `
 /* Modal */
 .adm-modal-backdrop {
   position: fixed; inset: 0; z-index: 400;
-  background: rgba(0,0,0,0.7);
+  background: rgba(0,0,0,0.4);
   backdrop-filter: blur(4px);
   display: flex; align-items: center; justify-content: center;
   padding: 16px;
@@ -562,9 +562,7 @@ function LoginScreen({ onAuth }: { onAuth: (secret: string) => void }) {
     <div className="adm-login-wrap">
       <form className="adm-login-card" onSubmit={handleSubmit}>
         <div className="adm-login-logo">
-          <div className="adm-login-icon">
-            <Zap size={18} color="var(--brand)" strokeWidth={2.5} />
-          </div>
+          <img src="/charlotte-avatar.png" alt="Charlotte" style={{ width: 40, height: 40, borderRadius: 'var(--r2)', objectFit: 'cover', flexShrink: 0 }} />
           <div>
             <div className="adm-login-title">Charlotte Admin</div>
             <div className="adm-login-sub">Acesso restrito</div>
@@ -616,9 +614,7 @@ function Sidebar({
   return (
     <nav className={`adm-sidebar${collapsed ? ' collapsed' : ''}`}>
       <div className="adm-logo">
-        <div className="adm-logo-icon">
-          <Zap size={16} color="var(--brand)" strokeWidth={2.5} />
-        </div>
+        <img src="/charlotte-avatar.png" alt="Charlotte" style={{ width: 32, height: 32, borderRadius: 'var(--r1)', objectFit: 'cover', flexShrink: 0 }} />
         <div className="adm-logo-text">
           <div className="adm-logo-name">Charlotte</div>
           <div className="adm-logo-tag">ADMIN v2</div>
