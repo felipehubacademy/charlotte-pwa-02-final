@@ -223,29 +223,26 @@ export default function GoalsScreen() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }} edges={['top', 'left', 'right', 'bottom']}>
+    <View style={{ flex: 1, backgroundColor: C.bg }}>
 
-      {/* Header */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 16, height: 52,
-        backgroundColor: C.card,
-        borderBottomWidth: 1, borderBottomColor: C.navyGhost,
-      }}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-        >
-          <ArrowLeft size={24} color={C.navy} weight="bold" />
-        </TouchableOpacity>
-        <AppText style={{
-          flex: 1, textAlign: 'center',
-          fontSize: 17, fontWeight: '800', color: C.navy,
-          marginRight: 36,
+      {/* Header — safe area branca igual ao my-vocabulary */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: C.card }}>
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+          borderBottomWidth: 1, borderBottomColor: C.navyGhost,
         }}>
-          {isPt ? 'Metas' : 'Goals'}
-        </AppText>
-      </View>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <ArrowLeft size={22} color={C.navy} weight="bold" />
+          </TouchableOpacity>
+          <AppText style={{ flex: 1, fontSize: 20, fontWeight: '800', color: C.navy }}>
+            {isPt ? 'Metas' : 'Goals'}
+          </AppText>
+        </View>
+      </SafeAreaView>
 
       <ScrollView
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -338,6 +335,6 @@ export default function GoalsScreen() {
         )}
 
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
