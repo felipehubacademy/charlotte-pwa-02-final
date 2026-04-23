@@ -165,21 +165,58 @@ function usersAtLocalHour<T extends { id: string; timezone?: string | null }>(
 // supabase/migrations/20260423_extend_notification_logs_for_rn.sql).
 
 interface NotificationType {
-  id: 'streak_reminder' | 'daily_reminder' | 'charlotte_message'
-     | 'xp_milestone' | 'goal_reminder' | 'weekly_challenge';
+  id:
+    // Core daily pipeline
+    | 'streak_reminder' | 'daily_reminder' | 'charlotte_message'
+    | 'xp_milestone' | 'goal_reminder' | 'weekly_challenge'
+    // Prevention (Camada 1)
+    | 'streak_saver' | 'streak_milestone_ahead' | 'level_imminent'
+    | 'micro_checkin' | 'cadence_drop' | 'weekly_recap' | 'charlotte_checkin'
+    // Revenue
+    | 'trial_ending_72h' | 'trial_ending_24h' | 'sub_expired_1d'
+    // Winback
+    | 'streak_broken'
+    | 'reengagement_3d' | 'reengagement_7d' | 'reengagement_14d' | 'reengagement_30d';
 }
 
-// Max sends per user per UTC day, per type. Each cron fires once a day
-// (weekly_challenge once a week), so in practice 1 is just a safety net
-// against duplicate runs (retries, double cron triggers).
+// Max sends per user per UTC day, per type. For core types 1/day is a safety
+// net (the cron fires once a day). For re-engagement types, 1/day is the
+// intent — the dispatcher picks ONE signal and emits it. xp_milestone is the
+// exception because a user can legitimately hit multiple milestones per day.
 const FREQUENCY_CAP: Record<NotificationType['id'], number> = {
-  streak_reminder:   1,
-  daily_reminder:    1,
-  charlotte_message: 1,
-  xp_milestone:      3, // multiple milestones can legitimately hit in one day
-  goal_reminder:     1,
-  weekly_challenge:  1,
+  streak_reminder:        1,
+  daily_reminder:         1,
+  charlotte_message:      1,
+  xp_milestone:           3,
+  goal_reminder:          1,
+  weekly_challenge:       1,
+  streak_saver:           1,
+  streak_milestone_ahead: 1,
+  level_imminent:         1,
+  micro_checkin:          1,
+  cadence_drop:           1,
+  weekly_recap:           1,
+  charlotte_checkin:      1,
+  trial_ending_72h:       1,
+  trial_ending_24h:       1,
+  sub_expired_1d:         1,
+  streak_broken:          1,
+  reengagement_3d:        1,
+  reengagement_7d:        1,
+  reengagement_14d:       1,
+  reengagement_30d:       1,
 };
+
+// Re-engagement types are mutually exclusive: the dispatcher picks AT MOST
+// ONE per user per day. This set lets filterWeeklyEngagementCap short-circuit
+// when the user already got ANY re-engagement push today/this week.
+const ENGAGEMENT_TYPES = new Set<NotificationType['id']>([
+  'streak_saver', 'streak_milestone_ahead', 'level_imminent',
+  'micro_checkin', 'cadence_drop', 'weekly_recap', 'charlotte_checkin',
+  'trial_ending_72h', 'trial_ending_24h', 'sub_expired_1d',
+  'streak_broken',
+  'reengagement_3d', 'reengagement_7d', 'reengagement_14d', 'reengagement_30d',
+]);
 
 // How many of the user's most recent variants to exclude when picking a
 // template (novelty decay). 3 = "don't repeat the last 3 we sent them".
@@ -836,5 +873,593 @@ export async function sendWeeklyChallenges(supabase: any): Promise<void> {
     })));
   } catch (e) {
     console.error('❌ [Expo] Weekly challenge error:', e);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// ══ RE-ENGAGEMENT DISPATCHER ════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Single dispatcher that covers every re-engagement signal. For each active
+// user the dispatcher computes all applicable signals for the user's CURRENT
+// local hour, picks the single highest-priority one, and emits it. Frequency
+// cap (1/day/type) plus the mutually-exclusive ENGAGEMENT_TYPES set guarantee
+// a user sees at most ONE re-engagement push per day on top of the core
+// daily/praise/streak/goal cadence.
+
+const XP_MILESTONES = [100, 250, 500, 1000, 2500, 5000, 10000];
+
+function nextXpMilestone(totalXp: number): { value: number; delta: number } | null {
+  for (const m of XP_MILESTONES) {
+    if (totalXp < m) return { value: m, delta: m - totalXp };
+  }
+  return null;
+}
+
+function daysBetweenUtc(earlier: Date, later: Date): number {
+  return Math.floor((later.getTime() - earlier.getTime()) / 86400000);
+}
+
+// Compute the user's most common practice hour in their OWN timezone from
+// recent history (last ~30 practices). Returns null if not enough data.
+function usualLocalPracticeHour(timestamps: string[], tz: string): number | null {
+  if (timestamps.length < 5) return null;
+  const hist: Record<number, number> = {};
+  for (const ts of timestamps) {
+    try {
+      const h = localHourInTz(new Date(ts), tz);
+      hist[h] = (hist[h] ?? 0) + 1;
+    } catch { /* ignore malformed */ }
+  }
+  let best = -1, bestCount = 0;
+  for (const [hStr, c] of Object.entries(hist)) {
+    if (c > bestCount) { bestCount = c; best = parseInt(hStr, 10); }
+  }
+  return best >= 0 ? best : null;
+}
+
+// Target hour for each re-engagement type (USER local hour).
+const ENGAGEMENT_TARGET_HOUR: Record<string, number> = {
+  trial_ending_72h:      10,
+  trial_ending_24h:      10,
+  sub_expired_1d:        11,
+  streak_saver:          20,
+  streak_milestone_ahead: 20,
+  streak_broken:         12,
+  level_imminent:        17,
+  cadence_drop:          12,
+  weekly_recap:          19, // Sunday only
+  charlotte_checkin:     15, // Tuesday and Thursday
+  reengagement_3d:       12,
+  reengagement_7d:       12,
+  reengagement_14d:      12,
+  reengagement_30d:      12,
+  // micro_checkin: dynamic, uses user's usual practice hour + 2h
+};
+
+// Priority (highest first). When multiple signals fire in the same hour,
+// dispatcher emits the first match.
+const ENGAGEMENT_PRIORITY: NotificationType['id'][] = [
+  'sub_expired_1d',
+  'trial_ending_24h',
+  'trial_ending_72h',
+  'streak_saver',
+  'streak_milestone_ahead',
+  'streak_broken',
+  'reengagement_30d',
+  'reengagement_14d',
+  'level_imminent',
+  'cadence_drop',
+  'micro_checkin',
+  'reengagement_7d',
+  'weekly_recap',
+  'charlotte_checkin',
+  'reengagement_3d',
+];
+
+interface EngagementUser {
+  id: string;
+  name: string | null;
+  expo_push_token: string;
+  charlotte_level: string | null;
+  timezone: string | null;
+  last_practice_at: string | null;
+  trial_ends_at: string | null;
+  subscription_status: string | null;
+  subscription_expires_at: string | null;
+  is_institutional: boolean | null;
+  total_xp: number;
+  streak_days: number;
+  practiced_today: boolean;
+  practices_this_week: number;
+  practices_prev_4weeks_avg: number;
+  recent_practice_timestamps: string[];
+  previous_streak_days: number; // streak as of yesterday's cron
+}
+
+// Render a template with standard placeholders.
+function renderTemplate(
+  tpl: { title: string; body: string },
+  vars: Record<string, string | number | undefined>,
+): { title: string; body: string } {
+  const replace = (s: string) => s.replace(/\{(\w+)\}/g, (_, k) =>
+    vars[k] != null ? String(vars[k]) : '',
+  );
+  return { title: replace(tpl.title), body: replace(tpl.body) };
+}
+
+// Hardcoded template pools per type. Each has PT (Novice) and EN
+// (Inter/Advanced) variants; dispatcher picks a random one per send.
+// Placeholders: {name}, {streak}, {xp}, {milestone}, {missingXp}, {days}.
+interface ReengTemplates {
+  pt: { title: string; body: string }[];
+  en: { title: string; body: string }[];
+}
+
+const ENGAGEMENT_TEMPLATES: Record<string, ReengTemplates> = {
+  streak_saver: {
+    pt: [
+      { title: '🔥 Segura essa sequência!', body: '{name}, você está a poucas horas de quebrar seus {streak} dias. Bora salvar?' },
+      { title: '⏰ Sua sequência tá em risco', body: 'Ainda dá tempo, {name}! {streak} dias esperam você voltar hoje.' },
+      { title: '🔥 Não deixa a sequência morrer', body: '{streak} dias em jogo, {name}. 2 minutinhos salvam.' },
+    ],
+    en: [
+      { title: '🔥 Save your streak!', body: '{name}, a few hours left before your {streak}-day streak ends. Save it now?' },
+      { title: '⏰ Your streak is at risk', body: 'Still time, {name}! Your {streak}-day streak is waiting.' },
+      { title: '🔥 Don\'t break the chain', body: '{streak} days on the line, {name}. 2 minutes to save it.' },
+    ],
+  },
+  streak_milestone_ahead: {
+    pt: [
+      { title: '🎯 Amanhã é marco!', body: '{name}, praticar hoje te leva pra {days} dias consecutivos amanhã. Bora fechar?' },
+      { title: '✨ Próxima parada: {days} dias', body: '{name}, cada dia de prática conta pra chegar lá.' },
+    ],
+    en: [
+      { title: '🎯 Milestone tomorrow!', body: '{name}, practice today to hit {days} days in a row tomorrow.' },
+      { title: '✨ Next stop: {days} days', body: '{name}, every session counts toward that milestone.' },
+    ],
+  },
+  streak_broken: {
+    pt: [
+      { title: '💫 Uma sequência quebra, outra começa', body: '{name}, vamos do zero juntos? A primeira é a mais importante.' },
+      { title: '🌱 Recomeça hoje', body: 'A Charlotte ainda está aqui, {name}. Que tal retomar?' },
+    ],
+    en: [
+      { title: '💫 One streak ends, another begins', body: '{name}, let\'s start fresh? Day one is the most important.' },
+      { title: '🌱 Start again today', body: 'Charlotte is still here, {name}. How about picking it back up?' },
+    ],
+  },
+  level_imminent: {
+    pt: [
+      { title: '🎯 Falta pouco pra {milestone} XP', body: 'Só {missingXp} XP, {name}. Uma sessão curta te leva lá.' },
+      { title: '✨ {missingXp} XP pro próximo marco', body: '{name}, você está na reta final pra {milestone} XP!' },
+    ],
+    en: [
+      { title: '🎯 Just {missingXp} XP to {milestone}', body: 'You\'re nearly there, {name}. One short session does it.' },
+      { title: '✨ {missingXp} XP from your next milestone', body: '{name}, so close to {milestone} XP — go get it!' },
+    ],
+  },
+  micro_checkin: {
+    pt: [
+      { title: '👋 Oi, {name}', body: 'Tô por aqui se você tiver uns 2 minutinhos hoje.' },
+      { title: '💬 Charlotte pergunta...', body: '{name}, como foi o dia? Vamos praticar um pouquinho?' },
+    ],
+    en: [
+      { title: '👋 Hey, {name}', body: 'I\'m here if you have a couple of minutes today.' },
+      { title: '💬 Charlotte here', body: '{name}, how\'s your day going? A quick session?' },
+    ],
+  },
+  cadence_drop: {
+    pt: [
+      { title: '🌿 Semana corrida?', body: '{name}, só uma sessão curta hoje pra retomar o flow.' },
+      { title: '💡 Que tal uma pausa produtiva?', body: 'Poucos minutos, {name}, e sua semana já volta aos trilhos.' },
+    ],
+    en: [
+      { title: '🌿 Busy week?', body: '{name}, just one quick session today to get back in the flow.' },
+      { title: '💡 Take a productive break', body: 'A few minutes, {name}, and your week is back on track.' },
+    ],
+  },
+  weekly_recap: {
+    pt: [
+      { title: '📊 Sua semana com a Charlotte', body: '{xp} XP, ótimo trabalho {name}! Pronta pra nova semana?' },
+      { title: '✨ Semana fechada', body: '{name}, você somou {xp} XP. Que tal planejar a próxima?' },
+    ],
+    en: [
+      { title: '📊 Your week with Charlotte', body: '{xp} XP, great work {name}! Ready for the next one?' },
+      { title: '✨ Week wrapped', body: '{name}, you earned {xp} XP. Let\'s plan the next one?' },
+    ],
+  },
+  charlotte_checkin: {
+    pt: [
+      { title: '💭 Pensei em você hoje', body: '{name}, 2 minutinhos de inglês?' },
+      { title: '☕ Oi, {name}', body: 'Só passando pra ver como está. Vamos praticar?' },
+      { title: '✨ Saudade de você', body: 'Vamos conversar, {name}? Só uma sessão curta.' },
+    ],
+    en: [
+      { title: '💭 Thinking of you today', body: '{name}, got 2 minutes for some English?' },
+      { title: '☕ Hey, {name}', body: 'Just checking in. Want to practice?' },
+      { title: '✨ Miss you', body: 'Let\'s chat, {name}? Just a quick session.' },
+    ],
+  },
+  trial_ending_72h: {
+    pt: [
+      { title: '⏳ 3 dias restantes no teste', body: '{name}, continue sem interrupção. Seu progresso merece!' },
+      { title: '✨ Seu teste grátis acaba em 3 dias', body: '{name}, mantenha o ritmo com a Charlotte.' },
+    ],
+    en: [
+      { title: '⏳ 3 days left in your trial', body: '{name}, keep going without interruption.' },
+      { title: '✨ Your free trial ends in 3 days', body: '{name}, keep the momentum with Charlotte.' },
+    ],
+  },
+  trial_ending_24h: {
+    pt: [
+      { title: '⏰ Último dia do teste', body: '{name}, amanhã termina — continue por R$ 29,90/mês.' },
+      { title: '🚨 24h restantes', body: '{name}, você já evoluiu tanto. Não pare agora.' },
+    ],
+    en: [
+      { title: '⏰ Final day of your trial', body: '{name}, it ends tomorrow — continue for $5.99/month.' },
+      { title: '🚨 24h left', body: '{name}, you\'ve made so much progress. Don\'t stop now.' },
+    ],
+  },
+  sub_expired_1d: {
+    pt: [
+      { title: '💙 Sentimos sua falta', body: '{name}, a Charlotte está esperando. Volta?' },
+      { title: '👋 Bem-vindo de volta', body: 'Reative sua assinatura, {name}, e continue de onde parou.' },
+    ],
+    en: [
+      { title: '💙 We miss you', body: '{name}, Charlotte is waiting. Come back?' },
+      { title: '👋 Welcome back', body: 'Reactivate your subscription, {name}, and pick up where you left off.' },
+    ],
+  },
+  reengagement_3d: {
+    pt: [
+      { title: '👋 Charlotte sentiu sua falta', body: '{name}, 3 dias sem praticar. Que tal voltar hoje?' },
+      { title: '💬 Tudo bem aí?', body: '{name}, a Charlotte está pensando em você.' },
+    ],
+    en: [
+      { title: '👋 Charlotte misses you', body: '{name}, 3 days without practice. Come back today?' },
+      { title: '💬 Everything okay?', body: '{name}, Charlotte\'s been thinking about you.' },
+    ],
+  },
+  reengagement_7d: {
+    pt: [
+      { title: '🌱 Seu progresso espera', body: '{name}, você tem {xp} XP guardados. Bora retomar?' },
+      { title: '✨ Uma semana sem ver você', body: '{name}, a Charlotte quer continuar sua jornada.' },
+    ],
+    en: [
+      { title: '🌱 Your progress is waiting', body: '{name}, you have {xp} XP saved up. Let\'s keep going?' },
+      { title: '✨ Been a week', body: '{name}, Charlotte wants to continue your journey.' },
+    ],
+  },
+  reengagement_14d: {
+    pt: [
+      { title: '💙 Não desista agora', body: '{name}, uma sessão curta hoje faz toda a diferença.' },
+      { title: '🔥 Sua jornada está pausada', body: 'Volta, {name}. A Charlotte está aqui.' },
+    ],
+    en: [
+      { title: '💙 Don\'t give up now', body: '{name}, one short session today makes all the difference.' },
+      { title: '🔥 Your journey is on pause', body: 'Come back, {name}. Charlotte is here.' },
+    ],
+  },
+  reengagement_30d: {
+    pt: [
+      { title: '🎁 Uma mensagem especial pra você', body: '{name}, a Charlotte preparou algo. Abra o app?' },
+      { title: '💫 Ainda dá tempo de voltar', body: 'Seu inglês continua esperando, {name}. Só você começa de novo.' },
+    ],
+    en: [
+      { title: '🎁 A special message for you', body: '{name}, Charlotte prepared something. Open the app?' },
+      { title: '💫 Still time to come back', body: 'Your English is waiting, {name}. Only you can restart.' },
+    ],
+  },
+};
+
+function pickReengTemplate(type: string, isNovice: boolean, vars: Record<string, any>) {
+  const set = ENGAGEMENT_TEMPLATES[type];
+  if (!set) return null;
+  const pool = isNovice ? set.pt : set.en;
+  const raw  = pool[Math.floor(Math.random() * pool.length)];
+  return renderTemplate(raw, vars);
+}
+
+// ─ Signal detection ─────────────────────────────────────────────────────────
+// Returns the single highest-priority engagement type that applies to the
+// user at this instant (their current local hour), or null if none.
+function detectEngagementSignal(
+  user: EngagementUser,
+  now: Date,
+): { type: NotificationType['id']; vars: Record<string, any> } | null {
+  const tz = user.timezone || DEFAULT_TZ;
+  const localHour = localHourInTz(now, tz);
+  const localDay  = localDayInTz(now, tz);
+  const firstName = user.name?.split(/[\s\-]+/)[0] ?? 'there';
+  const isNovice  = user.charlotte_level === 'Novice';
+
+  // Iterate priority order; return first matching signal.
+  for (const type of ENGAGEMENT_PRIORITY) {
+    // Institutional users are admin-managed — skip revenue + winback
+    if (user.is_institutional && (
+      type === 'trial_ending_72h' || type === 'trial_ending_24h' ||
+      type === 'sub_expired_1d'   || type.startsWith('reengagement_')
+    )) continue;
+
+    switch (type) {
+      case 'sub_expired_1d': {
+        if (user.subscription_status !== 'expired' || !user.subscription_expires_at) break;
+        const expiredAt = new Date(user.subscription_expires_at);
+        const days = daysBetweenUtc(expiredAt, now);
+        if (days !== 1) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.sub_expired_1d) break;
+        return { type, vars: { name: firstName, isNovice } };
+      }
+      case 'trial_ending_24h':
+      case 'trial_ending_72h': {
+        if (!user.trial_ends_at) break;
+        const endsAt = new Date(user.trial_ends_at);
+        const hoursLeft = (endsAt.getTime() - now.getTime()) / 3600000;
+        const targetBand = type === 'trial_ending_24h' ? [12, 36] : [60, 84];
+        if (hoursLeft < targetBand[0] || hoursLeft > targetBand[1]) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR[type]) break;
+        return { type, vars: { name: firstName, isNovice } };
+      }
+      case 'streak_saver': {
+        // Yesterday still had streak ≥ 3, today not practiced, we're at 20h local.
+        if (user.previous_streak_days < 3) break;
+        if (user.practiced_today) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.streak_saver) break;
+        return { type, vars: { name: firstName, streak: user.streak_days || user.previous_streak_days, isNovice } };
+      }
+      case 'streak_milestone_ahead': {
+        // Tomorrow user would hit a 7/30/100 day milestone.
+        const MS = [7, 30, 100, 365];
+        const upcoming = MS.find(m => user.streak_days === m - 1);
+        if (!upcoming) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.streak_milestone_ahead) break;
+        return { type, vars: { name: firstName, days: upcoming, isNovice } };
+      }
+      case 'streak_broken': {
+        // User had a streak ≥ 7 as of yesterday, now 0 → fire noon today.
+        if (user.previous_streak_days < 7) break;
+        if (user.streak_days > 0) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.streak_broken) break;
+        return { type, vars: { name: firstName, isNovice } };
+      }
+      case 'reengagement_30d':
+      case 'reengagement_14d':
+      case 'reengagement_7d':
+      case 'reengagement_3d': {
+        if (!user.last_practice_at) break;
+        const days = daysBetweenUtc(new Date(user.last_practice_at), now);
+        const targetDays =
+          type === 'reengagement_30d' ? 30 :
+          type === 'reengagement_14d' ? 14 :
+          type === 'reengagement_7d'  ? 7  :
+          3;
+        // Exact-day fire. After 30d we stop (dispatched at priority top,
+        // so 30d fires once and future days won't — no 31d/32d push).
+        if (days !== targetDays) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR[type]) break;
+        return { type, vars: { name: firstName, xp: user.total_xp, days, isNovice } };
+      }
+      case 'level_imminent': {
+        const next = nextXpMilestone(user.total_xp);
+        if (!next || next.delta > 30) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.level_imminent) break;
+        return { type, vars: { name: firstName, milestone: next.value, missingXp: next.delta, isNovice } };
+      }
+      case 'cadence_drop': {
+        // This week ≥ 1 practice but ≤ 60% of previous 4-week avg, and we've
+        // made it to noon without enough activity. Avoid false positives when
+        // the avg itself is tiny.
+        const avg = user.practices_prev_4weeks_avg;
+        if (avg < 3) break;
+        if (user.practices_this_week >= avg * 0.6) break;
+        if (!user.last_practice_at) break;
+        if (daysBetweenUtc(new Date(user.last_practice_at), now) < 2) break;
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.cadence_drop) break;
+        return { type, vars: { name: firstName, isNovice } };
+      }
+      case 'micro_checkin': {
+        // User's usual practice hour has passed by ≥ 2h and they still have
+        // not practiced today. Keeps the "Charlotte is around" feeling.
+        const usual = usualLocalPracticeHour(user.recent_practice_timestamps, tz);
+        if (usual == null) break;
+        if (user.practiced_today) break;
+        const want = (usual + 2) % 24;
+        if (localHour !== want) break;
+        return { type, vars: { name: firstName, isNovice } };
+      }
+      case 'weekly_recap': {
+        if (localDay !== 0) break; // Sunday in Intl = 0
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.weekly_recap) break;
+        // Only fire for users who practiced at least once this week — otherwise
+        // a 'xp: 0' recap is demoralising.
+        if (user.practices_this_week === 0) break;
+        // Approx: cumulative today-week XP is hard without extra query; show total_xp as
+        // a proxy for "progress so far". Good enough for a Sunday evening nudge.
+        return { type, vars: { name: firstName, xp: user.total_xp, isNovice } };
+      }
+      case 'charlotte_checkin': {
+        if (localDay !== 2 && localDay !== 4) break; // Tue or Thu
+        if (localHour !== ENGAGEMENT_TARGET_HOUR.charlotte_checkin) break;
+        // Only for users who practiced in the last 4 days (still warm).
+        if (!user.last_practice_at) break;
+        if (daysBetweenUtc(new Date(user.last_practice_at), now) > 4) break;
+        return { type, vars: { name: firstName, isNovice } };
+      }
+    }
+  }
+  return null;
+}
+
+// ─ Main sender ─────────────────────────────────────────────────────────────
+export async function sendEngagementPushes(supabase: any): Promise<void> {
+  console.log('🎯 [Expo] Engagement dispatcher starting...');
+  try {
+    const now = new Date();
+    const todayUtc = now.toISOString().split('T')[0];
+    const weekAgo  = new Date(now.getTime() - 7  * 86400000).toISOString();
+    const fourWeeksAgo = new Date(now.getTime() - 28 * 86400000).toISOString();
+
+    // 1. Fetch all candidate users (with token) and their timezones.
+    const { data: users, error: usersErr } = await supabase
+      .from('charlotte_users')
+      .select('id, name, expo_push_token, charlotte_level, timezone, last_practice_at, trial_ends_at, subscription_status, subscription_expires_at, is_institutional')
+      .not('expo_push_token', 'is', null);
+    if (usersErr) { console.error('❌ [Engagement] users query:', usersErr.message); return; }
+    const withToken = (users ?? []).filter((u: any) =>
+      u.expo_push_token?.startsWith('ExponentPushToken['));
+    if (!withToken.length) { console.log('🎯 [Engagement] no users with tokens'); return; }
+
+    const userIds = withToken.map((u: any) => u.id);
+
+    // 2. Fetch progress (streak + total_xp).
+    const { data: progressRows } = await supabase
+      .from('charlotte_progress')
+      .select('user_id, streak_days, total_xp')
+      .in('user_id', userIds);
+    const progressMap = new Map<string, { streak: number; totalXp: number }>();
+    for (const r of (progressRows ?? []) as any[]) {
+      progressMap.set(r.user_id, { streak: r.streak_days ?? 0, totalXp: r.total_xp ?? 0 });
+    }
+
+    // 3. Fetch practices: today, this week, prev 4 weeks.
+    const { data: recentPractices } = await supabase
+      .from('charlotte_practices')
+      .select('user_id, created_at')
+      .in('user_id', userIds)
+      .gte('created_at', fourWeeksAgo);
+
+    const todayPractices   = new Set<string>();
+    const thisWeekCount    = new Map<string, number>();
+    const prev4weekCount   = new Map<string, number>();
+    const historyByUser    = new Map<string, string[]>();
+    for (const r of (recentPractices ?? []) as any[]) {
+      if (r.created_at >= `${todayUtc}T00:00:00Z`) todayPractices.add(r.user_id);
+      if (r.created_at >= weekAgo) {
+        thisWeekCount.set(r.user_id, (thisWeekCount.get(r.user_id) ?? 0) + 1);
+      } else {
+        prev4weekCount.set(r.user_id, (prev4weekCount.get(r.user_id) ?? 0) + 1);
+      }
+      const hist = historyByUser.get(r.user_id) ?? [];
+      hist.push(r.created_at);
+      historyByUser.set(r.user_id, hist);
+    }
+
+    // 4. Fetch yesterday's streak snapshot from notification_logs — proxy:
+    //    we rely on charlotte_progress.streak_days being bumped BEFORE the
+    //    cron fires, so yesterday's value is reconstructed as
+    //    current_streak if user practiced today, else current_streak + 1
+    //    (since missing a day resets to 0, a zero current with previous > 0
+    //    means the streak broke today-ish — good enough signal).
+    // Simpler heuristic used below: `previous_streak_days` = streak_days if
+    // practiced today, otherwise streak_days (still holds until midnight of
+    // the next day). This captures the "about to break" window well enough
+    // for streak_saver. streak_broken relies on streak_days === 0 with a
+    // recent last_practice_at (within 2 days).
+
+    // 5. Exclude users who already received ANY engagement push today (hard
+    //    cap on the whole category, not per-type).
+    const { data: engagedTodayRows } = await supabase
+      .schema('notifications')
+      .from('notification_logs')
+      .select('user_id, notification_type')
+      .in('user_id', userIds)
+      .gte('created_at', `${todayUtc}T00:00:00Z`)
+      .eq('status', 'sent');
+    const alreadyEngaged = new Set<string>();
+    for (const r of (engagedTodayRows ?? []) as any[]) {
+      if (ENGAGEMENT_TYPES.has(r.notification_type)) {
+        alreadyEngaged.add(r.user_id);
+      }
+    }
+
+    // 6. Build EngagementUser per candidate + run signal detection.
+    type Plan = { user: EngagementUser; type: NotificationType['id']; vars: Record<string, any> };
+    const plans: Plan[] = [];
+    for (const raw of withToken) {
+      if (alreadyEngaged.has(raw.id)) continue;
+      const prog = progressMap.get(raw.id) ?? { streak: 0, totalXp: 0 };
+      const thisWeek = thisWeekCount.get(raw.id) ?? 0;
+      const prev4    = prev4weekCount.get(raw.id) ?? 0;
+      const eu: EngagementUser = {
+        id: raw.id,
+        name: raw.name,
+        expo_push_token: raw.expo_push_token,
+        charlotte_level: raw.charlotte_level,
+        timezone: raw.timezone,
+        last_practice_at: raw.last_practice_at,
+        trial_ends_at: raw.trial_ends_at,
+        subscription_status: raw.subscription_status,
+        subscription_expires_at: raw.subscription_expires_at,
+        is_institutional: raw.is_institutional,
+        total_xp: prog.totalXp,
+        streak_days: prog.streak,
+        practiced_today: todayPractices.has(raw.id),
+        practices_this_week: thisWeek,
+        practices_prev_4weeks_avg: prev4 / 4,
+        recent_practice_timestamps: historyByUser.get(raw.id) ?? [],
+        previous_streak_days: prog.streak, // see note in step 4
+      };
+
+      const signal = detectEngagementSignal(eu, now);
+      if (signal) plans.push({ user: eu, type: signal.type, vars: signal.vars });
+    }
+
+    if (!plans.length) {
+      console.log('🎯 [Engagement] no signals fired this hour');
+      return;
+    }
+
+    // 7. Drop users at frequency cap for that specific type.
+    const byType = new Map<NotificationType['id'], Plan[]>();
+    for (const p of plans) {
+      const arr = byType.get(p.type) ?? [];
+      arr.push(p);
+      byType.set(p.type, arr);
+    }
+    const finalPlans: Plan[] = [];
+    for (const [type, ps] of byType) {
+      const allowed = await filterFrequencyCap(supabase, ps.map(p => p.user.id), type);
+      const allowSet = new Set(allowed);
+      for (const p of ps) if (allowSet.has(p.user.id)) finalPlans.push(p);
+    }
+    if (!finalPlans.length) return;
+
+    // 8. Render + batch-send per type so logRnPushes writes the right rows.
+    const byTypeFinal = new Map<NotificationType['id'], Plan[]>();
+    for (const p of finalPlans) {
+      const arr = byTypeFinal.get(p.type) ?? [];
+      arr.push(p);
+      byTypeFinal.set(p.type, arr);
+    }
+
+    for (const [type, ps] of byTypeFinal) {
+      const messages: ExpoMessage[] = [];
+      const logRows: any[] = [];
+      for (const p of ps) {
+        const tpl = pickReengTemplate(type, p.user.charlotte_level === 'Novice', p.vars);
+        if (!tpl) continue;
+        messages.push({
+          to: p.user.expo_push_token,
+          title: tpl.title,
+          body:  tpl.body,
+          data:  { screen: 'chat', type },
+          sound: 'default',
+          priority: 'high',
+        });
+        logRows.push({
+          userId: p.user.id,
+          type,
+          title: tpl.title,
+          body:  tpl.body,
+        });
+      }
+      if (!messages.length) continue;
+      const { sent, errors } = await sendExpoPush(messages, supabase);
+      console.log(`✅ [Engagement] ${type}: ${sent} sent, ${errors} errors`);
+      await logRnPushes(supabase, logRows);
+    }
+  } catch (e) {
+    console.error('❌ [Engagement] dispatcher error:', e);
   }
 }

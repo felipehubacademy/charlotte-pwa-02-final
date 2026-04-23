@@ -27,12 +27,13 @@ import {
   sendStreakReminders,
   sendGoalReminders,
   sendWeeklyChallenges,
+  sendEngagementPushes,
 } from '@/lib/expo-notification-service';
 import { getSupabase } from '@/lib/supabase';
 
 const CRON_SECRET = process.env.CRON_SECRET ?? '';
 
-type TaskType = 'daily' | 'praise' | 'streak' | 'goal' | 'weekly';
+type TaskType = 'daily' | 'praise' | 'streak' | 'goal' | 'weekly' | 'engagement';
 
 function isAuthorized(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization') ?? '';
@@ -64,6 +65,9 @@ async function runTask(task: TaskType): Promise<{ task: TaskType }> {
     case 'weekly':
       await sendWeeklyChallenges(supabase);
       break;
+    case 'engagement':
+      await sendEngagementPushes(supabase);
+      break;
     default:
       throw new Error(`Unknown task: ${task}`);
   }
@@ -73,7 +77,7 @@ async function runTask(task: TaskType): Promise<{ task: TaskType }> {
 // Every hourly run invokes every sender. Each sender drops users whose
 // per-user local hour does not match the task's target hour, so this is
 // cheap when no one is at the right local time.
-const HOURLY_TASKS: TaskType[] = ['daily', 'goal', 'praise', 'streak', 'weekly'];
+const HOURLY_TASKS: TaskType[] = ['daily', 'goal', 'praise', 'streak', 'weekly', 'engagement'];
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
