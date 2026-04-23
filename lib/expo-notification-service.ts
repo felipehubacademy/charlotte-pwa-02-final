@@ -113,8 +113,18 @@ async function sendExpoPush(messages: ExpoMessage[]): Promise<{ sent: number; er
       });
       const result = await response.json();
       const items = result.data ?? [];
-      sent += items.filter((r: any) => r.status === 'ok').length;
-      errors += items.filter((r: any) => r.status === 'error').length;
+      // Per-token accounting — Expo returns one status entry per message
+      // in the same order as the request batch.
+      items.forEach((r: any, idx: number) => {
+        if (r.status === 'ok') {
+          sent += 1;
+        } else {
+          errors += 1;
+          const token = batch[idx]?.to?.slice(0, 30) ?? 'unknown';
+          const details = r.details ? ` details=${JSON.stringify(r.details)}` : '';
+          console.error(`❌ [Expo] token=${token} error="${r.message ?? 'unknown'}"${details}`);
+        }
+      });
     } catch (e) {
       console.error('❌ Expo Push batch error:', e);
       errors += batch.length;
@@ -143,14 +153,25 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    // Users with streak > 0 who haven't practiced today
-    const { data: atRisk } = await supabase
+    // 1) Fetch user_ids who practiced today (raw list — PostgREST does not
+    //    support inline SQL subqueries, so we do it in two queries).
+    const { data: practicedRows, error: practicedErr } = await supabase
+      .from('charlotte_practices')
+      .select('user_id')
+      .gte('created_at', `${today}T00:00:00Z`);
+    if (practicedErr) { console.error('❌ [Expo] practices query error:', practicedErr.message); return; }
+    const practicedIds = [...new Set((practicedRows ?? []).map((r: any) => r.user_id))] as string[];
+
+    // 2) Users with streak > 0 who haven't practiced today.
+    let q = supabase
       .from('charlotte_progress')
       .select('user_id, streak_days')
-      .gt('streak_days', 0)
-      .not('user_id', 'in',
-        `(SELECT DISTINCT user_id FROM charlotte_practices WHERE created_at::date = '${today}')`
-      );
+      .gt('streak_days', 0);
+    if (practicedIds.length) {
+      q = q.not('user_id', 'in', `(${practicedIds.map(id => `"${id}"`).join(',')})`);
+    }
+    const { data: atRisk, error: atRiskErr } = await q;
+    if (atRiskErr) { console.error('❌ [Expo] at-risk query error:', atRiskErr.message); return; }
 
     if (!atRisk?.length) { console.log('✅ [Expo] No streak risks today'); return; }
 
@@ -183,18 +204,30 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
   try {
     const today = new Date().toISOString().split('T')[0];
 
-    const { data: cuUsers } = await supabase
+    // 1) Fetch user_ids who practiced today (PostgREST doesn't support inline
+    //    SQL subqueries, so we split into two queries).
+    const { data: practicedRows, error: practicedErr } = await supabase
+      .from('charlotte_practices')
+      .select('user_id')
+      .gte('created_at', `${today}T00:00:00Z`);
+    if (practicedErr) { console.error('❌ [Expo] practices query error:', practicedErr.message); return; }
+    const practicedIds = [...new Set((practicedRows ?? []).map((r: any) => r.user_id))] as string[];
+
+    // 2) Users with token who haven't practiced today.
+    let q = supabase
       .from('charlotte_users')
       .select('id, name, expo_push_token, charlotte_level')
-      .not('expo_push_token', 'is', null)
-      .not('id', 'in',
-        `(SELECT DISTINCT user_id FROM charlotte_practices WHERE created_at::date = '${today}')`
-      );
+      .not('expo_push_token', 'is', null);
+    if (practicedIds.length) {
+      q = q.not('id', 'in', `(${practicedIds.map(id => `"${id}"`).join(',')})`);
+    }
+    const { data: cuUsers, error: usersErr } = await q;
+    if (usersErr) { console.error('❌ [Expo] users query error:', usersErr.message); return; }
 
     const eligible = (cuUsers ?? []).filter((u: any) =>
       u.expo_push_token?.startsWith('ExponentPushToken[')
     );
-    if (!eligible.length) { console.log('✅ [Expo] All users practiced today'); return; }
+    if (!eligible.length) { console.log('✅ [Expo] No eligible users for daily reminder'); return; }
 
     const userIds = eligible.map((u: any) => u.id);
     const { data: progRows } = await supabase
