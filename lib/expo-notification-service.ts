@@ -2,6 +2,7 @@
 // Sends push notifications to React Native (Charlotte AI) via Expo Push API
 
 import { randomUUID } from 'crypto';
+import { logOpenAIUsage } from './openai-usage';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
@@ -70,12 +71,136 @@ Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
       }),
     });
     const json = await res.json();
+    // Fire-and-forget usage logging so we can watch cost vs. value.
+    if (json.usage) {
+      logOpenAIUsage({
+        endpoint: '/api/notifications/scheduler',
+        model: 'gpt-4o-mini',
+        promptTokens: json.usage.prompt_tokens ?? 0,
+        completionTokens: json.usage.completion_tokens ?? 0,
+      });
+    }
     const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? '{}');
     if (Array.isArray(parsed.variants) && parsed.variants.length > 0) return parsed.variants;
   } catch (e) {
     console.warn('⚠️ [Expo] GPT pool generation failed:', e);
   }
   return [];
+}
+
+// ── GPT pools for re-engagement (Level 3) ──────────────────────────────────
+// Critical re-engagement types get a fresh GPT-generated pool per run so the
+// copy stays varied and human-feeling. Hardcoded templates remain as
+// fallback when GPT is disabled, fails, or returns an empty pool.
+const GPT_ENGAGEMENT_TYPES = new Set<string>([
+  'streak_saver',
+  'level_imminent',
+  'micro_checkin',
+  'weekly_recap',
+  'reengagement_7d',
+  'reengagement_14d',
+]);
+
+// Cached once per dispatcher run (key = `${type}:${locale}`) to avoid
+// regenerating for every user in the same batch.
+let engagementGptCache = new Map<string, MsgTemplate[]>();
+
+function getEngagementGptPool(type: string, isNovice: boolean): MsgTemplate[] | null {
+  const key = `${type}:${isNovice ? 'pt' : 'en'}`;
+  return engagementGptCache.get(key) ?? null;
+}
+
+function resetEngagementGptCache(): void {
+  engagementGptCache = new Map();
+}
+
+async function generateEngagementGptPool(
+  type: string,
+  isNovice: boolean,
+  count = 4,
+): Promise<MsgTemplate[]> {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) return [];
+
+  const lang = isNovice ? 'Portuguese (Brazil)' : 'English';
+  // Per-type intent — keeps the pool aligned with the push's emotional
+  // register. {name}, {streak}, {xp}, {missingXp}, {milestone}, {days} are
+  // available as placeholders for the renderer.
+  const intents: Record<string, string> = {
+    streak_saver:
+      'The user built a multi-day streak and is about to break it tonight. Write 4 urgent-but-warm variants to save the streak. Mention {streak} as "{streak} days" / "{streak} dias".',
+    level_imminent:
+      'The user is fewer than 30 XP away from a meaningful milestone. Write 4 motivating, slightly competitive variants. Use {missingXp} and {milestone}.',
+    micro_checkin:
+      'A casual "Charlotte is here" check-in, like a thoughtful friend. Warm, 0% pushy. Keep it under 90 chars.',
+    weekly_recap:
+      'Sunday evening recap. Celebrate the user\'s week with {xp} XP and prompt next week. Warm, proud, hopeful.',
+    reengagement_7d:
+      'The user disappeared for 7 days. Gentle comeback invite, no guilt. Mention {xp} as "{xp} XP saved up". Short and kind.',
+    reengagement_14d:
+      'The user disappeared for 14 days. Warm last-call, no sales pressure. Remind them progress is preserved. Keep it personal.',
+  };
+  const intent = intents[type];
+  if (!intent) return [];
+
+  const prompt = `You are Charlotte, an AI English teacher. Write ${count} different push notification variants IN FIRST PERSON.
+- Language: ${lang}
+- Tone: warm, personal, human — never pushy or robotic
+- Title: 4-6 words, 1 relevant emoji
+- Body: 1 sentence under 90 chars, include {name}, first person
+- Context: ${intent}
+Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.9,
+        max_tokens: 400,
+        response_format: { type: 'json_object' },
+      }),
+    });
+    const json = await res.json();
+    if (json.usage) {
+      logOpenAIUsage({
+        endpoint: '/api/notifications/scheduler',
+        model: 'gpt-4o-mini',
+        promptTokens: json.usage.prompt_tokens ?? 0,
+        completionTokens: json.usage.completion_tokens ?? 0,
+      });
+    }
+    const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? '{}');
+    if (Array.isArray(parsed.variants) && parsed.variants.length > 0) return parsed.variants;
+  } catch (e) {
+    console.warn(`⚠️ [Engagement] GPT pool generation failed (${type}):`, e);
+  }
+  return [];
+}
+
+// Called by the dispatcher once per run, AFTER signal detection, BEFORE
+// rendering. Figures out which GPT types are actually needed this run
+// (based on plans), generates in parallel, stores in the module-level cache
+// so pickReengTemplate can read via getEngagementGptPool().
+async function warmEngagementGptPools(types: { type: string; needsPt: boolean; needsEn: boolean }[]): Promise<void> {
+  resetEngagementGptCache();
+  const jobs: Promise<void>[] = [];
+  for (const { type, needsPt, needsEn } of types) {
+    if (!GPT_ENGAGEMENT_TYPES.has(type)) continue;
+    if (needsPt) {
+      jobs.push(generateEngagementGptPool(type, true).then(pool => {
+        if (pool.length) engagementGptCache.set(`${type}:pt`, pool);
+      }));
+    }
+    if (needsEn) {
+      jobs.push(generateEngagementGptPool(type, false).then(pool => {
+        if (pool.length) engagementGptCache.set(`${type}:en`, pool);
+      }));
+    }
+  }
+  await Promise.allSettled(jobs);
 }
 
 // Stable hash for a template (ignoring placeholders) so we can recognise
@@ -454,23 +579,45 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
     if (!cuUsers.length) { console.log(`⏱️ [Expo] streak: no users at local ${TARGET_HOUR_STREAK}h this run`); return; }
     const streakMap = Object.fromEntries(atRisk.map((r: any) => [r.user_id, r.streak_days]));
 
-    const messages: ExpoMessage[] = cuUsers.map((u: any) => {
+    // Novelty decay — exclude the last N variants each user has already seen.
+    const recentHashes = await fetchRecentVariantHashes(
+      supabase,
+      cuUsers.map((u: any) => u.id),
+      'streak_reminder',
+    );
+
+    const hashByUser: Record<string, string> = {};
+    const messages: ExpoMessage[] = [];
+    const senders: any[] = [];
+    for (const u of cuUsers) {
+      const isNovice = u.charlotte_level === 'Novice';
+      const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
       const days = streakMap[u.id] ?? 1;
-      return {
+      const picked = pickCoreTemplate(
+        'streak_reminder',
+        isNovice,
+        { name: firstName, streak: days },
+        recentHashes.get(u.id) ?? new Set(),
+      );
+      if (!picked) continue;
+      hashByUser[u.id] = picked.hash;
+      messages.push({
         to: u.expo_push_token,
-        title: '🔥 Streak em risco!',
-        body: `Sua sequência de ${days} ${days === 1 ? 'dia' : 'dias'} está em risco. Pratique agora com a Charlotte!`,
+        title: picked.msg.title,
+        body: picked.msg.body,
         data: { screen: 'chat', type: 'streak_reminder' },
         sound: 'default',
         priority: 'high',
-      };
-    });
+      });
+      senders.push(u);
+    }
 
     const { sent, errors } = await sendExpoPush(messages, supabase);
     console.log(`✅ [Expo] Streak reminders: ${sent} sent, ${errors} errors`);
-    await logRnPushes(supabase, cuUsers.map((u: any, i: number) => ({
+    await logRnPushes(supabase, senders.map((u: any, i: number) => ({
       userId: u.id,
       type: 'streak_reminder',
+      variantHash: hashByUser[u.id],
       title: messages[i]?.title,
       body:  messages[i]?.body,
     })));
@@ -690,18 +837,31 @@ export async function sendXPMilestoneNotification(
     }
 
     const firstName = user.name?.split(' ')[0] ?? 'Você';
-    const title = '🎉 Marco alcançado!';
-    const body  = `${firstName} chegou a ${milestone.toLocaleString('pt-BR')} XP! Continue praticando!`;
+    const isNovice  = (user as any).charlotte_level === 'Novice';
+    const recent = await fetchRecentVariantHashes(supabase, [userId], 'xp_milestone');
+    const picked = pickCoreTemplate(
+      'xp_milestone',
+      isNovice,
+      { name: firstName, milestone: milestone.toLocaleString(isNovice ? 'pt-BR' : 'en-US') },
+      recent.get(userId) ?? new Set(),
+    );
+    if (!picked) return;
+
     await sendExpoPush([{
       to: user.expo_push_token,
-      title, body,
-      data: { screen: 'chat', type: 'xp_milestone', milestone },
+      title: picked.msg.title,
+      body:  picked.msg.body,
+      data:  { screen: 'chat', type: 'xp_milestone', milestone },
       sound: 'default',
       priority: 'high',
     }], supabase);
 
     console.log(`✅ [Expo] XP milestone ${milestone} sent to ${userId}`);
-    await logRnPushes(supabase, [{ userId, type: 'xp_milestone', title, body }]);
+    await logRnPushes(supabase, [{
+      userId, type: 'xp_milestone',
+      variantHash: picked.hash,
+      title: picked.msg.title, body: picked.msg.body,
+    }]);
   } catch (e) {
     console.error('❌ [Expo] XP milestone error:', e);
   }
@@ -754,28 +914,44 @@ export async function sendGoalReminders(supabase: any): Promise<void> {
     const cuUsers = tzFiltered.filter((u: any) => allowed.has(u.id));
     const missingMap = Object.fromEntries(near.map(n => [n.userId, n.missing]));
 
-    const messages: ExpoMessage[] = cuUsers.map((u: any) => {
+    const recentHashes = await fetchRecentVariantHashes(
+      supabase,
+      cuUsers.map((u: any) => u.id),
+      'goal_reminder',
+    );
+
+    const hashByUser: Record<string, string> = {};
+    const messages: ExpoMessage[] = [];
+    const senders: any[] = [];
+    for (const u of cuUsers) {
       const firstName = u.name?.split(/[\s\-]+/)[0] ?? 'there';
       const isNovice  = u.charlotte_level === 'Novice';
       const missing   = missingMap[u.id] ?? 0;
-      const title = isNovice ? '🎯 Meta quase lá!' : '🎯 Almost at your goal!';
-      const body  = isNovice
-        ? `${firstName}, só faltam ${missing} XP para completar sua meta semanal!`
-        : `${firstName}, only ${missing} XP to hit your weekly goal!`;
-      return {
+      const picked = pickCoreTemplate(
+        'goal_reminder',
+        isNovice,
+        { name: firstName, missingXp: missing },
+        recentHashes.get(u.id) ?? new Set(),
+      );
+      if (!picked) continue;
+      hashByUser[u.id] = picked.hash;
+      messages.push({
         to: u.expo_push_token,
-        title, body,
-        data: { screen: 'chat', type: 'goal_reminder', missingXP: missing },
+        title: picked.msg.title,
+        body:  picked.msg.body,
+        data:  { screen: 'chat', type: 'goal_reminder', missingXP: missing },
         sound: 'default',
         priority: 'high',
-      };
-    });
+      });
+      senders.push(u);
+    }
 
     const { sent, errors } = await sendExpoPush(messages, supabase);
     console.log(`✅ [Expo] Goal reminders: ${sent} sent, ${errors} errors`);
-    await logRnPushes(supabase, cuUsers.map((u: any, i: number) => ({
+    await logRnPushes(supabase, senders.map((u: any, i: number) => ({
       userId: u.id,
       type: 'goal_reminder',
+      variantHash: hashByUser[u.id],
       title: messages[i]?.title,
       body:  messages[i]?.body,
     })));
@@ -1004,71 +1180,103 @@ const ENGAGEMENT_TEMPLATES: Record<string, ReengTemplates> = {
       { title: '🔥 Segura essa sequência!', body: '{name}, você está a poucas horas de quebrar seus {streak} dias. Bora salvar?' },
       { title: '⏰ Sua sequência tá em risco', body: 'Ainda dá tempo, {name}! {streak} dias esperam você voltar hoje.' },
       { title: '🔥 Não deixa a sequência morrer', body: '{streak} dias em jogo, {name}. 2 minutinhos salvam.' },
+      { title: '💪 {streak} dias merecem mais 1', body: '{name}, você construiu algo. Não deixa a meia-noite levar.' },
+      { title: '⚡ Chama a atenção da Charlotte', body: '{name}, uma sessão curta agora mantém sua chama acesa.' },
     ],
     en: [
       { title: '🔥 Save your streak!', body: '{name}, a few hours left before your {streak}-day streak ends. Save it now?' },
       { title: '⏰ Your streak is at risk', body: 'Still time, {name}! Your {streak}-day streak is waiting.' },
       { title: '🔥 Don\'t break the chain', body: '{streak} days on the line, {name}. 2 minutes to save it.' },
+      { title: '💪 {streak} days deserve one more', body: '{name}, you built something. Don\'t let midnight take it.' },
+      { title: '⚡ Keep the fire alive', body: '{name}, one quick session keeps your momentum going.' },
     ],
   },
   streak_milestone_ahead: {
     pt: [
       { title: '🎯 Amanhã é marco!', body: '{name}, praticar hoje te leva pra {days} dias consecutivos amanhã. Bora fechar?' },
       { title: '✨ Próxima parada: {days} dias', body: '{name}, cada dia de prática conta pra chegar lá.' },
+      { title: '🚀 Tá pertinho de {days} dias', body: '{name}, mais um dia e você desbloqueia um marco.' },
+      { title: '🎉 Amanhã você celebra', body: '{name}, só falta hoje pra cravar {days} dias.' },
     ],
     en: [
       { title: '🎯 Milestone tomorrow!', body: '{name}, practice today to hit {days} days in a row tomorrow.' },
       { title: '✨ Next stop: {days} days', body: '{name}, every session counts toward that milestone.' },
+      { title: '🚀 Almost at {days} days', body: '{name}, one more day and you unlock a milestone.' },
+      { title: '🎉 Tomorrow you celebrate', body: '{name}, today\'s the last step to lock in {days} days.' },
     ],
   },
   streak_broken: {
     pt: [
       { title: '💫 Uma sequência quebra, outra começa', body: '{name}, vamos do zero juntos? A primeira é a mais importante.' },
       { title: '🌱 Recomeça hoje', body: 'A Charlotte ainda está aqui, {name}. Que tal retomar?' },
+      { title: '☀️ Novo dia, nova sequência', body: '{name}, o ontem passou. Hoje começa de novo.' },
+      { title: '💙 Sem julgamento', body: 'A Charlotte não vai a lugar nenhum, {name}. Bora começar de novo?' },
     ],
     en: [
       { title: '💫 One streak ends, another begins', body: '{name}, let\'s start fresh? Day one is the most important.' },
       { title: '🌱 Start again today', body: 'Charlotte is still here, {name}. How about picking it back up?' },
+      { title: '☀️ New day, new streak', body: '{name}, yesterday\'s gone. Today starts over.' },
+      { title: '💙 No judgement here', body: 'Charlotte isn\'t going anywhere, {name}. Ready to start again?' },
     ],
   },
   level_imminent: {
     pt: [
       { title: '🎯 Falta pouco pra {milestone} XP', body: 'Só {missingXp} XP, {name}. Uma sessão curta te leva lá.' },
       { title: '✨ {missingXp} XP pro próximo marco', body: '{name}, você está na reta final pra {milestone} XP!' },
+      { title: '🚀 Tá na reta final', body: '{name}, {missingXp} XP e pronto — {milestone} é seu.' },
+      { title: '⚡ Cruzou a linha?', body: 'Não ainda, {name}. Faltam {missingXp} XP pra {milestone}.' },
+      { title: '🏆 Uma sessão resolve', body: '{name}, {missingXp} XP separam você de {milestone}. Bora?' },
     ],
     en: [
       { title: '🎯 Just {missingXp} XP to {milestone}', body: 'You\'re nearly there, {name}. One short session does it.' },
       { title: '✨ {missingXp} XP from your next milestone', body: '{name}, so close to {milestone} XP — go get it!' },
+      { title: '🚀 On the final stretch', body: '{name}, {missingXp} XP and {milestone} is yours.' },
+      { title: '⚡ Line crossed yet?', body: 'Not quite, {name}. {missingXp} XP to go for {milestone}.' },
+      { title: '🏆 One session away', body: '{name}, {missingXp} XP between you and {milestone}. Let\'s go?' },
     ],
   },
   micro_checkin: {
     pt: [
       { title: '👋 Oi, {name}', body: 'Tô por aqui se você tiver uns 2 minutinhos hoje.' },
       { title: '💬 Charlotte pergunta...', body: '{name}, como foi o dia? Vamos praticar um pouquinho?' },
+      { title: '🌿 Pausa rápida?', body: '{name}, que tal respirar e treinar um pouco de inglês?' },
+      { title: '☕ Brecha na agenda?', body: '{name}, tenho 5 frases separadas pra você.' },
+      { title: '💭 Lembrei de você', body: 'Uma sessão curta, {name}. Promessa rápida.' },
     ],
     en: [
       { title: '👋 Hey, {name}', body: 'I\'m here if you have a couple of minutes today.' },
       { title: '💬 Charlotte here', body: '{name}, how\'s your day going? A quick session?' },
+      { title: '🌿 Quick break?', body: '{name}, how about a breather and some English?' },
+      { title: '☕ Got a moment?', body: '{name}, I\'ve got 5 sentences ready for you.' },
+      { title: '💭 Thought of you', body: 'A quick session, {name}. Fast promise.' },
     ],
   },
   cadence_drop: {
     pt: [
       { title: '🌿 Semana corrida?', body: '{name}, só uma sessão curta hoje pra retomar o flow.' },
       { title: '💡 Que tal uma pausa produtiva?', body: 'Poucos minutos, {name}, e sua semana já volta aos trilhos.' },
+      { title: '🕰 Sentindo a falta do ritmo?', body: '{name}, pequeno passo hoje, grande progresso amanhã.' },
+      { title: '🔁 Retoma o flow', body: '{name}, uma sessão curta traz tudo de volta.' },
     ],
     en: [
       { title: '🌿 Busy week?', body: '{name}, just one quick session today to get back in the flow.' },
       { title: '💡 Take a productive break', body: 'A few minutes, {name}, and your week is back on track.' },
+      { title: '🕰 Missing the rhythm?', body: '{name}, small step today, big progress tomorrow.' },
+      { title: '🔁 Get back in the flow', body: '{name}, one short session brings it all back.' },
     ],
   },
   weekly_recap: {
     pt: [
       { title: '📊 Sua semana com a Charlotte', body: '{xp} XP, ótimo trabalho {name}! Pronta pra nova semana?' },
       { title: '✨ Semana fechada', body: '{name}, você somou {xp} XP. Que tal planejar a próxima?' },
+      { title: '📈 Domingo de balanço', body: '{name}, {xp} XP esta semana. Segunda é novo capítulo.' },
+      { title: '🌟 Você chegou longe', body: 'Semana com {xp} XP, {name}. Vamos repetir?' },
     ],
     en: [
       { title: '📊 Your week with Charlotte', body: '{xp} XP, great work {name}! Ready for the next one?' },
       { title: '✨ Week wrapped', body: '{name}, you earned {xp} XP. Let\'s plan the next one?' },
+      { title: '📈 Sunday recap', body: '{name}, {xp} XP this week. Monday is a new chapter.' },
+      { title: '🌟 You came a long way', body: '{xp} XP this week, {name}. Let\'s do it again?' },
     ],
   },
   charlotte_checkin: {
@@ -1076,91 +1284,219 @@ const ENGAGEMENT_TEMPLATES: Record<string, ReengTemplates> = {
       { title: '💭 Pensei em você hoje', body: '{name}, 2 minutinhos de inglês?' },
       { title: '☕ Oi, {name}', body: 'Só passando pra ver como está. Vamos praticar?' },
       { title: '✨ Saudade de você', body: 'Vamos conversar, {name}? Só uma sessão curta.' },
+      { title: '💬 Aqui do outro lado', body: '{name}, tudo bem? Bora treinar um pouquinho?' },
+      { title: '🌙 Até à noite...', body: '{name}, qualquer horinha é horinha de inglês.' },
     ],
     en: [
       { title: '💭 Thinking of you today', body: '{name}, got 2 minutes for some English?' },
       { title: '☕ Hey, {name}', body: 'Just checking in. Want to practice?' },
       { title: '✨ Miss you', body: 'Let\'s chat, {name}? Just a quick session.' },
+      { title: '💬 From this side', body: '{name}, all good? Let\'s train a bit?' },
+      { title: '🌙 Any time is English time', body: '{name}, even small moments count.' },
     ],
   },
   trial_ending_72h: {
     pt: [
       { title: '⏳ 3 dias restantes no teste', body: '{name}, continue sem interrupção. Seu progresso merece!' },
       { title: '✨ Seu teste grátis acaba em 3 dias', body: '{name}, mantenha o ritmo com a Charlotte.' },
+      { title: '🎯 3 dias pra decidir', body: '{name}, sua jornada continua com um clique.' },
+      { title: '💙 72h pra escolher seguir', body: '{name}, olha tudo que já construiu.' },
     ],
     en: [
       { title: '⏳ 3 days left in your trial', body: '{name}, keep going without interruption.' },
       { title: '✨ Your free trial ends in 3 days', body: '{name}, keep the momentum with Charlotte.' },
+      { title: '🎯 3 days to decide', body: '{name}, your journey continues with one tap.' },
+      { title: '💙 72h to choose to keep going', body: '{name}, look at everything you\'ve built.' },
     ],
   },
   trial_ending_24h: {
     pt: [
       { title: '⏰ Último dia do teste', body: '{name}, amanhã termina — continue por R$ 29,90/mês.' },
       { title: '🚨 24h restantes', body: '{name}, você já evoluiu tanto. Não pare agora.' },
+      { title: '💙 Última chance hoje', body: '{name}, amanhã tudo muda. Continue conosco?' },
+      { title: '⏳ 24h e conta', body: '{name}, sua jornada vale continuar.' },
     ],
     en: [
       { title: '⏰ Final day of your trial', body: '{name}, it ends tomorrow — continue for $5.99/month.' },
       { title: '🚨 24h left', body: '{name}, you\'ve made so much progress. Don\'t stop now.' },
+      { title: '💙 Last chance today', body: '{name}, everything changes tomorrow. Stay with us?' },
+      { title: '⏳ 24h and counting', body: '{name}, your journey is worth continuing.' },
     ],
   },
   sub_expired_1d: {
     pt: [
       { title: '💙 Sentimos sua falta', body: '{name}, a Charlotte está esperando. Volta?' },
       { title: '👋 Bem-vindo de volta', body: 'Reative sua assinatura, {name}, e continue de onde parou.' },
+      { title: '🔔 Sua conta ficou quieta', body: '{name}, reative e recupere sua jornada.' },
+      { title: '🎁 Oferta de boas-vindas', body: '{name}, volta hoje e veja um presente esperando.' },
     ],
     en: [
       { title: '💙 We miss you', body: '{name}, Charlotte is waiting. Come back?' },
       { title: '👋 Welcome back', body: 'Reactivate your subscription, {name}, and pick up where you left off.' },
+      { title: '🔔 Your account went quiet', body: '{name}, reactivate and pick up where you left off.' },
+      { title: '🎁 Welcome-back offer', body: '{name}, come back today and see what\'s waiting.' },
     ],
   },
   reengagement_3d: {
     pt: [
       { title: '👋 Charlotte sentiu sua falta', body: '{name}, 3 dias sem praticar. Que tal voltar hoje?' },
       { title: '💬 Tudo bem aí?', body: '{name}, a Charlotte está pensando em você.' },
+      { title: '🌿 3 dias em pausa', body: '{name}, só uma sessão curta e o ritmo volta.' },
+      { title: '☕ Bateu saudade?', body: '{name}, a Charlotte tá aqui quando quiser.' },
     ],
     en: [
       { title: '👋 Charlotte misses you', body: '{name}, 3 days without practice. Come back today?' },
       { title: '💬 Everything okay?', body: '{name}, Charlotte\'s been thinking about you.' },
+      { title: '🌿 3 days on pause', body: '{name}, just one short session gets the rhythm back.' },
+      { title: '☕ Missing it yet?', body: '{name}, Charlotte\'s here whenever you\'re ready.' },
     ],
   },
   reengagement_7d: {
     pt: [
       { title: '🌱 Seu progresso espera', body: '{name}, você tem {xp} XP guardados. Bora retomar?' },
       { title: '✨ Uma semana sem ver você', body: '{name}, a Charlotte quer continuar sua jornada.' },
+      { title: '📖 Sua história inglesa continua', body: '{name}, próximo capítulo em poucos minutos.' },
+      { title: '🎯 Lembrou do inglês?', body: '{name}, uma semana passou. Bora botar em dia?' },
     ],
     en: [
       { title: '🌱 Your progress is waiting', body: '{name}, you have {xp} XP saved up. Let\'s keep going?' },
       { title: '✨ Been a week', body: '{name}, Charlotte wants to continue your journey.' },
+      { title: '📖 Your English story continues', body: '{name}, next chapter just a few minutes away.' },
+      { title: '🎯 Thinking about English?', body: '{name}, a week passed. Let\'s catch up?' },
     ],
   },
   reengagement_14d: {
     pt: [
       { title: '💙 Não desista agora', body: '{name}, uma sessão curta hoje faz toda a diferença.' },
       { title: '🔥 Sua jornada está pausada', body: 'Volta, {name}. A Charlotte está aqui.' },
+      { title: '🌊 2 semanas passaram', body: '{name}, o que você construiu ainda espera você.' },
+      { title: '☀️ Bora reacender?', body: '{name}, o caminho está aberto quando quiser voltar.' },
     ],
     en: [
       { title: '💙 Don\'t give up now', body: '{name}, one short session today makes all the difference.' },
       { title: '🔥 Your journey is on pause', body: 'Come back, {name}. Charlotte is here.' },
+      { title: '🌊 2 weeks have passed', body: '{name}, what you built is still waiting for you.' },
+      { title: '☀️ Light it up again?', body: '{name}, the path is open whenever you\'re ready.' },
     ],
   },
   reengagement_30d: {
     pt: [
       { title: '🎁 Uma mensagem especial pra você', body: '{name}, a Charlotte preparou algo. Abra o app?' },
       { title: '💫 Ainda dá tempo de voltar', body: 'Seu inglês continua esperando, {name}. Só você começa de novo.' },
+      { title: '🌅 Novo começo disponível', body: '{name}, um mês é só um momento. Retoma hoje?' },
+      { title: '💌 Última carta da Charlotte', body: '{name}, a porta segue aberta — quando quiser.' },
     ],
     en: [
       { title: '🎁 A special message for you', body: '{name}, Charlotte prepared something. Open the app?' },
       { title: '💫 Still time to come back', body: 'Your English is waiting, {name}. Only you can restart.' },
+      { title: '🌅 New beginning available', body: '{name}, a month is just a moment. Start again today?' },
+      { title: '💌 Charlotte\'s last note', body: '{name}, the door stays open — whenever you\'re ready.' },
     ],
   },
 };
 
-function pickReengTemplate(type: string, isNovice: boolean, vars: Record<string, any>) {
+// ── Hardcoded pools for CORE types that previously had a single template.
+// streak_reminder, goal_reminder and xp_milestone emit high-volume daily
+// copy; keep multiple variants so the same message never hits a user more
+// than once in a short window. Placeholders: {name}, {streak}, {missingXp},
+// {milestone}.
+const CORE_TEMPLATES: Record<string, ReengTemplates> = {
+  streak_reminder: {
+    pt: [
+      { title: '🔥 Streak em risco!', body: 'Sua sequência de {streak} dias está em risco. Pratique agora com a Charlotte!' },
+      { title: '⏰ Última chance hoje', body: '{name}, {streak} dias merecem continuar. Uma sessão curta agora salva.' },
+      { title: '🔥 Não quebra sua sequência', body: '{name}, cada dia constrói o próximo. {streak} dias esperam você.' },
+      { title: '💪 {streak} dias de orgulho', body: '{name}, mantém o ritmo. Poucos minutinhos fazem toda a diferença.' },
+      { title: '⚡ Mantenha a chama', body: '{name}, sua sequência de {streak} dias merece mais um hoje.' },
+      { title: '🌟 Segura esse ritmo', body: '{streak} dias, {name}. Não vamos deixar esfriar agora.' },
+    ],
+    en: [
+      { title: '🔥 Streak at risk!', body: 'Your {streak}-day streak is at risk. Practice with Charlotte now!' },
+      { title: '⏰ Last chance today', body: '{name}, {streak} days deserve to continue. A quick session now saves it.' },
+      { title: '🔥 Don\'t break the chain', body: '{name}, each day builds the next. {streak} days waiting for you.' },
+      { title: '💪 {streak} days of pride', body: '{name}, keep the rhythm. A few minutes make all the difference.' },
+      { title: '⚡ Keep the fire going', body: '{name}, your {streak}-day streak deserves one more today.' },
+      { title: '🌟 Hold the momentum', body: '{streak} days, {name}. Let\'s not let it cool down now.' },
+    ],
+  },
+  goal_reminder: {
+    pt: [
+      { title: '🎯 Meta quase lá!', body: '{name}, só faltam {missingXp} XP para completar sua meta semanal!' },
+      { title: '✨ Reta final da semana', body: '{name}, {missingXp} XP e você fecha a semana com chave de ouro.' },
+      { title: '🚀 Falta pouco', body: '{missingXp} XP te separam da meta, {name}. Bora?' },
+      { title: '💪 Você está perto', body: '{name}, só {missingXp} XP e a meta semanal é sua.' },
+      { title: '🏆 Meta ao alcance', body: '{name}, {missingXp} XP de distância. Uma sessão curta fecha.' },
+      { title: '⚡ Fecha a semana', body: '{name}, faltam {missingXp} XP. Vamos terminar forte?' },
+    ],
+    en: [
+      { title: '🎯 Almost at your goal!', body: '{name}, only {missingXp} XP to hit your weekly goal!' },
+      { title: '✨ Final stretch', body: '{name}, {missingXp} XP and you close the week strong.' },
+      { title: '🚀 Nearly there', body: '{missingXp} XP between you and the goal, {name}. Let\'s go?' },
+      { title: '💪 You\'re close', body: '{name}, just {missingXp} XP and the weekly goal is yours.' },
+      { title: '🏆 Goal in reach', body: '{name}, {missingXp} XP to go. One short session does it.' },
+      { title: '⚡ Finish the week', body: '{name}, {missingXp} XP left. Let\'s finish strong?' },
+    ],
+  },
+  xp_milestone: {
+    pt: [
+      { title: '🎉 Marco alcançado!', body: '{name} chegou a {milestone} XP! Continue praticando!' },
+      { title: '🏆 {milestone} XP conquistados', body: '{name}, que conquista! Vamos pro próximo nível.' },
+      { title: '✨ {milestone} XP, nada mal', body: '{name}, você passou mais uma fronteira. Parabéns!' },
+      { title: '🌟 Marco {milestone} XP desbloqueado', body: '{name}, segue firme. O próximo marco já tá aparecendo no horizonte.' },
+    ],
+    en: [
+      { title: '🎉 Milestone reached!', body: '{name} hit {milestone} XP! Keep practicing!' },
+      { title: '🏆 {milestone} XP earned', body: '{name}, what an achievement! On to the next level.' },
+      { title: '✨ {milestone} XP, not bad at all', body: '{name}, you crossed another line. Congrats!' },
+      { title: '🌟 {milestone} XP milestone unlocked', body: '{name}, keep going. The next milestone is already on the horizon.' },
+    ],
+  },
+};
+
+// Generic pool picker: respects novelty decay (excludeHashes of variants the
+// user has received recently) and returns both the rendered message and the
+// variant_hash so the caller can log it.
+function pickFromPool(
+  pool: { title: string; body: string }[],
+  vars: Record<string, any>,
+  excludeHashes: Set<string> = new Set(),
+): { msg: { title: string; body: string }; hash: string } | null {
+  if (!pool.length) return null;
+  const eligible = pool.filter(t => !excludeHashes.has(variantHash(t)));
+  const source = eligible.length > 0 ? eligible : pool;
+  const tpl = source[Math.floor(Math.random() * source.length)];
+  return { msg: renderTemplate(tpl, vars), hash: variantHash(tpl) };
+}
+
+function pickReengTemplate(
+  type: string,
+  isNovice: boolean,
+  vars: Record<string, any>,
+  excludeHashes: Set<string> = new Set(),
+): { msg: { title: string; body: string }; hash: string } | null {
+  // Prefer GPT pool if available (set by dispatcher during the run), else
+  // fall back to hardcoded pool from ENGAGEMENT_TEMPLATES.
+  const gpt = getEngagementGptPool(type, isNovice);
+  if (gpt && gpt.length > 0) {
+    const picked = pickFromPool(gpt, vars, excludeHashes);
+    if (picked) return picked;
+  }
   const set = ENGAGEMENT_TEMPLATES[type];
   if (!set) return null;
   const pool = isNovice ? set.pt : set.en;
-  const raw  = pool[Math.floor(Math.random() * pool.length)];
-  return renderTemplate(raw, vars);
+  return pickFromPool(pool, vars, excludeHashes);
+}
+
+function pickCoreTemplate(
+  type: 'streak_reminder' | 'goal_reminder' | 'xp_milestone',
+  isNovice: boolean,
+  vars: Record<string, any>,
+  excludeHashes: Set<string> = new Set(),
+): { msg: { title: string; body: string }; hash: string } | null {
+  const set = CORE_TEMPLATES[type];
+  if (!set) return null;
+  const pool = isNovice ? set.pt : set.en;
+  return pickFromPool(pool, vars, excludeHashes);
 }
 
 // ─ Signal detection ─────────────────────────────────────────────────────────
@@ -1438,16 +1774,45 @@ export async function sendEngagementPushes(supabase: any): Promise<void> {
       byTypeFinal.set(p.type, arr);
     }
 
+    // 8a. Warm GPT pools for the critical types that will actually be sent
+    //     this run. generateEngagementGptPool is a no-op for types not in
+    //     GPT_ENGAGEMENT_TYPES, and the warm step respects per-locale need.
+    const gptWarmInputs: { type: string; needsPt: boolean; needsEn: boolean }[] = [];
+    for (const [type, ps] of byTypeFinal) {
+      const needsPt = ps.some(p => p.user.charlotte_level === 'Novice');
+      const needsEn = ps.some(p => p.user.charlotte_level !== 'Novice');
+      gptWarmInputs.push({ type, needsPt, needsEn });
+    }
+    await warmEngagementGptPools(gptWarmInputs);
+
+    // 8b. Fetch recent variant hashes per user per type for novelty decay.
+    //     Batched once per type so the loop renders quickly.
+    const recentHashesByType = new Map<NotificationType['id'], Map<string, Set<string>>>();
+    for (const [type, ps] of byTypeFinal) {
+      const hashes = await fetchRecentVariantHashes(
+        supabase,
+        ps.map(p => p.user.id),
+        type,
+      );
+      recentHashesByType.set(type, hashes);
+    }
+
     for (const [type, ps] of byTypeFinal) {
       const messages: ExpoMessage[] = [];
       const logRows: any[] = [];
+      const hashesForType = recentHashesByType.get(type) ?? new Map();
       for (const p of ps) {
-        const tpl = pickReengTemplate(type, p.user.charlotte_level === 'Novice', p.vars);
-        if (!tpl) continue;
+        const picked = pickReengTemplate(
+          type,
+          p.user.charlotte_level === 'Novice',
+          p.vars,
+          hashesForType.get(p.user.id) ?? new Set(),
+        );
+        if (!picked) continue;
         messages.push({
           to: p.user.expo_push_token,
-          title: tpl.title,
-          body:  tpl.body,
+          title: picked.msg.title,
+          body:  picked.msg.body,
           data:  { screen: 'chat', type },
           sound: 'default',
           priority: 'high',
@@ -1455,8 +1820,9 @@ export async function sendEngagementPushes(supabase: any): Promise<void> {
         logRows.push({
           userId: p.user.id,
           type,
-          title: tpl.title,
-          body:  tpl.body,
+          variantHash: picked.hash,
+          title: picked.msg.title,
+          body:  picked.msg.body,
         });
       }
       if (!messages.length) continue;
