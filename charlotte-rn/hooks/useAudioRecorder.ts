@@ -39,7 +39,11 @@ export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
     extension: '.m4a',
     sampleRate: 16000,
     numberOfChannels: 1,
-    bitRate: 96000,
+    // 192kbps AAC at 16kHz mono — overkill for bitrate but preserves the
+    // first ~200ms of speech well enough to keep Azure pronunciation
+    // scores close to iOS WAV. At 96k the encoder delay chewed the opening
+    // fricatives (v/r in "Every") dropping that word by 36 points vs iOS.
+    bitRate: 192000,
     android: {
       outputFormat: 'mpeg4',
       audioEncoder: 'aac',

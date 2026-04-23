@@ -209,7 +209,7 @@ export default function LearnPronunciationScreen() {
       extension: '.m4a',
       sampleRate: 16000,
       numberOfChannels: 1,
-      bitRate: 96000,
+      bitRate: 192000,
       android: {
         outputFormat: 'mpeg4',
         audioEncoder: 'aac',
