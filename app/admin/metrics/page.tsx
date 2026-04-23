@@ -109,6 +109,16 @@ const C = {
 // ── Range presets ────────────────────────────────────────────────────────────
 type RangePreset = '7d' | '30d' | '90d' | 'custom';
 
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+type TabId = 'overview' | 'engagement' | 'retention' | 'push' | 'costs';
+const TABS: Array<{ id: TabId; label: string; emoji: string }> = [
+  { id: 'overview',   label: 'Overview',     emoji: '📊' },
+  { id: 'engagement', label: 'Engajamento',  emoji: '📈' },
+  { id: 'retention',  label: 'Retencao',     emoji: '🔄' },
+  { id: 'push',       label: 'Push',         emoji: '🔔' },
+  { id: 'costs',      label: 'Custos',       emoji: '💸' },
+];
+
 export default function MetricsPage() {
   const [secret, setSecret]       = useState('');
   const [authed, setAuthed]       = useState(false);
@@ -120,11 +130,37 @@ export default function MetricsPage() {
   const [customTo, setCustomTo]     = useState('');
   const [levelFilter, setLevelFilter] = useState<string>('');
   const [planFilter,  setPlanFilter]  = useState<string>('');
+  const [activeTab, setActiveTab]     = useState<TabId>('overview');
 
   useEffect(() => {
     const s = sessionStorage.getItem('admin_secret');
     if (s) { setSecret(s); setAuthed(true); }
+    // Read initial tab from URL hash (#engagement etc).
+    const h = window.location.hash.replace('#', '');
+    if (TABS.some(t => t.id === h)) setActiveTab(h as TabId);
   }, []);
+
+  // Sync active tab to URL hash + keyboard arrow navigation.
+  useEffect(() => {
+    if (!authed) return;
+    const curr = window.location.hash.replace('#', '');
+    if (curr !== activeTab) window.history.replaceState(null, '', `#${activeTab}`);
+  }, [activeTab, authed]);
+
+  useEffect(() => {
+    if (!authed) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const idx = TABS.findIndex(t => t.id === activeTab);
+      const next = e.key === 'ArrowRight'
+        ? TABS[(idx + 1) % TABS.length]
+        : TABS[(idx - 1 + TABS.length) % TABS.length];
+      setActiveTab(next.id);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [activeTab, authed]);
 
   const fetchMetrics = useCallback(async (
     s: string, p: RangePreset, f: string, t: string,
@@ -204,17 +240,27 @@ export default function MetricsPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: C.bg, padding: '32px 24px', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px' }}>
+
+        {/* ── Sticky top zone (header + range + filters + tabs) ───── */}
+        <div style={{
+          position: 'sticky',
+          top: 0,
+          background: C.bg,
+          paddingTop: 32,
+          paddingBottom: 8,
+          zIndex: 10,
+          boxShadow: '0 12px 16px -16px rgba(22,21,58,0.25)',
+        }}>
 
         {/* ── Header ──────────────────────────────────────────────────── */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 16 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 28, fontWeight: 900, color: C.navy, letterSpacing: '-0.5px' }}>Charlotte Metrics</h1>
-            <p style={{ color: C.navyMid, margin: '4px 0 0', fontSize: 14 }}>
-              Receita, retencao e custo OpenAI em producao.
-              {data && <span style={{ color: C.navyLight, marginLeft: 8 }}>
-                — {new Date(data.range.from).toLocaleDateString('pt-BR')} a {new Date(data.range.to).toLocaleDateString('pt-BR')} ({data.range.days}d)
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 900, color: C.navy, letterSpacing: '-0.5px' }}>Charlotte Metrics</h1>
+            <p style={{ color: C.navyMid, margin: '2px 0 0', fontSize: 13 }}>
+              {data && <span style={{ color: C.navyLight }}>
+                {new Date(data.range.from).toLocaleDateString('pt-BR')} a {new Date(data.range.to).toLocaleDateString('pt-BR')} · {data.range.days}d
               </span>}
             </p>
           </div>
@@ -222,7 +268,7 @@ export default function MetricsPage() {
         </div>
 
         {/* ── Range picker ───────────────────────────────────────────── */}
-        <div style={{ background: C.card, padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 24, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ background: C.card, padding: 12, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 10, display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           {(['7d', '30d', '90d'] as RangePreset[]).map(p => (
             <button
               key={p}
@@ -257,7 +303,7 @@ export default function MetricsPage() {
         </div>
 
         {/* ── Segmentation filters ──────────────────────────────────── */}
-        <div style={{ background: C.card, padding: 14, borderRadius: 14, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 24, display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ background: C.card, padding: 12, borderRadius: 12, border: `1px solid ${C.border}`, boxShadow: C.shadow, marginBottom: 10, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={{ color: C.navyMid, fontSize: 13, fontWeight: 700 }}>Segmentar por:</span>
           <select
             value={levelFilter}
@@ -288,6 +334,43 @@ export default function MetricsPage() {
             </button>
           )}
         </div>
+
+        {/* ── Tabs ──────────────────────────────────────────────────── */}
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: `1px solid ${C.border}`, marginBottom: 0 }}>
+          {TABS.map(t => {
+            const active = activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  padding: '10px 18px',
+                  background: 'transparent',
+                  color: active ? C.navy : C.navyMid,
+                  border: 'none',
+                  borderBottom: `2px solid ${active ? C.navy : 'transparent'}`,
+                  borderRadius: 0,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: active ? 800 : 600,
+                  fontFamily: 'inherit',
+                  marginBottom: -1,
+                }}
+              >
+                <span style={{ marginRight: 6 }}>{t.emoji}</span>
+                {t.label}
+              </button>
+            );
+          })}
+          <div style={{ marginLeft: 'auto', alignSelf: 'center', color: C.navyLight, fontSize: 11, paddingRight: 8 }}>
+            Use ← → para navegar
+          </div>
+        </div>
+
+        </div>
+        {/* ── end sticky zone ──────────────────────────────────────── */}
+
+        <div style={{ paddingTop: 20, paddingBottom: 48 }}>
 
         {/* ── Alerts banner ─────────────────────────────────────────── */}
         {data && data.alerts && data.alerts.length > 0 && (
@@ -323,9 +406,8 @@ export default function MetricsPage() {
 
         {data && (
           <>
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* CAMADA 1 — RECEITA & RETENCAO                          */}
-            {/* ════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════ TAB: OVERVIEW ═════════════════════ */}
+            {activeTab === 'overview' && (<>
             <SectionTitle>Receita</SectionTitle>
             <Grid cols={4}>
               <KpiCard label="MRR" value={`$${data.revenue.mrr}`} sub={`${data.revenue.activeSubs} assinantes ativos`} accent={C.green} />
@@ -341,7 +423,10 @@ export default function MetricsPage() {
               <KpiCard label="Churn" value={data.revenue.churnPct != null ? `${data.revenue.churnPct}%` : '—'} sub="cancelados + expirados" accent={C.red} />
               <KpiCard label="Renovacoes em 7d" value={data.revenue.renewals7d} sub="proximas cobrancas" accent={C.orange} />
             </Grid>
+            </>)}
 
+            {/* ═══════════════════ TAB: RETENTION ════════════════════ */}
+            {activeTab === 'retention' && (<>
             <SectionTitle>Retencao (cohort ultimos 60d)</SectionTitle>
             <Grid cols={4}>
               <KpiCard label="D1" value={data.retention.d1 != null ? `${data.retention.d1}%` : '—'} sub="voltaram em 1 dia" accent={C.blue} />
@@ -363,9 +448,9 @@ export default function MetricsPage() {
               <KpiCard label="Total de usuarios" value={data.revenue.totalUsers} sub="B2C + B2B" accent={C.navy} />
             </Grid>
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* SAUDE DO MRR — new / churned / quick ratio + trend chart */}
-            {/* ════════════════════════════════════════════════════════ */}
+            </>)}
+            {/* ═══════════════════ back to OVERVIEW ══════════════════ */}
+            {activeTab === 'overview' && (<>
             <SectionTitle>Saude do MRR</SectionTitle>
             <Grid cols={4}>
               <KpiCard label="Novo MRR no periodo" value={`$${data.mrrHealth.newMrr}`} sub={`${data.mrrHealth.newInRange.count} assinaturas novas`} accent={C.greenDark} />
@@ -378,10 +463,10 @@ export default function MetricsPage() {
                 <MiniBars data={data.mrrHealth.mrrTrend.map(d => ({ label: d.week.slice(5), value: d.amount }))} formatValue={v => `$${v}`} barColor={C.greenDark} />
               </ChartCard>
             )}
+            </>)}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* ENGAGEMENT — DAU / WAU / MAU + stickiness + chart       */}
-            {/* ════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════ TAB: ENGAGEMENT ═══════════════════ */}
+            {activeTab === 'engagement' && (<>
             <SectionTitle>Engagement</SectionTitle>
             <Grid cols={4}>
               <KpiCard
@@ -412,15 +497,12 @@ export default function MetricsPage() {
               </ChartCard>
             )}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* FUNIL DE ATIVACAO                                       */}
-            {/* ════════════════════════════════════════════════════════ */}
             <SectionTitle>Funil de ativacao (no periodo)</SectionTitle>
             <FunnelChart stages={data.activationFunnel} />
+            </>)}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* DISTRIBUICAO DE STREAKS                                 */}
-            {/* ════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════ back to RETENTION ═════════════════ */}
+            {activeTab === 'retention' && (<>
             <SectionTitle>Distribuicao de streaks (nao-institucionais)</SectionTitle>
             <ChartCard title="Usuarios por faixa de streak">
               <MiniBars
@@ -429,10 +511,10 @@ export default function MetricsPage() {
                 widthPerBar={80}
               />
             </ChartCard>
+            </>)}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* PUSH NOTIFICATIONS                                      */}
-            {/* ════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════ TAB: PUSH ═════════════════════════ */}
+            {activeTab === 'push' && (<>
             <SectionTitle>Push notifications (no periodo)</SectionTitle>
             {data.notifications.tableMissing ? (
               <div style={{ background: '#FFF7ED', border: `1px solid #FED7AA`, color: C.orange, padding: 16, borderRadius: 12, fontSize: 14, lineHeight: 1.5 }}>
@@ -467,15 +549,16 @@ export default function MetricsPage() {
               </>
             )}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* RETENTION CURVES por cohort semanal                     */}
-            {/* ════════════════════════════════════════════════════════ */}
+            </>)}
+
+            {/* ═══════════════════ back to RETENTION ═════════════════ */}
+            {activeTab === 'retention' && (<>
             <SectionTitle>Retention por cohort semanal (8 ultimas)</SectionTitle>
             <RetentionCohortTable cohorts={data.retentionCohorts} />
+            </>)}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* TIME TO FIRST VALUE                                     */}
-            {/* ════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════ back to ENGAGEMENT ════════════════ */}
+            {activeTab === 'engagement' && (<>
             <SectionTitle>Time to first value</SectionTitle>
             <Grid cols={3}>
               <KpiCard
@@ -507,15 +590,12 @@ export default function MetricsPage() {
               </ChartCard>
             )}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* PRACTICE HEATMAP hora BRT × dia da semana              */}
-            {/* ════════════════════════════════════════════════════════ */}
             <SectionTitle>Horario de pratica (heatmap, ultimos 90d, BRT)</SectionTitle>
             <PracticeHeatmap matrix={data.practiceHeatmap} />
+            </>)}
 
-            {/* ════════════════════════════════════════════════════════ */}
-            {/* CAMADA 2 — CUSTO OPENAI                                */}
-            {/* ════════════════════════════════════════════════════════ */}
+            {/* ═══════════════════ TAB: COSTS ════════════════════════ */}
+            {activeTab === 'costs' && (<>
             <SectionTitle>Custo OpenAI (no periodo)</SectionTitle>
 
             {data.openai.tableMissing ? (
@@ -548,8 +628,11 @@ export default function MetricsPage() {
                 )}
               </>
             )}
+            </>)}
           </>
         )}
+        </div>
+        {/* ── end content zone ────────────────────────────────────── */}
       </div>
     </div>
   );
