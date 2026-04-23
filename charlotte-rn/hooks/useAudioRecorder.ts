@@ -15,13 +15,19 @@ import Constants from 'expo-constants';
 
 // ── Preset otimizado para Azure Speech SDK ────────────────────────
 // iOS  → WAV LinearPCM 16kHz mono  → servidor declara getWaveFormatPCM(16000,16,1)
-// Android → AMR-WB 16kHz mono      → servidor declara getCompressedFormat(AMRWB)
+// Android → AMR-WB 16kHz mono      → servidor declara getCompressedFormat(AMR_WB)
 //
-// expo-audio (SDK 54) nao suporta 'ogg'/'opus' — os valores causam crash ao
-// construir AudioRecorder no runtime nativo. AMR-WB e um codec de fala
-// desenhado justamente para reconhecimento (16kHz, wideband) e esta na lista
-// de AndroidAudioEncoder suportada pelo expo-audio e de getCompressedFormat
-// suportada pelo Azure Speech SDK.
+// Por que AMR-WB: expo-audio (SDK 54) so aceita encoders em
+// {'default','amr_nb','amr_wb','aac','he_aac','aac_eld'}. Desses, apenas
+// AMR_WB esta na lista oficial do Azure Speech SDK getCompressedFormat
+// (PCM, MuLaw, Siren, MP3, OGG_OPUS, WEBM_OPUS, ALaw, FLAC, OPUS, AMR_WB,
+// G722). AAC nao esta na lista, entao nao daria pra fazer pronunciation
+// assessment sem transcoding.
+//
+// OpenAI Whisper nao aceita AMR diretamente — o /api/transcribe detecta
+// Content-Type 'audio/amr' e roteia pra Azure Speech SDK (recognizeOnceAsync)
+// em vez do Whisper. Resultado: transcricao + pronunciation ambos funcionam
+// no Android com um unico formato de gravacao.
 export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
   ios: {
     extension: '.wav',

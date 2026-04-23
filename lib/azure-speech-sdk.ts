@@ -388,6 +388,58 @@ export class AzureSpeechOfficialService {
     }
   }
 
+  // 🎤 SIMPLE TRANSCRIPTION — recognize text without pronunciation scoring.
+  // Reuses the format-aware AudioConfig factory so AMR-WB, WAV, OGG_OPUS etc.
+  // all work transparently.
+  public async performSimpleTranscription(
+    audioBlob: Blob,
+    language: string = 'en-US',
+  ): Promise<{ success: boolean; text: string; durationSeconds?: number; error?: string }> {
+    try {
+      const audioConfig = await this.createOfficialAudioConfig(audioBlob);
+
+      // Clone speech config so we do not mutate the shared one.
+      const localConfig = sdk.SpeechConfig.fromSubscription(this.subscriptionKey, this.region);
+      localConfig.speechRecognitionLanguage = language;
+      localConfig.outputFormat = sdk.OutputFormat.Simple;
+
+      const recognizer = new sdk.SpeechRecognizer(localConfig, audioConfig);
+
+      return await new Promise((resolve) => {
+        recognizer.recognizeOnceAsync(
+          (result) => {
+            try {
+              if (result.reason === sdk.ResultReason.RecognizedSpeech) {
+                resolve({
+                  success: true,
+                  text: result.text ?? '',
+                  durationSeconds: (result.duration ?? 0) / 1e7, // 100ns ticks → s
+                });
+              } else if (result.reason === sdk.ResultReason.NoMatch) {
+                resolve({ success: true, text: '' });
+              } else {
+                const cancel = sdk.CancellationDetails.fromResult(result);
+                resolve({
+                  success: false,
+                  text: '',
+                  error: `Azure recognition cancelled: ${cancel.errorDetails ?? cancel.reason}`,
+                });
+              }
+            } finally {
+              recognizer.close();
+            }
+          },
+          (err) => {
+            recognizer.close();
+            resolve({ success: false, text: '', error: String(err) });
+          },
+        );
+      });
+    } catch (error: any) {
+      return { success: false, text: '', error: error?.message ?? 'Unknown error' };
+    }
+  }
+
   // 🎵 CRIAR AUDIO CONFIG — detecta formato pelo Content-Type e usa o stream correto
   private async createOfficialAudioConfig(audioBlob: Blob): Promise<sdk.AudioConfig> {
     const mimeType = audioBlob.type ?? '';
@@ -406,22 +458,11 @@ export class AzureSpeechOfficialService {
         return sdk.AudioConfig.fromStreamInput(pushStream);
       }
 
-      // Android (expo-audio SDK 54) grava AMR-WB 16kHz mono → declara AMR_WB
+      // Android (expo-audio SDK 54) grava AMR-WB 16kHz mono → declara AMR_WB.
+      // Azure Speech SDK aceita AMR_WB nativamente via getCompressedFormat.
       if (mimeType.includes('amr')) {
         console.log('✅ Format: AMR-WB — using getCompressedFormat(AMR_WB)');
         const audioFormat = sdk.AudioStreamFormat.getCompressedFormat(sdk.AudioFormatTag.AMR_WB);
-        const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
-        pushStream.write(arrayBuffer);
-        pushStream.close();
-        return sdk.AudioConfig.fromStreamInput(pushStream);
-      }
-
-      // Legacy path — older Android builds produced OGG/OPUS. Kept as fallback
-      // while older client builds are still in the wild (pre-fix for expo-audio
-      // SDK 54 enum bug). Can be removed once all clients are on ≥ fix build.
-      if (mimeType.includes('ogg') || mimeType.includes('opus')) {
-        console.log('✅ Format: OGG_OPUS (legacy) — using getCompressedFormat(OGG_OPUS)');
-        const audioFormat = sdk.AudioStreamFormat.getCompressedFormat(sdk.AudioFormatTag.OGG_OPUS);
         const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
         pushStream.write(arrayBuffer);
         pushStream.close();
@@ -612,6 +653,24 @@ export class AzureSpeechOfficialService {
       console.error('❌ Official connection test failed:', error);
       return false;
     }
+  }
+}
+
+// 🎯 SIMPLE TRANSCRIPTION (no pronunciation assessment)
+// Used by /api/transcribe when the uploaded audio is in a format Whisper
+// cannot consume directly (currently: AMR-WB from Android expo-audio builds).
+// Azure Speech SDK supports AMR_WB natively via getCompressedFormat, so we
+// route there instead of transcoding.
+export async function transcribeWithAzure(
+  audioBlob: Blob,
+  language: string = 'en-US',
+): Promise<{ success: boolean; text: string; durationSeconds?: number; error?: string }> {
+  try {
+    const service = new AzureSpeechOfficialService();
+    return await service.performSimpleTranscription(audioBlob, language);
+  } catch (error: any) {
+    console.error('❌ transcribeWithAzure init failed:', error);
+    return { success: false, text: '', error: error?.message ?? 'Unknown error' };
   }
 }
 
