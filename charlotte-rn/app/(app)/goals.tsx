@@ -59,11 +59,12 @@ function SectionHeader({ label, badge, isPt }: { label: string; badge?: string; 
   );
 }
 
-function MissionNode({ mission, alignRight, showConnector, isPt }: {
+function MissionNode({ mission, alignRight, showConnector, isPt, onPress }: {
   mission: Mission;
   alignRight: boolean;
   showConnector: boolean;
   isPt?: boolean;
+  onPress?: () => void;
 }) {
   const NODE = 58;
   return (
@@ -87,15 +88,19 @@ function MissionNode({ mission, alignRight, showConnector, isPt }: {
         <View style={{ width: 14, height: 1.5, backgroundColor: C.navyGhost, flexShrink: 0 }} />
 
         {/* Card */}
-        <View style={{
-          flex: 1,
-          backgroundColor: C.card,
-          borderRadius: 16,
-          padding: 11,
-          borderWidth: 1,
-          borderColor: mission.completed ? `${mission.accentColor}30` : C.navyGhost,
-          ...cardShadow,
-        }}>
+        <TouchableOpacity
+          onPress={mission.completed ? undefined : onPress}
+          activeOpacity={mission.completed ? 1 : 0.75}
+          style={{
+            flex: 1,
+            backgroundColor: C.card,
+            borderRadius: 16,
+            padding: 11,
+            borderWidth: 1,
+            borderColor: mission.completed ? `${mission.accentColor}30` : C.navyGhost,
+            ...cardShadow,
+          }}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <AppText style={{
               flex: 1, fontSize: 14, fontWeight: '700',
@@ -145,7 +150,7 @@ function MissionNode({ mission, alignRight, showConnector, isPt }: {
               </AppText>
             </View>
           )}
-        </View>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -263,6 +268,7 @@ export default function GoalsScreen() {
               alignRight={index % 2 === 1}
               showConnector={index < missions.length - 1}
               isPt={isPt}
+              onPress={() => router.push(m.destination as any)}
             />
           ))}
         </View>
