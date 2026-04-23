@@ -7,12 +7,13 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  experimental: {
-    outputFileTracingIncludes: {
-      '/api/tts/file': ['./public/tts/**/*.mp3'],
-    },
+  outputFileTracingIncludes: {
+    '/api/tts/file': ['./public/tts/**/*.mp3'],
+    // ffmpeg-static ships the platform binary under node_modules; must be
+    // copied into the serverless bundle so fluent-ffmpeg can spawn it.
+    '/api/pronunciation': ['./node_modules/ffmpeg-static/ffmpeg'],
   },
-  serverExternalPackages: ['fluent-ffmpeg'],
+  serverExternalPackages: ['fluent-ffmpeg', 'ffmpeg-static'],
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.alias = {

@@ -8,15 +8,19 @@
 // We convert everything to WAV PCM 16 kHz mono 16-bit, which Azure accepts
 // via getWaveFormatPCM(16000, 16, 1) without any additional configuration.
 
-import ffmpegPath from '@ffmpeg-installer/ffmpeg';
+import ffmpegStaticPath from 'ffmpeg-static';
 import ffmpeg from 'fluent-ffmpeg';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 
-// Point fluent-ffmpeg at the bundled binary — required on Vercel serverless,
-// where ffmpeg is not on the PATH.
-ffmpeg.setFfmpegPath(ffmpegPath.path);
+// Point fluent-ffmpeg at the bundled binary. ffmpeg-static downloads the
+// correct binary for the runtime platform via its postinstall script —
+// unlike @ffmpeg-installer/ffmpeg which only pulls the host's binary
+// (breaks Vercel: install on darwin, deploy on linux → missing linux-x64).
+if (ffmpegStaticPath) {
+  ffmpeg.setFfmpegPath(ffmpegStaticPath);
+}
 
 export async function transcodeToWavPcm16k(input: ArrayBuffer, sourceExt = 'm4a'): Promise<Buffer> {
   const tmp = os.tmpdir();
