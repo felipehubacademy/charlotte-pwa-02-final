@@ -388,58 +388,6 @@ export class AzureSpeechOfficialService {
     }
   }
 
-  // 🎤 SIMPLE TRANSCRIPTION — recognize text without pronunciation scoring.
-  // Reuses the format-aware AudioConfig factory so AMR-WB, WAV, OGG_OPUS etc.
-  // all work transparently.
-  public async performSimpleTranscription(
-    audioBlob: Blob,
-    language: string = 'en-US',
-  ): Promise<{ success: boolean; text: string; durationSeconds?: number; error?: string }> {
-    try {
-      const audioConfig = await this.createOfficialAudioConfig(audioBlob);
-
-      // Clone speech config so we do not mutate the shared one.
-      const localConfig = sdk.SpeechConfig.fromSubscription(this.subscriptionKey, this.region);
-      localConfig.speechRecognitionLanguage = language;
-      localConfig.outputFormat = sdk.OutputFormat.Simple;
-
-      const recognizer = new sdk.SpeechRecognizer(localConfig, audioConfig);
-
-      return await new Promise((resolve) => {
-        recognizer.recognizeOnceAsync(
-          (result) => {
-            try {
-              if (result.reason === sdk.ResultReason.RecognizedSpeech) {
-                resolve({
-                  success: true,
-                  text: result.text ?? '',
-                  durationSeconds: (result.duration ?? 0) / 1e7, // 100ns ticks → s
-                });
-              } else if (result.reason === sdk.ResultReason.NoMatch) {
-                resolve({ success: true, text: '' });
-              } else {
-                const cancel = sdk.CancellationDetails.fromResult(result);
-                resolve({
-                  success: false,
-                  text: '',
-                  error: `Azure recognition cancelled: ${cancel.errorDetails ?? cancel.reason}`,
-                });
-              }
-            } finally {
-              recognizer.close();
-            }
-          },
-          (err) => {
-            recognizer.close();
-            resolve({ success: false, text: '', error: String(err) });
-          },
-        );
-      });
-    } catch (error: any) {
-      return { success: false, text: '', error: error?.message ?? 'Unknown error' };
-    }
-  }
-
   // 🎵 CRIAR AUDIO CONFIG — detecta formato pelo Content-Type e usa o stream correto
   private async createOfficialAudioConfig(audioBlob: Blob): Promise<sdk.AudioConfig> {
     const mimeType = audioBlob.type ?? '';
@@ -458,14 +406,9 @@ export class AzureSpeechOfficialService {
         return sdk.AudioConfig.fromStreamInput(pushStream);
       }
 
-      // Android (expo-audio SDK 54) grava AMR-WB. Azure SDK.getCompressedFormat
-      // nao existe no bundle Node (exige GStreamer nativo, ausente no Vercel
-      // serverless). Para pronunciation assessment em Android precisamos usar
-      // a REST API (TODO). Por enquanto, retorna null e o caller decide como
-      // reagir (em vez de crashar com "getCompressedFormat is not a function").
-      if (mimeType.includes('amr')) {
-        throw new Error('AMR pronunciation assessment not yet supported on server — pending REST API implementation');
-      }
+      // Nota: AMR nao chega aqui — assessPronunciationOfficial detecta antes
+      // e delega para assessPronunciationViaRest (o SDK Node nao tem
+      // getCompressedFormat porque exige GStreamer nativo, ausente em serverless).
 
       // Fallback para M4A/AAC legado (iOS anterior à mudança) — tenta PCM como antes
       console.warn('⚠️ Unknown format:', mimeType, '— falling back to PCM declaration (may be inaccurate)');
@@ -723,31 +666,168 @@ export async function transcribeWithAzure(
   }
 }
 
+// 🎯 REST-based pronunciation assessment — used for formats the Node SDK
+// cannot decode without GStreamer (currently: AMR-WB from Android builds).
+// Same Azure service, same scoring engine — just the HTTP transport.
+export async function assessPronunciationViaRest(
+  audioBlob: Blob,
+  referenceText: string,
+  userLevel: 'Novice' | 'Inter' | 'Advanced' = 'Inter',
+): Promise<AudioProcessingResult> {
+  try {
+    const region = process.env.AZURE_SPEECH_REGION;
+    const key    = process.env.AZURE_SPEECH_KEY;
+    if (!region || !key) {
+      return { success: false, error: 'Azure Speech credentials not configured', shouldRetry: false };
+    }
+
+    const mime = audioBlob.type ?? '';
+    let contentType: string | null = null;
+    if (mime.includes('amr-wb') || mime.includes('amrwb')) contentType = 'audio/amr-wb';
+    else if (mime.includes('amr'))                          contentType = 'audio/amr-wb';
+    else if (mime.includes('ogg') || mime.includes('opus')) contentType = 'audio/ogg; codecs=opus';
+    else if (mime.includes('wav') || mime.includes('wave')) contentType = 'audio/wav; codecs=audio/pcm; samplerate=16000';
+    if (!contentType) {
+      return { success: false, error: `Unsupported content-type: ${mime}`, shouldRetry: false };
+    }
+
+    const pronConfig = {
+      ReferenceText: referenceText,
+      GradingSystem: 'HundredMark',
+      Granularity: 'Phoneme',
+      Dimension: 'Comprehensive',
+      EnableMiscue: true,
+      NBestPhonemeCount: 5,
+      EnableProsodyAssessment: true,
+    };
+    const pronHeader = Buffer.from(JSON.stringify(pronConfig), 'utf-8').toString('base64');
+
+    const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=en-US&format=detailed`;
+    const arrayBuffer = await audioBlob.arrayBuffer();
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': key,
+        'Content-Type': contentType,
+        'Accept': 'application/json',
+        'Pronunciation-Assessment': pronHeader,
+      },
+      body: arrayBuffer,
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return { success: false, error: `Azure REST ${res.status}: ${body.slice(0, 300)}`, shouldRetry: false };
+    }
+
+    const json: any = await res.json();
+    if (json.RecognitionStatus !== 'Success') {
+      const status = json.RecognitionStatus as string;
+      const retriable = status === 'NoMatch' || status === 'InitialSilenceTimeout';
+      return {
+        success: false,
+        error: `Azure RecognitionStatus=${status}`,
+        shouldRetry: retriable,
+        retryReason: retriable ? 'Speech not detected clearly' : undefined,
+      };
+    }
+
+    const nbest = json.NBest?.[0];
+    const pa    = nbest?.PronunciationAssessment ?? {};
+    const wordsRaw: any[] = nbest?.Words ?? [];
+
+    // Flatten phoneme list across words and generate simple feedback
+    const phonemes: PhonemeResult[] = [];
+    const words: WordResult[] = wordsRaw.map((w: any) => {
+      const wordPhonemes: any[] = w.Phonemes ?? [];
+      for (const p of wordPhonemes) {
+        phonemes.push({
+          phoneme: p.Phoneme,
+          accuracyScore: p.PronunciationAssessment?.AccuracyScore ?? 0,
+          nbestPhonemes: p.PronunciationAssessment?.NBestPhonemes,
+          offset: p.Offset ?? 0,
+          duration: p.Duration ?? 0,
+        });
+      }
+      return {
+        word: w.Word,
+        accuracyScore: w.PronunciationAssessment?.AccuracyScore ?? 0,
+        errorType: w.PronunciationAssessment?.ErrorType,
+        syllables: (w.Syllables ?? []).map((s: any) => ({
+          syllable: s.Syllable,
+          accuracyScore: s.PronunciationAssessment?.AccuracyScore ?? 0,
+          offset: s.Offset ?? 0,
+          duration: s.Duration ?? 0,
+        })),
+      };
+    });
+
+    const feedback: string[] = [];
+    const problems = words.filter(w => (w.accuracyScore ?? 100) < 70);
+    if (problems.length > 0) {
+      const list = problems.slice(0, 3).map(w => `"${w.word}"`).join(', ');
+      feedback.push(
+        userLevel === 'Novice'
+          ? `Pratique a pronúncia de: ${list}`
+          : `Practice these words: ${list}`,
+      );
+    }
+
+    return {
+      success: true,
+      result: {
+        text: nbest?.Display ?? nbest?.Lexical ?? json.DisplayText ?? '',
+        accuracyScore:     pa.AccuracyScore ?? 0,
+        fluencyScore:      pa.FluencyScore ?? 0,
+        completenessScore: pa.CompletenessScore ?? 0,
+        pronunciationScore: pa.PronScore ?? 0,
+        prosodyScore:      pa.ProsodyScore,
+        words,
+        phonemes,
+        feedback,
+        confidence:         nbest?.Confidence ?? 0,
+        assessmentMethod:   'azure-sdk-official',
+        sessionId: Date.now().toString(),
+      },
+    };
+  } catch (error: any) {
+    console.error('❌ assessPronunciationViaRest failed:', error);
+    return { success: false, error: error?.message ?? 'Unknown error', shouldRetry: false };
+  }
+}
+
 // 🎯 FUNÇÃO PRINCIPAL OFICIAL PARA EXPORTAÇÃO
+// Detects format and delegates: AMR → REST, WAV/others → SDK path.
 export async function assessPronunciationOfficial(
   audioBlob: Blob,
   referenceText?: string,
   userLevel: 'Novice' | 'Inter' | 'Advanced' = 'Inter'
 ): Promise<AudioProcessingResult> {
-  console.log('🎯 OFFICIAL Azure Speech SDK Pronunciation API - Starting...');
-  console.log('📁 Processing audio with OFFICIAL Microsoft implementation:', {
+  console.log('🎯 Pronunciation assessment starting...');
+  console.log('📁 Audio:', {
     type: audioBlob.type,
     size: audioBlob.size,
     hasReference: !!referenceText,
     referenceLength: referenceText?.length || 0,
-    environment: process.env.NODE_ENV,
-    vercelRegion: process.env.VERCEL_REGION
   });
+
+  const mime = audioBlob.type ?? '';
+  // AMR cannot be decoded by the Node SDK — use REST API instead.
+  if (mime.includes('amr')) {
+    console.log('🎤 AMR detected — using Azure REST pronunciation assessment');
+    return assessPronunciationViaRest(audioBlob, referenceText || '', userLevel);
+  }
 
   try {
     const service = new AzureSpeechOfficialService();
     return await service.performOfficialAzureSpeechAssessment(audioBlob, referenceText || '', userLevel);
   } catch (error: any) {
-    console.error('❌ Official service initialization failed:', error);
+    console.error('❌ Pronunciation service failed:', error);
     return {
       success: false,
-      error: `Official service initialization failed: ${error.message}`,
-      shouldRetry: false
+      error: `Pronunciation service failed: ${error.message}`,
+      shouldRetry: false,
     };
   }
 }
