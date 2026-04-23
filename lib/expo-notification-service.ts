@@ -1275,7 +1275,7 @@ const ENGAGEMENT_TEMPLATES: Record<string, ReengTemplates> = {
   },
   weekly_recap: {
     pt: [
-      { title: '📊 Sua semana com a Charlotte', body: '{xp} XP, ótimo trabalho {name}! Pronta pra nova semana?' },
+      { title: '📊 Sua semana com a Charlotte', body: '{xp} XP, ótimo trabalho {name}! Bora repetir na próxima?' },
       { title: '✨ Semana fechada', body: '{name}, você somou {xp} XP. Que tal planejar a próxima?' },
       { title: '📈 Domingo de balanço', body: '{name}, {xp} XP esta semana. Segunda é novo capítulo.' },
       { title: '🌟 Você chegou longe', body: 'Semana com {xp} XP, {name}. Vamos repetir?' },
