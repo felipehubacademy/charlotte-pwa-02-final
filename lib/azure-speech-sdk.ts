@@ -458,15 +458,13 @@ export class AzureSpeechOfficialService {
         return sdk.AudioConfig.fromStreamInput(pushStream);
       }
 
-      // Android (expo-audio SDK 54) grava AMR-WB 16kHz mono → declara AMR_WB.
-      // Azure Speech SDK aceita AMR_WB nativamente via getCompressedFormat.
+      // Android (expo-audio SDK 54) grava AMR-WB. Azure SDK.getCompressedFormat
+      // nao existe no bundle Node (exige GStreamer nativo, ausente no Vercel
+      // serverless). Para pronunciation assessment em Android precisamos usar
+      // a REST API (TODO). Por enquanto, retorna null e o caller decide como
+      // reagir (em vez de crashar com "getCompressedFormat is not a function").
       if (mimeType.includes('amr')) {
-        console.log('✅ Format: AMR-WB — using getCompressedFormat(AMR_WB)');
-        const audioFormat = sdk.AudioStreamFormat.getCompressedFormat(sdk.AudioFormatTag.AMR_WB);
-        const pushStream  = sdk.AudioInputStream.createPushStream(audioFormat);
-        pushStream.write(arrayBuffer);
-        pushStream.close();
-        return sdk.AudioConfig.fromStreamInput(pushStream);
+        throw new Error('AMR pronunciation assessment not yet supported on server — pending REST API implementation');
       }
 
       // Fallback para M4A/AAC legado (iOS anterior à mudança) — tenta PCM como antes
@@ -656,20 +654,71 @@ export class AzureSpeechOfficialService {
   }
 }
 
-// 🎯 SIMPLE TRANSCRIPTION (no pronunciation assessment)
+// 🎯 SIMPLE TRANSCRIPTION via Azure REST API (no SDK, no GStreamer).
 // Used by /api/transcribe when the uploaded audio is in a format Whisper
-// cannot consume directly (currently: AMR-WB from Android expo-audio builds).
-// Azure Speech SDK supports AMR_WB natively via getCompressedFormat, so we
-// route there instead of transcoding.
+// cannot consume (currently: AMR-WB from Android expo-audio builds).
+//
+// Why not the SDK: getCompressedFormat() is only available in the browser
+// build; on Node it throws "is not a function" because compressed codec
+// support requires GStreamer installed on the host, which is absent on
+// Vercel serverless. The REST endpoint accepts AMR directly via
+// Content-Type, no native deps required.
 export async function transcribeWithAzure(
   audioBlob: Blob,
   language: string = 'en-US',
 ): Promise<{ success: boolean; text: string; durationSeconds?: number; error?: string }> {
   try {
-    const service = new AzureSpeechOfficialService();
-    return await service.performSimpleTranscription(audioBlob, language);
+    const region = process.env.AZURE_SPEECH_REGION;
+    const key    = process.env.AZURE_SPEECH_KEY;
+    if (!region || !key) {
+      return { success: false, text: '', error: 'Azure Speech credentials not configured' };
+    }
+
+    const mime = audioBlob.type ?? '';
+    // Map our blob mime to Azure REST content-type. AMR-WB clients send
+    // audio/amr or audio/amr-wb; we pick the matching codec header.
+    let contentType: string | null = null;
+    if (mime.includes('amr-wb') || mime.includes('amrwb')) contentType = 'audio/amr-wb';
+    else if (mime.includes('amr'))                         contentType = 'audio/amr-wb'; // expo-audio amr_wb output
+    else if (mime.includes('ogg') || mime.includes('opus')) contentType = 'audio/ogg; codecs=opus';
+    else if (mime.includes('wav') || mime.includes('wave')) contentType = 'audio/wav; codecs=audio/pcm; samplerate=16000';
+    if (!contentType) {
+      return { success: false, text: '', error: `Unsupported content-type for Azure REST: ${mime}` };
+    }
+
+    const url = `https://${region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=${encodeURIComponent(language)}&format=detailed`;
+    const arrayBuffer = await audioBlob.arrayBuffer();
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Ocp-Apim-Subscription-Key': key,
+        'Content-Type': contentType,
+        'Accept': 'application/json',
+      },
+      body: arrayBuffer,
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return { success: false, text: '', error: `Azure REST ${res.status}: ${body.slice(0, 200)}` };
+    }
+
+    const json: any = await res.json();
+    // RecognitionStatus values: Success | NoMatch | InitialSilenceTimeout | ...
+    if (json.RecognitionStatus === 'Success') {
+      return {
+        success: true,
+        text: json.DisplayText ?? json.NBest?.[0]?.Display ?? '',
+        durationSeconds: (json.Duration ?? 0) / 1e7,
+      };
+    }
+    if (json.RecognitionStatus === 'NoMatch' || json.RecognitionStatus === 'InitialSilenceTimeout') {
+      return { success: true, text: '' };
+    }
+    return { success: false, text: '', error: `Azure RecognitionStatus=${json.RecognitionStatus}` };
   } catch (error: any) {
-    console.error('❌ transcribeWithAzure init failed:', error);
+    console.error('❌ transcribeWithAzure failed:', error);
     return { success: false, text: '', error: error?.message ?? 'Unknown error' };
   }
 }
