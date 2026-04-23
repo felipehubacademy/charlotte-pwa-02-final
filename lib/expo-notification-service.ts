@@ -235,7 +235,6 @@ async function filterFrequencyCap(
   sinceMidnightUtc.setUTCHours(0, 0, 0, 0);
 
   const { data, error } = await supabase
-    .schema('notifications')
     .from('notification_logs')
     .select('user_id')
     .in('user_id', userIds)
@@ -267,7 +266,6 @@ async function fetchRecentVariantHashes(
   // anyway, so older hashes are unlikely to reappear.
   const since = new Date(Date.now() - 14 * 86400 * 1000).toISOString();
   const { data, error } = await supabase
-    .schema('notifications')
     .from('notification_logs')
     .select('user_id, metadata, created_at')
     .in('user_id', userIds)
@@ -314,7 +312,6 @@ async function logRnPushes(
     metadata:           r.variantHash ? { variant_hash: r.variantHash } : null,
   }));
   const { error } = await supabase
-    .schema('notifications')
     .from('notification_logs')
     .insert(payload);
   if (error) {
@@ -1301,12 +1298,12 @@ export async function sendEngagementPushes(supabase: any): Promise<void> {
     const fourWeeksAgo = new Date(now.getTime() - 28 * 86400000).toISOString();
 
     // 1. Fetch all candidate users (with token) and their timezones.
-    //    Query the underlying charlotte.users table directly so we can read
-    //    last_practice_at (the public.charlotte_users compatibility view was
-    //    created before that column existed and does not expose it).
+    //    Uses the public.charlotte_users view (see migration
+    //    20260423_reengagement_types.sql which recreates it to include the
+    //    new last_practice_at column — custom schemas are not exposed by
+    //    PostgREST in this project).
     const { data: users, error: usersErr } = await supabase
-      .schema('charlotte')
-      .from('users')
+      .from('charlotte_users')
       .select('id, name, expo_push_token, charlotte_level, timezone, last_practice_at, trial_ends_at, subscription_status, subscription_expires_at, is_institutional')
       .not('expo_push_token', 'is', null);
     if (usersErr) { console.error('❌ [Engagement] users query:', usersErr.message); return; }
@@ -1364,7 +1361,6 @@ export async function sendEngagementPushes(supabase: any): Promise<void> {
     // 5. Exclude users who already received ANY engagement push today (hard
     //    cap on the whole category, not per-type).
     const { data: engagedTodayRows } = await supabase
-      .schema('notifications')
       .from('notification_logs')
       .select('user_id, notification_type')
       .in('user_id', userIds)
