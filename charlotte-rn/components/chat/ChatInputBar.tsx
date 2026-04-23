@@ -352,8 +352,11 @@ export default function ChatInputBar({
             {/* Button + rings container */}
             <View style={{ width: 80, height: 80, alignItems: 'center', justifyContent: 'center' }}>
 
-              {/* Pulse rings — visible only while recording */}
-              {[ring1, ring2, ring3].map((anim, i) => (
+              {/* Pulse rings — only while recording. Conditional render so
+                  Animated.Views are unmounted on release; Android's
+                  useNativeDriver animations don't always stop cleanly
+                  via Animated.loop.stop(), but unmount kills them. */}
+              {mode === 'pronunciation' && isRecording && [ring1, ring2, ring3].map((anim, i) => (
                 <Animated.View
                   key={i}
                   pointerEvents="none"
