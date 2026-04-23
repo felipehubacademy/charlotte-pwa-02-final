@@ -323,6 +323,7 @@ const ADMIN_CSS = `
 .badge-accent { background: var(--accent-dim); color: var(--accent); }
 .badge-brand  { background: var(--brand-dim);  color: var(--brand);  }
 .badge-muted  { background: var(--b1);         color: var(--t3);     }
+.badge-inst   { background: rgba(14,165,233,0.10); color: #0369A1;    }
 .badge-dot {
   width: 6px; height: 6px; border-radius: 50%;
   background: currentColor; display: inline-block;

@@ -44,6 +44,7 @@ const timeAgo = (s: string | null) => {
 };
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
+  institutional: { label: 'Institucional', cls: 'badge-inst'   },
   active:    { label: 'Ativo',      cls: 'badge-ok'     },
   trial:     { label: 'Trial',      cls: 'badge-accent'  },
   cancelled: { label: 'Cancelado',  cls: 'badge-warn'    },
@@ -366,7 +367,7 @@ export default function AdminUsersPage() {
                       </td>
                     </tr>
                   ) : pageUsers.map(u => {
-                    const sm = STATUS_META[u.subscription_status];
+                    const sm = u.is_institutional ? STATUS_META.institutional : STATUS_META[u.subscription_status];
                     const lm = u.charlotte_level ? LEVEL_META[u.charlotte_level] : null;
                     return (
                       <tr key={u.id}>
@@ -374,7 +375,6 @@ export default function AdminUsersPage() {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--t1)' }}>
                               {u.name ?? <span style={{ color: 'var(--t3)', fontStyle: 'italic' }}>sem nome</span>}
-                              {u.is_institutional && <span className="badge badge-muted" style={{ marginLeft: 6, verticalAlign: 'middle' }}>Inst.</span>}
                               {!u.is_active && <span className="badge badge-err" style={{ marginLeft: 6, verticalAlign: 'middle' }}>Inativo</span>}
                             </div>
                             <div style={{ fontSize: 11.5, color: 'var(--t3)', fontFamily: 'var(--font-mono)' }}>{u.email}</div>
@@ -498,12 +498,22 @@ export default function AdminUsersPage() {
                     </div>
                     <div className="adm-field">
                       <label>Status da assinatura</label>
-                      <select value={form.subscription_status} onChange={e => patchForm('subscription_status', e.target.value)}>
-                        <option value="none">Sem plano</option>
-                        <option value="trial">Trial</option>
-                        <option value="active">Ativo</option>
-                        <option value="cancelled">Cancelado</option>
-                        <option value="expired">Expirado</option>
+                      <select
+                        value={form.is_institutional ? 'none' : form.subscription_status}
+                        onChange={e => patchForm('subscription_status', e.target.value)}
+                        disabled={form.is_institutional}
+                        style={form.is_institutional ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                      >
+                        {form.is_institutional
+                          ? <option value="none">Institucional (gerenciado)</option>
+                          : <>
+                              <option value="none">Sem plano</option>
+                              <option value="trial">Trial</option>
+                              <option value="active">Ativo</option>
+                              <option value="cancelled">Cancelado</option>
+                              <option value="expired">Expirado</option>
+                            </>
+                        }
                       </select>
                     </div>
                   </div>
