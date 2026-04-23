@@ -527,15 +527,23 @@ async function sendExpoPush(
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+interface NotifUser {
+  id: string;
+  name: string | null;
+  expo_push_token: string;
+  charlotte_level: string | null;
+  timezone: string | null;
+}
+
 /** Fetch charlotte_users rows for a list of user_ids (token + name + level + tz). */
-async function fetchCharlotteUsers(supabase: any, userIds: string[]) {
+async function fetchCharlotteUsers(supabase: any, userIds: string[]): Promise<NotifUser[]> {
   if (!userIds.length) return [];
   const { data } = await supabase
     .from('charlotte_users')
     .select('id, name, expo_push_token, charlotte_level, timezone')
     .in('id', userIds)
     .not('expo_push_token', 'is', null);
-  return (data ?? []).filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken['));
+  return (data ?? []).filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken[')) as NotifUser[];
 }
 
 // ── Per-type target LOCAL hour (in each user's own timezone) ────────────────
