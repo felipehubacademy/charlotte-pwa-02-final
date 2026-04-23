@@ -289,7 +289,7 @@ export default function ReviewSession() {
         .from('sr_items')
         .select('id, source_type, source_id, card_type, user_level, topic_title, ease_factor, interval_days, repetitions, next_review_at')
         .eq('user_id', user.id)
-        .eq('source_type', 'topic')
+        .eq('source_type', 'learn_topic')
         .lte('next_review_at', now)
         .order('next_review_at', { ascending: true })
         .limit(20);
@@ -502,7 +502,7 @@ export default function ReviewSession() {
             onPress={() => router.back()}
             activeOpacity={0.82}
             style={{
-              marginTop: 32, backgroundColor: C.greenDark,
+              marginTop: 32, backgroundColor: C.navy,
               borderRadius: 16, paddingVertical: 14, paddingHorizontal: 40,
             }}
           >
@@ -583,9 +583,9 @@ export default function ReviewSession() {
             onPress={() => router.replace('/(app)')}
             activeOpacity={0.82}
             style={{
-              marginTop: 24, backgroundColor: C.greenDark,
+              marginTop: 24, backgroundColor: C.navy,
               borderRadius: 16, paddingVertical: 16, alignItems: 'center',
-              ...Platform.select({ ios: { shadowColor: C.greenDark, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 4 } }),
+              ...Platform.select({ ios: { shadowColor: C.navy, shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } }, android: { elevation: 4 } }),
             }}
           >
             <AppText style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '800' }}>
