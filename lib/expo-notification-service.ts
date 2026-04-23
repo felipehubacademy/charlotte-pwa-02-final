@@ -114,6 +114,52 @@ function pickTemplate(
   };
 }
 
+// ── Timezone helpers ────────────────────────────────────────────────────────
+// Users set charlotte_users.timezone when the app foregrounds
+// (AuthProvider.tsx calls deviceTimezone() → IANA zone string). NULL means
+// the user has not opened the app yet — default to Sao Paulo so the existing
+// Brazil-heavy base is never silently dropped.
+const DEFAULT_TZ = 'America/Sao_Paulo';
+
+function localHourInTz(utc: Date, tz: string): number {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false })
+      .formatToParts(utc);
+    const h = parts.find(p => p.type === 'hour')?.value ?? '0';
+    const n = parseInt(h, 10);
+    return Number.isFinite(n) ? n % 24 : 0;
+  } catch {
+    return localHourInTz(utc, DEFAULT_TZ);
+  }
+}
+
+function localDayInTz(utc: Date, tz: string): number {
+  try {
+    // 'en-US' weekday short: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+    const wd = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(utc);
+    return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd] ?? 0;
+  } catch {
+    return localDayInTz(utc, DEFAULT_TZ);
+  }
+}
+
+// Filter users (with optional timezone field) to those whose local hour
+// matches targetHour right now. If targetDayOfWeek is supplied, also check
+// that the user's local weekday matches (used by weekly_challenge).
+function usersAtLocalHour<T extends { id: string; timezone?: string | null }>(
+  users: T[],
+  targetHour: number,
+  targetDayOfWeek?: number,
+): T[] {
+  const now = new Date();
+  return users.filter(u => {
+    const tz = u.timezone || DEFAULT_TZ;
+    if (localHourInTz(now, tz) !== targetHour) return false;
+    if (targetDayOfWeek != null && localDayInTz(now, tz) !== targetDayOfWeek) return false;
+    return true;
+  });
+}
+
 // ── Log / frequency-cap / novelty-decay helpers ─────────────────────────────
 // All three share the notifications.notification_logs table (see
 // supabase/migrations/20260423_extend_notification_logs_for_rn.sql).
@@ -309,16 +355,26 @@ async function sendExpoPush(
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** Fetch charlotte_users rows for a list of user_ids (token + name + level). */
+/** Fetch charlotte_users rows for a list of user_ids (token + name + level + tz). */
 async function fetchCharlotteUsers(supabase: any, userIds: string[]) {
   if (!userIds.length) return [];
   const { data } = await supabase
     .from('charlotte_users')
-    .select('id, name, expo_push_token, charlotte_level')
+    .select('id, name, expo_push_token, charlotte_level, timezone')
     .in('id', userIds)
     .not('expo_push_token', 'is', null);
   return (data ?? []).filter((u: any) => u.expo_push_token?.startsWith('ExponentPushToken['));
 }
+
+// ── Per-type target LOCAL hour (in each user's own timezone) ────────────────
+// The scheduler runs hourly; each sender drops users whose local hour does
+// not match these constants. Monday 9 is weekday 1.
+const TARGET_HOUR_DAILY    = 11;
+const TARGET_HOUR_GOAL     = 16;
+const TARGET_HOUR_STREAK   = 18;
+const TARGET_HOUR_PRAISE   = 18;
+const TARGET_HOUR_WEEKLY   = 9;
+const WEEKLY_DAY_OF_WEEK   = 1; // Monday
 
 // ── 1. Streak reminders ──────────────────────────────────────────────────────
 export async function sendStreakReminders(supabase: any): Promise<void> {
@@ -354,7 +410,9 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
     if (skipped > 0) console.log(`⏭️ [Expo] streak: skipping ${skipped} user(s) at daily cap`);
     if (!allowedIds.length) return;
 
-    const cuUsers = await fetchCharlotteUsers(supabase, allowedIds);
+    const allUsers = await fetchCharlotteUsers(supabase, allowedIds);
+    const cuUsers = usersAtLocalHour(allUsers, TARGET_HOUR_STREAK);
+    if (!cuUsers.length) { console.log(`⏱️ [Expo] streak: no users at local ${TARGET_HOUR_STREAK}h this run`); return; }
     const streakMap = Object.fromEntries(atRisk.map((r: any) => [r.user_id, r.streak_days]));
 
     const messages: ExpoMessage[] = cuUsers.map((u: any) => {
@@ -400,7 +458,7 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
     // 2) Users with token who haven't practiced today.
     let q = supabase
       .from('charlotte_users')
-      .select('id, name, expo_push_token, charlotte_level')
+      .select('id, name, expo_push_token, charlotte_level, timezone')
       .not('expo_push_token', 'is', null);
     if (practicedIds.length) {
       q = q.not('id', 'in', `(${practicedIds.map(id => `"${id}"`).join(',')})`);
@@ -408,20 +466,23 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
     const { data: cuUsers, error: usersErr } = await q;
     if (usersErr) { console.error('❌ [Expo] users query error:', usersErr.message); return; }
 
-    const rawEligible = (cuUsers ?? []).filter((u: any) =>
+    const withToken = (cuUsers ?? []).filter((u: any) =>
       u.expo_push_token?.startsWith('ExponentPushToken[')
     );
-    if (!rawEligible.length) { console.log('✅ [Expo] No eligible users for daily reminder'); return; }
+    if (!withToken.length) { console.log('✅ [Expo] No eligible users for daily reminder'); return; }
+
+    const tzFiltered = usersAtLocalHour(withToken, TARGET_HOUR_DAILY);
+    if (!tzFiltered.length) { console.log(`⏱️ [Expo] daily: no users at local ${TARGET_HOUR_DAILY}h this run`); return; }
 
     const allowedIds = await filterFrequencyCap(
       supabase,
-      rawEligible.map((u: any) => u.id),
+      tzFiltered.map((u: any) => u.id),
       'daily_reminder',
     );
-    const skipped = rawEligible.length - allowedIds.length;
+    const skipped = tzFiltered.length - allowedIds.length;
     if (skipped > 0) console.log(`⏭️ [Expo] daily: skipping ${skipped} user(s) at daily cap`);
     const allowed = new Set(allowedIds);
-    const eligible = rawEligible.filter((u: any) => allowed.has(u.id));
+    const eligible = tzFiltered.filter((u: any) => allowed.has(u.id));
     if (!eligible.length) return;
 
     const { data: progRows } = await supabase
@@ -492,15 +553,18 @@ export async function sendCharlotteMessages(supabase: any): Promise<void> {
     const rawUsers = await fetchCharlotteUsers(supabase, practicedIds);
     if (!rawUsers.length) return;
 
+    const tzFiltered = usersAtLocalHour(rawUsers, TARGET_HOUR_PRAISE);
+    if (!tzFiltered.length) { console.log(`⏱️ [Expo] praise: no users at local ${TARGET_HOUR_PRAISE}h this run`); return; }
+
     const allowedIds = await filterFrequencyCap(
       supabase,
-      rawUsers.map((u: any) => u.id),
+      tzFiltered.map((u: any) => u.id),
       'charlotte_message',
     );
-    const skipped = rawUsers.length - allowedIds.length;
+    const skipped = tzFiltered.length - allowedIds.length;
     if (skipped > 0) console.log(`⏭️ [Expo] praise: skipping ${skipped} user(s) at daily cap`);
     const allowed = new Set(allowedIds);
-    const cuUsers = rawUsers.filter((u: any) => allowed.has(u.id));
+    const cuUsers = tzFiltered.filter((u: any) => allowed.has(u.id));
     if (!cuUsers.length) return;
 
     // Fetch XP and streak per user
@@ -634,16 +698,21 @@ export async function sendGoalReminders(supabase: any): Promise<void> {
 
     if (!near.length) { console.log('✅ [Expo] No users near weekly goal'); return; }
 
+    const allUsers = await fetchCharlotteUsers(supabase, near.map(n => n.userId));
+    const tzFiltered = usersAtLocalHour(allUsers, TARGET_HOUR_GOAL);
+    if (!tzFiltered.length) { console.log(`⏱️ [Expo] goal: no users at local ${TARGET_HOUR_GOAL}h this run`); return; }
+
     const allowedIds = await filterFrequencyCap(
       supabase,
-      near.map(n => n.userId),
+      tzFiltered.map((u: any) => u.id),
       'goal_reminder',
     );
-    const skipped = near.length - allowedIds.length;
+    const skipped = tzFiltered.length - allowedIds.length;
     if (skipped > 0) console.log(`⏭️ [Expo] goal: skipping ${skipped} user(s) at daily cap`);
     if (!allowedIds.length) return;
 
-    const cuUsers = await fetchCharlotteUsers(supabase, allowedIds);
+    const allowed = new Set(allowedIds);
+    const cuUsers = tzFiltered.filter((u: any) => allowed.has(u.id));
     const missingMap = Object.fromEntries(near.map(n => [n.userId, n.missing]));
 
     const messages: ExpoMessage[] = cuUsers.map((u: any) => {
@@ -724,12 +793,20 @@ export async function sendWeeklyChallenges(supabase: any): Promise<void> {
     const activeIds = [...new Set((activeRows ?? []).map((r: any) => r.user_id))] as string[];
     if (!activeIds.length) { console.log('✅ [Expo] No active users last week'); return; }
 
-    const allowedIds = await filterFrequencyCap(supabase, activeIds, 'weekly_challenge');
-    const skipped = activeIds.length - allowedIds.length;
+    const allUsers = await fetchCharlotteUsers(supabase, activeIds);
+    const tzFiltered = usersAtLocalHour(allUsers, TARGET_HOUR_WEEKLY, WEEKLY_DAY_OF_WEEK);
+    if (!tzFiltered.length) {
+      console.log(`⏱️ [Expo] weekly: no users at Mon ${TARGET_HOUR_WEEKLY}h local this run`);
+      return;
+    }
+
+    const allowedIds = await filterFrequencyCap(supabase, tzFiltered.map((u: any) => u.id), 'weekly_challenge');
+    const skipped = tzFiltered.length - allowedIds.length;
     if (skipped > 0) console.log(`⏭️ [Expo] weekly: skipping ${skipped} user(s) at daily cap`);
     if (!allowedIds.length) return;
 
-    const cuUsers = await fetchCharlotteUsers(supabase, allowedIds);
+    const allowed = new Set(allowedIds);
+    const cuUsers = tzFiltered.filter((u: any) => allowed.has(u.id));
     if (!cuUsers.length) return;
 
     const weekIdx = isoWeekNumber(now) % WEEKLY_CHALLENGES_PT.length;

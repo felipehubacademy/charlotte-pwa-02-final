@@ -1,17 +1,23 @@
 /**
  * app/api/notifications/scheduler/route.ts
  *
- * RN-only notification scheduler. Called by cron-job.org at specific times
- * via GET with a Bearer token. Also supports manual triggering via POST or
- * a `?force_task=TYPE` query param (protected by CRON_SECRET).
+ * RN-only notification scheduler. Meant to be called once per hour by
+ * cron-job.org via GET with `Authorization: Bearer ${CRON_SECRET}`.
  *
- * Cron-job.org schedule (America/Sao_Paulo timezone):
- *   - 11h BRT (14h UTC): daily_reminder for users who haven't practiced today
- *   - 18h BRT (21h UTC): praise for who practiced + streak reminder for who didn't
- *   - 16h BRT (19h UTC): goal_reminder for users close to weekly XP goal
- *   - Mon 9h BRT (12h UTC): weekly_challenge for users active last 7 days
+ * Every run the endpoint invokes every sender. Each sender filters users
+ * by the user's OWN timezone (charlotte_users.timezone, default
+ * America/Sao_Paulo) so that:
+ *   - daily_reminder fires when the user's local hour == 11
+ *   - goal_reminder when local hour == 16
+ *   - praise + streak when local hour == 18
+ *   - weekly_challenge when local day == Monday and local hour == 9
  *
- * PWA web-push paths were removed — PWA is being deprecated.
+ * With a single hourly cron the scheduling targets are inside the code,
+ * not in cron-job.org — timezone changes per user are handled without
+ * reconfiguring the cron.
+ *
+ * Also supports manual triggering via POST or `?force_task=TYPE` query
+ * param (same CRON_SECRET). PWA web-push paths were removed.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -64,16 +70,10 @@ async function runTask(task: TaskType): Promise<{ task: TaskType }> {
   return { task };
 }
 
-function tasksForHour(hourUTC: number, dayOfWeekUTC: number): TaskType[] {
-  // Scheduled times (UTC) — assumes users' local = BRT for now.
-  // TODO: per-user timezone support.
-  const tasks: TaskType[] = [];
-  if (hourUTC === 14) tasks.push('daily');               // 11h BRT
-  if (hourUTC === 19) tasks.push('goal');                // 16h BRT
-  if (hourUTC === 21) tasks.push('praise', 'streak');    // 18h BRT
-  if (dayOfWeekUTC === 1 && hourUTC === 12) tasks.push('weekly'); // Mon 9h BRT
-  return tasks;
-}
+// Every hourly run invokes every sender. Each sender drops users whose
+// per-user local hour does not match the task's target hour, so this is
+// cheap when no one is at the right local time.
+const HOURLY_TASKS: TaskType[] = ['daily', 'goal', 'praise', 'streak', 'weekly'];
 
 export async function GET(request: NextRequest) {
   if (!isAuthorized(request)) {
@@ -94,26 +94,13 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    const now       = new Date();
-    const hourUTC   = now.getUTCHours();
-    const dayUTC    = now.getUTCDay();
-    const scheduled = tasksForHour(hourUTC, dayUTC);
-
-    if (scheduled.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: `No scheduled tasks for ${hourUTC}:00 UTC (day ${dayUTC})`,
-        timestamp: now.toISOString(),
-      });
-    }
-
-    const results = await Promise.allSettled(scheduled.map(runTask));
+    const now = new Date();
+    const results = await Promise.allSettled(HOURLY_TASKS.map(runTask));
     return NextResponse.json({
       success: true,
-      hourUTC,
-      dayUTC,
+      hourUTC: now.getUTCHours(),
       results: results.map((r, i) => ({
-        task: scheduled[i],
+        task: HOURLY_TASKS[i],
         status: r.status,
         error: r.status === 'rejected' ? String(r.reason) : undefined,
       })),
