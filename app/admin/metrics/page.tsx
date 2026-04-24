@@ -54,7 +54,7 @@ interface MetricsResponse {
 }
 
 type Preset = '7d' | '30d' | '90d';
-type Tab = 'overview' | 'engagement' | 'retention' | 'push' | 'costs';
+type Tab = 'overview' | 'engagement' | 'retention' | 'costs';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 const fmtBRL = (v: number) => `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -347,7 +347,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'overview',   label: 'Visão Geral' },
   { id: 'engagement', label: 'Engajamento' },
   { id: 'retention',  label: 'Retenção' },
-  { id: 'push',       label: 'Notificações' },
   { id: 'costs',      label: 'Custos IA' },
 ];
 
@@ -594,90 +593,6 @@ export default function MetricsPage() {
     </>
   );
 
-  // ── Push ────────────────────────────────────────────────────────────────────
-  const tabPush = () => (
-    <>
-      {g?.notifications.tableMissing && (
-        <div className="adm-alert warn" style={{ marginBottom: 14 }}><TriangleAlert size={14} /> Tabela de notificações não encontrada.</div>
-      )}
-      <Sec>Notificações Push</Sec>
-      <div className="adm-grid" style={{ marginBottom: 20 }}>
-        <div className="col-3"><KpiCard label="Tokens Ativos" value={g?.notifications.activeTokens} ctx={`de ${fmtN(g?.notifications.totalUsers ?? 0)} usuários`} delay={0} /></div>
-        <div className="col-3">
-          <KpiCard label="Enviadas" value={g?.notifications.sent}
-            dlt={prev && g ? pctDelta(g.notifications.sent, prev.notificationsSent) : undefined}
-            ctx="no período" accent="var(--ok)" delay={60} />
-        </div>
-        <div className="col-3">
-          <KpiCard label="Falhas" value={g?.notifications.failed} ctx="erros de entrega" delay={120}
-            accent={(g?.notifications.failed ?? 0) > 0 ? 'var(--err)' : undefined} />
-        </div>
-        <div className="col-3">
-          <KpiCard label="Taxa de Entrega" display={fmtPct(g?.notifications.deliveryRatePct ?? null)} ctx="sent / (sent + failed)" delay={180}
-            accent={g?.notifications.deliveryRatePct != null && g.notifications.deliveryRatePct > 95 ? 'var(--ok)' : 'var(--warn)'} />
-        </div>
-      </div>
-
-      {g && (
-        <div className="adm-grid" style={{ gap: 16 }}>
-          <div className="col-6">
-            <div className="adm-panel">
-              <div className="adm-panel-hdr"><span className="adm-panel-title">Por Categoria</span></div>
-              <div className="adm-panel-body">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                  {Object.entries(g.notifications.byCategory).map(([cat, cnt]) => {
-                    const total = Object.values(g.notifications.byCategory).reduce((a, b) => a + b, 0) || 1;
-                    const colors: Record<string, string> = { core: 'var(--accent)', prevention: 'var(--ok)', revenue: 'var(--warn)', winback: 'var(--brand)' };
-                    return (
-                      <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{ width: 80, fontSize: 11, color: 'var(--t2)', textTransform: 'capitalize', flexShrink: 0 }}>{cat}</div>
-                        <div style={{ flex: 1, height: 6, background: 'var(--s3)', borderRadius: 3 }}>
-                          <div style={{ width: `${(cnt / total) * 100}%`, height: '100%', background: colors[cat] ?? 'var(--accent)', borderRadius: 3 }} />
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--t1)', width: 44, textAlign: 'right', flexShrink: 0 }}>{fmtN(cnt)}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          </div>
-          <div className="col-6">
-            <div className="adm-panel">
-              <div className="adm-panel-hdr"><span className="adm-panel-title">Série Temporal</span></div>
-              <div className="adm-panel-body">
-                <AreaChart data={g.notifications.timeseries} xKey="date" yKey="count" color="var(--brand)" h={100} />
-              </div>
-            </div>
-          </div>
-          <div className="col-12">
-            <div className="adm-panel">
-              <div className="adm-panel-hdr">
-                <span className="adm-panel-title">Por Tipo</span>
-                <span className="adm-panel-sub">{g.notifications.byType.length} tipos</span>
-              </div>
-              <table className="adm-table">
-                <thead>
-                  <tr><th>Tipo</th><th style={{ textAlign: 'right' }}>Enviadas</th><th style={{ textAlign: 'right' }}>Únicos</th><th style={{ textAlign: 'right' }}>Avg/Usuário</th></tr>
-                </thead>
-                <tbody>
-                  {g.notifications.byType.slice(0, 20).map(t => (
-                    <tr key={t.type}>
-                      <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{t.type}</span></td>
-                      <td style={{ textAlign: 'right' }}><span className="num">{fmtN(t.sent)}</span></td>
-                      <td style={{ textAlign: 'right' }}><span className="num">{fmtN(t.uniqueUsers)}</span></td>
-                      <td style={{ textAlign: 'right' }}><span className="num">{t.uniqueUsers ? (t.sent / t.uniqueUsers).toFixed(1) : '—'}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-
   // ── Costs ───────────────────────────────────────────────────────────────────
   const tabCosts = () => (
     <>
@@ -842,7 +757,6 @@ export default function MetricsPage() {
             {tab === 'overview'   && tabOverview()}
             {tab === 'engagement' && tabEngagement()}
             {tab === 'retention'  && tabRetention()}
-            {tab === 'push'       && tabPush()}
             {tab === 'costs'      && tabCosts()}
           </>
         )}

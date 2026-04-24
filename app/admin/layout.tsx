@@ -636,15 +636,6 @@ function Sidebar({
             ? pathname === '/admin'
             : (pathname ?? '').startsWith(item.href);
           const Icon = item.icon;
-          if (item.disabled) {
-            return (
-              <div key={i} className="adm-nav-item" style={{ opacity: 0.4, cursor: 'not-allowed' }}>
-                <Icon size={16} className="adm-nav-icon" />
-                <span className="adm-nav-label">{item.label}</span>
-                <span style={{ fontSize: 9, background: 'var(--b1)', borderRadius: 4, padding: '1px 5px', color: 'var(--t3)', fontWeight: 700, letterSpacing: '0.05em' }}>SOON</span>
-              </div>
-            );
-          }
           return (
             <Link key={i} href={item.href} className={`adm-nav-item${isActive ? ' active' : ''}`}>
               <Icon size={16} className="adm-nav-icon" />

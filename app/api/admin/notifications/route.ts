@@ -1,7 +1,7 @@
 /**
  * app/api/admin/notifications/route.ts
  *
- * GET  — token health, summary stats (24h/7d), byType breakdown, recent logs
+ * GET  — token health, stats 24h/7d, byType, byCategory, timeseries 30d, recent logs
  * POST — manually trigger a notification task (same tasks as scheduler)
  */
 
@@ -25,6 +25,12 @@ function checkAuth(req: NextRequest) {
 
 type TaskType = 'daily' | 'praise' | 'streak' | 'goal' | 'weekly' | 'engagement';
 
+// ── Category sets (mirror metrics route) ──────────────────────────────────────
+const CORE_TYPES       = new Set(['streak_reminder', 'daily_reminder', 'charlotte_message', 'xp_milestone', 'goal_reminder', 'weekly_challenge']);
+const PREVENTION_TYPES = new Set(['streak_saver', 'streak_milestone_ahead', 'level_imminent', 'micro_checkin', 'cadence_drop', 'weekly_recap', 'charlotte_checkin']);
+const REVENUE_TYPES    = new Set(['trial_ending_72h', 'trial_ending_24h', 'sub_expired_1d']);
+const WINBACK_TYPES    = new Set(['streak_broken', 'reengagement_3d', 'reengagement_7d', 'reengagement_14d', 'reengagement_30d']);
+
 // ── GET ───────────────────────────────────────────────────────────────────────
 export async function GET(req: NextRequest) {
   if (!checkAuth(req)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -39,12 +45,14 @@ export async function GET(req: NextRequest) {
   const now      = new Date();
   const ago24h   = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
   const ago7d    = new Date(now.getTime() - 7  * 86400 * 1000).toISOString();
+  const ago30d   = new Date(now.getTime() - 30 * 86400 * 1000).toISOString();
 
   // Run all queries in parallel
   const [
     tokenRes,
     logs24h,
     logs7d,
+    logs30d,
     logsPage,
     logsCount,
   ] = await Promise.all([
@@ -59,11 +67,18 @@ export async function GET(req: NextRequest) {
       .select('status')
       .gte('created_at', ago24h) as unknown as Promise<{ data: { status: string }[] | null }>,
 
-    // Stats 7d + byType
+    // Stats 7d + byType + byCategory
     supabase
       .from('notification_logs')
       .select('user_id, notification_type, status')
       .gte('created_at', ago7d) as unknown as Promise<{ data: { user_id: string; notification_type: string; status: string }[] | null }>,
+
+    // Timeseries 30d — only sent, only date needed
+    supabase
+      .from('notification_logs')
+      .select('created_at')
+      .gte('created_at', ago30d)
+      .eq('status', 'sent') as unknown as Promise<{ data: { created_at: string }[] | null }>,
 
     // Recent logs (paginated)
     (() => {
@@ -100,15 +115,16 @@ export async function GET(req: NextRequest) {
     failed: rows24h.filter(r => r.status === 'failed').length,
   };
 
-  // ── Stats 7d + byType ───────────────────────────────────────────────────────
-  const rows7d  = (logs7d.data ?? []).filter(r => r.status !== 'scheduler_lock');
-  const sent7d  = rows7d.filter(r => r.status === 'sent').length;
+  // ── Stats 7d + byType + byCategory ─────────────────────────────────────────
+  const rows7d   = (logs7d.data ?? []).filter(r => r.status !== 'scheduler_lock');
+  const sent7d   = rows7d.filter(r => r.status === 'sent').length;
   const failed7d = rows7d.filter(r => r.status === 'failed').length;
   const stats7d  = {
     sent: sent7d, failed: failed7d,
     deliveryRate: sent7d + failed7d === 0 ? 100 : Math.round((sent7d / (sent7d + failed7d)) * 100),
   };
 
+  // byType
   const typeMap: Record<string, { sent: number; failed: number; users: Set<string> }> = {};
   for (const r of rows7d) {
     if (!typeMap[r.notification_type]) typeMap[r.notification_type] = { sent: 0, failed: 0, users: new Set() };
@@ -119,6 +135,25 @@ export async function GET(req: NextRequest) {
   const byType = Object.entries(typeMap)
     .map(([t, v]) => ({ type: t, sent: v.sent, failed: v.failed, uniqueUsers: v.users.size }))
     .sort((a, b) => b.sent - a.sent);
+
+  // byCategory (from sent rows only)
+  const byCategory = { core: 0, prevention: 0, revenue: 0, winback: 0 };
+  for (const r of rows7d.filter(r => r.status === 'sent')) {
+    if      (CORE_TYPES.has(r.notification_type))       byCategory.core++;
+    else if (PREVENTION_TYPES.has(r.notification_type)) byCategory.prevention++;
+    else if (REVENUE_TYPES.has(r.notification_type))    byCategory.revenue++;
+    else if (WINBACK_TYPES.has(r.notification_type))    byCategory.winback++;
+  }
+
+  // ── Timeseries 30d ──────────────────────────────────────────────────────────
+  const tsMap: Record<string, number> = {};
+  for (const r of logs30d.data ?? []) {
+    const day = r.created_at.slice(0, 10);
+    tsMap[day] = (tsMap[day] ?? 0) + 1;
+  }
+  const timeseries = Object.entries(tsMap)
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   // ── Logs with user names ────────────────────────────────────────────────────
   const rawLogs = logsPage.data ?? [];
@@ -139,7 +174,7 @@ export async function GET(req: NextRequest) {
   }));
 
   return NextResponse.json({
-    tokenStats, stats24h, stats7d, byType,
+    tokenStats, stats24h, stats7d, byType, byCategory, timeseries,
     logs, page, total: logsCount.count ?? 0, perPage: PER_PAGE,
   });
 }
