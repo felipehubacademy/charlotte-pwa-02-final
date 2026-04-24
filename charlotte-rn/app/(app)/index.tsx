@@ -491,7 +491,7 @@ function XPRing({ todayXP, goal }: { todayXP: number; goal: number }) {
         {prog > 0 && (
           <Circle
             cx={SIZE/2} cy={SIZE/2} r={r}
-            stroke={done ? C.green : '#7EE8A2'}
+            stroke={C.green}
             strokeWidth={SW} fill="none"
             strokeDasharray={circ} strokeDashoffset={circ * (1 - prog)}
             strokeLinecap="round"
