@@ -491,7 +491,7 @@ function XPRing({ todayXP, goal }: { todayXP: number; goal: number }) {
         {prog > 0 && (
           <Circle
             cx={SIZE/2} cy={SIZE/2} r={r}
-            stroke={C.green}
+            stroke={C.greenDark}
             strokeWidth={SW} fill="none"
             strokeDasharray={circ} strokeDashoffset={circ * (1 - prog)}
             strokeLinecap="round"
@@ -1125,7 +1125,7 @@ export default function HomeScreen() {
                     <AppText style={{ fontSize: 11, color: C.navyMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 }}>
                       {isPortuguese ? 'XP de hoje' : "Today's XP"}
                     </AppText>
-                    <AppText style={{ fontSize: 11, fontWeight: '800', color: C.navyMid }}>
+                    <AppText style={{ fontSize: 11, fontWeight: '800', color: C.greenDark }}>
                       {todayXP} / {getDailyGoal(todayXP)}
                     </AppText>
                   </View>
@@ -1133,7 +1133,7 @@ export default function HomeScreen() {
                     <View style={{
                       height: '100%',
                       width: `${(todayXP / getDailyGoal(todayXP)) * 100}%`,
-                      backgroundColor: C.green,
+                      backgroundColor: C.greenDark,
                       borderRadius: 4,
                     }} />
                   </View>
