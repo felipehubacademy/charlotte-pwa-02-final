@@ -29,10 +29,10 @@ import {
   CaretRight,
   Lock,
   Phone,
-  BookOpenText,
+  MapTrifold,
   Headphones,
   LightbulbFilament,
-  BookOpen,
+  Notepad,
   Flag,
 } from 'phosphor-react-native';
 import * as SecureStore from 'expo-secure-store';
@@ -1207,7 +1207,7 @@ export default function HomeScreen() {
               backgroundColor: levelAccentBg,
               alignItems: 'center', justifyContent: 'center',
             }}>
-              <BookOpenText size={24} color={levelAccent} weight="bold" />
+              <MapTrifold size={24} color={levelAccent} weight="bold" />
             </View>
             <AppText style={{ fontSize: 14, fontWeight: '800', color: C.navy, letterSpacing: -0.2 }}>
               {isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail'}
@@ -1303,7 +1303,7 @@ export default function HomeScreen() {
             backgroundColor: levelAccentBg,
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <BookOpen size={20} color={levelAccent} weight="fill" />
+            <Notepad size={20} color={levelAccent} weight="fill" />
           </View>
           <View style={{ flex: 1 }}>
             <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
@@ -1503,7 +1503,7 @@ export default function HomeScreen() {
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
               >
-                <BookOpen size={16} color="#FFFFFF" weight="fill" />
+                <Notepad size={16} color="#FFFFFF" weight="fill" />
                 <AppText style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>
                   {isPortuguese ? '+ Salvar na minha lista' : '+ Add to my list'}
                 </AppText>
