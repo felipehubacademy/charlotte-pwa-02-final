@@ -89,12 +89,10 @@ export default function LearnTrailScreen() {
   useFocusEffect(useCallback(() => { loadIntroDone(); }, [loadIntroDone]));
 
   // ── Progress counters ────────────────────────────────────────
-  // Include mini-lesson (intro) completions so the banner reflects all done items.
-  const regularCompleted = progress?.completed.length ?? 0;
-  const total            = totalTopics(level);
-  const introDoneCount   = Object.values(introDone).filter(Boolean).length;
-  const completed        = regularCompleted + introDoneCount;
-  const pct              = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+  // Mini-lesson intros are NOT counted as progress — only regular topic completions.
+  const completed = progress?.completed.length ?? 0;
+  const total     = totalTopics(level);
+  const pct       = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
 
   const handleStart = (moduleIdx: number, topicIdx: number) => {
     router.push({
