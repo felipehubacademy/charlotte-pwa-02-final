@@ -601,9 +601,15 @@ export default function LiveVoiceModal({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       InCallManager.startRingback('_DEFAULT_');
-      // startRingback reseta o routing para earpiece internamente — chamar
-      // setForceSpeakerphoneOn depois para garantir que o ring saia pelo speaker.
-      InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+      // startRingback no iOS reconfigura AVAudioSession internamente sem reaplica
+      // o speaker override. O AVAudioPlayer do ringback inicializa em thread nativa,
+      // então o setForceSpeakerphoneOn precisa de um delay para ter efeito.
+      // Android responde imediatamente; iOS precisa de ~200ms.
+      if (Platform.OS === 'android') {
+        InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+      } else {
+        setTimeout(() => InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current), 200);
+      }
 
       // Passa o access token para validação server-side do pool
       const { data: { session: authSession } } = await supabase.auth.getSession();
@@ -634,8 +640,6 @@ export default function LiveVoiceModal({
       if (!tokenRes.ok) throw new Error('Failed to get session token');
       const { clientSecret } = await tokenRes.json();
       if (!clientSecret) throw new Error('No client secret returned');
-
-      InCallManager.stopRingback();
 
       // echoCancellation removes Charlotte's speaker output from the mic signal
       // before it reaches the server VAD — this is the correct way to prevent
