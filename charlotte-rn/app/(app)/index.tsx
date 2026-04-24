@@ -872,7 +872,7 @@ export default function HomeScreen() {
       route: '/(app)/grammar' as const,
       accentColor: levelAccent,
       accentBg: levelAccentBg,
-      icon: <TextT size={26} color={levelAccent} weight="bold" />,
+      icon: <TextT size={26} color={levelAccent} weight="fill" />,
       locked: !hasGrammar,
       lockLevel: 'Intermediate',
     },
@@ -883,7 +883,7 @@ export default function HomeScreen() {
       route: '/(app)/pronunciation' as const,
       accentColor: levelAccent,
       accentBg: levelAccentBg,
-      icon: <Microphone size={26} color={levelAccent} weight="bold" />,
+      icon: <Microphone size={26} color={levelAccent} weight="fill" />,
       locked: !hasPronun,
       lockLevel: level === 'Novice' ? undefined : 'Intermediate',
       lockXP:    level === 'Novice' && !hasPronun ? PRONUN_UNLOCK_XP : undefined,
@@ -896,7 +896,7 @@ export default function HomeScreen() {
       route: '/(app)/chat' as const,
       accentColor: levelAccent,
       accentBg: levelAccentBg,
-      icon: <ChatTeardropText size={26} color={levelAccent} weight="bold" />,
+      icon: <ChatTeardropText size={26} color={levelAccent} weight="fill" />,
       locked: !hasChat,
       lockLevel: level === 'Novice' ? undefined : 'Intermediate',
       lockXP:    level === 'Novice' && !hasChat ? CHAT_UNLOCK_XP : undefined,
@@ -916,7 +916,7 @@ export default function HomeScreen() {
       })(),
       accentColor: C.orange,
       accentBg: 'rgba(255,107,53,0.10)',
-      icon: <Phone size={26} color={hasLive ? C.orange : C.navyLight} weight="bold" />,
+      icon: <Phone size={26} color={hasLive ? C.orange : C.navyLight} weight="fill" />,
       locked: !hasLive,
       lockLevel: 'Intermediate',
     },
@@ -1179,7 +1179,7 @@ export default function HomeScreen() {
               backgroundColor: levelAccentBg,
               alignItems: 'center', justifyContent: 'center',
             }}>
-              <MapTrifold size={24} color={levelAccent} weight="bold" />
+              <MapTrifold size={24} color={levelAccent} weight="fill" />
             </View>
             <AppText style={{ fontSize: 14, fontWeight: '800', color: C.navy, letterSpacing: -0.2 }}>
               {isPortuguese ? 'Trilha de Aprendizado' : 'Learning Trail'}
