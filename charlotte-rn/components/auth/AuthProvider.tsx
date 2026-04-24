@@ -11,6 +11,7 @@ import {
   ENTITLEMENT_ID, PRODUCT_MONTHLY, PRODUCT_YEARLY, syncSubscriptionToSupabase,
 } from '@/lib/purchases';
 import { deviceTimezone } from '@/lib/dateUtils';
+import { prefetchGreeting } from '@/lib/greetingCache';
 
 export interface AuthContextType {
   session: Session | null;
@@ -288,7 +289,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!mounted) return;
           console.log('[AuthProvider] fetchProfile deferred start for:', userId);
           const userProfile = await fetchProfile(userId);
-          if (mounted && userProfile) setProfile(userProfile);
+          if (mounted && userProfile) {
+            // Pre-fetch the home greeting BEFORE setProfile so the API call is
+            // already in-flight by the time HomeScreen mounts and its effect runs.
+            prefetchGreeting(userProfile);
+            setProfile(userProfile);
+          }
           // Salvar timezone do device para uso em crons e triggers server-side
           void (async () => {
             const tz = deviceTimezone();

@@ -56,6 +56,7 @@ import { VocabFAB } from '@/components/vocabulary/VocabFAB';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
 import { localMidnightUTC } from '@/lib/dateUtils';
 import { HomeData, Mission, buildMissions } from '@/lib/missions';
+import { greetingCache, resetGreetingCache } from '@/lib/greetingCache';
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
@@ -65,11 +66,8 @@ const API_BASE_URL =
 // not on every app open.
 let _streakSoundPlayedThisSession = false;
 
-// Greeting: module-level so it survives component remounts within the same JS session.
-// Resets only when the app process is killed (true cold start).
-let _greetingFetchedThisSession = false;
-let _greetingLevelThisSession   = '';
-let _greetingTextThisSession    = ''; // cached text — restored immediately on remount
+// Greeting: pre-fetched by AuthProvider via lib/greetingCache as soon as
+// the profile loads. HomeScreen reads from the cache — see useEffect below.
 
 // Palette estática usada apenas em constantes de módulo (fora do componente)
 const C = {
@@ -788,21 +786,20 @@ export default function HomeScreen() {
   }, [fetchData]);
 
   // ── AI Greeting ─────────────────────────────────────────────
-  // Fetched once per cold start (new JS process). Module-level vars prevent
-  // re-fetches when navigating back to home within the same session.
-  // Cached text is restored immediately on remount so there are no dots.
+  // AuthProvider pre-fetches the greeting (via lib/greetingCache) the instant
+  // the profile loads — before this component even mounts. This effect just
+  // reads from the cache or waits for the in-flight request to resolve.
   useEffect(() => {
     // Reset if level changed (e.g. after placement test)
-    if (_greetingLevelThisSession && _greetingLevelThisSession !== level) {
-      _greetingFetchedThisSession = false;
-      _greetingTextThisSession    = '';
+    if (greetingCache.level && greetingCache.level !== level) {
+      resetGreetingCache();
       setAiGreeting(null);
       setGreetingLoading(true);
     }
 
     // Restore cached greeting immediately on remount (no dots on navigation)
-    if (_greetingTextThisSession) {
-      setAiGreeting(_greetingTextThisSession);
+    if (greetingCache.text) {
+      setAiGreeting(greetingCache.text);
       setGreetingLoading(false);
       return;
     }
@@ -810,63 +807,38 @@ export default function HomeScreen() {
     // Profile not loaded yet — wait
     if (!userId || !name) return;
 
-    // Already fetched (success or fail) — show charlotteMessage fallback immediately
-    if (_greetingFetchedThisSession) {
+    // Pre-fetch already completed with no result (API error) — show fallback
+    if (greetingCache.fetched && !greetingCache.pending) {
       setGreetingLoading(false);
       return;
     }
 
-    _greetingFetchedThisSession = true;
-    _greetingLevelThisSession   = level;
+    // Pre-fetch is in-flight (fired by AuthProvider) — poll until it resolves.
+    // Dots mínimo de 600ms — sensação de Charlotte "digitando" sem ser lento.
+    const minDotsMs  = 600;
+    const fetchStart = Date.now();
 
-    (async () => {
-      // Dots mínimo de 1.5s — Charlotte "digitando" mesmo que a API seja rápida
-      const minDotsMs = 1500;
-      const fetchStart = Date.now();
-
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/greeting`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            firstName:       name.split(' ')[0] ?? name,
-            streak:          data?.streakDays ?? 0,
-            todayXP:         data?.todayXP   ?? 0,
-            totalXP:         data?.totalXP   ?? 0,
-            dailyGoal:       DAILY_XP_GOAL,
-            hour:            new Date().getHours(),
-            level,
-            // first_welcome_done is set after onboarding — reliable "new user" signal
-            // independent of XP/data timing; avoids false "first session" messages
-            isNewUser:       !(profile?.first_welcome_done ?? false),
-          }),
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.message) {
-            _greetingTextThisSession = json.message;
-            // Garante dots mínimo de 1.5s — sensação de "Charlotte digitando"
-            const elapsed = Date.now() - fetchStart;
-            const delay = Math.max(0, minDotsMs - elapsed);
-            setTimeout(() => {
-              unstable_batchedUpdates(() => {
-                setAiGreeting(json.message);
-                setGreetingLoading(false);
-              });
-            }, delay);
-            return;
-          }
-        }
-      } catch {
-        // Silently fail — dots continuam até o finally
-      } finally {
-        // Só chega aqui se não houve mensagem válida (erro ou json sem message)
+    const poll = setInterval(() => {
+      if (greetingCache.text) {
+        clearInterval(poll);
+        const elapsed = Date.now() - fetchStart;
+        const delay   = Math.max(0, minDotsMs - elapsed);
+        setTimeout(() => {
+          unstable_batchedUpdates(() => {
+            setAiGreeting(greetingCache.text);
+            setGreetingLoading(false);
+          });
+        }, delay);
+      } else if (!greetingCache.pending) {
+        // API finished with no valid message — show fallback
+        clearInterval(poll);
         setGreetingLoading(false);
       }
-    })();
+    }, 50);
+
+    return () => clearInterval(poll);
   // NOTE: 'data' removed from deps intentionally — having it caused the effect to re-run
   // every time fetchData completed, interfering with the in-flight async setAiGreeting call.
-  // The greeting context (streak/xp) uses data?.x ?? 0 safely even when data is null.
   }, [userId, name, level, profile]); // eslint-disable-line
 
   const missions     = data ? buildMissions(data, level) : [];
