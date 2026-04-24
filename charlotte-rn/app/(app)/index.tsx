@@ -33,7 +33,6 @@ import {
   Headphones,
   LightbulbFilament,
   Notepad,
-  Flag,
 } from 'phosphor-react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Haptics from 'expo-haptics';
@@ -1130,13 +1129,6 @@ export default function HomeScreen() {
             ...cardShadow,
           }}
         >
-          <View style={{
-            width: 36, height: 36, borderRadius: 10,
-            backgroundColor: levelAccentBg,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Flag size={20} color={levelAccent} weight="fill" />
-          </View>
           <View style={{ flex: 1 }}>
             <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
               {isPortuguese ? 'Metas' : 'Goals'}
@@ -1270,13 +1262,6 @@ export default function HomeScreen() {
             ...cardShadow,
           }}
         >
-          <View style={{
-            width: 36, height: 36, borderRadius: 10,
-            backgroundColor: levelAccentBg,
-            alignItems: 'center', justifyContent: 'center',
-          }}>
-            <Notepad size={20} color={levelAccent} weight="fill" />
-          </View>
           <View style={{ flex: 1 }}>
             <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
               {isPortuguese ? 'Meu Vocabulário' : 'My Vocabulary'}
