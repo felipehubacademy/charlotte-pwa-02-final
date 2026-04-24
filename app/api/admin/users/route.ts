@@ -227,9 +227,9 @@ export async function PATCH(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
-  // Allowed editable fields
+  // Allowed editable fields (email included — updates both charlotte_users and auth.users)
   const allowed = [
-    'name', 'charlotte_level', 'is_institutional',
+    'name', 'email', 'charlotte_level', 'is_institutional',
     'is_active', 'subscription_status', 'trial_ends_at',
     'must_change_password', 'placement_test_done',
   ];
@@ -238,20 +238,27 @@ export async function PATCH(req: NextRequest) {
     if (key in fields) updates[key] = fields[key];
   }
 
-  if (Object.keys(updates).length === 0) {
+  const hasEmail = Boolean(fields.email);
+
+  if (Object.keys(updates).length === 0 && !hasEmail) {
     return NextResponse.json({ error: 'Nenhum campo válido para atualizar' }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from('charlotte_users')
-    .update(updates)
-    .eq('id', id);
+  // Update charlotte_users (only if there are fields beyond auth-only)
+  if (Object.keys(updates).length > 0) {
+    const { error } = await supabase
+      .from('charlotte_users')
+      .update(updates)
+      .eq('id', id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  // Update email via auth admin if provided
-  if (fields.email) {
-    const { error: emailError } = await supabase.auth.admin.updateUserById(id, { email: fields.email });
+  // Sync email in auth.users (admin bypass — no confirmation email sent)
+  if (hasEmail) {
+    const { error: emailError } = await supabase.auth.admin.updateUserById(
+      id,
+      { email: fields.email as string, email_confirm: true },
+    );
     if (emailError) return NextResponse.json({ error: emailError.message }, { status: 500 });
   }
 
