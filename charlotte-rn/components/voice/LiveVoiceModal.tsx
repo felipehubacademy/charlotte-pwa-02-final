@@ -594,7 +594,6 @@ export default function LiveVoiceModal({
       // iOS precisa para ativar o Voice Processing I/O unit (AEC hardware).
       // Nenhum setAudioModeAsync é chamado no fluxo de chamada para não sobrescrever.
       InCallManager.start({ media: 'audio' });
-      InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
 
       // 500ms para o AVAudioSession estabilizar no mode .voiceChat antes do
       // getUserMedia. Sem esse delay, o audio unit do mic pode ser criado
@@ -602,6 +601,9 @@ export default function LiveVoiceModal({
       await new Promise(resolve => setTimeout(resolve, 500));
 
       InCallManager.startRingback('_DEFAULT_');
+      // startRingback reseta o routing para earpiece internamente — chamar
+      // setForceSpeakerphoneOn depois para garantir que o ring saia pelo speaker.
+      InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
 
       // Passa o access token para validação server-side do pool
       const { data: { session: authSession } } = await supabase.auth.getSession();
