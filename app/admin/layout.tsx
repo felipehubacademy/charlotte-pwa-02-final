@@ -603,7 +603,7 @@ const NAV = [
   { section: 'ANALYTICS' },
   { href: '/admin/metrics', icon: BarChart2, label: 'Métricas' },
   { section: 'SISTEMA' },
-  { href: '/admin/notifications', icon: Bell, label: 'Notificações', disabled: true },
+  { href: '/admin/notifications', icon: Bell, label: 'Notificações' },
 ];
 
 function Sidebar({

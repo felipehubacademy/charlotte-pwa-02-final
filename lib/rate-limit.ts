@@ -73,7 +73,7 @@ export async function checkRateLimit(
     const [{ data: userData }, { data: row }] = await Promise.all([
       supabase
         .from('charlotte_users')
-        .select('subscription_status')
+        .select('subscription_status, is_institutional')
         .eq('id', userId)
         .maybeSingle(),
       supabase
@@ -82,6 +82,8 @@ export async function checkRateLimit(
         .eq('user_id', userId)
         .maybeSingle(),
     ]);
+
+    if (userData?.is_institutional) return null;
 
     const isTrial   = userData?.subscription_status === 'trial' || !userData?.subscription_status;
     const limits    = isTrial ? LIMITS.trial : LIMITS.paid;
