@@ -898,9 +898,9 @@ export default function HomeScreen() {
       title: isPortuguese ? 'Gram\u00e1tica' : 'Grammar',
       sub: '',
       route: '/(app)/grammar' as const,
-      accentColor: C.greenDark,
-      accentBg: C.greenBg,
-      icon: <TextT size={26} color={C.greenDark} weight="bold" />,
+      accentColor: levelAccent,
+      accentBg: levelAccentBg,
+      icon: <TextT size={26} color={levelAccent} weight="bold" />,
       locked: !hasGrammar,
       lockLevel: 'Intermediate',
     },
@@ -909,9 +909,9 @@ export default function HomeScreen() {
       title: isPortuguese ? 'Pron\u00fancia' : 'Pronunciation',
       sub: '',
       route: '/(app)/pronunciation' as const,
-      accentColor: C.blue,
-      accentBg: C.blueBg,
-      icon: <Microphone size={26} color={C.blue} weight="bold" />,
+      accentColor: levelAccent,
+      accentBg: levelAccentBg,
+      icon: <Microphone size={26} color={levelAccent} weight="bold" />,
       locked: !hasPronun,
       lockLevel: level === 'Novice' ? undefined : 'Intermediate',
       lockXP:    level === 'Novice' && !hasPronun ? PRONUN_UNLOCK_XP : undefined,
@@ -922,9 +922,9 @@ export default function HomeScreen() {
       title: 'Free Chat',
       sub: '',
       route: '/(app)/chat' as const,
-      accentColor: C.pink,
-      accentBg: C.pinkBg,
-      icon: <ChatTeardropText size={26} color={C.pink} weight="bold" />,
+      accentColor: levelAccent,
+      accentBg: levelAccentBg,
+      icon: <ChatTeardropText size={26} color={levelAccent} weight="bold" />,
       locked: !hasChat,
       lockLevel: level === 'Novice' ? undefined : 'Intermediate',
       lockXP:    level === 'Novice' && !hasChat ? CHAT_UNLOCK_XP : undefined,
@@ -1114,7 +1114,7 @@ export default function HomeScreen() {
             </View>
 
             {/* Accent divider — bridges navy and white */}
-            <View style={{ height: 2, backgroundColor: 'rgba(163,255,60,0.28)' }} />
+            <View style={{ height: 1, backgroundColor: C.navyGhost }} />
 
             {/* White body — XP progress (tappable → stats screen) */}
             <TouchableOpacity onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(data?.todayXP ?? 0), totalXP: String(totalXP), userId: userId ?? '', userLevel: level ?? 'Inter', userName: name ?? '' } })} activeOpacity={0.75} style={{ padding: 20 }}>
@@ -1300,10 +1300,10 @@ export default function HomeScreen() {
         >
           <View style={{
             width: 36, height: 36, borderRadius: 10,
-            backgroundColor: 'rgba(61,136,0,0.10)',
+            backgroundColor: levelAccentBg,
             alignItems: 'center', justifyContent: 'center',
           }}>
-            <BookOpen size={20} color={C.greenDark} weight="fill" />
+            <BookOpen size={20} color={levelAccent} weight="fill" />
           </View>
           <View style={{ flex: 1 }}>
             <AppText style={{ fontSize: 14, fontWeight: '700', color: C.navy }}>
@@ -1498,7 +1498,7 @@ export default function HomeScreen() {
                 }}
                 style={{
                   marginTop: 16,
-                  backgroundColor: C.greenDark,
+                  backgroundColor: levelAccent,
                   borderRadius: 12, paddingVertical: 12,
                   flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
                 }}
