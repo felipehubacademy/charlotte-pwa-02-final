@@ -499,7 +499,7 @@ function XPRing({ todayXP, goal }: { todayXP: number; goal: number }) {
           />
         )}
       </Svg>
-      <AppText style={{ fontSize: 12, fontWeight: '900', color: done ? C.greenDark : C.navy }}>
+      <AppText style={{ fontSize: 12, fontWeight: '900', color: C.navy }}>
         {todayXP}
       </AppText>
     </View>
@@ -1125,7 +1125,7 @@ export default function HomeScreen() {
                     <AppText style={{ fontSize: 11, color: C.navyMid, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.7 }}>
                       {isPortuguese ? 'XP de hoje' : "Today's XP"}
                     </AppText>
-                    <AppText style={{ fontSize: 11, fontWeight: '800', color: C.greenDark }}>
+                    <AppText style={{ fontSize: 11, fontWeight: '800', color: C.navyMid }}>
                       {todayXP} / {getDailyGoal(todayXP)}
                     </AppText>
                   </View>
