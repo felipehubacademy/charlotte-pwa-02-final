@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import {
   View, Modal, TouchableOpacity, Animated, Dimensions,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { AppText } from '@/components/ui/Text';
 import type { TourStep, SpotlightRect } from '@/lib/tourContext';
 
@@ -50,39 +51,58 @@ export function TourOverlay({
     return () => loop.stop();
   }, [stepIndex, pulseAnim]);
 
-  const { x, y, width, height } = spotlightRect;
-  const spotRadius = step.spotlightRadius ?? 14;
+  const { x, y, width: w, height: h } = spotlightRect;
+  const r = Math.min(step.spotlightRadius ?? 14, w / 2, h / 2);
+
+  // SVG path: full screen rect + rounded spotlight hole (evenodd creates the cutout)
+  const holePath = [
+    `M ${x + r} ${y}`,
+    `L ${x + w - r} ${y}`,
+    `Q ${x + w} ${y} ${x + w} ${y + r}`,
+    `L ${x + w} ${y + h - r}`,
+    `Q ${x + w} ${y + h} ${x + w - r} ${y + h}`,
+    `L ${x + r} ${y + h}`,
+    `Q ${x} ${y + h} ${x} ${y + h - r}`,
+    `L ${x} ${y + r}`,
+    `Q ${x} ${y} ${x + r} ${y}`,
+    'Z',
+  ].join(' ');
+  const overlayPath = `M 0 0 L ${SW} 0 L ${SW} ${SH} L 0 ${SH} Z ${holePath}`;
 
   const TOOLTIP_H  = 190;
-  const belowY     = y + height + 14;
+  const belowY     = y + h + 14;
   const tooltipAbove = belowY + TOOLTIP_H > SH - 20;
   const rawTop     = tooltipAbove ? y - TOOLTIP_H - 10 : belowY;
   const tooltipTop = Math.max(60, Math.min(rawTop, SH - TOOLTIP_H - 20));
 
-  const isLast     = stepIndex === totalSteps - 1;
-  const skipLabel  = lang === 'pt' ? 'Pular tour' : 'Skip tour';
-  const nextLabel  = lang === 'pt' ? 'Próximo' : 'Next';
-  const doneLabel  = lang === 'pt' ? 'Entendi' : 'Got it';
+  const isLast    = stepIndex === totalSteps - 1;
+  const skipLabel = lang === 'pt' ? 'Pular tour' : 'Skip tour';
+  const nextLabel = lang === 'pt' ? 'Próximo' : 'Next';
+  const doneLabel = lang === 'pt' ? 'Entendi' : 'Got it';
 
-  const arrowCenter = Math.max(24, Math.min(SW - 64, x + width / 2 - 20));
+  const arrowCenter = Math.max(24, Math.min(SW - 64, x + w / 2 - 20));
 
   return (
     <Modal transparent animationType="none" visible statusBarTranslucent>
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
 
-        {/* Dark surround */}
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: Math.max(0, y), backgroundColor: OVERLAY }} />
-        <View style={{ position: 'absolute', top: y + height, left: 0, right: 0, bottom: 0, backgroundColor: OVERLAY }} />
-        <View style={{ position: 'absolute', top: y, left: 0, width: Math.max(0, x), height, backgroundColor: OVERLAY }} />
-        <View style={{ position: 'absolute', top: y, left: x + width, right: 0, height, backgroundColor: OVERLAY }} />
+        {/* SVG overlay with perfectly rounded hole */}
+        <Svg
+          width={SW}
+          height={SH}
+          style={{ position: 'absolute', top: 0, left: 0 }}
+          pointerEvents="none"
+        >
+          <Path d={overlayPath} fill={OVERLAY} fillRule="evenodd" />
+        </Svg>
 
-        {/* Spotlight border */}
+        {/* Spotlight border (pulse animation) */}
         <Animated.View
           pointerEvents="none"
           style={{
             position: 'absolute',
-            top: y, left: x, width, height,
-            borderRadius: spotRadius,
+            top: y, left: x, width: w, height: h,
+            borderRadius: r,
             borderWidth: 2,
             borderColor: GREEN,
             transform: [{ scale: pulseAnim }],
@@ -103,7 +123,6 @@ export function TourOverlay({
           shadowRadius: 16,
           elevation: 12,
         }}>
-
           {tooltipAbove ? (
             <View style={{
               position: 'absolute', bottom: -8, left: arrowCenter,
@@ -125,11 +144,9 @@ export function TourOverlay({
           <AppText style={{ fontSize: 11, color: GREEN_DARK, fontWeight: '800', letterSpacing: 0.8, marginBottom: 6 }}>
             {stepIndex + 1} / {totalSteps}
           </AppText>
-
           <AppText style={{ fontSize: 16, color: NAVY, fontWeight: '800', lineHeight: 22, marginBottom: 6 }}>
             {step.title}
           </AppText>
-
           <AppText style={{ fontSize: 14, color: NAVY_MID, lineHeight: 20, marginBottom: 18 }}>
             {step.description}
           </AppText>
@@ -140,7 +157,6 @@ export function TourOverlay({
                 {skipLabel}
               </AppText>
             </TouchableOpacity>
-
             <TouchableOpacity
               onPress={onNext}
               style={{ backgroundColor: NAVY, borderRadius: 12, paddingHorizontal: 22, paddingVertical: 10 }}
@@ -150,8 +166,8 @@ export function TourOverlay({
               </AppText>
             </TouchableOpacity>
           </View>
-
         </View>
+
       </Animated.View>
     </Modal>
   );
