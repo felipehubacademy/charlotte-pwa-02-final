@@ -37,18 +37,39 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [spotlightRect, setSpotlightRect]   = useState<SpotlightRect | null>(null);
   const [lang, setLang]                     = useState<'pt' | 'en'>('pt');
   const tourIdRef    = useRef<string>('');
-  const activeIdRef  = useRef<string | null>(null); // guard: tour running in this session
+  const activeIdRef  = useRef<string | null>(null);
+  const anchorRef    = useRef<View>(null);
+  const anchorOffset = useRef({ x: 0, y: 0 });
 
   const measureStep = useCallback((step: TourStep): Promise<void> =>
     new Promise((resolve) => {
       if (!step.ref?.current) { resolve(); return; }
-      step.ref.current.measureInWindow(
-        (x: number, y: number, width: number, height: number) => {
-          const pad = 8;
-          setSpotlightRect({ x: x - pad, y: y - pad, width: width + pad * 2, height: height + pad * 2 });
-          resolve();
-        },
-      );
+
+      const doMeasure = () => {
+        step.ref.current.measureInWindow(
+          (x: number, y: number, width: number, height: number) => {
+            const pad = 8;
+            const { x: ax, y: ay } = anchorOffset.current;
+            setSpotlightRect({
+              x: x - ax - pad,
+              y: y - ay - pad,
+              width:  width  + pad * 2,
+              height: height + pad * 2,
+            });
+            resolve();
+          },
+        );
+      };
+
+      // Measure the overlay anchor first to get coordinate offset
+      if (anchorRef.current) {
+        anchorRef.current.measureInWindow((ax: number, ay: number) => {
+          anchorOffset.current = { x: ax, y: ay };
+          doMeasure();
+        });
+      } else {
+        doMeasure();
+      }
     }),
   []);
 
@@ -57,7 +78,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     tourSteps: TourStep[],
     tourLang: 'pt' | 'en' = 'pt',
   ) => {
-    if (activeIdRef.current === tourId) return; // already running this tour
+    if (activeIdRef.current === tourId) return;
     const done = await SecureStore.getItemAsync(`TOUR_${tourId}_DONE`).catch(() => null);
     if (done) return;
     activeIdRef.current = tourId;
@@ -105,6 +126,13 @@ export function TourProvider({ children }: { children: ReactNode }) {
     <TourContext.Provider value={{ startTour, resetTour }}>
       <View style={{ flex: 1 }}>
         {children}
+        {/* Anchor at top-left of overlay space — used to calibrate coordinate offset */}
+        <View
+          ref={anchorRef}
+          collapsable={false}
+          pointerEvents="none"
+          style={{ position: 'absolute', top: 0, left: 0, width: 1, height: 1 }}
+        />
         {isActive && spotlightRect && (
           <TourOverlay
             step={steps[currentStep]}
