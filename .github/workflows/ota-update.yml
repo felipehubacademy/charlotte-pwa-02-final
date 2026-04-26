@@ -10,7 +10,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'charlotte-rn/**'
+      - 'apps/mobile/**'
 
 jobs:
   update:
@@ -18,7 +18,7 @@ jobs:
     runs-on: macos-latest
     defaults:
       run:
-        working-directory: charlotte-rn
+        working-directory: apps/mobile
 
     steps:
       - name: Checkout
@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-          cache-dependency-path: charlotte-rn/package-lock.json
+          cache-dependency-path: apps/mobile/package-lock.json
 
       - name: Install dependencies
         run: npm ci
