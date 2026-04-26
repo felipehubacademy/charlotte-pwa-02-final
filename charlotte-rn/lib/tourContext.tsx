@@ -1,6 +1,7 @@
 import React, {
   createContext, useContext, useState, useRef, useCallback, ReactNode,
 } from 'react';
+import { View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { TourOverlay } from '@/components/ui/TourOverlay';
 
@@ -102,18 +103,20 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   return (
     <TourContext.Provider value={{ startTour, resetTour }}>
-      {children}
-      {isActive && spotlightRect && (
-        <TourOverlay
-          step={steps[currentStep]}
-          stepIndex={currentStep}
-          totalSteps={steps.length}
-          spotlightRect={spotlightRect}
-          lang={lang}
-          onNext={nextStep}
-          onSkip={skipTour}
-        />
-      )}
+      <View style={{ flex: 1 }}>
+        {children}
+        {isActive && spotlightRect && (
+          <TourOverlay
+            step={steps[currentStep]}
+            stepIndex={currentStep}
+            totalSteps={steps.length}
+            spotlightRect={spotlightRect}
+            lang={lang}
+            onNext={nextStep}
+            onSkip={skipTour}
+          />
+        )}
+      </View>
     </TourContext.Provider>
   );
 }

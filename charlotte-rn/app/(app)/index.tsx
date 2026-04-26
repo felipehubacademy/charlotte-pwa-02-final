@@ -721,11 +721,11 @@ export default function HomeScreen() {
     startTour('HOME', [
       {
         ref: headerRef,
-        spotlightRadius: 0,
-        title: pt ? 'Seu progresso' : 'Progress & settings',
+        spotlightRadius: 20,
+        title: pt ? 'Seu progresso' : 'Your progress',
         description: pt
-          ? 'Streak, XP total e ranking ficam aqui. Toque para ver suas estatísticas. O ícone de engrenagem abre as configurações.'
-          : 'Your streak, total XP and rank are here. Tap to see detailed stats. The gear icon opens settings.',
+          ? 'Sua sequência de dias, XP total e ranking global. Toque para ver seu histórico completo.'
+          : 'Your daily streak, total XP and global rank. Tap to see your full activity history.',
       },
       {
         ref: charlotteCardRef,
@@ -1109,8 +1109,6 @@ export default function HomeScreen() {
           HEADER  —  streak · XP · rank · gear
       ══════════════════════════════════════════ */}
       <View
-        ref={headerRef}
-        collapsable={false}
         style={{
           flexDirection: 'row', alignItems: 'center',
           paddingHorizontal: 20, height: 52,
@@ -1120,6 +1118,7 @@ export default function HomeScreen() {
         }}
       >
         {/* Stats pills — tappable group → stats modal */}
+        <View ref={headerRef} collapsable={false}>
         <TouchableOpacity
           onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(data?.todayXP ?? 0), totalXP: String(totalXP), userId: userId ?? '', userLevel: level ?? 'Inter', userName: name ?? '' } })}
           activeOpacity={0.7}
@@ -1164,6 +1163,7 @@ export default function HomeScreen() {
             </AppText>
           </View>
         </TouchableOpacity>
+        </View>
 
         <View style={{ flex: 1 }} />
 

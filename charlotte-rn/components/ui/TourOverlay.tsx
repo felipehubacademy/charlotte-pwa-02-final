@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  View, Modal, TouchableOpacity, Animated, Dimensions,
+  View, TouchableOpacity, Animated, Dimensions,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { AppText } from '@/components/ui/Text';
@@ -14,7 +14,7 @@ const GREEN      = '#A3FF3C';
 const GREEN_DARK = '#3D8800';
 const CARD       = '#FFFFFF';
 
-const { width: SW, height: SH } = Dimensions.get('screen');
+const { width: SW, height: SH } = Dimensions.get('window');
 
 interface Props {
   step: TourStep;
@@ -71,8 +71,15 @@ export function TourOverlay({
   const arrowCenter = Math.max(24, Math.min(SW - 64, x + w / 2 - 20));
 
   return (
-    <Modal transparent animationType="none" visible statusBarTranslucent>
-      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+    <Animated.View
+      pointerEvents="box-none"
+      style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+        opacity: fadeAnim,
+        zIndex: 9999,
+        elevation: 9999,
+      }}
+    >
 
         {/* SVG overlay with perfectly rounded hole */}
         <Svg
@@ -155,7 +162,6 @@ export function TourOverlay({
           </View>
         </View>
 
-      </Animated.View>
-    </Modal>
+    </Animated.View>
   );
 }
