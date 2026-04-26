@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     }
     console.log('TTS: using ElevenLabs Rachel');
 
-    const { text } = await request.json();
+    const body = await request.json();
+    const { text, userId } = body as { text: string; userId?: string };
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Missing text field' }, { status: 400 });
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await res.arrayBuffer());
     const base64 = buffer.toString('base64');
 
-    logElevenLabsUsage({ endpoint: '/api/tts', charCount: text.length });
+    logElevenLabsUsage({ endpoint: '/api/tts', charCount: text.length, userId: userId || undefined });
 
     return NextResponse.json({ audio: base64, mimeType: 'audio/mp3' });
 

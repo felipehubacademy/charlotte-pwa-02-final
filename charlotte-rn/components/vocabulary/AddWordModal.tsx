@@ -128,7 +128,7 @@ export function AddWordModal({
       const res = await fetch(`${API_BASE}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: term.trim() }),
+        body: JSON.stringify({ text: term.trim(), ...(user?.id ? { userId: user.id } : {}) }),
       });
       if (!res.ok) throw new Error('TTS failed');
       const blob = await res.blob();

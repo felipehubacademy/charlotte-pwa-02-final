@@ -52,13 +52,13 @@ function saveChatMessage(
 }
 
 /** Call TTS endpoint and save the mp3 to a local temp file. Returns local URI or null. */
-async function fetchTTS(text: string): Promise<string | null> {
+async function fetchTTS(text: string, userId?: string): Promise<string | null> {
   try {
     console.log('🔊 Fetching TTS for:', text.slice(0, 60));
     const response = await fetch(`${API_BASE_URL}/api/tts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ text, ...(userId ? { userId } : {}) }),
     });
     if (!response.ok) {
       const err = await response.text();
@@ -274,7 +274,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
       for (let i = 0; i < parts.length; i++) {
         if (i > 0) await delay(1500);
 
-        const audioUri = respondWithAudio ? await fetchTTS(parts[i]) : null;
+        const audioUri = respondWithAudio ? await fetchTTS(parts[i], userId) : null;
 
         const msg: Message = {
           id: `${generateId()}-${i}`,
@@ -645,7 +645,7 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
           }
 
           if (demoText) {
-            const demoUri = await fetchTTS(demoText);
+            const demoUri = await fetchTTS(demoText, userId);
             if (demoUri) {
               setMessages(prev => [...prev, {
                 id: generateId(),

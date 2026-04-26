@@ -150,7 +150,7 @@ export default function LearnIntroScreen() {
       const res = await fetch(`${API_BASE_URL}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text, ...(userId ? { userId } : {}) }),
       });
       if (!res.ok) return null;
       const data = await res.json();
