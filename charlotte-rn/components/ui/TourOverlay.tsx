@@ -5,9 +5,13 @@ import {
 import { AppText } from '@/components/ui/Text';
 import type { TourStep, SpotlightRect } from '@/lib/tourContext';
 
-const OVERLAY = 'rgba(0,0,0,0.60)';
-const NAVY    = '#16153A';
-const GREEN   = '#A3FF3C';
+const OVERLAY   = 'rgba(0,0,0,0.60)';
+const NAVY      = '#16153A';
+const NAVY_MID  = '#4B4A72';
+const NAVY_LIGHT = '#9896B8';
+const GREEN     = '#A3FF3C';
+const GREEN_DARK = '#3D8800';
+const CARD      = '#FFFFFF';
 
 const { width: SW, height: SH } = Dimensions.get('screen');
 
@@ -88,36 +92,34 @@ export function TourOverlay({
           position: 'absolute',
           top: tooltipTop,
           left: 16, right: 16,
-          backgroundColor: NAVY,
+          backgroundColor: CARD,
           borderRadius: 20,
           padding: 20,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.35,
+          shadowColor: NAVY,
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.18,
           shadowRadius: 16,
           elevation: 12,
         }}>
 
           {/* Arrow triangle */}
           {tooltipAbove ? (
-            // Tooltip above spotlight → arrow points DOWN at bottom of tooltip
             <View style={{
               position: 'absolute',
               bottom: -8,
               left: arrowCenter,
               width: 0, height: 0,
-              borderTopWidth: 8,    borderTopColor: NAVY,
-              borderLeftWidth: 8,   borderLeftColor: 'transparent',
-              borderRightWidth: 8,  borderRightColor: 'transparent',
+              borderTopWidth: 8,   borderTopColor: CARD,
+              borderLeftWidth: 8,  borderLeftColor: 'transparent',
+              borderRightWidth: 8, borderRightColor: 'transparent',
             }} />
           ) : (
-            // Tooltip below spotlight → arrow points UP at top of tooltip
             <View style={{
               position: 'absolute',
               top: -8,
               left: arrowCenter,
               width: 0, height: 0,
-              borderBottomWidth: 8,   borderBottomColor: NAVY,
+              borderBottomWidth: 8,   borderBottomColor: CARD,
               borderLeftWidth: 8,     borderLeftColor: 'transparent',
               borderRightWidth: 8,    borderRightColor: 'transparent',
             }} />
@@ -125,21 +127,21 @@ export function TourOverlay({
 
           {/* Step counter */}
           <AppText style={{
-            fontSize: 11, color: GREEN, fontWeight: '800',
+            fontSize: 11, color: GREEN_DARK, fontWeight: '800',
             letterSpacing: 0.8, marginBottom: 6,
           }}>
             {stepIndex + 1} / {totalSteps}
           </AppText>
 
           <AppText style={{
-            fontSize: 16, color: '#FFFFFF', fontWeight: '800',
+            fontSize: 16, color: NAVY, fontWeight: '800',
             lineHeight: 22, marginBottom: 6,
           }}>
             {step.title}
           </AppText>
 
           <AppText style={{
-            fontSize: 14, color: 'rgba(255,255,255,0.75)',
+            fontSize: 14, color: NAVY_MID,
             lineHeight: 20, marginBottom: 18,
           }}>
             {step.description}
@@ -151,7 +153,7 @@ export function TourOverlay({
               onPress={onSkip}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <AppText style={{ fontSize: 13, color: 'rgba(255,255,255,0.40)', fontWeight: '600' }}>
+              <AppText style={{ fontSize: 13, color: NAVY_LIGHT, fontWeight: '600' }}>
                 Pular tour
               </AppText>
             </TouchableOpacity>
@@ -159,13 +161,13 @@ export function TourOverlay({
             <TouchableOpacity
               onPress={onNext}
               style={{
-                backgroundColor: GREEN,
+                backgroundColor: NAVY,
                 borderRadius: 12,
                 paddingHorizontal: 22,
                 paddingVertical: 10,
               }}
             >
-              <AppText style={{ fontSize: 14, color: NAVY, fontWeight: '800' }}>
+              <AppText style={{ fontSize: 14, color: '#FFFFFF', fontWeight: '800' }}>
                 {isLast ? 'Entendi' : 'Proximo'}
               </AppText>
             </TouchableOpacity>
