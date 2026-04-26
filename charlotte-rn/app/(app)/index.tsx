@@ -739,8 +739,8 @@ export default function HomeScreen() {
           ? 'Lições estruturadas de gramática e pronúncia. Quando tiver conteúdo para revisar, o cartão de Revisão aparece destacado com o número pendente.'
           : 'Structured grammar and pronunciation lessons. When you have content to review, the Review card lights up with the pending count.',
         onBeforeMeasure: async () => {
-          scrollViewRef.current?.scrollTo({ y: Math.max(0, learnSectionYRef.current - 80), animated: true });
-          await new Promise<void>(r => setTimeout(r, 420));
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, learnSectionYRef.current - 80), animated: false });
+          await new Promise<void>(r => setTimeout(r, 180));
         },
       },
       {
@@ -750,8 +750,8 @@ export default function HomeScreen() {
           ? 'Escolha como quer praticar: Gramática, Pronúncia, Free Chat ou Live Voice. Cada modo desenvolve uma habilidade diferente.'
           : 'Choose how to practise: Grammar, Pronunciation, Free Chat or Live Voice. Each mode builds a different skill.',
         onBeforeMeasure: async () => {
-          scrollViewRef.current?.scrollTo({ y: Math.max(0, practiceSectionYRef.current - 80), animated: true });
-          await new Promise<void>(r => setTimeout(r, 420));
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, practiceSectionYRef.current - 80), animated: false });
+          await new Promise<void>(r => setTimeout(r, 180));
         },
       },
     ]);

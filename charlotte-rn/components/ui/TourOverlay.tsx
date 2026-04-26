@@ -5,11 +5,11 @@ import {
 import { AppText } from '@/components/ui/Text';
 import type { TourStep, SpotlightRect } from '@/lib/tourContext';
 
-const OVERLAY = 'rgba(0,0,0,0.72)';
+const OVERLAY = 'rgba(0,0,0,0.60)';
 const NAVY    = '#16153A';
 const GREEN   = '#A3FF3C';
 
-const { width: SW, height: SH } = Dimensions.get('window');
+const { width: SW, height: SH } = Dimensions.get('screen');
 
 interface Props {
   step: TourStep;
@@ -49,9 +49,12 @@ export function TourOverlay({
 
   const { x, y, width, height } = spotlightRect;
 
-  // Tooltip goes above spotlight if spotlight is in bottom half of screen
-  const tooltipAbove = y > SH * 0.52;
-  const tooltipTop   = tooltipAbove ? y - 168 : y + height + 16;
+  // Tooltip: prefer below, but move above if it would overflow screen bottom
+  const TOOLTIP_H    = 180; // estimated tooltip height
+  const belowY       = y + height + 16;
+  const tooltipAbove = belowY + TOOLTIP_H > SH - 20;
+  const rawTop       = tooltipAbove ? y - TOOLTIP_H - 12 : belowY;
+  const tooltipTop   = Math.max(60, Math.min(rawTop, SH - TOOLTIP_H - 20));
   const isLast       = stepIndex === totalSteps - 1;
 
   // Arrow horizontal center clamped so it stays within tooltip bounds
