@@ -556,9 +556,8 @@ export default function HomeScreen() {
   const isFetchingRef = React.useRef(false);
 
   // Tour
-  const { startTour }          = useTour();
-  const tourStartedRef         = useRef(false);
-  const scrollViewRef          = useRef<any>(null);
+  const { startTour }       = useTour();
+  const scrollViewRef       = useRef<any>(null);
   const headerRef              = useRef<any>(null);
   const charlotteCardRef       = useRef<any>(null);
   const goalsBannerRef         = useRef<any>(null);
@@ -705,10 +704,9 @@ export default function HomeScreen() {
     if (userId) fetchData();
   }, [fetchData]));
 
-  // Dispara o tour da home uma única vez, após o primeiro carregamento de dados
-  useEffect(() => {
-    if (!data || tourStartedRef.current) return;
-    tourStartedRef.current = true;
+  // Dispara o tour da home ao focar na tela (re-dispara após resetTour)
+  useFocusEffect(useCallback(() => {
+    if (!data) return;
     const pt = level === 'Novice';
     startTour('HOME', [
       {
@@ -760,7 +758,7 @@ export default function HomeScreen() {
         },
       },
     ], pt ? 'pt' : 'en');
-  }, [data]); // eslint-disable-line
+  }, [data])); // eslint-disable-line
 
   const loadLiveVoicePool = useCallback(async () => {
     if (!userId) return;

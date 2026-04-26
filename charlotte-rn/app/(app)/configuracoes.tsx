@@ -22,7 +22,9 @@ import {
   Trash,
   PencilSimple,
   BookOpen,
+  Play,
 } from 'phosphor-react-native';
+import { useTour } from '@/lib/tourContext';
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/lib/supabase';
@@ -129,6 +131,7 @@ function SectionTitle({ label }: { label: string }) {
 export default function ConfiguracoesScreen() {
   const { profile, signOut, refreshProfile } = useAuth();
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
+  const { resetTour } = useTour();
   const [deletingAccount, setDeletingAccount]     = React.useState(false);
   const [restoringPurchases, setRestoringPurchases] = React.useState(false);
   const [voiceUsage, setVoiceUsage]               = React.useState<LiveVoiceStatus | null>(null);
@@ -484,6 +487,18 @@ export default function ConfiguracoesScreen() {
             </View>
           </>
         )}
+
+        {/* Tour */}
+        <SectionTitle label="Tour" />
+        <SettingRow
+          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Refazer tour da Home' : 'Replay Home tour'}
+          onPress={async () => {
+            await resetTour('HOME');
+            router.back();
+          }}
+          chevron
+        />
 
         {/* Legal */}
         <SectionTitle label="Legal" />

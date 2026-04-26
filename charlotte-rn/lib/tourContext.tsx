@@ -35,7 +35,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
   const [steps, setSteps]                   = useState<TourStep[]>([]);
   const [spotlightRect, setSpotlightRect]   = useState<SpotlightRect | null>(null);
   const [lang, setLang]                     = useState<'pt' | 'en'>('pt');
-  const tourIdRef = useRef<string>('');
+  const tourIdRef    = useRef<string>('');
+  const activeIdRef  = useRef<string | null>(null); // guard: tour running in this session
 
   const measureStep = useCallback((step: TourStep): Promise<void> =>
     new Promise((resolve) => {
@@ -55,8 +56,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
     tourSteps: TourStep[],
     tourLang: 'pt' | 'en' = 'pt',
   ) => {
+    if (activeIdRef.current === tourId) return; // already running this tour
     const done = await SecureStore.getItemAsync(`TOUR_${tourId}_DONE`).catch(() => null);
     if (done) return;
+    activeIdRef.current = tourId;
     tourIdRef.current = tourId;
     setSteps(tourSteps);
     setCurrentStep(0);
@@ -74,6 +77,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     const next = currentStep + 1;
     if (next >= steps.length) {
       await SecureStore.setItemAsync(`TOUR_${tourIdRef.current}_DONE`, '1').catch(() => {});
+      activeIdRef.current = null;
       setIsActive(false);
       setSpotlightRect(null);
       return;
@@ -86,12 +90,14 @@ export function TourProvider({ children }: { children: ReactNode }) {
 
   const skipTour = useCallback(async () => {
     await SecureStore.setItemAsync(`TOUR_${tourIdRef.current}_DONE`, '1').catch(() => {});
+    activeIdRef.current = null;
     setIsActive(false);
     setSpotlightRect(null);
   }, []);
 
   const resetTour = useCallback(async (tourId: string) => {
     await SecureStore.deleteItemAsync(`TOUR_${tourId}_DONE`).catch(() => {});
+    activeIdRef.current = null;
   }, []);
 
   return (
