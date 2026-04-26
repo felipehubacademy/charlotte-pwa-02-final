@@ -1,0 +1,175 @@
+import React, { useEffect, useRef } from 'react';
+import {
+  View, Modal, TouchableOpacity, Animated, Dimensions,
+} from 'react-native';
+import { AppText } from '@/components/ui/Text';
+import type { TourStep, SpotlightRect } from '@/lib/tourContext';
+
+const OVERLAY = 'rgba(0,0,0,0.72)';
+const NAVY    = '#16153A';
+const GREEN   = '#A3FF3C';
+
+const { width: SW, height: SH } = Dimensions.get('window');
+
+interface Props {
+  step: TourStep;
+  stepIndex: number;
+  totalSteps: number;
+  spotlightRect: SpotlightRect;
+  onNext: () => void;
+  onSkip: () => void;
+}
+
+export function TourOverlay({
+  step, stepIndex, totalSteps, spotlightRect, onNext, onSkip,
+}: Props) {
+  const fadeAnim  = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // Fade in when step changes
+  useEffect(() => {
+    fadeAnim.setValue(0);
+    Animated.timing(fadeAnim, {
+      toValue: 1, duration: 220, useNativeDriver: true,
+    }).start();
+  }, [stepIndex, fadeAnim]);
+
+  // Pulse border around spotlight
+  useEffect(() => {
+    pulseAnim.setValue(1);
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.025, duration: 750, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1.000, duration: 750, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [stepIndex, pulseAnim]);
+
+  const { x, y, width, height } = spotlightRect;
+
+  // Tooltip goes above spotlight if spotlight is in bottom half of screen
+  const tooltipAbove = y > SH * 0.52;
+  const tooltipTop   = tooltipAbove ? y - 168 : y + height + 16;
+  const isLast       = stepIndex === totalSteps - 1;
+
+  // Arrow horizontal center clamped so it stays within tooltip bounds
+  const arrowCenter = Math.max(24, Math.min(SW - 64, x + width / 2 - 20));
+
+  return (
+    <Modal transparent animationType="none" visible statusBarTranslucent>
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+
+        {/* Dark surround — 4 views create the "hole" */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: Math.max(0, y), backgroundColor: OVERLAY }} />
+        <View style={{ position: 'absolute', top: y + height, left: 0, right: 0, bottom: 0, backgroundColor: OVERLAY }} />
+        <View style={{ position: 'absolute', top: y, left: 0, width: Math.max(0, x), height, backgroundColor: OVERLAY }} />
+        <View style={{ position: 'absolute', top: y, left: x + width, right: 0, height, backgroundColor: OVERLAY }} />
+
+        {/* Spotlight border with pulse */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            top: y, left: x, width, height,
+            borderRadius: 14,
+            borderWidth: 2,
+            borderColor: GREEN,
+            transform: [{ scale: pulseAnim }],
+          }}
+        />
+
+        {/* Tooltip */}
+        <View style={{
+          position: 'absolute',
+          top: tooltipTop,
+          left: 16, right: 16,
+          backgroundColor: NAVY,
+          borderRadius: 20,
+          padding: 20,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.35,
+          shadowRadius: 16,
+          elevation: 12,
+        }}>
+
+          {/* Arrow triangle */}
+          {tooltipAbove ? (
+            // Tooltip above spotlight → arrow points DOWN at bottom of tooltip
+            <View style={{
+              position: 'absolute',
+              bottom: -8,
+              left: arrowCenter,
+              width: 0, height: 0,
+              borderTopWidth: 8,    borderTopColor: NAVY,
+              borderLeftWidth: 8,   borderLeftColor: 'transparent',
+              borderRightWidth: 8,  borderRightColor: 'transparent',
+            }} />
+          ) : (
+            // Tooltip below spotlight → arrow points UP at top of tooltip
+            <View style={{
+              position: 'absolute',
+              top: -8,
+              left: arrowCenter,
+              width: 0, height: 0,
+              borderBottomWidth: 8,   borderBottomColor: NAVY,
+              borderLeftWidth: 8,     borderLeftColor: 'transparent',
+              borderRightWidth: 8,    borderRightColor: 'transparent',
+            }} />
+          )}
+
+          {/* Step counter */}
+          <AppText style={{
+            fontSize: 11, color: GREEN, fontWeight: '800',
+            letterSpacing: 0.8, marginBottom: 6,
+          }}>
+            {stepIndex + 1} / {totalSteps}
+          </AppText>
+
+          <AppText style={{
+            fontSize: 16, color: '#FFFFFF', fontWeight: '800',
+            lineHeight: 22, marginBottom: 6,
+          }}>
+            {step.title}
+          </AppText>
+
+          <AppText style={{
+            fontSize: 14, color: 'rgba(255,255,255,0.75)',
+            lineHeight: 20, marginBottom: 18,
+          }}>
+            {step.description}
+          </AppText>
+
+          {/* Buttons */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <TouchableOpacity
+              onPress={onSkip}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <AppText style={{ fontSize: 13, color: 'rgba(255,255,255,0.40)', fontWeight: '600' }}>
+                Pular tour
+              </AppText>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={onNext}
+              style={{
+                backgroundColor: GREEN,
+                borderRadius: 12,
+                paddingHorizontal: 22,
+                paddingVertical: 10,
+              }}
+            >
+              <AppText style={{ fontSize: 14, color: NAVY, fontWeight: '800' }}>
+                {isLast ? 'Entendi' : 'Proximo'}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      </Animated.View>
+    </Modal>
+  );
+}

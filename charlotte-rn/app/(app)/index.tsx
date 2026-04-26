@@ -50,6 +50,7 @@ import { useTheme } from '@/lib/theme';
 import { cacheHomeData, getCachedHomeData } from '@/lib/offlineCache';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePaywallContext } from '@/lib/paywallContext';
+import { useTour } from '@/lib/tourContext';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { VocabFAB } from '@/components/vocabulary/VocabFAB';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
@@ -553,6 +554,18 @@ export default function HomeScreen() {
   const rewardSeedLoadedRef = React.useRef(false);
   // Prevent concurrent fetchData calls (race condition → double mission grants)
   const isFetchingRef = React.useRef(false);
+
+  // Tour
+  const { startTour }          = useTour();
+  const tourStartedRef         = useRef(false);
+  const scrollViewRef          = useRef<any>(null);
+  const headerRef              = useRef<any>(null);
+  const charlotteCardRef       = useRef<any>(null);
+  const goalsBannerRef         = useRef<any>(null);
+  const learnSectionRef        = useRef<any>(null);
+  const practiceSectionRef     = useRef<any>(null);
+  const learnSectionYRef       = useRef(0);
+  const practiceSectionYRef    = useRef(0);
   // Streak sound deferred while WelcomeModal voice-over is playing
   const isFreshLoginRef   = React.useRef(isFreshLogin);
   const pendingStreakRef  = React.useRef(false);
@@ -691,6 +704,58 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     if (userId) fetchData();
   }, [fetchData]));
+
+  // Dispara o tour da home uma única vez, após o primeiro carregamento de dados
+  useEffect(() => {
+    if (!data || tourStartedRef.current) return;
+    tourStartedRef.current = true;
+    const pt = level === 'Novice';
+    startTour('HOME', [
+      {
+        ref: headerRef,
+        title: pt ? 'Seu progresso' : 'Progress & settings',
+        description: pt
+          ? 'Aqui ficam seu streak, XP total e posição no ranking. Toque para ver suas estatísticas. O ícone de engrenagem abre as configurações.'
+          : 'Your daily streak, total XP and rank are here. Tap to see detailed stats. The gear icon opens settings.',
+      },
+      {
+        ref: charlotteCardRef,
+        title: pt ? 'Charlotte, sua tutora' : 'Charlotte, your tutor',
+        description: pt
+          ? 'A Charlotte te dá boas-vindas com uma mensagem personalizada toda vez que você abre o app. O anel mostra sua meta de XP — toque para ver o histórico.'
+          : 'Charlotte greets you with a personalised message every time you open the app. The ring shows your XP goal — tap it to see your activity history.',
+      },
+      {
+        ref: goalsBannerRef,
+        title: pt ? 'Metas diárias' : 'Daily goals',
+        description: pt
+          ? 'Aqui ficam suas missões diárias e o desafio semanal. Complete para ganhar XP bônus e manter sua sequência.'
+          : 'Your daily missions and weekly challenge live here. Complete them to earn bonus XP and keep your streak going.',
+      },
+      {
+        ref: learnSectionRef,
+        title: pt ? 'Trilha de Aprendizado' : 'Learning Trail',
+        description: pt
+          ? 'Lições estruturadas de gramática e pronúncia. Quando tiver conteúdo para revisar, o cartão de Revisão aparece destacado com o número pendente.'
+          : 'Structured grammar and pronunciation lessons. When you have content to review, the Review card lights up with the pending count.',
+        onBeforeMeasure: async () => {
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, learnSectionYRef.current - 80), animated: true });
+          await new Promise<void>(r => setTimeout(r, 420));
+        },
+      },
+      {
+        ref: practiceSectionRef,
+        title: pt ? 'Modos de prática' : 'Practice modes',
+        description: pt
+          ? 'Escolha como quer praticar: Gramática, Pronúncia, Free Chat ou Live Voice. Cada modo desenvolve uma habilidade diferente.'
+          : 'Choose how to practise: Grammar, Pronunciation, Free Chat or Live Voice. Each mode builds a different skill.',
+        onBeforeMeasure: async () => {
+          scrollViewRef.current?.scrollTo({ y: Math.max(0, practiceSectionYRef.current - 80), animated: true });
+          await new Promise<void>(r => setTimeout(r, 420));
+        },
+      },
+    ]);
+  }, [data]); // eslint-disable-line
 
   const loadLiveVoicePool = useCallback(async () => {
     if (!userId) return;
@@ -939,13 +1004,17 @@ export default function HomeScreen() {
       {/* ══════════════════════════════════════════
           HEADER  —  streak · XP · rank · gear
       ══════════════════════════════════════════ */}
-      <View style={{
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 20, height: 52,
-        backgroundColor: C.card,
-        borderBottomWidth: 1,
-        borderBottomColor: C.navyGhost,
-      }}>
+      <View
+        ref={headerRef}
+        collapsable={false}
+        style={{
+          flexDirection: 'row', alignItems: 'center',
+          paddingHorizontal: 20, height: 52,
+          backgroundColor: C.card,
+          borderBottomWidth: 1,
+          borderBottomColor: C.navyGhost,
+        }}
+      >
         {/* Stats pills — tappable group → stats modal */}
         <TouchableOpacity
           onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(data?.todayXP ?? 0), totalXP: String(totalXP), userId: userId ?? '', userLevel: level ?? 'Inter', userName: name ?? '' } })}
@@ -1028,6 +1097,7 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         style={{ flex: 1, backgroundColor: T.bg }}
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
@@ -1039,7 +1109,7 @@ export default function HomeScreen() {
             Navy header + white body.
             She opens every session — coach, not mascot.
         ══════════════════════════════════════════ */}
-        <View style={{ marginHorizontal: 20, marginTop: 8 }}>
+        <View ref={charlotteCardRef} collapsable={false} style={{ marginHorizontal: 20, marginTop: 8 }}>
           <View style={{
             borderRadius: 22,
             backgroundColor: C.card,
@@ -1118,6 +1188,7 @@ export default function HomeScreen() {
             GOALS BANNER — taps to /goals
         ══════════════════════════════════════════ */}
         <TouchableOpacity
+          ref={goalsBannerRef}
           onPress={() => router.push('/(app)/goals')}
           activeOpacity={0.78}
           style={{
@@ -1147,6 +1218,11 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             LEARN — structured lessons
         ══════════════════════════════════════════ */}
+        <View
+          ref={learnSectionRef}
+          collapsable={false}
+          onLayout={e => { learnSectionYRef.current = e.nativeEvent.layout.y; }}
+        >
         <SectionHeader label={isPortuguese ? 'Aprender com Charlotte' : 'Learn with Charlotte'} />
 
         <View style={{ paddingHorizontal: 20, flexDirection: 'row', gap: 10 }}>
@@ -1272,10 +1348,16 @@ export default function HomeScreen() {
           </View>
           <CaretRight size={16} color={C.navyLight} />
         </TouchableOpacity>
+        </View>
 
         {/* ══════════════════════════════════════════
             PRACTICE — destination cards
         ══════════════════════════════════════════ */}
+        <View
+          ref={practiceSectionRef}
+          collapsable={false}
+          onLayout={e => { practiceSectionYRef.current = e.nativeEvent.layout.y; }}
+        >
         <SectionHeader label={isPortuguese ? 'Praticar com Charlotte' : 'Practise with Charlotte'} />
 
         <View style={{ paddingHorizontal: 20, gap: 10 }}>
@@ -1327,6 +1409,7 @@ export default function HomeScreen() {
               ))}
             </View>
           ))}
+        </View>
         </View>
 
       </ScrollView>

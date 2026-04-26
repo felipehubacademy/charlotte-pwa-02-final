@@ -6,6 +6,7 @@ import { XPToastProvider } from '@/components/ui/XPToastProvider';
 import { AchievementsProvider } from '@/components/achievements/AchievementsProvider';
 import WelcomeModal from '@/components/ui/WelcomeModal';
 import { PaywallProvider } from '@/lib/paywallContext';
+import { TourProvider } from '@/lib/tourContext';
 import { AppErrorBoundary } from '@/components/AppErrorBoundary';
 
 export default function AppLayout() {
@@ -19,6 +20,7 @@ export default function AppLayout() {
 
   return (
     <AppErrorBoundary>
+    <TourProvider>
     <PaywallProvider>
     <XPToastProvider>
       <AchievementsProvider>
@@ -53,6 +55,7 @@ export default function AppLayout() {
       </AchievementsProvider>
     </XPToastProvider>
     </PaywallProvider>
+    </TourProvider>
     </AppErrorBoundary>
   );
 }
