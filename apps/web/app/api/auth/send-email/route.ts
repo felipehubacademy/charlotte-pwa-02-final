@@ -1,7 +1,7 @@
 // app/api/auth/send-email/route.ts
 // Supabase "Send Email" Auth Hook — substitui o envio nativo do Supabase.
 // Configurar em: Supabase Dashboard -> Authentication -> Hooks -> Send Email
-// URL:    https://charlotte-pwa-02-final.vercel.app/api/auth/send-email
+// URL:    https://charlotte.hubacademybr.com/api/auth/send-email
 // Secret: v1,whsec_<base64>  (mesma string do Supabase dashboard)
 
 import { NextRequest, NextResponse } from 'next/server';

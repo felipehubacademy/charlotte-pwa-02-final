@@ -15,7 +15,7 @@ import { useAchievementsContext } from '@/components/achievements/AchievementsPr
 import { soundEngine } from '@/lib/soundEngine';
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;

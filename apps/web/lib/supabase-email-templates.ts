@@ -8,7 +8,7 @@
 //   {{ .SiteURL }}        — URL base do projeto
 //   {{ .Token }}          — token OTP (se usar magic link)
 
-const AVATAR_URL = 'https://charlotte-pwa-02-final.vercel.app/charlotte-avatar.png';
+const AVATAR_URL = 'https://charlotte.hubacademybr.com/charlotte-avatar.png';
 const APP_URL    = 'https://charlotte.hubacademybr.com';
 
 function base(content: string): string {

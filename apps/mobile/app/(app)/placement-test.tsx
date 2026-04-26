@@ -27,7 +27,7 @@ import { soundEngine } from '@/lib/soundEngine';
 import * as Haptics from 'expo-haptics';
 
 const SCREEN_W     = Dimensions.get('window').width;
-const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
 // ── Palette ───────────────────────────────────────────────────────────────────
 const C = {

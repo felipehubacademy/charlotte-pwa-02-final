@@ -2,7 +2,7 @@
 // Templates HTML — Apple-style: clean, centered, generous whitespace.
 
 const SMART_LINK = 'https://charlotte.hubacademybr.com/open?mode=invite';
-const AVATAR_URL = 'https://charlotte-pwa-02-final.vercel.app/charlotte-avatar.png';
+const AVATAR_URL = 'https://charlotte.hubacademybr.com/charlotte-avatar.png';
 
 function base(content: string): string {
   return `<!DOCTYPE html>

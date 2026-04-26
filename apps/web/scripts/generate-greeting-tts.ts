@@ -12,7 +12,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const API_BASE        = process.env.API_BASE_URL ?? 'https://charlotte-pwa-02-final.vercel.app';
+const API_BASE        = process.env.API_BASE_URL ?? 'https://charlotte.hubacademybr.com';
 const ELEVENLABS_KEY  = process.env.ELEVENLABS_API_KEY ?? '';
 const VOICE_ID        = '21m00Tcm4TlvDq8ikWAM'; // Rachel
 const GREETINGS_DIR   = path.join(__dirname, '..', 'public', 'tts', 'greetings');

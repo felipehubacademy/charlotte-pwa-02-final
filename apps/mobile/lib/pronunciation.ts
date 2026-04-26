@@ -56,7 +56,7 @@ export interface PronunciationResponse {
 }
 
 function getApiBaseUrl(): string {
-  return (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+  return (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 }
 
 export async function assessPronunciation(

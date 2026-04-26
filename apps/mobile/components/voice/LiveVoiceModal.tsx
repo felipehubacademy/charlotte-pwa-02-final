@@ -39,7 +39,7 @@ import { supabase } from '@/lib/supabase';
 import { track, trackDuration } from '@/lib/analytics';
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
 const MODEL = 'gpt-4o-realtime-preview-2024-12-17';
 

@@ -7,7 +7,7 @@
  * (signup confirmation, password reset, magic link, admin invite).
  *
  * URL format from Supabase:
- *   https://charlotte-pwa-02-final.vercel.app/auth/confirm
+ *   https://charlotte.hubacademybr.com/auth/confirm
  *     #access_token=...&refresh_token=...&type=signup|recovery|invite|magiclink
  *
  * Behaviour:

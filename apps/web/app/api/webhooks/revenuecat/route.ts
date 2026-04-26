@@ -5,7 +5,7 @@
  *
  * Setup in RevenueCat Dashboard:
  *   Project Settings → Integrations → Webhooks
- *   URL: https://charlotte-pwa-02-final.vercel.app/api/webhooks/revenuecat
+ *   URL: https://charlotte.hubacademybr.com/api/webhooks/revenuecat
  *   Authorization header: set a secret and add it to REVENUECAT_WEBHOOK_SECRET env var
  *
  * Docs: https://www.revenuecat.com/docs/webhooks

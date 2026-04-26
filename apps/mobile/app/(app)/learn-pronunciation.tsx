@@ -44,7 +44,7 @@ const shadow = Platform.select({
   android: { elevation: 3 },
 });
 
-const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+const API_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
 // ── Phrase banks by level ──────────────────────────────────────
 // Sounds challenging for Brazilian Portuguese speakers

@@ -53,7 +53,7 @@ export const PRONUNCIATION_RECORDING_OPTIONS: any = Platform.select({
 });
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
 type RecordingState = 'idle' | 'recording' | 'processing';
 

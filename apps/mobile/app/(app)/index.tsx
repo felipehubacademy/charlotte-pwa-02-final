@@ -59,7 +59,7 @@ import { HomeData, Mission, buildMissions } from '@/lib/missions';
 import { greetingCache, resetGreetingCache } from '@/lib/greetingCache';
 
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
 // Module-level flag — persists for the entire JS session even if component remounts.
 // Combined with a SecureStore date-check so the sound plays at most ONCE PER DAY,

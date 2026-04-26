@@ -296,7 +296,7 @@ class SoundEngine {
 
     try {
       const API_BASE = (Constants.expoConfig?.extra?.apiBaseUrl as string | undefined)
-        ?? 'https://charlotte-pwa-02-final.vercel.app';
+        ?? 'https://charlotte.hubacademybr.com';
       const result = await FileSystem.downloadAsync(
         `${API_BASE}/tts/sfx/${name}.mp3`,
         localUri,

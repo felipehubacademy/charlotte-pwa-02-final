@@ -28,7 +28,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 // ── Config ─────────────────────────────────────────────────────
 const API_BASE_URL =
-  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte-pwa-02-final.vercel.app';
+  (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
 // ── Types ──────────────────────────────────────────────────────
 interface WordTiming {
