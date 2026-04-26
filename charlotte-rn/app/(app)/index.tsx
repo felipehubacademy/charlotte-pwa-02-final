@@ -808,8 +808,8 @@ export default function HomeScreen() {
         spotlightRadius: 25,
         title: pt ? 'Salvar palavra' : 'Save a word',
         description: pt
-          ? 'Toque para salvar qualquer palavra nova no seu vocabulário. Disponível em qualquer tela.'
-          : 'Tap to save any new word to your vocabulary. Available from any screen.',
+          ? 'Toque para adicionar uma palavra nova ao seu vocabulário sem sair da tela inicial.'
+          : 'Tap to add a new word to your vocabulary without leaving the home screen.',
       },
       {
         ref: tipBarRef,
