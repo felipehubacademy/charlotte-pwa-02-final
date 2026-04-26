@@ -1,8 +1,4 @@
 {
   "name": "charlotte",
-  "private": true,
-  "workspaces": [
-    "apps/mobile",
-    "apps/web"
-  ]
+  "private": true
 }
