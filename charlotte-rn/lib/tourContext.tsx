@@ -8,6 +8,7 @@ export interface TourStep {
   ref: React.RefObject<any>;
   title: string;
   description: string;
+  spotlightRadius?: number;
   onBeforeMeasure?: () => Promise<void>;
 }
 
@@ -19,7 +20,7 @@ export interface SpotlightRect {
 }
 
 interface TourContextType {
-  startTour: (tourId: string, steps: TourStep[]) => Promise<void>;
+  startTour: (tourId: string, steps: TourStep[], lang?: 'pt' | 'en') => Promise<void>;
   resetTour: (tourId: string) => Promise<void>;
 }
 
@@ -29,10 +30,11 @@ const TourContext = createContext<TourContextType>({
 });
 
 export function TourProvider({ children }: { children: ReactNode }) {
-  const [isActive, setIsActive]         = useState(false);
-  const [currentStep, setCurrentStep]   = useState(0);
-  const [steps, setSteps]               = useState<TourStep[]>([]);
-  const [spotlightRect, setSpotlightRect] = useState<SpotlightRect | null>(null);
+  const [isActive, setIsActive]             = useState(false);
+  const [currentStep, setCurrentStep]       = useState(0);
+  const [steps, setSteps]                   = useState<TourStep[]>([]);
+  const [spotlightRect, setSpotlightRect]   = useState<SpotlightRect | null>(null);
+  const [lang, setLang]                     = useState<'pt' | 'en'>('pt');
   const tourIdRef = useRef<string>('');
 
   const measureStep = useCallback((step: TourStep): Promise<void> =>
@@ -48,12 +50,17 @@ export function TourProvider({ children }: { children: ReactNode }) {
     }),
   []);
 
-  const startTour = useCallback(async (tourId: string, tourSteps: TourStep[]) => {
+  const startTour = useCallback(async (
+    tourId: string,
+    tourSteps: TourStep[],
+    tourLang: 'pt' | 'en' = 'pt',
+  ) => {
     const done = await SecureStore.getItemAsync(`TOUR_${tourId}_DONE`).catch(() => null);
     if (done) return;
     tourIdRef.current = tourId;
     setSteps(tourSteps);
     setCurrentStep(0);
+    setLang(tourLang);
     setTimeout(async () => {
       const first = tourSteps[0];
       if (!first) return;
@@ -96,6 +103,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
           stepIndex={currentStep}
           totalSteps={steps.length}
           spotlightRect={spotlightRect}
+          lang={lang}
           onNext={nextStep}
           onSkip={skipTour}
         />

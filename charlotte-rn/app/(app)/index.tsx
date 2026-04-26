@@ -713,6 +713,7 @@ export default function HomeScreen() {
     startTour('HOME', [
       {
         ref: headerRef,
+        spotlightRadius: 0,
         title: pt ? 'Seu progresso' : 'Progress & settings',
         description: pt
           ? 'Aqui ficam seu streak, XP total e posição no ranking. Toque para ver suas estatísticas. O ícone de engrenagem abre as configurações.'
@@ -720,6 +721,7 @@ export default function HomeScreen() {
       },
       {
         ref: charlotteCardRef,
+        spotlightRadius: 22,
         title: pt ? 'Charlotte, sua tutora' : 'Charlotte, your tutor',
         description: pt
           ? 'A Charlotte te dá boas-vindas com uma mensagem personalizada toda vez que você abre o app. O anel mostra sua meta de XP — toque para ver o histórico.'
@@ -727,6 +729,7 @@ export default function HomeScreen() {
       },
       {
         ref: goalsBannerRef,
+        spotlightRadius: 14,
         title: pt ? 'Metas diárias' : 'Daily goals',
         description: pt
           ? 'Aqui ficam suas missões diárias e o desafio semanal. Complete para ganhar XP bônus e manter sua sequência.'
@@ -734,6 +737,7 @@ export default function HomeScreen() {
       },
       {
         ref: learnSectionRef,
+        spotlightRadius: 8,
         title: pt ? 'Trilha de Aprendizado' : 'Learning Trail',
         description: pt
           ? 'Lições estruturadas de gramática e pronúncia. Quando tiver conteúdo para revisar, o cartão de Revisão aparece destacado com o número pendente.'
@@ -745,6 +749,7 @@ export default function HomeScreen() {
       },
       {
         ref: practiceSectionRef,
+        spotlightRadius: 8,
         title: pt ? 'Modos de prática' : 'Practice modes',
         description: pt
           ? 'Escolha como quer praticar: Gramática, Pronúncia, Free Chat ou Live Voice. Cada modo desenvolve uma habilidade diferente.'
@@ -754,7 +759,7 @@ export default function HomeScreen() {
           await new Promise<void>(r => setTimeout(r, 180));
         },
       },
-    ]);
+    ], pt ? 'pt' : 'en');
   }, [data]); // eslint-disable-line
 
   const loadLiveVoicePool = useCallback(async () => {
