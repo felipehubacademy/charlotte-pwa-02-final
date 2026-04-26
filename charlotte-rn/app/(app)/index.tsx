@@ -558,13 +558,19 @@ export default function HomeScreen() {
   // Tour
   const { startTour }       = useTour();
   const scrollViewRef       = useRef<any>(null);
-  const headerRef              = useRef<any>(null);
-  const charlotteCardRef       = useRef<any>(null);
-  const goalsBannerRef         = useRef<any>(null);
-  const learnSectionRef        = useRef<any>(null);
-  const practiceSectionRef     = useRef<any>(null);
-  const learnSectionYRef       = useRef(0);
-  const practiceSectionYRef    = useRef(0);
+  const headerRef           = useRef<any>(null);
+  const charlotteCardRef    = useRef<any>(null);
+  const goalsBannerRef      = useRef<any>(null);
+  const learnTrailRef       = useRef<any>(null);
+  const reviewCardRef       = useRef<any>(null);
+  const myVocabRef          = useRef<any>(null);
+  const grammarRef          = useRef<any>(null);
+  const pronunciationRef    = useRef<any>(null);
+  const chatRef             = useRef<any>(null);
+  const liveVoiceRef        = useRef<any>(null);
+  const vocabFABRef         = useRef<any>(null);
+  const tipBarRef           = useRef<any>(null);
+  const practiceYRef        = useRef(0);
   // Streak sound deferred while WelcomeModal voice-over is playing
   const isFreshLoginRef   = React.useRef(isFreshLogin);
   const pendingStreakRef  = React.useRef(false);
@@ -708,54 +714,110 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     if (!data) return;
     const pt = level === 'Novice';
+    const scrollToPractice = async () => {
+      scrollViewRef.current?.scrollTo({ y: Math.max(0, practiceYRef.current - 100), animated: false });
+      await new Promise<void>(r => setTimeout(r, 180));
+    };
     startTour('HOME', [
       {
         ref: headerRef,
         spotlightRadius: 0,
         title: pt ? 'Seu progresso' : 'Progress & settings',
         description: pt
-          ? 'Aqui ficam seu streak, XP total e posição no ranking. Toque para ver suas estatísticas. O ícone de engrenagem abre as configurações.'
-          : 'Your daily streak, total XP and rank are here. Tap to see detailed stats. The gear icon opens settings.',
+          ? 'Streak, XP total e ranking ficam aqui. Toque para ver suas estatísticas. O ícone de engrenagem abre as configurações.'
+          : 'Your streak, total XP and rank are here. Tap to see detailed stats. The gear icon opens settings.',
       },
       {
         ref: charlotteCardRef,
         spotlightRadius: 22,
         title: pt ? 'Charlotte, sua tutora' : 'Charlotte, your tutor',
         description: pt
-          ? 'A Charlotte te dá boas-vindas com uma mensagem personalizada toda vez que você abre o app. O anel mostra sua meta de XP — toque para ver o histórico.'
-          : 'Charlotte greets you with a personalised message every time you open the app. The ring shows your XP goal — tap it to see your activity history.',
+          ? 'A Charlotte te saúda com uma mensagem personalizada toda vez que você abre o app. O anel mostra sua meta de XP diária.'
+          : 'Charlotte greets you with a personalised message every time you open the app. The ring tracks your daily XP goal.',
       },
       {
         ref: goalsBannerRef,
         spotlightRadius: 14,
-        title: pt ? 'Metas diárias' : 'Daily goals',
+        title: pt ? 'Metas diárias' : 'Goals',
         description: pt
-          ? 'Aqui ficam suas missões diárias e o desafio semanal. Complete para ganhar XP bônus e manter sua sequência.'
-          : 'Your daily missions and weekly challenge live here. Complete them to earn bonus XP and keep your streak going.',
+          ? 'Missões diárias e desafio semanal com XP bônus. Complete para manter sua sequência.'
+          : 'Daily missions and weekly challenge with bonus XP. Complete them to keep your streak going.',
       },
       {
-        ref: learnSectionRef,
-        spotlightRadius: 8,
+        ref: learnTrailRef,
+        spotlightRadius: 18,
         title: pt ? 'Trilha de Aprendizado' : 'Learning Trail',
         description: pt
-          ? 'Lições estruturadas de gramática e pronúncia. Quando tiver conteúdo para revisar, o cartão de Revisão aparece destacado com o número pendente.'
-          : 'Structured grammar and pronunciation lessons. When you have content to review, the Review card lights up with the pending count.',
-        onBeforeMeasure: async () => {
-          scrollViewRef.current?.scrollTo({ y: Math.max(0, learnSectionYRef.current - 80), animated: false });
-          await new Promise<void>(r => setTimeout(r, 180));
-        },
+          ? 'Lições estruturadas de gramática e pronúncia organizadas em módulos progressivos.'
+          : 'Structured grammar and pronunciation lessons organised in progressive modules.',
       },
       {
-        ref: practiceSectionRef,
-        spotlightRadius: 8,
-        title: pt ? 'Modos de prática' : 'Practice modes',
+        ref: reviewCardRef,
+        spotlightRadius: 18,
+        title: pt ? 'Revisão' : 'Review',
         description: pt
-          ? 'Escolha como quer praticar: Gramática, Pronúncia, Free Chat ou Live Voice. Cada modo desenvolve uma habilidade diferente.'
-          : 'Choose how to practise: Grammar, Pronunciation, Free Chat or Live Voice. Each mode builds a different skill.',
-        onBeforeMeasure: async () => {
-          scrollViewRef.current?.scrollTo({ y: Math.max(0, practiceSectionYRef.current - 80), animated: false });
-          await new Promise<void>(r => setTimeout(r, 180));
-        },
+          ? 'Quando tiver tópicos ou vocabulário para revisar, este card acende com o número pendente.'
+          : 'When you have topics or vocabulary to review, this card lights up with the pending count.',
+      },
+      {
+        ref: myVocabRef,
+        spotlightRadius: 14,
+        title: pt ? 'Meu Vocabulário' : 'My Vocabulary',
+        description: pt
+          ? 'Todas as palavras que você salvou ficam aqui. Revise com flashcards pelo sistema de repetição espaçada.'
+          : 'All the words you have saved live here. Review them with flashcards using spaced repetition.',
+      },
+      {
+        ref: grammarRef,
+        spotlightRadius: 18,
+        title: pt ? 'Gramática' : 'Grammar',
+        description: pt
+          ? 'Escreva em inglês e a Charlotte corrige sua gramática em tempo real com explicações detalhadas.'
+          : 'Write in English and Charlotte corrects your grammar in real time with detailed explanations.',
+        onBeforeMeasure: scrollToPractice,
+      },
+      {
+        ref: pronunciationRef,
+        spotlightRadius: 18,
+        title: pt ? 'Pronúncia' : 'Pronunciation',
+        description: pt
+          ? 'Grave sua voz e receba análise detalhada de pronúncia palavra por palavra.'
+          : 'Record your voice and get a detailed word-by-word pronunciation analysis.',
+        onBeforeMeasure: scrollToPractice,
+      },
+      {
+        ref: chatRef,
+        spotlightRadius: 18,
+        title: 'Free Chat',
+        description: pt
+          ? 'Conversação livre em inglês — texto ou áudio. A Charlotte responde como uma parceira de conversa nativa.'
+          : 'Free conversation in English — text or audio. Charlotte responds like a native conversation partner.',
+        onBeforeMeasure: scrollToPractice,
+      },
+      {
+        ref: liveVoiceRef,
+        spotlightRadius: 18,
+        title: 'Live Voice',
+        description: pt
+          ? 'Conversa de voz em tempo real com IA. A experiência mais próxima de uma aula com professor nativo.'
+          : 'Real-time voice conversation with AI. The closest experience to a lesson with a native teacher.',
+        onBeforeMeasure: scrollToPractice,
+      },
+      {
+        ref: vocabFABRef,
+        spotlightRadius: 25,
+        title: pt ? 'Salvar palavra' : 'Save a word',
+        description: pt
+          ? 'Toque para salvar qualquer palavra nova no seu vocabulário. Disponível em qualquer tela.'
+          : 'Tap to save any new word to your vocabulary. Available from any screen.',
+      },
+      {
+        ref: tipBarRef,
+        spotlightRadius: 0,
+        title: pt ? 'Dica do dia' : 'Tip of the day',
+        description: pt
+          ? 'Uma palavra, expressão ou regra gramatical nova todo dia. Toque para ver os detalhes completos.'
+          : 'A new word, expression or grammar rule every day. Tap to see the full details.',
       },
     ], pt ? 'pt' : 'en');
   }, [data])); // eslint-disable-line
@@ -845,6 +907,45 @@ export default function HomeScreen() {
   useFocusEffect(useCallback(() => {
     if (userId) { loadLiveVoicePool(); loadPendingReviews(); loadWeeklyChallenge(); loadVocabDue(); }
   }, [loadLiveVoicePool, loadPendingReviews, loadWeeklyChallenge, loadVocabDue]));
+
+  const handleCardPress = useCallback((card: ModeCard) => {
+    const pt = level === 'Novice';
+    if (card.locked) {
+      if (card.lockXP !== undefined && card.currentXP !== undefined) {
+        const xpLeft = card.lockXP - card.currentXP;
+        const pct = Math.min(100, Math.round((card.currentXP / card.lockXP) * 100));
+        Alert.alert(
+          card.title,
+          `Para desbloquear ${card.title} voce precisa de ${card.lockXP.toLocaleString('pt-BR')} XP na trilha.\n\nSeu progresso: ${card.currentXP.toLocaleString('pt-BR')} / ${card.lockXP.toLocaleString('pt-BR')} XP (${pct}%)\n\nFaltam ${xpLeft.toLocaleString('pt-BR')} XP. Continue praticando Gramatica!`,
+          [{ text: 'Entendido' }],
+        );
+      } else {
+        Alert.alert(
+          pt ? `Recurso ${card.lockLevel}` : `${card.lockLevel} Feature`,
+          pt
+            ? `${card.title} sera desbloqueado ao atingir o nivel ${card.lockLevel}. Continue praticando!`
+            : `${card.title} unlocks when you reach the ${card.lockLevel} level. Keep practising!`,
+          [{ text: pt ? 'Entendido' : 'Got it' }],
+        );
+      }
+    } else if (card.mode === 'live') {
+      if (liveVoiceRemaining === 0) {
+        const totalMin = Math.floor(getPoolForLevel(level) / 60);
+        Alert.alert(
+          pt ? 'Limite mensal atingido' : 'Monthly limit reached',
+          pt
+            ? `Voce usou seus ${totalMin} min de Live Voice deste mes. Volte no mes que vem!`
+            : `You've used your ${totalMin}-min monthly Live Voice allowance. Come back next month!`,
+          [{ text: pt ? 'Ok' : 'OK' }],
+        );
+      } else {
+        soundEngine.setMuted(true);
+        setShowLiveVoice(true);
+      }
+    } else if (card.route) {
+      router.push(card.route);
+    }
+  }, [liveVoiceRemaining, level]); // eslint-disable-line
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -1221,17 +1322,13 @@ export default function HomeScreen() {
         {/* ══════════════════════════════════════════
             LEARN — structured lessons
         ══════════════════════════════════════════ */}
-        <View
-          ref={learnSectionRef}
-          collapsable={false}
-          onLayout={e => { learnSectionYRef.current = e.nativeEvent.layout.y; }}
-        >
         <SectionHeader label={isPortuguese ? 'Aprender com Charlotte' : 'Learn with Charlotte'} />
 
         <View style={{ paddingHorizontal: 20, flexDirection: 'row', gap: 10 }}>
 
           {/* Learning Trail card (left, half width) */}
           <TouchableOpacity
+            ref={learnTrailRef}
             onPress={() => router.push('/(app)/learn-trail')}
             activeOpacity={0.72}
             style={{
@@ -1262,6 +1359,7 @@ export default function HomeScreen() {
 
           {/* Review card (right, half width) — two states */}
           <TouchableOpacity
+            ref={reviewCardRef}
             onPress={() => {
               const srDue = pendingReviews.length > 0;
               const vocabDue = vocabDueCount > 0;
@@ -1330,6 +1428,7 @@ export default function HomeScreen() {
 
         {/* My Vocabulary quick link */}
         <TouchableOpacity
+          ref={myVocabRef}
           onPress={() => router.push('/(app)/my-vocabulary')}
           activeOpacity={0.78}
           style={{
@@ -1351,68 +1450,32 @@ export default function HomeScreen() {
           </View>
           <CaretRight size={16} color={C.navyLight} />
         </TouchableOpacity>
-        </View>
 
         {/* ══════════════════════════════════════════
             PRACTICE — destination cards
         ══════════════════════════════════════════ */}
-        <View
-          ref={practiceSectionRef}
-          collapsable={false}
-          onLayout={e => { practiceSectionYRef.current = e.nativeEvent.layout.y; }}
-        >
         <SectionHeader label={isPortuguese ? 'Praticar com Charlotte' : 'Practise with Charlotte'} />
 
-        <View style={{ paddingHorizontal: 20, gap: 10 }}>
-          {Array.from({ length: Math.ceil(modeCards.length / 2) }, (_, rowIdx) => (
-            <View key={rowIdx} style={{ flexDirection: 'row', gap: 10 }}>
-              {modeCards.slice(rowIdx * 2, rowIdx * 2 + 2).map(card => (
-                <PracticePortal
-                  key={card.mode}
-                  card={card}
-                  onPress={() => {
-                    if (card.locked) {
-                      if (card.lockXP !== undefined && card.currentXP !== undefined) {
-                        // Lock gradual por XP (Novice)
-                        const xpLeft = card.lockXP - card.currentXP;
-                        const pct    = Math.min(100, Math.round((card.currentXP / card.lockXP) * 100));
-                        Alert.alert(
-                          card.title,
-                          `Para desbloquear ${card.title} voce precisa de ${card.lockXP.toLocaleString('pt-BR')} XP na trilha.\n\nSeu progresso: ${card.currentXP.toLocaleString('pt-BR')} / ${card.lockXP.toLocaleString('pt-BR')} XP (${pct}%)\n\nFaltam ${xpLeft.toLocaleString('pt-BR')} XP. Continue praticando Gramatica!`,
-                          [{ text: 'Entendido' }]
-                        );
-                      } else {
-                        Alert.alert(
-                          isPortuguese ? `Recurso ${card.lockLevel}` : `${card.lockLevel} Feature`,
-                          isPortuguese
-                            ? `${card.title} sera desbloqueado ao atingir o nivel ${card.lockLevel}. Continue praticando!`
-                            : `${card.title} unlocks when you reach the ${card.lockLevel} level. Keep practising!`,
-                          [{ text: isPortuguese ? 'Entendido' : 'Got it' }]
-                        );
-                      }
-                    } else if (card.mode === 'live') {
-                      if (liveVoiceRemaining === 0) {
-                        const totalMin = Math.floor(getPoolForLevel(level) / 60);
-                        Alert.alert(
-                          isPortuguese ? 'Limite mensal atingido' : 'Monthly limit reached',
-                          isPortuguese
-                            ? `Voce usou seus ${totalMin} min de Live Voice deste mes. Volte no mes que vem!`
-                            : `You've used your ${totalMin}-min monthly Live Voice allowance. Come back next month!`,
-                          [{ text: isPortuguese ? 'Ok' : 'OK' }]
-                        );
-                      } else {
-                        soundEngine.setMuted(true);
-                        setShowLiveVoice(true);
-                      }
-                    } else if (card.route) {
-                      router.push(card.route);
-                    }
-                  }}
-                />
-              ))}
+        <View
+          style={{ paddingHorizontal: 20, gap: 10 }}
+          onLayout={e => { practiceYRef.current = e.nativeEvent.layout.y; }}
+        >
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View ref={grammarRef} collapsable={false} style={{ flex: 1 }}>
+              <PracticePortal card={modeCards[0]} onPress={() => handleCardPress(modeCards[0])} />
             </View>
-          ))}
-        </View>
+            <View ref={pronunciationRef} collapsable={false} style={{ flex: 1 }}>
+              <PracticePortal card={modeCards[1]} onPress={() => handleCardPress(modeCards[1])} />
+            </View>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View ref={chatRef} collapsable={false} style={{ flex: 1 }}>
+              <PracticePortal card={modeCards[2]} onPress={() => handleCardPress(modeCards[2])} />
+            </View>
+            <View ref={liveVoiceRef} collapsable={false} style={{ flex: 1 }}>
+              <PracticePortal card={modeCards[3]} onPress={() => handleCardPress(modeCards[3])} />
+            </View>
+          </View>
         </View>
 
       </ScrollView>
@@ -1421,6 +1484,7 @@ export default function HomeScreen() {
           BOTTOM TIP BAR — fixed, daily tip by level
       ══════════════════════════════════════════ */}
       <TouchableOpacity
+        ref={tipBarRef}
         onPress={() => setShowTipModal(true)}
         activeOpacity={0.75}
         style={{
@@ -1558,7 +1622,7 @@ export default function HomeScreen() {
       </Modal>
 
       {/* FAB — adicionar palavra */}
-      <VocabFAB bottom={68} color={C.navy} />
+      <VocabFAB ref={vocabFABRef} bottom={68} color={C.navy} />
 
     </SafeAreaView>
   );

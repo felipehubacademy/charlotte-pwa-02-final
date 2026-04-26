@@ -1,9 +1,3 @@
-/**
- * components/vocabulary/VocabFAB.tsx
- * Floating "+" button para captura rapida de palavra.
- * Navega para a tela add-word (full-screen).
- */
-
 import React from 'react';
 import { TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,41 +9,44 @@ interface VocabFABProps {
   bottom?: number;
   right?: number;
   initialTerm?: string;
-  color?: string;   // defaults to greenDark; pass levelAccent to match module color
+  color?: string;
 }
 
-export function VocabFAB({ bottom = 0, right = 20, initialTerm, color = '#3D8800' }: VocabFABProps) {
-  const insets = useSafeAreaInsets();
+export const VocabFAB = React.forwardRef<any, VocabFABProps>(
+  function VocabFAB({ bottom = 0, right = 20, initialTerm, color = '#3D8800' }, ref) {
+    const insets = useSafeAreaInsets();
 
-  const open = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const params: Record<string, string> = { source: 'manual' };
-    if (initialTerm) params.term = initialTerm;
-    router.push({ pathname: '/(app)/add-word', params });
-  };
+    const open = () => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      const params: Record<string, string> = { source: 'manual' };
+      if (initialTerm) params.term = initialTerm;
+      router.push({ pathname: '/(app)/add-word', params });
+    };
 
-  return (
-    <TouchableOpacity
-      onPress={open}
-      activeOpacity={0.82}
-      style={{
-        position: 'absolute',
-        right,
-        bottom: insets.bottom + bottom + 16,
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: color,
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 100,
-        ...Platform.select({
-          ios:     { shadowColor: color, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
-          android: { elevation: 8 },
-        }),
-      }}
-    >
-      <Plus size={22} color="#FFFFFF" weight="bold" />
-    </TouchableOpacity>
-  );
-}
+    return (
+      <TouchableOpacity
+        ref={ref}
+        onPress={open}
+        activeOpacity={0.82}
+        style={{
+          position: 'absolute',
+          right,
+          bottom: insets.bottom + bottom + 16,
+          width: 50,
+          height: 50,
+          borderRadius: 25,
+          backgroundColor: color,
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 100,
+          ...Platform.select({
+            ios:     { shadowColor: color, shadowOpacity: 0.45, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
+            android: { elevation: 8 },
+          }),
+        }}
+      >
+        <Plus size={22} color="#FFFFFF" weight="bold" />
+      </TouchableOpacity>
+    );
+  },
+);
