@@ -30,7 +30,6 @@ export function TourOverlay({
   step, stepIndex, totalSteps, spotlightRect, lang, onNext, onSkip,
 }: Props) {
   const fadeAnim  = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     fadeAnim.setValue(0);
@@ -39,17 +38,6 @@ export function TourOverlay({
     }).start();
   }, [stepIndex, fadeAnim]);
 
-  useEffect(() => {
-    pulseAnim.setValue(1);
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 1.025, duration: 750, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1.000, duration: 750, useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [stepIndex, pulseAnim]);
 
   const { x, y, width: w, height: h } = spotlightRect;
   const r = Math.min(step.spotlightRadius ?? 14, w / 2, h / 2);
@@ -96,8 +84,8 @@ export function TourOverlay({
           <Path d={overlayPath} fill={OVERLAY} fillRule="evenodd" />
         </Svg>
 
-        {/* Spotlight border (pulse animation) */}
-        <Animated.View
+        {/* Spotlight border */}
+        <View
           pointerEvents="none"
           style={{
             position: 'absolute',
@@ -105,7 +93,6 @@ export function TourOverlay({
             borderRadius: r,
             borderWidth: 2,
             borderColor: GREEN,
-            transform: [{ scale: pulseAnim }],
           }}
         />
 
