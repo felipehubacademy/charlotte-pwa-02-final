@@ -7,7 +7,7 @@
 //
 // Antes (WebSocket manual):
 //   expo-audio grava 400ms chunks → strip WAV header → base64 → input_audio_buffer.append
-//   response.audio.delta chunks → buildWav() → createAudioPlayer
+//   response.audio.delta chunks → WebRTC audio track → speaker
 //
 // Agora (WebRTC):
 //   RTCPeerConnection gerencia mic input e speaker output nativamente
@@ -25,8 +25,7 @@ import {
   StatusBar,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { requestRecordingPermissionsAsync, setAudioModeAsync, createAudioPlayer, type AudioPlayer } from 'expo-audio';
-import * as FileSystem from 'expo-file-system/legacy';
+import { requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import { RTCPeerConnection, mediaDevices } from 'react-native-webrtc';
 import InCallManager from 'react-native-incall-manager';
 import { PhoneSlash, MicrophoneSlash, Microphone, SpeakerHigh, Ear, Pause, ArrowCounterClockwise, ArrowLeft, ChatCircle } from 'phosphor-react-native';
@@ -48,50 +47,6 @@ const MODEL = 'gpt-4o-realtime-preview-2024-12-17';
 const INACTIVITY_WARN_SEC  = 45;
 const INACTIVITY_PAUSE_SEC = 75;
 
-// ── Helpers para ring tone (PCM16 gerado em JS, tocado via expo-audio) ─────────
-
-function uint8ArrayToBase64(arr: Uint8Array): string {
-  const CHUNK = 0x8000;
-  let bin = '';
-  for (let i = 0; i < arr.length; i += CHUNK)
-    bin += String.fromCharCode.apply(null, arr.subarray(i, i + CHUNK) as any);
-  return btoa(bin);
-}
-
-function buildWav(pcm: Uint8Array): string {
-  const header = new ArrayBuffer(44);
-  const v = new DataView(header);
-  const sr = 24000, ch = 1, bps = 16;
-  [0x52,0x49,0x46,0x46].forEach((b,i) => v.setUint8(i, b));
-  v.setUint32(4, 36 + pcm.length, true);
-  [0x57,0x41,0x56,0x45].forEach((b,i) => v.setUint8(8+i, b));
-  [0x66,0x6D,0x74,0x20].forEach((b,i) => v.setUint8(12+i, b));
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true);
-  v.setUint16(22, ch, true); v.setUint32(24, sr, true);
-  v.setUint32(28, sr * ch * (bps/8), true); v.setUint16(32, ch * (bps/8), true);
-  v.setUint16(34, bps, true);
-  [0x64,0x61,0x74,0x61].forEach((b,i) => v.setUint8(36+i, b));
-  v.setUint32(40, pcm.length, true);
-  const wav = new Uint8Array(44 + pcm.length);
-  wav.set(new Uint8Array(header)); wav.set(pcm, 44);
-  return uint8ArrayToBase64(wav);
-}
-
-function generateRingPcm(): Uint8Array {
-  const sr = 24000;
-  const tone = Math.floor(sr * 1.0);
-  const sil  = Math.floor(sr * 1.5);
-  const pcm  = new Uint8Array((tone + sil) * 2);
-  for (let i = 0; i < tone; i++) {
-    const t   = i / sr;
-    const amp = 0.30 * 32767;
-    const s   = amp * (Math.sin(2 * Math.PI * 440 * t) + Math.sin(2 * Math.PI * 480 * t)) / 2;
-    const val = Math.max(-32768, Math.min(32767, Math.round(s)));
-    pcm[i * 2]     = val & 0xFF;
-    pcm[i * 2 + 1] = (val >> 8) & 0xFF;
-  }
-  return pcm;
-}
 
 // ── Frases de saudação por nível ────────────────────────────────────────────────
 const GREETINGS: Record<'Novice' | 'Inter' | 'Advanced', string[]> = {
@@ -285,9 +240,6 @@ export default function LiveVoiceModal({
   const dcRef             = React.useRef<any>(null);
   const localStreamRef    = React.useRef<any>(null);
 
-  // ── Ring tone ref ─────────────────────────────────────────────────────────
-  const ringPlayerRef     = React.useRef<AudioPlayer | null>(null);
-
   // ── State refs ────────────────────────────────────────────────────────────
   const isMutedRef              = React.useRef(false);
   const isSpeakerRef            = React.useRef(true);
@@ -342,29 +294,6 @@ export default function LiveVoiceModal({
     } catch (e) { console.warn('applyAudioMode:', e); }
   }, []);
 
-  // ── Ring tone ─────────────────────────────────────────────────────────────
-  // Toca dentro do AVAudioSession já configurado pelo InCallManager (mode .voiceChat).
-  // Não chama setAudioModeAsync para não quebrar o AEC.
-  const startRingTone = React.useCallback(async () => {
-    try {
-      const wavBase64 = buildWav(generateRingPcm());
-      const path = `${FileSystem.cacheDirectory}ring.wav`;
-      await FileSystem.writeAsStringAsync(path, wavBase64, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      ringPlayerRef.current?.pause();
-      ringPlayerRef.current?.remove();
-      ringPlayerRef.current = createAudioPlayer({ uri: path });
-      ringPlayerRef.current.loop = true;
-      ringPlayerRef.current.play();
-    } catch (e) { console.warn('startRingTone:', e); }
-  }, []);
-
-  const stopRingTone = React.useCallback(() => {
-    ringPlayerRef.current?.pause();
-    ringPlayerRef.current?.remove();
-    ringPlayerRef.current = null;
-  }, []);
 
   // ── Mute ──────────────────────────────────────────────────────────────────
   // No react-native-webrtc, desabilitar o track via stream nao para o envio.
@@ -619,13 +548,13 @@ export default function LiveVoiceModal({
     dcRef.current = null;
     pcRef.current?.close();
     pcRef.current = null;
-    stopRingTone();
+    InCallManager.stopRingback();
     InCallManager.stop(); // devolve o AVAudioSession ao estado anterior
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
     setCharlotteSpeaking(false);
     setUserSpeaking(false);
-  }, [stopRingTone]);
+  }, []);
 
   // ── Pause por inatividade ─────────────────────────────────────────────────
   const pauseSession = React.useCallback(() => {
@@ -665,14 +594,22 @@ export default function LiveVoiceModal({
       // iOS precisa para ativar o Voice Processing I/O unit (AEC hardware).
       // Nenhum setAudioModeAsync é chamado no fluxo de chamada para não sobrescrever.
       InCallManager.start({ media: 'audio' });
-      InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
 
       // 500ms para o AVAudioSession estabilizar no mode .voiceChat antes do
       // getUserMedia. Sem esse delay, o audio unit do mic pode ser criado
       // durante a transição e acabar sem AEC.
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      await startRingTone();
+      InCallManager.startRingback('_DEFAULT_');
+      // startRingback no iOS reconfigura AVAudioSession internamente sem reaplica
+      // o speaker override. O AVAudioPlayer do ringback inicializa em thread nativa,
+      // então o setForceSpeakerphoneOn precisa de um delay para ter efeito.
+      // Android responde imediatamente; iOS precisa de ~200ms.
+      if (Platform.OS === 'android') {
+        InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current);
+      } else {
+        setTimeout(() => InCallManager.setForceSpeakerphoneOn(isSpeakerRef.current), 200);
+      }
 
       // Passa o access token para validação server-side do pool
       const { data: { session: authSession } } = await supabase.auth.getSession();
@@ -695,7 +632,7 @@ export default function LiveVoiceModal({
               ? `Você usou seus ${Math.floor(levelPool / 60)} min de Live Voice deste mês. Volta no mês que vem!`
               : `You've used your ${Math.floor(levelPool / 60)}-min monthly Live Voice allowance. Come back next month!`
           );
-          stopRingTone();
+          InCallManager.stopRingback();
           return;
         }
         throw new Error('Failed to get session token (403)');
@@ -703,8 +640,6 @@ export default function LiveVoiceModal({
       if (!tokenRes.ok) throw new Error('Failed to get session token');
       const { clientSecret } = await tokenRes.json();
       if (!clientSecret) throw new Error('No client secret returned');
-
-      stopRingTone();
 
       // echoCancellation removes Charlotte's speaker output from the mic signal
       // before it reaches the server VAD — this is the correct way to prevent
@@ -731,7 +666,7 @@ export default function LiveVoiceModal({
       dcRef.current = dc;
 
       dc.onopen = () => {
-        stopRingTone();
+        InCallManager.stopRingback();
         setStatus('connected');
         wasConnectedRef.current = true;
         // Inicializar o echo guard com timestamp atual — evita que o guard
@@ -1058,7 +993,7 @@ export default function LiveVoiceModal({
       localStreamRef.current = null;
       dcRef.current?.close(); dcRef.current = null;
       pcRef.current?.close(); pcRef.current = null;
-      stopRingTone();
+      InCallManager.stopRingback();
       console.error('[LiveVoice] connect error:', error);
       setStatus('error');
       setErrorMsg(
@@ -1067,7 +1002,7 @@ export default function LiveVoiceModal({
           : 'Could not connect. Please try again.'
       );
     }
-  }, [userLevel, userName, startRingTone, stopRingTone, sendEvent, applyAudioMode, startSessionTimer, startInactivityTimer]);
+  }, [userLevel, userName, sendEvent, applyAudioMode, startSessionTimer, startInactivityTimer]);
 
   // ── Disconnect completo (fecha modal) ────────────────────────────────────
   const disconnect = React.useCallback(() => {
@@ -1079,7 +1014,7 @@ export default function LiveVoiceModal({
     dcRef.current = null;
     pcRef.current?.close();
     pcRef.current = null;
-    stopRingTone();
+    InCallManager.stopRingback();
     InCallManager.stop(); // devolve o AVAudioSession ao estado anterior
     charlotteSpeakingRef.current = false;
     responseActiveRef.current    = false;
@@ -1090,7 +1025,7 @@ export default function LiveVoiceModal({
     setInactivityWarning(false);
     setWarningCountdown(30);
     warnStartRef.current = 0;
-  }, [stopRingTone, clearSessionInterval, clearInactivityInterval]);
+  }, [clearSessionInterval, clearInactivityInterval]);
 
   const handleEndCall = React.useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
