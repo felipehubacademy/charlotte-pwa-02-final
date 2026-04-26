@@ -9,10 +9,12 @@ node_modules
 !.yarn/versions
 
 # Next.js
+.next/
 apps/web/.next/
 apps/web/out/
 apps/web/build/
 apps/web/next-env.d.ts
+next-env.d.ts
 
 # Expo / React Native
 apps/mobile/.expo/
