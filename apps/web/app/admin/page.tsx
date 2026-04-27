@@ -146,7 +146,7 @@ export default function AdminUsersPage() {
         filter === 'all' ? true :
         filter === 'institutional' ? u.is_institutional :
         filter === 'subscriber' ? u.subscription_status === 'active' :
-        filter === 'trial' ? u.subscription_status === 'trial' :
+        filter === 'trial' ? u.subscription_status === 'trial' && !u.is_institutional :
         filter === 'none' ? u.subscription_status === 'none' : true;
       return matchQ && matchF;
     });
@@ -204,7 +204,7 @@ export default function AdminUsersPage() {
           email: form.email, password: form.password, name: form.name || null,
           charlotte_level: form.charlotte_level || null,
           is_institutional: form.is_institutional, is_active: form.is_active,
-          subscription_status: form.subscription_status,
+          subscription_status: form.is_institutional ? 'none' : form.subscription_status,
           must_change_password: form.must_change_password,
           placement_test_done: form.placement_test_done,
         }),
@@ -223,7 +223,7 @@ export default function AdminUsersPage() {
         id: selected.id, name: form.name || null,
         charlotte_level: form.charlotte_level || null,
         is_institutional: form.is_institutional, is_active: form.is_active,
-        subscription_status: form.subscription_status,
+        subscription_status: form.is_institutional ? 'none' : form.subscription_status,
         must_change_password: form.must_change_password,
         placement_test_done: form.placement_test_done,
       };

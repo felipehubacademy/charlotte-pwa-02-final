@@ -198,7 +198,7 @@ export async function POST(req: NextRequest) {
       placement_test_done,
       is_active,
       charlotte_level:      charlotte_level || null,
-      subscription_status,
+      subscription_status:  is_institutional ? 'none' : subscription_status,
     })
     .eq('id', userId);
 
@@ -242,6 +242,12 @@ export async function PATCH(req: NextRequest) {
 
   if (Object.keys(updates).length === 0 && !hasEmail) {
     return NextResponse.json({ error: 'Nenhum campo válido para atualizar' }, { status: 400 });
+  }
+
+  // Garantir que institucional nunca fique com subscription_status != 'none'
+  if (updates.is_institutional === true) updates.subscription_status = 'none';
+  else if ('is_institutional' in updates && !updates.is_institutional && 'subscription_status' in updates) {
+    // nao faz nada — deixa o valor enviado
   }
 
   // Update charlotte_users (only if there are fields beyond auth-only)
