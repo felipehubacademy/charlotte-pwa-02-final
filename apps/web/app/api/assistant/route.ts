@@ -127,7 +127,7 @@ async function handleAssistantPOST(request: NextRequest, userId: string | null) 
     console.log('Has image data:', !!imageData);
     console.log('Mode:', mode);
 
-    // 🆕 MODE-BASED ROUTING (RN app only — PWA doesn't send mode)
+    // MODE-BASED ROUTING (RN app only)
     if (mode === 'grammar') {
       return await handleGrammarMode(transcription, userLevel, userName, conversationContext);
     }

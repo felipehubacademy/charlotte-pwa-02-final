@@ -17,7 +17,7 @@
  * reconfiguring the cron.
  *
  * Also supports manual triggering via POST or `?force_task=TYPE` query
- * param (same CRON_SECRET). PWA web-push paths were removed.
+ * param (same CRON_SECRET).
  */
 
 import { NextRequest, NextResponse } from 'next/server';

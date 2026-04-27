@@ -14,8 +14,6 @@ export const metadata: Metadata = {
   metadataBase: new URL('https://charlotte.hubacademybr.com'),
   title: 'Charlotte AI',
   description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
-  manifest: '/manifest.json',
-  
   // 🌐 Open Graph para compartilhamento social
   openGraph: {
     title: 'Charlotte AI',
@@ -41,27 +39,6 @@ export const metadata: Metadata = {
     description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
     images: ['/images/charlotte-avatar.png'],
     creator: '@hubacademybr',
-  },
-  
-  // 📱 PWA Configuration
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'default',
-    title: 'Charlotte',
-    startupImage: [
-      {
-        url: '/icons/apple-touch-icon.png',
-        media: '(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2)',
-      },
-      {
-        url: '/icons/apple-touch-icon.png',
-        media: '(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)',
-      },
-      {
-        url: '/icons/apple-touch-icon.png',
-        media: '(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3)',
-      },
-    ],
   },
   
   // 🎯 Icons e Favicon
@@ -132,14 +109,6 @@ export default function RootLayout({
         {/* 🐦 Twitter Card adicional */}
         <meta name="twitter:image" content="/images/og-image.png" />
         <meta name="twitter:image:alt" content="Charlotte - AI English Learning Assistant" />
-        
-        {/* 📱 PWA Meta Tags */}
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-        <meta name="apple-mobile-web-app-title" content="Charlotte" />
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="format-detection" content="telephone=no" />
-        <meta name="theme-color" content="#16153A" />
         
         {/* 🔍 SEO adicional */}
         <meta name="description" content="AI-powered English learning assistant with live voice conversations and personalized lessons" />

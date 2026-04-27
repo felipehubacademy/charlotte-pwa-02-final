@@ -249,7 +249,7 @@ O app não quebra — exibe o texto normalmente sem narração.
 
 **Quando fizer upgrade do plano ElevenLabs:**
 ```bash
-cd charlotte-pwa-02-final
+cd charlotteai/apps/mobile
 npm run generate-tts   # pula os 1.004 já existentes, gera só os 33 restantes
 git add public/tts/
 git commit -m "feat(tts): fill remaining 33 Advanced C2 slides"
@@ -264,7 +264,7 @@ git push
 |---|---|---|
 | Framework | Expo SDK 52 | Velocidade de dev, OTA updates |
 | Navegação | expo-router (Stack) | Hub & Spoke pattern |
-| Backend | Next.js (Vercel) | Reutiliza APIs do PWA existente |
+| Backend | Next.js (Vercel) | Consome APIs do apps/web |
 | DB | Supabase (Postgres + Auth + Realtime) | BaaS completo |
 | Pronúncia | Azure Speech Assessment | Único com feedback fonema a fonema |
 | Grammar exercises | GPT-4o-mini + json_object | Geração dinâmica, baixo custo |
