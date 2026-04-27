@@ -516,6 +516,14 @@ export default function ConfiguracoesScreen() {
           }}
           chevron
         />
+        <SettingRow
+          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Refazer tour da Trilha' : 'Replay Learning Trail tour'}
+          onPress={async () => {
+            await resetTour('learn-trail');
+          }}
+          chevron
+        />
 
         {/* Legal */}
         <SectionTitle label="Legal" />

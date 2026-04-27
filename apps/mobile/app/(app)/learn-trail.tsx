@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, ScrollView, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
@@ -15,6 +15,7 @@ import { AppText } from '@/components/ui/Text';
 import { CURRICULUM, TrailLevel, topicHasContent, totalTopics } from '@/data/curriculum';
 import { MODULE_INTROS } from '@/data/moduleIntros';
 import { useLearnProgress } from '@/hooks/useLearnProgress';
+import { useTour } from '@/lib/tourContext';
 
 // ── Palette ────────────────────────────────────────────────────
 const C = {
@@ -62,6 +63,11 @@ export default function LearnTrailScreen() {
 
   const { progress, loading, refetch, isTopicComplete, isCurrent, isLocked } = useLearnProgress(userId, level);
 
+  const { startTour } = useTour();
+  const tourBannerRef    = useRef<any>(null);
+  const tourIntroRef     = useRef<any>(null);
+  const tourTopicRef     = useRef<any>(null);
+
   // Re-fetch progress whenever the trail screen gets focus (e.g. returning from learn-session)
   useFocusEffect(useCallback(() => { refetch(); }, [refetch]));
 
@@ -93,6 +99,39 @@ export default function LearnTrailScreen() {
   const completed = progress?.completed.length ?? 0;
   const total     = totalTopics(level);
   const pct       = total > 0 ? Math.min(100, Math.round((completed / total) * 100)) : 0;
+
+  // ── Tour ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (loading) return;
+    const pt = isPortuguese;
+    startTour('learn-trail', [
+      {
+        ref: tourBannerRef,
+        spotlightRadius: 16,
+        title: pt ? 'Seu progresso na trilha' : 'Your trail progress',
+        description: pt
+          ? 'Veja seu nível atual e quanto da trilha já concluiu. A barra avança a cada tópico finalizado.'
+          : 'See your current level and how much of the trail you have completed. The bar advances with each finished topic.',
+      },
+      {
+        ref: tourIntroRef,
+        spotlightRadius: 14,
+        title: pt ? 'Mini-lição' : 'Mini-lesson',
+        description: pt
+          ? 'Cada módulo começa com uma mini-lição teórica. Complete-a primeiro para desbloquear os tópicos do módulo.'
+          : 'Each module starts with a short theory lesson. Complete it first to unlock the module\'s topics.',
+      },
+      {
+        ref: tourTopicRef,
+        spotlightRadius: 14,
+        title: pt ? 'Tópicos' : 'Topics',
+        description: pt
+          ? 'Cada tópico tem exercícios de gramática e pronúncia. O ícone mostra o status: cadeado, em andamento ou concluído.'
+          : 'Each topic has grammar and pronunciation exercises. The icon shows the status: locked, in progress, or done.',
+      },
+    ], pt ? 'pt' : 'en');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const handleStart = (moduleIdx: number, topicIdx: number) => {
     router.push({
@@ -131,7 +170,7 @@ export default function LearnTrailScreen() {
       >
 
         {/* ── Trail banner ── */}
-        <View style={{
+        <View ref={tourBannerRef} collapsable={false} style={{
           backgroundColor: C.card, borderRadius: 20, padding: 20, marginBottom: 24,
           borderWidth: 1, borderColor: C.border, ...shadow,
         }}>
@@ -208,6 +247,7 @@ export default function LearnTrailScreen() {
 
                   return (
                     <TouchableOpacity
+                      ref={mIdx === 0 ? tourIntroRef : null}
                       onPress={() => {
                         if (introLocked) return;
                         router.push({
@@ -295,6 +335,7 @@ export default function LearnTrailScreen() {
                   return (
                     <TouchableOpacity
                       key={tIdx}
+                      ref={mIdx === 0 && tIdx === 0 ? tourTopicRef : null}
                       onPress={() => canTap && handleStart(mIdx, tIdx)}
                       activeOpacity={canTap ? 0.75 : 1}
                       style={{
