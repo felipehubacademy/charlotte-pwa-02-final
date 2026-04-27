@@ -488,6 +488,19 @@ export default function ConfiguracoesScreen() {
           </>
         )}
 
+        {/* Beta features */}
+        {profile?.beta_features?.includes('karaoke') && (
+          <>
+            <SectionTitle label="Beta" />
+            <SettingRow
+              icon={<Microphone size={18} color={C.greenDark} weight="duotone" />}
+              label="Read Aloud (Karaoke)"
+              onPress={() => router.push('/(app)/karaoke-exercise' as any)}
+              chevron
+            />
+          </>
+        )}
+
         {/* Tour */}
         <SectionTitle label="Tour" />
         <SettingRow
