@@ -1091,10 +1091,12 @@ export default function LiveVoiceModal({
   }, [loadPool, connect]);
 
   // ── StatusBar: imperativo para funcionar dentro de Modal no Android ─────────
+  // Sempre seta — inclusive quando fecha (isOpen=false) para restaurar o padrão
+  // da app e evitar race condition com o StatusBar declarativo da home screen.
   React.useEffect(() => {
-    if (!isOpen) return;
-    const style = showTranscript ? 'dark-content' : 'light-content';
-    const bg    = showTranscript ? '#FFFFFF' : '#07071C';
+    const callActive = isOpen && !showTranscript;
+    const style = callActive ? 'light-content' : 'dark-content';
+    const bg    = callActive ? '#07071C' : '#FFFFFF';
     StatusBar.setBarStyle(style, true);
     if (Platform.OS === 'android') StatusBar.setBackgroundColor(bg, true);
   }, [isOpen, showTranscript]);
