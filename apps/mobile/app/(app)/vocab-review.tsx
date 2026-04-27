@@ -457,7 +457,8 @@ export default function VocabReview() {
             <ArrowLeft size={22} color={C.navy} weight="bold" />
           </TouchableOpacity>
           {/* Progress dots */}
-          <View ref={tourProgressRef} collapsable={false} style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+          <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+            <View ref={tourProgressRef} collapsable={false} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             {cards.map((_, i) => (
               <View
                 key={i}
@@ -469,6 +470,7 @@ export default function VocabReview() {
                 }}
               />
             ))}
+            </View>
           </View>
           <AppText style={{ fontSize: 13, color: C.navyMid, minWidth: 40, textAlign: 'right' }}>
             {idx + 1}/{cards.length}
