@@ -1,19 +1,18 @@
 /**
  * karaoke-exercise.tsx — Beta: Read Aloud (Karaoke)
  *
- * One exercise per screen: all chunks visible.
- * Charlotte reads each chunk → mic opens automatically → user repeats → scores appear.
- * Completed chunks show pronunciation colors. Next chunk auto-starts.
+ * Charlotte reads each chunk with karaoke word highlight → mic opens automatically →
+ * silence detection stops recording → Azure scores each word → colors appear inline.
+ * One continuous text block. Mic always visible at bottom.
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import {
-  View, TouchableOpacity, Animated, ActivityIndicator,
-  Platform, StatusBar, ScrollView,
+  View, TouchableOpacity, Animated, StatusBar, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Microphone, ArrowLeft, CheckCircle } from 'phosphor-react-native';
+import { Microphone, MicrophoneSlash, ArrowLeft, CheckCircle } from 'phosphor-react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
@@ -21,7 +20,6 @@ import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { AudioStatus } from 'expo-audio/build/Audio.types';
 
 import { AppText } from '@/components/ui/Text';
-import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 import { useAuth } from '@/hooks/useAuth';
 import { useAudioRecorder, PRONUNCIATION_RECORDING_OPTIONS } from '@/hooks/useAudioRecorder';
 
@@ -30,19 +28,15 @@ const API_BASE_URL =
 
 // ── Types ─────────────────────────────────────────────────────────
 interface WordTiming { word: string; start: number; end: number; }
-
-// Per-word state after scoring
-type WordScore = 'dim' | 'good' | 'ok' | 'bad' | 'omission';
-
-// Per-chunk lifecycle state
+type WordScore  = 'dim' | 'good' | 'ok' | 'bad' | 'omission';
 type ChunkPhase = 'upcoming' | 'charlotte' | 'listening' | 'scoring' | 'done';
 
 interface ChunkState {
-  phase:      ChunkPhase;
-  wordScores: WordScore[];   // populated after scoring
-  attempts:   number;
-  timings:    WordTiming[];  // Charlotte's word timings for karaoke
-  currentTime: number;       // playback time for karaoke highlight
+  phase:       ChunkPhase;
+  wordScores:  WordScore[];
+  attempts:    number;
+  timings:     WordTiming[];
+  currentTime: number;
 }
 
 interface KaraokeChunk    { text: string; words: string[]; translation?: string; }
@@ -56,9 +50,9 @@ const KARAOKE_DATA: KaraokeText[] = [
     exercises: [{
       sentence: 'Every morning, I wake up at seven.',
       chunks: [
-        { text: 'Every morning',  words: ['Every', 'morning'],          translation: 'Todo dia de manhã' },
-        { text: 'I wake up',      words: ['I', 'wake', 'up'],           translation: 'Eu acordo' },
-        { text: 'at seven',       words: ['at', 'seven'],               translation: 'às sete' },
+        { text: 'Every morning',  words: ['Every', 'morning'],        translation: 'Todo dia de manhã' },
+        { text: 'I wake up',      words: ['I', 'wake', 'up'],         translation: 'Eu acordo' },
+        { text: 'at seven',       words: ['at', 'seven'],             translation: 'às sete' },
       ],
     }],
   },
@@ -74,7 +68,7 @@ const KARAOKE_DATA: KaraokeText[] = [
     }],
   },
   {
-    level: 'Advanced', title: "Nobody Warned Daniel",
+    level: 'Advanced', title: 'Nobody Warned Daniel',
     exercises: [{
       sentence: 'He kept telling himself he just needed more time to adjust, but deep down he knew something had to change.',
       chunks: [
@@ -90,10 +84,6 @@ const KARAOKE_DATA: KaraokeText[] = [
 // ── Palette ───────────────────────────────────────────────────────
 const C = {
   bg:          '#16153A',
-  card:        'rgba(255,255,255,0.06)',
-  cardActive:  'rgba(124,58,237,0.15)',
-  cardBorder:  'rgba(255,255,255,0.10)',
-  cardBorderActive: 'rgba(167,139,250,0.50)',
   wordDim:     'rgba(255,255,255,0.22)',
   wordActive:  '#FCD34D',
   wordSpoken:  '#FFFFFF',
@@ -105,7 +95,7 @@ const C = {
   accentLight: '#A78BFA',
   white:       '#FFFFFF',
   whiteAlpha:  'rgba(255,255,255,0.45)',
-  recDot:      '#F87171',
+  micMuted:    'rgba(255,255,255,0.18)',
 };
 
 function scoreColor(s: WordScore): string {
@@ -118,28 +108,20 @@ function scoreColor(s: WordScore): string {
   }
 }
 
-// ── Recording timer duration per chunk ───────────────────────────
-function listenDuration(words: string[]): number {
-  return Math.max(3000, words.length * 900 + 1500); // ms
-}
-
 // ── Main screen ───────────────────────────────────────────────────
 export default function KaraokeExerciseScreen() {
   const { profile, session } = useAuth();
-  const userId      = session?.user?.id ?? '';
+  const userId       = session?.user?.id ?? '';
   const defaultLevel = (profile?.charlotte_level ?? 'Inter') as 'Novice' | 'Inter' | 'Advanced';
-
-  // Beta: level picker so all 3 can be tested regardless of profile level
   const [selectedLevel, setSelectedLevel] = useState<'Novice' | 'Inter' | 'Advanced'>(defaultLevel);
   const userLevel = selectedLevel;
   const isPt      = userLevel === 'Novice';
   const data      = KARAOKE_DATA.find(d => d.level === userLevel) ?? KARAOKE_DATA[1];
 
-  const [exIdx, setExIdx]   = useState(0);
-  const [done,  setDone]    = useState(false);
-  const exercise            = data.exercises[exIdx];
+  const [exIdx, setExIdx] = useState(0);
+  const [done,  setDone]  = useState(false);
+  const exercise          = data.exercises[exIdx];
 
-  // Per-chunk state array
   const initChunkStates = (ex: KaraokeExercise): ChunkState[] =>
     ex.chunks.map((_, i) => ({
       phase: i === 0 ? 'charlotte' : 'upcoming',
@@ -147,13 +129,7 @@ export default function KaraokeExerciseScreen() {
     }));
 
   const [chunks, setChunks] = useState<ChunkState[]>(() => initChunkStates(exercise));
-  const activeIdx           = chunks.findIndex(c => c.phase !== 'done' && c.phase !== 'upcoming');
-
-  // Listening timer
-  const [listenProgress, setListenProgress] = useState(0); // 0→1
-  const listenTimerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const listenTotalRef  = useRef(0);
-  const listenElapsedRef = useRef(0);
+  const activeIdx = chunks.findIndex(c => c.phase !== 'done' && c.phase !== 'upcoming');
 
   // Mic pulse animation
   const micPulse     = useRef(new Animated.Value(1)).current;
@@ -165,12 +141,21 @@ export default function KaraokeExerciseScreen() {
   const pendingPlay = useRef(false);
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Silence detection
+  const silencePollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const safetyTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSpeechRef    = useRef(false);
+  const silenceStartRef = useRef<number | null>(null);
+  const recordStartRef  = useRef(0);
+
   const recorder = useAudioRecorder(PRONUNCIATION_RECORDING_OPTIONS, 12);
 
-  // ── Patch a single chunk's state ────────────────────────────
   const patchChunk = useCallback((idx: number, patch: Partial<ChunkState>) => {
     setChunks(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
   }, []);
+
+  // ── Ref so silence detection can call scoreChunk without circular dep
+  const scoreChunkRef = useRef<(idx: number) => void>(() => {});
 
   // ── Audio player setup ───────────────────────────────────────
   useEffect(() => {
@@ -178,14 +163,15 @@ export default function KaraokeExerciseScreen() {
     playerRef.current = player;
     return () => {
       subRef.current?.remove();
-      if (pollRef.current) clearInterval(pollRef.current);
-      if (listenTimerRef.current) clearInterval(listenTimerRef.current);
+      if (pollRef.current)        clearInterval(pollRef.current);
+      if (silencePollRef.current) clearInterval(silencePollRef.current);
+      if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
       micPulseLoop.current?.stop();
       try { player.pause(); player.remove(); } catch {}
     };
   }, []);
 
-  // ── Poll currentTime for active karaoke chunk ────────────────
+  // ── Poll currentTime for karaoke ─────────────────────────────
   useEffect(() => {
     pollRef.current = setInterval(() => {
       if (playerRef.current?.playing && activeIdx >= 0) {
@@ -284,11 +270,10 @@ export default function KaraokeExerciseScreen() {
     patchChunk(idx, { phase: 'listening' });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
-    // Pulse animation
     micPulseLoop.current?.stop();
     micPulseLoop.current = Animated.loop(
       Animated.sequence([
-        Animated.timing(micPulse, { toValue: 1.22, duration: 600, useNativeDriver: true }),
+        Animated.timing(micPulse, { toValue: 1.25, duration: 600, useNativeDriver: true }),
         Animated.timing(micPulse, { toValue: 1,    duration: 600, useNativeDriver: true }),
       ])
     );
@@ -296,31 +281,53 @@ export default function KaraokeExerciseScreen() {
 
     await recorder.startRecording();
 
-    // Auto-stop timer
-    const total = listenDuration(exercise.chunks[idx].words);
-    listenTotalRef.current   = total;
-    listenElapsedRef.current = 0;
-    setListenProgress(0);
+    // Silence detection
+    hasSpeechRef.current    = false;
+    silenceStartRef.current = null;
+    recordStartRef.current  = Date.now();
 
-    if (listenTimerRef.current) clearInterval(listenTimerRef.current);
-    const interval = 80;
-    listenTimerRef.current = setInterval(() => {
-      listenElapsedRef.current += interval;
-      setListenProgress(Math.min(listenElapsedRef.current / total, 1));
-      if (listenElapsedRef.current >= total) {
-        clearInterval(listenTimerRef.current!);
-        listenTimerRef.current = null;
-        scoreChunk(idx);
+    if (silencePollRef.current) clearInterval(silencePollRef.current);
+    silencePollRef.current = setInterval(() => {
+      const elapsed  = Date.now() - recordStartRef.current;
+      const metering = recorder.getMeteringLevel();
+
+      if (metering !== undefined && metering !== null) {
+        if (!hasSpeechRef.current && metering > -28) {
+          hasSpeechRef.current    = true;
+          silenceStartRef.current = null;
+        }
+        if (hasSpeechRef.current) {
+          if (metering < -38) {
+            if (!silenceStartRef.current) silenceStartRef.current = Date.now();
+            if (Date.now() - silenceStartRef.current >= 900 && elapsed >= 1200) {
+              clearInterval(silencePollRef.current!);
+              silencePollRef.current = null;
+              if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
+              scoreChunkRef.current(idx);
+              return;
+            }
+          } else {
+            silenceStartRef.current = null;
+          }
+        }
       }
-    }, interval);
-  }, [exercise, recorder, micPulse, patchChunk]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, 150);
+
+    // Safety cap — stops even without silence detection (no metering or very long speech)
+    if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
+    safetyTimerRef.current = setTimeout(() => {
+      safetyTimerRef.current = null;
+      if (silencePollRef.current) { clearInterval(silencePollRef.current); silencePollRef.current = null; }
+      scoreChunkRef.current(idx);
+    }, 9000);
+  }, [recorder, micPulse, patchChunk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Score chunk ──────────────────────────────────────────────
   const scoreChunk = useCallback(async (idx: number) => {
-    if (listenTimerRef.current) { clearInterval(listenTimerRef.current); listenTimerRef.current = null; }
+    if (silencePollRef.current) { clearInterval(silencePollRef.current); silencePollRef.current = null; }
+    if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
     micPulseLoop.current?.stop();
     micPulse.setValue(1);
-    setListenProgress(0);
 
     patchChunk(idx, { phase: 'scoring' });
     const result = await recorder.stopRecording();
@@ -352,13 +359,12 @@ export default function KaraokeExerciseScreen() {
         return 'bad';
       });
 
-      const hasOmission = scores.includes('omission');
+      const hasOmission     = scores.includes('omission');
       const currentAttempts = chunks[idx]?.attempts ?? 0;
 
       if (hasOmission && currentAttempts < 2) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         patchChunk(idx, { phase: 'listening', wordScores: scores, attempts: currentAttempts + 1 });
-        // Brief pause then retry
         setTimeout(() => openMic(idx), 800);
       } else {
         Haptics.notificationAsync(
@@ -375,6 +381,9 @@ export default function KaraokeExerciseScreen() {
     }
   }, [exercise, recorder, chunks, patchChunk, micPulse]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Keep ref in sync so silence detection can call scoreChunk without circular dep
+  useLayoutEffect(() => { scoreChunkRef.current = scoreChunk; }, [scoreChunk]);
+
   // ── Advance to next chunk ────────────────────────────────────
   const advance = useCallback((idx: number) => {
     const next = idx + 1;
@@ -382,7 +391,6 @@ export default function KaraokeExerciseScreen() {
       patchChunk(next, { phase: 'charlotte' });
       playChunk(next);
     } else {
-      // Exercise done
       const nextEx = exIdx + 1;
       if (nextEx < data.exercises.length) {
         setExIdx(nextEx);
@@ -392,16 +400,16 @@ export default function KaraokeExerciseScreen() {
     }
   }, [exercise, exIdx, data.exercises, patchChunk, playChunk]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Reset when exercise or level changes ─────────────────────
+  // ── Reset when level changes ─────────────────────────────────
   useEffect(() => {
     subRef.current?.remove();
-    if (listenTimerRef.current) clearInterval(listenTimerRef.current);
+    if (silencePollRef.current) clearInterval(silencePollRef.current);
+    if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
     micPulseLoop.current?.stop();
     micPulse.setValue(1);
     try { playerRef.current?.pause(); } catch {}
     setExIdx(0);
     setDone(false);
-    setListenProgress(0);
     setChunks(initChunkStates(data.exercises[0]));
   }, [selectedLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -414,46 +422,29 @@ export default function KaraokeExerciseScreen() {
     if (chunks[0]?.phase === 'charlotte') playChunk(0);
   }, [exIdx, selectedLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Render word row ──────────────────────────────────────────
-  const renderChunkWords = (chunk: KaraokeChunk, state: ChunkState, isActive: boolean) => {
-    const { phase, timings, currentTime, wordScores } = state;
-
-    if (phase === 'upcoming') {
-      return chunk.words.map((w, i) => (
-        <AppText key={i} style={{ fontSize: 20, fontWeight: '600', color: C.wordDim, lineHeight: 30 }}>
-          {w}{' '}
-        </AppText>
-      ));
-    }
-
-    if (phase === 'charlotte') {
-      if (!timings.length) {
-        return chunk.words.map((w, i) => (
-          <AppText key={i} style={{ fontSize: 20, fontWeight: '600', color: C.wordDim, lineHeight: 30 }}>
-            {w}{' '}
-          </AppText>
-        ));
+  // ── Word color ───────────────────────────────────────────────
+  function wordColor(chunkIdx: number, wordIdx: number): string {
+    const state = chunks[chunkIdx];
+    if (!state) return C.wordDim;
+    switch (state.phase) {
+      case 'upcoming': return C.wordDim;
+      case 'charlotte': {
+        if (!state.timings.length) return C.wordDim;
+        const t = state.timings[wordIdx];
+        if (!t) return C.wordDim;
+        if (t.start <= state.currentTime && state.currentTime < t.end) return C.wordActive;
+        if (t.end <= state.currentTime) return C.wordSpoken;
+        return C.wordDim;
       }
-      return timings.map((w, i) => {
-        const isAct  = w.start <= currentTime && currentTime < w.end;
-        const isSpk  = w.end <= currentTime;
-        const color  = isAct ? C.wordActive : isSpk ? C.wordSpoken : C.wordDim;
-        return (
-          <AppText key={i} style={{ fontSize: 20, fontWeight: '600', color, lineHeight: 30 }}>
-            {w.word}{' '}
-          </AppText>
-        );
-      });
+      case 'listening':
+      case 'scoring':
+        if (state.wordScores.length) return scoreColor(state.wordScores[wordIdx] ?? 'dim');
+        return C.wordSpoken;
+      case 'done':
+        return scoreColor(state.wordScores[wordIdx] ?? 'dim');
+      default: return C.wordDim;
     }
-
-    // listening / scoring / done — show scores if available
-    const scores = wordScores.length ? wordScores : chunk.words.map(() => 'dim' as WordScore);
-    return chunk.words.map((w, i) => (
-      <AppText key={i} style={{ fontSize: 20, fontWeight: '600', color: scoreColor(scores[i] ?? 'dim'), lineHeight: 30 }}>
-        {w}{' '}
-      </AppText>
-    ));
-  };
+  }
 
   // ── Done screen ──────────────────────────────────────────────
   if (done) {
@@ -479,12 +470,11 @@ export default function KaraokeExerciseScreen() {
     );
   }
 
-  const activeChunk       = activeIdx >= 0 ? exercise.chunks[activeIdx] : null;
-  const activeState       = activeIdx >= 0 ? chunks[activeIdx] : null;
-  const isListening       = activeState?.phase === 'listening';
-  const isScoring         = activeState?.phase === 'scoring';
-  const totalDone         = chunks.filter(c => c.phase === 'done').length;
-  const progressPct       = totalDone / exercise.chunks.length;
+  const activeState = activeIdx >= 0 ? chunks[activeIdx] : null;
+  const isListening = activeState?.phase === 'listening';
+  const isCharlotte = activeState?.phase === 'charlotte';
+  const totalDone   = chunks.filter(c => c.phase === 'done').length;
+  const progressPct = totalDone / exercise.chunks.length;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
@@ -504,103 +494,59 @@ export default function KaraokeExerciseScreen() {
       </View>
 
       {/* Progress bar */}
-      <View style={{ height: 3, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 20, borderRadius: 2, marginBottom: 16 }}>
-        <Animated.View style={{ height: 3, borderRadius: 2, backgroundColor: C.accentLight, width: `${progressPct * 100}%` }} />
+      <View style={{ height: 2, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 20, borderRadius: 1, marginBottom: 32 }}>
+        <View style={{ height: 2, borderRadius: 1, backgroundColor: C.accentLight, width: `${progressPct * 100}%` }} />
       </View>
 
+      {/* Sentence — one continuous text block */}
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
+        contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 24, flexGrow: 1, justifyContent: 'center' }}
         showsVerticalScrollIndicator={false}
       >
-        {/* Charlotte avatar — shown while her turn */}
-        {activeState?.phase === 'charlotte' && (
-          <View style={{ alignItems: 'center', marginBottom: 20 }}>
-            <CharlotteAvatar size="lg" />
-          </View>
-        )}
-
-        {/* All chunks */}
-        {exercise.chunks.map((chunk, idx) => {
-          const state    = chunks[idx];
-          const isActive = idx === activeIdx;
-          const isDone   = state?.phase === 'done';
-          const isListen = state?.phase === 'listening' || state?.phase === 'scoring';
-
-          return (
-            <View
-              key={idx}
-              style={{
-                backgroundColor: isActive ? C.cardActive : C.card,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: isActive ? C.cardBorderActive : C.cardBorder,
-                paddingHorizontal: 20,
-                paddingVertical: 16,
-                marginBottom: 10,
-              }}
-            >
-              {/* Words row */}
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                {renderChunkWords(chunk, state, isActive)}
-              </View>
-
-              {/* Translation for Novice */}
-              {isPt && chunk.translation && (isDone || isListen) && (
-                <AppText style={{ fontSize: 12, color: C.whiteAlpha, marginTop: 6 }}>
-                  {chunk.translation}
-                </AppText>
-              )}
-
-              {/* Scoring indicator */}
-              {state?.phase === 'scoring' && (
-                <ActivityIndicator size="small" color={C.accentLight} style={{ marginTop: 8, alignSelf: 'flex-start' }} />
-              )}
-            </View>
-          );
-        })}
-
-        {/* Mic area — shown when listening */}
-        {(isListening || isScoring) && (
-          <View style={{ alignItems: 'center', marginTop: 24 }}>
-
-            {/* Recording label */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-              <Animated.View style={{
-                width: 10, height: 10, borderRadius: 5,
-                backgroundColor: C.recDot,
-                opacity: micPulse.interpolate({ inputRange: [1, 1.22], outputRange: [0.5, 1] }),
-              }} />
-              <AppText style={{ fontSize: 13, fontWeight: '700', color: C.white, letterSpacing: 0.5 }}>
-                {isScoring
-                  ? (isPt ? 'Avaliando...' : 'Scoring...')
-                  : (isPt ? 'Ouvindo você' : 'Listening...')}
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+          {exercise.chunks.map((chunk, chunkIdx) =>
+            chunk.words.map((word, wordIdx) => (
+              <AppText
+                key={`${chunkIdx}-${wordIdx}`}
+                style={{
+                  fontSize: 30,
+                  fontWeight: '700',
+                  lineHeight: 46,
+                  color: wordColor(chunkIdx, wordIdx),
+                }}
+              >
+                {word}{' '}
               </AppText>
-            </View>
-
-            {/* Mic button — pulsing */}
-            <Animated.View style={{
-              width: 88, height: 88, borderRadius: 44,
-              backgroundColor: 'rgba(124,58,237,0.20)',
-              alignItems: 'center', justifyContent: 'center',
-              transform: [{ scale: micPulse }],
-              borderWidth: 2,
-              borderColor: isListening ? C.accentLight : 'transparent',
-            }}>
-              <Microphone size={38} color={isListening ? C.accentLight : C.whiteAlpha} weight="fill" />
-            </Animated.View>
-
-            {/* Timer bar */}
-            {isListening && (
-              <View style={{ width: 160, height: 3, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, marginTop: 20 }}>
-                <View style={{
-                  height: 3, borderRadius: 2, backgroundColor: C.accentLight,
-                  width: `${(1 - listenProgress) * 100}%`,
-                }} />
-              </View>
-            )}
-          </View>
-        )}
+            ))
+          )}
+        </View>
       </ScrollView>
+
+      {/* Mic — always visible at bottom */}
+      <View style={{ alignItems: 'center', paddingBottom: 44, paddingTop: 20 }}>
+        <TouchableOpacity
+          activeOpacity={isListening ? 0.7 : 1}
+          onPress={() => {
+            if (isListening && activeIdx >= 0) scoreChunkRef.current(activeIdx);
+          }}
+        >
+          <Animated.View style={{
+            width: 80, height: 80, borderRadius: 40,
+            backgroundColor: isListening
+              ? 'rgba(124,58,237,0.25)'
+              : 'rgba(255,255,255,0.05)',
+            alignItems: 'center', justifyContent: 'center',
+            borderWidth: 1.5,
+            borderColor: isListening ? C.accentLight : 'rgba(255,255,255,0.10)',
+            transform: [{ scale: isListening ? micPulse : 1 }],
+          }}>
+            {isCharlotte
+              ? <MicrophoneSlash size={34} color={C.micMuted} weight="fill" />
+              : <Microphone      size={34} color={isListening ? C.accentLight : C.whiteAlpha} weight="fill" />
+            }
+          </Animated.View>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
