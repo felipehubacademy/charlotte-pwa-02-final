@@ -7,6 +7,7 @@ import {
   ChatTeardropText, Lightning, Fire, Microphone, TextT, CheckCircle,
 } from 'phosphor-react-native';
 import { LEVEL_CONFIG, UserLevel, ChatMode } from '@/lib/levelConfig';
+import { localTodayStr } from '@/lib/dateUtils';
 
 // Static color tokens — matches module-level C in index.tsx (not theme-aware by design)
 const greenDark = '#3D8800';
@@ -263,7 +264,8 @@ export function buildMissions(data: HomeData, level: UserLevel): Mission[] {
   const hasPronunciation = tabs.includes('pronunciation');
   const isPt = level === 'Novice';
 
-  const dayNum = Math.floor(Date.now() / 86400000);
+  const todayStr = localTodayStr(); // YYYY-MM-DD no fuso local do device
+  const dayNum = todayStr.split('-').reduce((acc, part) => acc * 100 + parseInt(part, 10), 0);
   const lvlOff = level === 'Novice' ? 0 : level === 'Inter' ? 137 : 271;
 
   const familyKeys = Object.keys(MISSION_FAMILIES);

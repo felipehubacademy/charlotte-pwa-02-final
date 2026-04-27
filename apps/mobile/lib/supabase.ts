@@ -153,4 +153,5 @@ export interface UserProfile {
   subscription_product: 'monthly' | 'yearly' | null; // preenchido quando status='active'
   subscription_expires_at: string | null;            // ISO timestamp do latest expiration
   beta_features: string[];
+  is_admin: boolean;
 }

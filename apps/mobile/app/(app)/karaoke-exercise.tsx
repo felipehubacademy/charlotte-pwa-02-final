@@ -126,8 +126,12 @@ function listenDuration(words: string[]): number {
 // ── Main screen ───────────────────────────────────────────────────
 export default function KaraokeExerciseScreen() {
   const { profile, session } = useAuth();
-  const userId    = session?.user?.id ?? '';
-  const userLevel = (profile?.charlotte_level ?? 'Inter') as 'Novice' | 'Inter' | 'Advanced';
+  const userId      = session?.user?.id ?? '';
+  const defaultLevel = (profile?.charlotte_level ?? 'Inter') as 'Novice' | 'Inter' | 'Advanced';
+
+  // Beta: level picker so all 3 can be tested regardless of profile level
+  const [selectedLevel, setSelectedLevel] = useState<'Novice' | 'Inter' | 'Advanced'>(defaultLevel);
+  const userLevel = selectedLevel;
   const isPt      = userLevel === 'Novice';
   const data      = KARAOKE_DATA.find(d => d.level === userLevel) ?? KARAOKE_DATA[1];
 
@@ -388,7 +392,19 @@ export default function KaraokeExerciseScreen() {
     }
   }, [exercise, exIdx, data.exercises, patchChunk, playChunk]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Reset when exercise changes ──────────────────────────────
+  // ── Reset when exercise or level changes ─────────────────────
+  useEffect(() => {
+    subRef.current?.remove();
+    if (listenTimerRef.current) clearInterval(listenTimerRef.current);
+    micPulseLoop.current?.stop();
+    micPulse.setValue(1);
+    try { playerRef.current?.pause(); } catch {}
+    setExIdx(0);
+    setDone(false);
+    setListenProgress(0);
+    setChunks(initChunkStates(data.exercises[0]));
+  }, [selectedLevel]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     setChunks(initChunkStates(data.exercises[exIdx]));
   }, [exIdx]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -396,7 +412,7 @@ export default function KaraokeExerciseScreen() {
   // ── Start first chunk on mount / exercise change ─────────────
   useEffect(() => {
     if (chunks[0]?.phase === 'charlotte') playChunk(0);
-  }, [exIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exIdx, selectedLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render word row ──────────────────────────────────────────
   const renderChunkWords = (chunk: KaraokeChunk, state: ChunkState, isActive: boolean) => {

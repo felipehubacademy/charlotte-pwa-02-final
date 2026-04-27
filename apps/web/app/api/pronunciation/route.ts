@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
       const t0 = Date.now();
       const wav = await transcodeToWavPcm16k(rawBuffer, ext);
       console.log(`✅ Transcoded ${rawBuffer.byteLength} → ${wav.byteLength} bytes in ${Date.now() - t0}ms`);
-      audioBlob = new Blob([wav], { type: 'audio/wav' });
+      audioBlob = new Blob([new Uint8Array(wav)], { type: 'audio/wav' });
       // WAV PCM 16kHz mono 16-bit: 32 000 bytes/sec
       audioDurationSeconds = Math.max(0, (wav.byteLength - 44) / 32000);
     } else {
