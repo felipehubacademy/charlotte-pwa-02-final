@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     siteName: 'Charlotte AI',
     images: [
       {
-        url: '/images/charlotte-avatar.png',
+        url: '/images/charlotte-og-v2.png',
         width: 1024,
         height: 1024,
         alt: 'Charlotte AI - Professora de Inglês com IA',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Charlotte AI',
     description: 'AI-powered English learning assistant with live voice conversations and personalized lessons',
-    images: ['/images/charlotte-avatar.png'],
+    images: ['/images/charlotte-og-v2.png'],
     creator: '@hubacademybr',
   },
   
