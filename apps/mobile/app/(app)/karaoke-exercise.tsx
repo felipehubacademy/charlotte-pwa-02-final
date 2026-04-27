@@ -131,9 +131,11 @@ export default function KaraokeExerciseScreen() {
   const [chunks, setChunks] = useState<ChunkState[]>(() => initChunkStates(exercise));
   const activeIdx = chunks.findIndex(c => c.phase !== 'done' && c.phase !== 'upcoming');
 
-  // Mic pulse animation
-  const micPulse     = useRef(new Animated.Value(1)).current;
-  const micPulseLoop = useRef<Animated.CompositeAnimation | null>(null);
+  // Mic pulse + tooltip animation
+  const micPulse      = useRef(new Animated.Value(1)).current;
+  const micPulseLoop  = useRef<Animated.CompositeAnimation | null>(null);
+  const tooltipOpacity = useRef(new Animated.Value(0)).current;
+  const tooltipY       = useRef(new Animated.Value(8)).current;
 
   // Audio player
   const playerRef   = useRef<AudioPlayer | null>(null);
@@ -142,17 +144,41 @@ export default function KaraokeExerciseScreen() {
   const pollRef     = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Silence detection
-  const silencePollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
-  const safetyTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasSpeechRef    = useRef(false);
-  const silenceStartRef = useRef<number | null>(null);
-  const recordStartRef  = useRef(0);
+  const silencePollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
+  const safetyTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSpeechRef         = useRef(false);
+  const silenceStartRef      = useRef<number | null>(null);
+  const recordStartRef       = useRef(0);
+  const userInitiatedScoreRef = useRef(false);
 
   const recorder = useAudioRecorder(PRONUNCIATION_RECORDING_OPTIONS, 12);
 
   const patchChunk = useCallback((idx: number, patch: Partial<ChunkState>) => {
     setChunks(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
   }, []);
+
+  // ── Tooltip "your turn" — aparece quando mic abre, some após 1.5s ────
+  useEffect(() => {
+    const listening = activeIdx >= 0 && chunks[activeIdx]?.phase === 'listening';
+    if (listening) {
+      tooltipOpacity.setValue(0);
+      tooltipY.setValue(8);
+      Animated.parallel([
+        Animated.timing(tooltipOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(tooltipY,       { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start();
+      const t = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(tooltipOpacity, { toValue: 0, duration: 280, useNativeDriver: true }),
+          Animated.timing(tooltipY,       { toValue: 6, duration: 280, useNativeDriver: true }),
+        ]).start();
+      }, 1400);
+      return () => clearTimeout(t);
+    } else {
+      tooltipOpacity.setValue(0);
+      tooltipY.setValue(8);
+    }
+  }, [activeIdx, chunks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Ref so silence detection can call scoreChunk without circular dep
   const scoreChunkRef = useRef<(idx: number) => void>(() => {});
@@ -282,9 +308,10 @@ export default function KaraokeExerciseScreen() {
     await recorder.startRecording();
 
     // Silence detection
-    hasSpeechRef.current    = false;
-    silenceStartRef.current = null;
-    recordStartRef.current  = Date.now();
+    hasSpeechRef.current         = false;
+    silenceStartRef.current      = null;
+    recordStartRef.current       = Date.now();
+    userInitiatedScoreRef.current = false;
 
     if (silencePollRef.current) clearInterval(silencePollRef.current);
     silencePollRef.current = setInterval(() => {
@@ -292,7 +319,7 @@ export default function KaraokeExerciseScreen() {
       const metering = recorder.getMeteringLevel();
 
       if (metering !== undefined && metering !== null) {
-        if (!hasSpeechRef.current && metering > -25) {
+        if (!hasSpeechRef.current && metering > -20) {
           hasSpeechRef.current    = true;
           silenceStartRef.current = null;
         }
@@ -328,6 +355,14 @@ export default function KaraokeExerciseScreen() {
   const scoreChunk = useCallback(async (idx: number) => {
     if (silencePollRef.current) { clearInterval(silencePollRef.current); silencePollRef.current = null; }
     if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
+
+    // Sem fala detectada e sem tap do usuário → reabre mic, não manda silêncio para Azure
+    if (!hasSpeechRef.current && !userInitiatedScoreRef.current) {
+      await recorder.stopRecording().catch(() => {});
+      setTimeout(() => openMic(idx), 300);
+      return;
+    }
+
     micPulseLoop.current?.stop();
     micPulse.setValue(1);
 
@@ -525,25 +560,53 @@ export default function KaraokeExerciseScreen() {
       </ScrollView>
 
       {/* Mic — always visible at bottom */}
-      <View style={{ alignItems: 'center', paddingBottom: 44, paddingTop: 20 }}>
+      <View style={{ alignItems: 'center', paddingBottom: 44, paddingTop: 16 }}>
+
+        {/* Tooltip "your turn" */}
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            opacity: tooltipOpacity,
+            transform: [{ translateY: tooltipY }],
+            backgroundColor: 'rgba(124,58,237,0.88)',
+            borderRadius: 20,
+            paddingHorizontal: 16,
+            paddingVertical: 7,
+            marginBottom: 14,
+          }}
+        >
+          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.white, letterSpacing: 0.6 }}>
+            {isPt ? 'sua vez' : 'your turn'}
+          </AppText>
+        </Animated.View>
+
         <TouchableOpacity
           activeOpacity={isListening ? 0.7 : 1}
           onPress={() => {
-            if (isListening && activeIdx >= 0) scoreChunkRef.current(activeIdx);
+            if (isListening && activeIdx >= 0) {
+              userInitiatedScoreRef.current = true;
+              scoreChunkRef.current(activeIdx);
+            }
           }}
         >
           <Animated.View style={{
             width: 80, height: 80, borderRadius: 40,
             backgroundColor: isListening
               ? 'rgba(124,58,237,0.25)'
-              : 'rgba(255,255,255,0.05)',
+              : isCharlotte
+                ? 'rgba(248,113,113,0.10)'
+                : 'rgba(255,255,255,0.05)',
             alignItems: 'center', justifyContent: 'center',
             borderWidth: 1.5,
-            borderColor: isListening ? C.accentLight : 'rgba(255,255,255,0.10)',
+            borderColor: isListening
+              ? C.accentLight
+              : isCharlotte
+                ? 'rgba(248,113,113,0.35)'
+                : 'rgba(255,255,255,0.10)',
             transform: [{ scale: isListening ? micPulse : 1 }],
           }}>
             {isCharlotte
-              ? <MicrophoneSlash size={34} color={C.micMuted} weight="fill" />
+              ? <MicrophoneSlash size={34} color="#F87171" weight="fill" />
               : <Microphone      size={34} color={isListening ? C.accentLight : C.whiteAlpha} weight="fill" />
             }
           </Animated.View>
