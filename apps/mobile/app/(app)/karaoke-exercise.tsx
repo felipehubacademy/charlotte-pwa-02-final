@@ -146,9 +146,10 @@ export default function KaraokeExerciseScreen() {
   // Silence detection
   const silencePollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
   const safetyTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasSpeechRef         = useRef(false);
-  const silenceStartRef      = useRef<number | null>(null);
-  const recordStartRef       = useRef(0);
+  const hasSpeechRef          = useRef(false);
+  const meteringWorkedRef     = useRef(false); // true se getMeteringLevel() retornou algum valor
+  const silenceStartRef       = useRef<number | null>(null);
+  const recordStartRef        = useRef(0);
   const userInitiatedScoreRef = useRef(false);
 
   const recorder = useAudioRecorder(PRONUNCIATION_RECORDING_OPTIONS, 12);
@@ -308,9 +309,10 @@ export default function KaraokeExerciseScreen() {
     await recorder.startRecording();
 
     // Silence detection
-    hasSpeechRef.current         = false;
-    silenceStartRef.current      = null;
-    recordStartRef.current       = Date.now();
+    hasSpeechRef.current          = false;
+    meteringWorkedRef.current     = false;
+    silenceStartRef.current       = null;
+    recordStartRef.current        = Date.now();
     userInitiatedScoreRef.current = false;
 
     if (silencePollRef.current) clearInterval(silencePollRef.current);
@@ -319,6 +321,7 @@ export default function KaraokeExerciseScreen() {
       const metering = recorder.getMeteringLevel();
 
       if (metering !== undefined && metering !== null) {
+        meteringWorkedRef.current = true;
         if (!hasSpeechRef.current && metering > -20) {
           hasSpeechRef.current    = true;
           silenceStartRef.current = null;
@@ -356,8 +359,9 @@ export default function KaraokeExerciseScreen() {
     if (silencePollRef.current) { clearInterval(silencePollRef.current); silencePollRef.current = null; }
     if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
 
-    // Sem fala detectada e sem tap do usuário → reabre mic, não manda silêncio para Azure
-    if (!hasSpeechRef.current && !userInitiatedScoreRef.current) {
+    // Só bloqueia se o metering confirmou que não houve fala.
+    // Se metering não funcionou (undefined sempre), deixa passar para o Azure normalmente.
+    if (meteringWorkedRef.current && !hasSpeechRef.current && !userInitiatedScoreRef.current) {
       await recorder.stopRecording().catch(() => {});
       setTimeout(() => openMic(idx), 300);
       return;
