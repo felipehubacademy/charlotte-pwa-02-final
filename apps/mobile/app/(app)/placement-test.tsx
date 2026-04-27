@@ -319,6 +319,12 @@ export default function PlacementTestScreen() {
     Animated.spring(slideAnim, { toValue: 0, friction: 8, tension: 55, useNativeDriver: true }).start();
   }, [slideAnim]);
 
+  const handleSkipToNovice = () => {
+    setLevel('Novice');
+    setPhase('saving');
+    saveResult('Novice');
+  };
+
   const handleStart = () => {
     setBlock(1);
     setBlockQuestions(BLOCK1);
@@ -490,7 +496,7 @@ export default function PlacementTestScreen() {
     }
   };
 
-  if (phase === 'intro')  return <IntroScreen firstName={firstName} onStart={handleStart} />;
+  if (phase === 'intro')  return <IntroScreen firstName={firstName} onStart={handleStart} onSkip={handleSkipToNovice} />;
   if (phase === 'saving') return <SavingScreen />;
   if (phase === 'result') return (
     <ResultScreen
@@ -748,7 +754,7 @@ function OptionList({
 
 // ── Intro screen ──────────────────────────────────────────────────────────────
 
-function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () => void }) {
+function IntroScreen({ firstName, onStart, onSkip }: { firstName: string; onStart: () => void; onSkip: () => void }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const pulse1   = useRef(new Animated.Value(1)).current;
   const pulse2   = useRef(new Animated.Value(1)).current;
@@ -835,20 +841,47 @@ function IntroScreen({ firstName, onStart }: { firstName: string; onStart: () =>
           </View>
         </Animated.View>
 
-        {/* CTA */}
-        <TouchableOpacity
-          onPress={onStart}
-          activeOpacity={0.85}
-          style={{
-            backgroundColor: C.green, borderRadius: 16,
-            paddingVertical: 17, width: '100%',
-            flexDirection: 'row', alignItems: 'center',
-            justifyContent: 'center', gap: 8,
-          }}
-        >
-          <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Começar</AppText>
-          <ArrowRight size={18} color={C.navy} weight="bold" />
-        </TouchableOpacity>
+        {/* CTAs */}
+        <View style={{ width: '100%', gap: 12 }}>
+
+          {/* Primário — fazer o teste */}
+          <TouchableOpacity
+            onPress={onStart}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: C.green, borderRadius: 16,
+              paddingVertical: 17, width: '100%',
+              flexDirection: 'row', alignItems: 'center',
+              justifyContent: 'center', gap: 8,
+            }}
+          >
+            <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Descobrir meu nível</AppText>
+            <ArrowRight size={18} color={C.navy} weight="bold" />
+          </TouchableOpacity>
+
+          {/* Tag RECOMENDADO */}
+          <View style={{ alignItems: 'center' }}>
+            <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, letterSpacing: 0.5 }}>
+              RECOMENDADO
+            </AppText>
+          </View>
+
+          {/* Secundário — começar do zero */}
+          <TouchableOpacity
+            onPress={onSkip}
+            activeOpacity={0.85}
+            style={{
+              borderRadius: 16, paddingVertical: 16, width: '100%',
+              borderWidth: 2, borderColor: 'rgba(22,21,58,0.15)',
+              alignItems: 'center',
+            }}
+          >
+            <AppText style={{ fontSize: 15, fontWeight: '700', color: C.navyMid }}>
+              Começar do zero
+            </AppText>
+          </TouchableOpacity>
+
+        </View>
 
       </Animated.View>
     </SafeAreaView>

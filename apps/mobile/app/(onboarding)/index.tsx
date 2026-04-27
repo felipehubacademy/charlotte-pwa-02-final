@@ -1,18 +1,15 @@
 // app/(onboarding)/index.tsx
-// 4-slide onboarding shown once on first launch (before login)
+// 3-slide onboarding shown once on first launch (before login)
 
 import React, { useRef, useState, useEffect } from 'react';
 import {
   View, ScrollView, TouchableOpacity, Dimensions,
-  Animated, Platform, Image,
+  Animated, Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as SecureStore from 'expo-secure-store';
-import {
-  ArrowRight, ChatCircle, Lightning, Flame,
-  MedalMilitary, CheckCircle,
-} from 'phosphor-react-native';
+import { ArrowRight, CheckCircle } from 'phosphor-react-native';
 import { AppText } from '@/components/ui/Text';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
 
@@ -76,13 +73,14 @@ function Dots({ total, active }: { total: number; active: number }) {
 // ── Slide 1 — Meet Charlotte ──────────────────────────────────────────────────
 
 function Slide1() {
-  const pulse1 = useRef(new Animated.Value(1)).current;
-  const pulse2 = useRef(new Animated.Value(1)).current;
-  const bubbleY = useRef(new Animated.Value(8)).current;
-  const bubbleO = useRef(new Animated.Value(0)).current;
+  const pulse1    = useRef(new Animated.Value(1)).current;
+  const pulse2    = useRef(new Animated.Value(1)).current;
+  const bubbleY   = useRef(new Animated.Value(10)).current;
+  const bubbleO   = useRef(new Animated.Value(0)).current;
+  const headlineO = useRef(new Animated.Value(0)).current;
+  const headlineY = useRef(new Animated.Value(14)).current;
 
   useEffect(() => {
-    // Avatar pulse rings
     const ring = (anim: Animated.Value, delay: number) =>
       Animated.loop(
         Animated.sequence([
@@ -94,10 +92,11 @@ function Slide1() {
     ring(pulse1, 0).start();
     ring(pulse2, 450).start();
 
-    // Speech bubble entrance
     Animated.parallel([
-      Animated.timing(bubbleO, { toValue: 1, duration: 400, delay: 500, useNativeDriver: true }),
-      Animated.timing(bubbleY, { toValue: 0, duration: 400, delay: 500, useNativeDriver: true }),
+      Animated.timing(bubbleO,   { toValue: 1, duration: 380, delay: 400, useNativeDriver: true }),
+      Animated.timing(bubbleY,   { toValue: 0, duration: 380, delay: 400, useNativeDriver: true }),
+      Animated.timing(headlineO, { toValue: 1, duration: 380, delay: 720, useNativeDriver: true }),
+      Animated.timing(headlineY, { toValue: 0, duration: 380, delay: 720, useNativeDriver: true }),
     ]).start();
   }, []);
 
@@ -105,7 +104,7 @@ function Slide1() {
     <View style={{ width: W, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
 
       {/* Avatar + pulse rings */}
-      <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 28 }}>
+      <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
         <Animated.View style={{
           position: 'absolute',
           width: 140, height: 140, borderRadius: 70,
@@ -128,43 +127,47 @@ function Slide1() {
         backgroundColor: C.navy,
         borderRadius: 16,
         borderBottomLeftRadius: 4,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        marginBottom: 40,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        marginBottom: 36,
         alignSelf: 'center',
         ...C.shadow,
       }}>
-        <AppText style={{ color: C.green, fontSize: 15, fontWeight: '700' }}>
+        <AppText style={{ color: C.green, fontSize: 16, fontWeight: '700' }}>
           Oi! Eu sou a Charlotte.
         </AppText>
       </Animated.View>
 
       {/* Headline */}
-      <AppText style={{
-        fontSize: 34, fontWeight: '800', color: C.navy,
-        textAlign: 'center', lineHeight: 40, letterSpacing: -0.5,
-        marginBottom: 14,
-      }}>
-        Sua professora{'\n'}de inglês com IA.
-      </AppText>
-
-      <AppText style={{
-        fontSize: 15, color: C.navyMid, textAlign: 'center',
-        lineHeight: 22, maxWidth: 280,
-      }}>
-        Conversas reais que te ensinam a falar inglês de verdade.
-      </AppText>
+      <Animated.View style={{ opacity: headlineO, transform: [{ translateY: headlineY }], alignItems: 'center' }}>
+        <AppText style={{
+          fontSize: 38, fontWeight: '900', color: C.navy,
+          textAlign: 'center', lineHeight: 44, letterSpacing: -1,
+          marginBottom: 12,
+        }}>
+          Fale inglês.{'\n'}De verdade.
+        </AppText>
+        <AppText style={{
+          fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, maxWidth: 260,
+        }}>
+          Sua professora de IA que conversa, corrige e te faz evoluir.
+        </AppText>
+      </Animated.View>
 
     </View>
   );
 }
 
-// ── Slide 2 — Practice by talking ────────────────────────────────────────────
+// ── Slide 2 — Real conversation ───────────────────────────────────────────────
 
-const CHAT_ITEMS = [
+type ChatItem =
+  | { from: 'charlotte' | 'user'; text: string }
+  | { from: 'score'; label: string; sub: string };
+
+const CHAT_ITEMS: ChatItem[] = [
   { from: 'charlotte', text: 'How was your weekend?' },
   { from: 'user',      text: 'It was great, I went to the beach' },
-  { from: 'score',     text: 'Nota 94 · Fluência ótima!' },
+  { from: 'score',     label: 'Nota 92', sub: 'Fluência ótima · Pronúncia 88/100' },
 ];
 
 function Slide2({ active }: { active: boolean }) {
@@ -175,9 +178,7 @@ function Slide2({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    // reset
     anims.forEach(a => { a.opacity.setValue(0); a.y.setValue(10); });
-    // stagger entrance
     const seq = anims.map((a, i) =>
       Animated.parallel([
         Animated.timing(a.opacity, { toValue: 1, duration: 320, delay: i * 520, useNativeDriver: true }),
@@ -208,21 +209,25 @@ function Slide2({ active }: { active: boolean }) {
                 opacity: a.opacity,
                 transform: [{ translateY: a.y }],
                 marginBottom: i < CHAT_ITEMS.length - 1 ? 10 : 0,
-                alignItems: isCharlotte ? 'flex-start' : 'flex-end',
+                alignItems: isCharlotte ? 'flex-start' : isScore ? 'flex-start' : 'flex-end',
               }}
             >
               {isScore ? (
                 <View style={{
-                  flexDirection: 'row', alignItems: 'center', gap: 6,
+                  flexDirection: 'row', alignItems: 'center', gap: 8,
                   backgroundColor: 'rgba(163,255,60,0.12)',
-                  borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7,
+                  borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9,
                   borderWidth: 1, borderColor: 'rgba(163,255,60,0.25)',
-                  alignSelf: 'flex-start',
                 }}>
-                  <CheckCircle size={14} color={C.greenDark} weight="fill" />
-                  <AppText style={{ fontSize: 13, fontWeight: '700', color: C.greenDark }}>
-                    {item.text}
-                  </AppText>
+                  <CheckCircle size={15} color={C.greenDark} weight="fill" />
+                  <View>
+                    <AppText style={{ fontSize: 13, fontWeight: '800', color: C.greenDark }}>
+                      {(item as Extract<ChatItem, { from: 'score' }>).label}
+                    </AppText>
+                    <AppText style={{ fontSize: 11, color: C.greenDark, opacity: 0.75, marginTop: 1 }}>
+                      {(item as Extract<ChatItem, { from: 'score' }>).sub}
+                    </AppText>
+                  </View>
                 </View>
               ) : (
                 <View style={{
@@ -234,7 +239,7 @@ function Slide2({ active }: { active: boolean }) {
                   maxWidth: '80%',
                 }}>
                   <AppText style={{ fontSize: 13, color: isCharlotte ? '#FFFFFF' : C.navy, lineHeight: 18 }}>
-                    {item.text}
+                    {(item as Extract<ChatItem, { from: 'charlotte' | 'user' }>).text}
                   </AppText>
                 </View>
               )}
@@ -243,196 +248,115 @@ function Slide2({ active }: { active: boolean }) {
         })}
       </View>
 
-      {/* Text */}
       <AppText style={{
         fontSize: 32, fontWeight: '800', color: C.navy,
-        textAlign: 'center', lineHeight: 38, letterSpacing: -0.5, marginBottom: 14,
+        textAlign: 'center', lineHeight: 38, letterSpacing: -0.5, marginBottom: 12,
       }}>
         Pratique{'\n'}falando.
       </AppText>
       <AppText style={{
-        fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, maxWidth: 280,
+        fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, maxWidth: 270,
       }}>
-        A Charlotte corrige sua gramática, avalia sua pronúncia e ensina enquanto você fala.
+        A Charlotte corrige sua gramática e avalia sua pronúncia em tempo real.
       </AppText>
 
     </View>
   );
 }
 
-// ── Slide 3 — Stay consistent ─────────────────────────────────────────────────
+// ── Slide 3 — Daily goal ──────────────────────────────────────────────────────
 
-function Slide3({ active }: { active: boolean }) {
-  const xpAnim  = useRef(new Animated.Value(0)).current;
-  const statO   = useRef(new Animated.Value(0)).current;
-  const statY   = useRef(new Animated.Value(12)).current;
+const GOAL_OPTIONS = [
+  { label: '5 min',  value: 5,  sub: 'Suave'    },
+  { label: '10 min', value: 10, sub: 'Ideal'     },
+  { label: '15 min', value: 15, sub: 'Intenso'   },
+  { label: '20 min', value: 20, sub: 'Dedicado'  },
+];
+
+function Slide3({ active, selectedGoal, onGoalSelect }: {
+  active: boolean;
+  selectedGoal: number;
+  onGoalSelect: (v: number) => void;
+}) {
+  const bubbleO = useRef(new Animated.Value(0)).current;
+  const bubbleY = useRef(new Animated.Value(10)).current;
+  const gridO   = useRef(new Animated.Value(0)).current;
+  const gridY   = useRef(new Animated.Value(14)).current;
 
   useEffect(() => {
     if (!active) return;
-    xpAnim.setValue(0); statO.setValue(0); statY.setValue(12);
+    bubbleO.setValue(0); bubbleY.setValue(10); gridO.setValue(0); gridY.setValue(14);
     Animated.parallel([
-      Animated.timing(statO, { toValue: 1, duration: 400, delay: 200, useNativeDriver: true }),
-      Animated.timing(statY, { toValue: 0, duration: 400, delay: 200, useNativeDriver: true }),
-      Animated.timing(xpAnim, { toValue: 1, duration: 900, delay: 500, useNativeDriver: false }),
+      Animated.timing(bubbleO, { toValue: 1, duration: 350,              useNativeDriver: true }),
+      Animated.timing(bubbleY, { toValue: 0, duration: 350,              useNativeDriver: true }),
+      Animated.timing(gridO,   { toValue: 1, duration: 350, delay: 240,  useNativeDriver: true }),
+      Animated.timing(gridY,   { toValue: 0, duration: 350, delay: 240,  useNativeDriver: true }),
     ]).start();
   }, [active]);
 
-  const xpWidth = xpAnim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '68%'] });
-
-  const stats = [
-    { icon: <Flame      size={18} color="#F97316" weight="fill" />, value: '12', label: 'dias seguidos' },
-    { icon: <Lightning  size={18} color={C.greenDark} weight="fill" />, value: '340', label: 'XP hoje'     },
-    { icon: <MedalMilitary size={18} color="#7C3AED" weight="fill" />, value: '#3',  label: 'ranking'      },
-  ];
+  const renderCard = (opt: typeof GOAL_OPTIONS[number]) => {
+    const isSelected = selectedGoal === opt.value;
+    return (
+      <TouchableOpacity
+        key={opt.value}
+        onPress={() => onGoalSelect(opt.value)}
+        activeOpacity={0.75}
+        style={{
+          flex: 1,
+          backgroundColor: isSelected ? C.navy : C.card,
+          borderRadius: 16,
+          borderWidth: 2,
+          borderColor: isSelected ? C.navy : C.border,
+          paddingVertical: 22,
+          alignItems: 'center',
+          ...C.shadow,
+        }}
+      >
+        <AppText style={{
+          fontSize: 22, fontWeight: '900', letterSpacing: -0.5,
+          color: isSelected ? C.green : C.navy,
+        }}>
+          {opt.label}
+        </AppText>
+        <AppText style={{
+          fontSize: 12, fontWeight: '600', marginTop: 3,
+          color: isSelected ? 'rgba(163,255,60,0.7)' : C.navyLight,
+        }}>
+          {opt.sub}
+        </AppText>
+      </TouchableOpacity>
+    );
+  };
 
   return (
-    <View style={{ width: W, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 28 }}>
+    <View style={{ width: W, flex: 1, justifyContent: 'center', paddingHorizontal: 28 }}>
 
-      {/* Stats card */}
+      {/* Charlotte + bubble */}
       <Animated.View style={{
-        opacity: statO, transform: [{ translateY: statY }],
-        width: '100%', backgroundColor: C.card, borderRadius: 20,
-        padding: 20, marginBottom: 20,
-        borderWidth: 1, borderColor: C.border, ...C.shadow,
+        opacity: bubbleO,
+        transform: [{ translateY: bubbleY }],
+        flexDirection: 'row', alignItems: 'flex-end', gap: 10, marginBottom: 28,
       }}>
-        {/* Stat pills */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 20 }}>
-          {stats.map((s, i) => (
-            <View key={i} style={{ alignItems: 'center', gap: 4 }}>
-              <View style={{
-                width: 44, height: 44, borderRadius: 22,
-                backgroundColor: 'rgba(22,21,58,0.06)',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                {s.icon}
-              </View>
-              <AppText style={{ fontSize: 17, fontWeight: '900', color: C.navy, letterSpacing: -0.5 }}>
-                {s.value}
-              </AppText>
-              <AppText style={{ fontSize: 10, color: C.navyLight, fontWeight: '600' }}>
-                {s.label}
-              </AppText>
-            </View>
-          ))}
-        </View>
-
-        {/* XP bar */}
-        <View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-            <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight }}>XP do dia</AppText>
-            <AppText style={{ fontSize: 11, fontWeight: '700', color: C.greenDark }}>340 / 500</AppText>
-          </View>
-          <View style={{ height: 8, backgroundColor: 'rgba(22,21,58,0.08)', borderRadius: 4, overflow: 'hidden' }}>
-            <Animated.View style={{
-              height: '100%', width: xpWidth,
-              backgroundColor: C.green, borderRadius: 4,
-            }} />
-          </View>
-        </View>
-      </Animated.View>
-
-      {/* Missions preview */}
-      <Animated.View style={{
-        opacity: statO, transform: [{ translateY: statY }],
-        width: '100%', backgroundColor: C.card, borderRadius: 16,
-        paddingHorizontal: 20, paddingVertical: 14, marginBottom: 32,
-        borderWidth: 1, borderColor: C.border, ...C.shadow,
-        flexDirection: 'row', alignItems: 'center', gap: 12,
-      }}>
-        <ChatCircle size={20} color={C.navyMid} weight="duotone" />
-        <View style={{ flex: 1 }}>
-          <AppText style={{ fontSize: 13, fontWeight: '700', color: C.navy }}>
-            Enviar 10 mensagens
-          </AppText>
-          <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 1 }}>
-            7 / 10 · +50 XP
-          </AppText>
-        </View>
+        <CharlotteAvatar size="md" />
         <View style={{
-          height: 6, width: 60, backgroundColor: 'rgba(22,21,58,0.08)',
-          borderRadius: 3, overflow: 'hidden',
+          backgroundColor: C.navy, borderRadius: 16, borderBottomLeftRadius: 3,
+          paddingHorizontal: 16, paddingVertical: 14, flex: 1,
+          ...C.shadow,
         }}>
-          <View style={{ height: '100%', width: '70%', backgroundColor: C.green, borderRadius: 3 }} />
+          <AppText style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700', lineHeight: 24 }}>
+            Quanto tempo por dia{'\n'}você consegue estudar?
+          </AppText>
         </View>
       </Animated.View>
 
-      {/* Text */}
-      <AppText style={{
-        fontSize: 32, fontWeight: '800', color: C.navy,
-        textAlign: 'center', lineHeight: 38, letterSpacing: -0.5, marginBottom: 14,
-      }}>
-        Seja{'\n'}consistente.
-      </AppText>
-      <AppText style={{
-        fontSize: 15, color: C.navyMid, textAlign: 'center', lineHeight: 22, maxWidth: 280,
-      }}>
-        Sequências, XP e missões diárias te mantêm no caminho. 5 minutos por dia já fazem diferença.
-      </AppText>
-
-    </View>
-  );
-}
-
-// ── Slide 4 — Get started ─────────────────────────────────────────────────────
-
-function Slide4() {
-  const fadeIn = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.timing(fadeIn, { toValue: 1, duration: 500, delay: 100, useNativeDriver: true }).start();
-  }, []);
-
-  const perks = [
-    'Mini-aulas narradas pela Charlotte',
-    'Gramática, pronúncia e conversação ao vivo',
-    'Feedback em tempo real a cada resposta',
-  ];
-
-  return (
-    <View style={{ width: W, flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 }}>
-
-      <Animated.View style={{ opacity: fadeIn, alignItems: 'center', width: '100%' }}>
-
-        {/* Charlotte + bubble */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 36 }}>
-          <CharlotteAvatar size="lg" />
-          <View style={{
-            backgroundColor: C.navy, borderRadius: 14, borderBottomLeftRadius: 3,
-            paddingHorizontal: 14, paddingVertical: 9, maxWidth: 220,
-            ...C.shadow,
-          }}>
-            <AppText style={{ color: '#FFFFFF', fontSize: 14, fontWeight: '600', lineHeight: 20 }}>
-              Estarei aqui todos os dias.{'\n'}Pronto quando você estiver.
-            </AppText>
-          </View>
+      {/* Goal grid — 2 x 2 */}
+      <Animated.View style={{ opacity: gridO, transform: [{ translateY: gridY }], gap: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {GOAL_OPTIONS.slice(0, 2).map(renderCard)}
         </View>
-
-        {/* Headline */}
-        <AppText style={{
-          fontSize: 32, fontWeight: '800', color: C.navy,
-          textAlign: 'center', lineHeight: 38, letterSpacing: -0.5, marginBottom: 8,
-        }}>
-          Comece sua jornada.
-        </AppText>
-        <AppText style={{
-          fontSize: 14, color: C.navyLight, textAlign: 'center',
-          marginBottom: 28, fontWeight: '600',
-        }}>
-          Aprenda inglês do seu jeito, no seu ritmo.
-        </AppText>
-
-        {/* Perks */}
-        <View style={{ width: '100%', gap: 10, marginBottom: 32 }}>
-          {perks.map((perk, i) => (
-            <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <CheckCircle size={16} color={C.greenDark} weight="fill" />
-              <AppText style={{ fontSize: 14, color: C.navyMid, fontWeight: '500' }}>
-                {perk}
-              </AppText>
-            </View>
-          ))}
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {GOAL_OPTIONS.slice(2, 4).map(renderCard)}
         </View>
-
       </Animated.View>
 
     </View>
@@ -441,14 +365,14 @@ function Slide4() {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const TOTAL = 4;
+const TOTAL = 3;
 
 export default function OnboardingScreen() {
   const scrollRef = useRef<ScrollView>(null);
-  const [slide, setSlide]   = useState(0);
-  const [ready, setReady]   = useState(false);
+  const [slide, setSlide]           = useState(0);
+  const [ready, setReady]           = useState(false);
+  const [selectedGoal, setSelectedGoal] = useState(10);
 
-  // fade in whole screen
   const screenO = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -466,14 +390,13 @@ export default function OnboardingScreen() {
     if (slide < TOTAL - 1) {
       scrollRef.current?.scrollTo({ x: (slide + 1) * W, animated: true });
     } else {
-      // Last slide "Começar" → create account
       await markOnboardingDone();
+      await SecureStore.setItemAsync('DAILY_GOAL_MINUTES', String(selectedGoal));
       goToSignup();
     }
   };
 
-  const skip = async () => {
-    // "Já tenho uma conta" → login
+  const goLogin = async () => {
     await markOnboardingDone();
     goToLogin();
   };
@@ -484,13 +407,14 @@ export default function OnboardingScreen() {
     <Animated.View style={{ flex: 1, backgroundColor: C.bg, opacity: screenO }}>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
 
-        {/* Skip button — hidden on first and last slide */}
-        <View style={{ height: 44, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 20 }}>
-          {slide > 0 && !isLast && (
-            <TouchableOpacity onPress={skip} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-              <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>Pular</AppText>
-            </TouchableOpacity>
-          )}
+        {/* Top bar — "Entrar" sempre visível */}
+        <View style={{
+          height: 44, flexDirection: 'row', justifyContent: 'flex-end',
+          alignItems: 'center', paddingHorizontal: 20,
+        }}>
+          <TouchableOpacity onPress={goLogin} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>Entrar</AppText>
+          </TouchableOpacity>
         </View>
 
         {/* Slides */}
@@ -505,22 +429,25 @@ export default function OnboardingScreen() {
         >
           <Slide1 />
           <Slide2 active={ready && slide === 1} />
-          <Slide3 active={ready && slide === 2} />
-          <Slide4 />
+          <Slide3
+            active={ready && slide === 2}
+            selectedGoal={selectedGoal}
+            onGoalSelect={setSelectedGoal}
+          />
         </ScrollView>
 
         {/* Bottom bar */}
         <View style={{
-          paddingHorizontal: 24, paddingBottom: Platform.OS === 'ios' ? 8 : 16,
-          paddingTop: 16, gap: 16,
+          paddingHorizontal: 24,
+          paddingBottom: Platform.OS === 'ios' ? 8 : 16,
+          paddingTop: 16,
+          gap: 14,
         }}>
 
-          {/* Dots */}
           <View style={{ alignItems: 'center' }}>
             <Dots total={TOTAL} active={slide} />
           </View>
 
-          {/* Primary CTA */}
           <TouchableOpacity
             onPress={goNext}
             activeOpacity={0.85}
@@ -536,14 +463,13 @@ export default function OnboardingScreen() {
             }}
           >
             <AppText style={{ fontSize: 16, fontWeight: '800', color: C.green }}>
-              {isLast ? 'Começar' : 'Próximo'}
+              {isLast ? 'Criar minha conta' : 'Próximo'}
             </AppText>
             <ArrowRight size={18} color={C.green} weight="bold" />
           </TouchableOpacity>
 
-          {/* Sign-in link — only on last slide */}
           {isLast && (
-            <TouchableOpacity onPress={skip} style={{ alignItems: 'center', paddingVertical: 4 }}>
+            <TouchableOpacity onPress={goLogin} style={{ alignItems: 'center', paddingVertical: 4 }}>
               <AppText style={{ fontSize: 14, color: C.navyLight, fontWeight: '600' }}>
                 Já tenho uma conta
               </AppText>
