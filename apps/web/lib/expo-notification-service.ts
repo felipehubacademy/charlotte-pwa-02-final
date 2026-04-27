@@ -39,7 +39,7 @@ async function generateTemplatePool(
 - Tone: warm, personal, gently motivating — like a friend checking in
 - Write in FIRST PERSON as Charlotte ("I", "me", "my")
 ${streakNote ? `- Context: ${streakNote}` : ''}
-- Title: 4-6 words max, use 1 relevant emoji
+- Title: 4-6 words max, use 1 relevant emoji (never use 🌈)
 - Body: 1 sentence max (under 90 chars), include {name}, first person
 - Example: "I saved a spot for you today, {name} — don't lose that {streak}-day streak!"
 Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
@@ -51,7 +51,7 @@ Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
 - Language: ${lang}
 - Tone: warm, personal, genuinely proud — like a teacher celebrating effort
 - Write in FIRST PERSON as Charlotte ("I", "me", "my")
-- Title: 4-6 words max, use 1 relevant emoji
+- Title: 4-6 words max, use 1 relevant emoji (never use 🌈)
 - Body: 1 sentence max (under 90 chars), include {name}, mention {xp}, first person
 - Example: "I loved our session today, {name} — {xp} XP and your {streak}-day streak is alive!"
 Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
@@ -81,7 +81,9 @@ Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
       });
     }
     const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? '{}');
-    if (Array.isArray(parsed.variants) && parsed.variants.length > 0) return parsed.variants;
+    const sanitize = (s: string) => s.replace(/🌈/g, '✨');
+    if (Array.isArray(parsed.variants) && parsed.variants.length > 0)
+      return parsed.variants.map((v: MsgTemplate) => ({ title: sanitize(v.title), body: sanitize(v.body) }));
   } catch (e) {
     console.warn('⚠️ [Expo] GPT pool generation failed:', e);
   }
