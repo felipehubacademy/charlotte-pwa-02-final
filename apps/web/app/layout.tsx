@@ -23,8 +23,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: '/images/charlotte-og-v2.png',
-        width: 1024,
-        height: 1024,
+        width: 1200,
+        height: 630,
         alt: 'Charlotte AI - Professora de Inglês com IA',
       },
     ],
