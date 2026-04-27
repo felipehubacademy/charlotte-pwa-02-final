@@ -499,6 +499,15 @@ export default function ConfiguracoesScreen() {
           }}
           chevron
         />
+        <SettingRow
+          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Refazer tour da Sessão de Aprendizado' : 'Replay Learn Session tour'}
+          onPress={async () => {
+            await resetTour('learn-session-grammar');
+            await resetTour('learn-session-pron');
+          }}
+          chevron
+        />
 
         {/* Legal */}
         <SectionTitle label="Legal" />

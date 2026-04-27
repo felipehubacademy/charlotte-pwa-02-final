@@ -22,6 +22,7 @@ import { useAudioRecorder, setAudioModeAsync, RecordingPresets } from 'expo-audi
 import Constants from 'expo-constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useTotalXP } from '@/hooks/useTotalXP';
+import { useTour } from '@/lib/tourContext';
 import { AppText } from '@/components/ui/Text';
 import { TranslatableText } from '@/components/ui/TranslatableText';
 import CharlotteAvatar from '@/components/ui/CharlotteAvatar';
@@ -212,6 +213,17 @@ export default function LearnSessionScreen() {
   const stepLoadedRef = useRef(false);
   const scrollRef = useRef<InstanceType<typeof ScrollView>>(null);
 
+  // ── Tour refs ──────────────────────────────────────────────
+  const { startTour } = useTour();
+  const tourProgressRef    = useRef<any>(null);
+  const tourInstructionRef = useRef<any>(null);
+  const tourAnswerAreaRef  = useRef<any>(null);
+  const tourCheckBtnRef    = useRef<any>(null);
+  const tourXPBadgeRef     = useRef<any>(null);
+  const tourPlayBtnRef     = useRef<any>(null);
+  const tourMicBtnRef      = useRef<any>(null);
+  const pronTourFiredRef   = useRef(false);
+
   // Load saved step on mount (resume mid-topic)
   useEffect(() => {
     if (!resumeKey || stepLoadedRef.current) return;
@@ -235,6 +247,54 @@ export default function LearnSessionScreen() {
   useEffect(() => {
     if (isComplete && resumeKey) SecureStore.deleteItemAsync(resumeKey);
   }, [isComplete, resumeKey]);
+
+  // ── Tour 1: grammar — dispara uma vez ao entrar na sessão ──
+  useEffect(() => {
+    const pt = isPortuguese;
+    startTour('learn-session-grammar', [
+      {
+        ref: tourProgressRef,
+        spotlightRadius: 12,
+        title: pt ? 'Seu progresso' : 'Your progress',
+        description: pt
+          ? 'Acompanhe quantos exercícios já fez neste tópico. A tag mostra o tipo atual.'
+          : 'Track how many exercises you have done in this topic. The tag shows the current type.',
+      },
+      {
+        ref: tourInstructionRef,
+        spotlightRadius: 16,
+        title: pt ? 'Instrução da Charlotte' : 'Charlotte\'s instruction',
+        description: pt
+          ? 'A Charlotte explica o que você precisa fazer. Leia antes de responder — o formato muda a cada exercício.'
+          : 'Charlotte explains what to do. Read before answering — the format changes each exercise.',
+      },
+      {
+        ref: tourAnswerAreaRef,
+        spotlightRadius: 16,
+        title: pt ? 'Área de resposta' : 'Answer area',
+        description: pt
+          ? 'Aqui você responde. Pode ser escolha múltipla, lacuna para preencher, palavras para ordenar ou texto livre.'
+          : 'This is where you answer. It can be multiple choice, a gap to fill, words to order, or free text.',
+      },
+      {
+        ref: tourCheckBtnRef,
+        spotlightRadius: 14,
+        title: pt ? 'Verificar resposta' : 'Check answer',
+        description: pt
+          ? 'Toque para checar. Você verá se acertou, a resposta correta e a explicação gramatical.'
+          : 'Tap to check. You will see if you got it right, the correct answer, and the grammar explanation.',
+      },
+      {
+        ref: tourXPBadgeRef,
+        spotlightRadius: 14,
+        title: pt ? 'XP acumulado' : 'Accumulated XP',
+        description: pt
+          ? 'Cada exercício correto ganha XP. Acumule para subir de nível e avançar na trilha.'
+          : 'Each correct exercise earns XP. Accumulate to level up and advance on the trail.',
+      },
+    ], pt ? 'pt' : 'en');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Grammar state ──────────────────────────────────────────
   const [gStatus, setGStatus]           = useState<'answering' | 'submitted'>('answering');
@@ -289,6 +349,32 @@ export default function LearnSessionScreen() {
     : currentStep.kind === 'grammar' ? C.gold : C.violet;
   const accentBg     = !currentStep ? C.goldBg
     : currentStep.kind === 'grammar' ? C.goldBg : C.violetBg;
+
+  // ── Tour 2: pronúncia — dispara na primeira vez que chega num step de pron ──
+  useEffect(() => {
+    if (pronTourFiredRef.current) return;
+    if (!currentStep || currentStep.kind !== 'pronunciation') return;
+    pronTourFiredRef.current = true;
+    const pt = isPortuguese;
+    startTour('learn-session-pron', [
+      {
+        ref: tourPlayBtnRef,
+        spotlightRadius: 14,
+        title: pt ? 'Ouça a Charlotte' : 'Listen to Charlotte',
+        description: pt
+          ? 'Toque para ouvir a frase com pronúncia nativa. Ouça com atenção antes de gravar.'
+          : 'Tap to hear the phrase with native pronunciation. Listen carefully before recording.',
+      },
+      {
+        ref: tourMicBtnRef,
+        spotlightRadius: 14,
+        title: pt ? 'Grave sua voz' : 'Record your voice',
+        description: pt
+          ? 'Segure o botão e fale. Solte para parar. Você receberá uma análise detalhada da sua pronúncia.'
+          : 'Hold the button and speak. Release to stop. You will get a detailed analysis of your pronunciation.',
+      },
+    ], pt ? 'pt' : 'en');
+  }, [currentStep, isPortuguese, startTour]);
 
   // ── TTS — local cache → pre-generated file → ElevenLabs API ──
   const fetchTTS = useCallback(async (text: string): Promise<string | null> => {
@@ -848,7 +934,7 @@ export default function LearnSessionScreen() {
             {topicTitle}
           </AppText>
         </View>
-        <TouchableOpacity onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(sessionXP), totalXP: String(baseTotalXP + sessionXP), userId: userId ?? '', userLevel: userLevel ?? 'Inter', userName: '' } })} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity ref={tourXPBadgeRef} onPress={() => router.push({ pathname: '/(app)/stats', params: { sessionXP: String(sessionXP), totalXP: String(baseTotalXP + sessionXP), userId: userId ?? '', userLevel: userLevel ?? 'Inter', userName: '' } })} activeOpacity={0.7} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <AnimatedXPBadge xp={baseTotalXP + sessionXP} iconSize={13} fontSize={13} padH={10} padV={5} />
         </TouchableOpacity>
       </View>
@@ -862,7 +948,7 @@ export default function LearnSessionScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* ── Progress ── */}
-          <View style={{ marginBottom: 20 }}>
+          <View ref={tourProgressRef} collapsable={false} style={{ marginBottom: 20 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
               <View style={{
                 flexDirection: 'row', alignItems: 'center', gap: 5,
@@ -902,9 +988,9 @@ export default function LearnSessionScreen() {
 
           {/* ── GRAMMAR CARD ── */}
           {currentStep.kind === 'grammar' && (
-            <View style={{ flex: 1, backgroundColor: C.card, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: C.border, ...shadow }}>
+            <View ref={tourAnswerAreaRef} collapsable={false} style={{ flex: 1, backgroundColor: C.card, borderRadius: 20, padding: 24, borderWidth: 1, borderColor: C.border, ...shadow }}>
               {/* Charlotte instruction */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 24 }}>
+              <View ref={tourInstructionRef} collapsable={false} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 24 }}>
                 <CharlotteAvatar size="xs" />
                 <View style={{ flex: 1, backgroundColor: accentBg, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 14, paddingVertical: 14 }}>
                   <AppText style={{ fontSize: 14, color: accent, fontWeight: '700' }}>
@@ -1370,6 +1456,7 @@ export default function LearnSessionScreen() {
                   </View>
                 ) : (
                   <TouchableOpacity
+                    ref={tourPlayBtnRef}
                     onPress={handlePlayCharlotte}
                     style={{
                       flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
@@ -1584,7 +1671,7 @@ export default function LearnSessionScreen() {
               ex.type === 'short_write' ? userAnswer.trim().length > 5 :
               !!userAnswer.trim();
             return (
-              <TouchableOpacity onPress={handleGrammarSubmit} disabled={!canSubmit}
+              <TouchableOpacity ref={tourCheckBtnRef} onPress={handleGrammarSubmit} disabled={!canSubmit}
                 style={{ backgroundColor: canSubmit ? C.navy : C.ghost, borderRadius: 16, paddingVertical: 15, alignItems: 'center' }}>
                 <AppText style={{ fontSize: 15, fontWeight: '800', color: canSubmit ? '#FFF' : C.navyLight }}>{isPortuguese ? 'Verificar' : 'Check'}</AppText>
               </TouchableOpacity>
@@ -1617,6 +1704,7 @@ export default function LearnSessionScreen() {
               </View>
             ) : (
               <Pressable
+                ref={tourMicBtnRef}
                 onPressIn={startRecording}
                 onPressOut={stopRecording}
                 pressRetentionOffset={{ top: 20, left: 20, right: 20, bottom: 20 }}
