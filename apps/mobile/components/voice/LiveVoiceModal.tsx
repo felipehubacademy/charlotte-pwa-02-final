@@ -1090,6 +1090,15 @@ export default function LiveVoiceModal({
     }
   }, [loadPool, connect]);
 
+  // ── StatusBar: imperativo para funcionar dentro de Modal no Android ─────────
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const style = showTranscript ? 'dark-content' : 'light-content';
+    const bg    = showTranscript ? '#FFFFFF' : '#07071C';
+    StatusBar.setBarStyle(style, true);
+    if (Platform.OS === 'android') StatusBar.setBackgroundColor(bg, true);
+  }, [isOpen, showTranscript]);
+
   // ── Lifecycle: abrir/fechar modal ─────────────────────────────────────────
   React.useEffect(() => {
     if (isOpen) {
@@ -1137,7 +1146,6 @@ export default function LiveVoiceModal({
       transparent={false}
       hardwareAccelerated
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* ── Transcript screen ─────────────────────────────────────────────── */}
       {showTranscript ? (
@@ -1233,7 +1241,6 @@ export default function LiveVoiceModal({
         </View>
       ) : (
       <>
-      <StatusBar barStyle="light-content" backgroundColor="#07071C" />
       <View style={{ flex: 1, backgroundColor: '#07071C', paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 32, paddingVertical: 24 }}>
 
