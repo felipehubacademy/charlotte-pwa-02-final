@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, Plus, Edit2, Trash2, RefreshCw, ExternalLink, ChevronUp, ChevronDown, X, TriangleAlert, Check } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, RefreshCw, ExternalLink, ChevronUp, ChevronDown, X, TriangleAlert, Check, Eye, EyeOff } from 'lucide-react';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Engagement { totalXP: number; lastActive: string | null; sessionDays: number; lessonCount: number; messageCount: number; }
@@ -111,6 +111,7 @@ export default function AdminUsersPage() {
   const [form, setForm]         = useState<Form>(EMPTY_FORM);
   const [saving, setSaving]     = useState(false);
   const [formErr, setFormErr]   = useState('');
+  const [showPwd, setShowPwd]   = useState(false);
   const [page, setPage]         = useState(1);
   const PER_PAGE = 25;
 
@@ -188,7 +189,7 @@ export default function AdminUsersPage() {
     setFormErr(''); setModal('edit');
   };
   const openDelete = (u: User) => { setSelected(u); setModal('delete'); };
-  const closeModal = () => { setModal(null); setSelected(null); setFormErr(''); };
+  const closeModal = () => { setModal(null); setSelected(null); setFormErr(''); setShowPwd(false); };
 
   const patchForm = (k: keyof Form, v: any) => setForm(f => ({ ...f, [k]: v }));
 
@@ -480,7 +481,22 @@ export default function AdminUsersPage() {
                   </div>
                   <div className="adm-field">
                     <label>{modal === 'create' ? 'Senha *' : 'Nova senha (deixe em branco para manter)'}</label>
-                    <input type="password" value={form.password} onChange={e => patchForm('password', e.target.value)} placeholder="••••••••" />
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type={showPwd ? 'text' : 'password'}
+                        value={form.password}
+                        onChange={e => patchForm('password', e.target.value)}
+                        placeholder="••••••••"
+                        style={{ paddingRight: 36 }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPwd(v => !v)}
+                        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: 0, display: 'flex' }}
+                      >
+                        {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
                   </div>
                   <div className="adm-field">
                     <label>Nome completo</label>
