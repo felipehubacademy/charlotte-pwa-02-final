@@ -599,7 +599,7 @@ export default function ConfiguracoesScreen() {
         {/* Version footer */}
         <View style={{ paddingVertical: 32, alignItems: 'center', gap: 4 }}>
           <AppText style={{ fontSize: 11, color: C.navyLight, letterSpacing: 0.2 }}>
-            {`Charlotte AI v${Constants.expoConfig?.version ?? '—'} · ${Platform.OS} · ${Updates.runtimeVersion ?? '1.0.0'}`}
+            {`Charlotte AI v${Constants.expoConfig?.version ?? '1.0.0'}`}
           </AppText>
           {profile?.is_admin && (
             <AppText style={{ fontSize: 10, color: C.navyLight, opacity: 0.6, letterSpacing: 0.2 }}>
