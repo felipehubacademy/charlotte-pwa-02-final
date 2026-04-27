@@ -481,18 +481,18 @@ export default function AdminUsersPage() {
                   </div>
                   <div className="adm-field">
                     <label>{modal === 'create' ? 'Senha *' : 'Nova senha (deixe em branco para manter)'}</label>
-                    <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'relative', width: '100%' }}>
                       <input
                         type={showPwd ? 'text' : 'password'}
                         value={form.password}
                         onChange={e => patchForm('password', e.target.value)}
                         placeholder="••••••••"
-                        style={{ paddingRight: 36 }}
+                        style={{ width: '100%', boxSizing: 'border-box', paddingRight: 36 }}
                       />
                       <button
                         type="button"
                         onClick={() => setShowPwd(v => !v)}
-                        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: 0, display: 'flex' }}
+                        style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', padding: 0, display: 'flex', alignItems: 'center' }}
                       >
                         {showPwd ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
