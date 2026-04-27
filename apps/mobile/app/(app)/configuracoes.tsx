@@ -508,6 +508,14 @@ export default function ConfiguracoesScreen() {
           }}
           chevron
         />
+        <SettingRow
+          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Refazer tour do Vocab Review' : 'Replay Vocab Review tour'}
+          onPress={async () => {
+            await resetTour('vocab-review');
+          }}
+          chevron
+        />
 
         {/* Legal */}
         <SectionTitle label="Legal" />
