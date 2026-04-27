@@ -930,7 +930,7 @@ export default function LiveVoiceModal({
                 const speechDuration  = Date.now() - speechStartedAtRef.current;
                 const msSinceDone     = Date.now() - lastCharlotteDoneRef.current;
                 const msSinceLast     = Date.now() - lastResponseCreateRef.current;
-                if (speechDuration > 500 && msSinceDone > 2000 && msSinceLast > 1500) {
+                if (speechDuration > 500 && msSinceDone > 1000 && msSinceLast > 1000) {
                   if (pendingResponseTimerRef.current) {
                     clearTimeout(pendingResponseTimerRef.current);
                   }
@@ -940,7 +940,7 @@ export default function LiveVoiceModal({
                       lastResponseCreateRef.current = Date.now();
                       sendEvent({ type: 'response.create' });
                     }
-                  }, 1000);
+                  }, 500);
                 }
               }
               break;
