@@ -1,9 +1,12 @@
 // app/api/pronunciation/route.ts - IMPLEMENTAÇÃO DEFINITIVA COM CONVERSÃO DE ÁUDIO
 
 import { NextRequest, NextResponse } from 'next/server';
+import OpenAI from 'openai';
 import { assessPronunciationOfficial } from '@/lib/azure-speech-sdk';
 import { transcodeToWavPcm16k, needsTranscode, guessExtension } from '@/lib/audio-transcode';
 import { logAzureSpeechUsage } from '@/lib/openai-usage';
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || 'placeholder' });
 
 interface APIResponse {
   success: boolean;
@@ -375,59 +378,28 @@ function convertDefinitiveToAPIFormat(definitiveResult: any) {
   };
 }
 
-// 🎤 WHISPER FALLBACK (melhorado)
+// 🎤 WHISPER FALLBACK — chama OpenAI diretamente, sem HTTP self-call
 async function tryWhisperFallback(audioFile: File): Promise<{
   success: boolean;
   text?: string;
   confidence?: number;
 }> {
   try {
-    console.log('🎤 Trying improved Whisper fallback...');
-    
-    const formData = new FormData();
-    formData.append('audio', audioFile);
+    const MIN_BYTES = audioFile.type.includes('wav') ? 8192 : 1024;
+    if (audioFile.size <= MIN_BYTES) return { success: false };
 
-    // ✅ CONSTRUÇÃO CORRETA DA URL
-    const baseUrl = typeof window !== 'undefined' 
-      ? '' 
-      : process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL.replace(/-[a-z0-9]+\.vercel\.app$/, '.vercel.app')}` 
-        : 'http://localhost:3000';
-
-    const apiUrl = `${baseUrl}/api/transcribe`;
-    
-    console.log('🌐 Whisper fallback URL:', apiUrl);
-    
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      body: formData,
+    const transcription = await openai.audio.transcriptions.create({
+      file: audioFile,
+      model: 'whisper-1',
+      language: 'en',
+      response_format: 'verbose_json',
+      temperature: 0.2,
+      prompt: 'Transcribe exactly what was said, word for word, without correcting or improving the speech.',
     });
 
-    if (!response.ok) {
-      console.error('❌ Whisper API failed:', response.status, response.statusText);
-      return { success: false };
-    }
-
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('❌ Whisper API returned non-JSON response');
-      return { success: false };
-    }
-
-    const data = await response.json();
-
-    if (data.success && data.transcription?.trim()) {
-      console.log('✅ Whisper fallback successful:', data.transcription);
-      return {
-        success: true,
-        text: data.transcription.trim(),
-        confidence: 0.6
-      };
-    }
-
-    console.log('⚠️ Whisper fallback failed:', data.error);
+    const text = transcription.text?.trim();
+    if (text) return { success: true, text, confidence: 0.6 };
     return { success: false };
-    
   } catch (error) {
     console.error('❌ Whisper fallback failed:', error);
     return { success: false };
