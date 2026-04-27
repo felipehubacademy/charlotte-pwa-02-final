@@ -13,7 +13,7 @@ interface User {
   subscription_status: 'none' | 'trial' | 'active' | 'expired' | 'cancelled';
   trial_ends_at: string | null; must_change_password: boolean; created_at: string;
   engagement: Engagement | null; trailProgress: TrailProgress | null;
-  streak: number; longestStreak: number;
+  streak: number; longestStreak: number; beta_features: string[];
 }
 interface Stats {
   total: number; institutional: number; subscribers: number; onTrial: number;
@@ -23,6 +23,7 @@ interface Form {
   email: string; password: string; name: string; charlotte_level: string;
   is_institutional: boolean; is_active: boolean; subscription_status: string;
   must_change_password: boolean; placement_test_done: boolean;
+  beta_karaoke: boolean;
 }
 
 type SortKey = 'name' | 'level' | 'created_at' | 'xp' | 'lastActive' | 'lessons' | 'topics' | 'streak';
@@ -93,7 +94,7 @@ const EMPTY_FORM: Form = {
   email: '', password: '', name: '', charlotte_level: '',
   is_institutional: false, is_active: true,
   subscription_status: 'none', must_change_password: false,
-  placement_test_done: false,
+  placement_test_done: false, beta_karaoke: false,
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -185,6 +186,7 @@ export default function AdminUsersPage() {
       subscription_status: u.subscription_status,
       must_change_password: u.must_change_password,
       placement_test_done: u.placement_test_done,
+      beta_karaoke: (u.beta_features ?? []).includes('karaoke'),
     });
     setFormErr(''); setModal('edit');
   };
@@ -220,6 +222,9 @@ export default function AdminUsersPage() {
     if (!selected) return;
     setSaving(true); setFormErr('');
     try {
+      const betaFeatures = [
+        ...(form.beta_karaoke ? ['karaoke'] : []),
+      ];
       const body: any = {
         id: selected.id, name: form.name || null,
         charlotte_level: form.charlotte_level || null,
@@ -227,6 +232,7 @@ export default function AdminUsersPage() {
         subscription_status: form.is_institutional ? 'none' : form.subscription_status,
         must_change_password: form.must_change_password,
         placement_test_done: form.placement_test_done,
+        beta_features: betaFeatures,
       };
       if (form.email !== selected.email) body.email = form.email;
       const res = await fetch('/api/admin/users', {
@@ -535,10 +541,11 @@ export default function AdminUsersPage() {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {([
-                      { key: 'is_active',          label: 'Conta ativa' },
-                      { key: 'is_institutional',   label: 'Usuário institucional' },
-                      { key: 'placement_test_done',label: 'Placement test concluído' },
-                      { key: 'must_change_password',label: 'Forçar troca de senha no próximo login' },
+                      { key: 'is_active',           label: 'Conta ativa' },
+                      { key: 'is_institutional',    label: 'Usuário institucional' },
+                      { key: 'placement_test_done', label: 'Placement test concluído' },
+                      { key: 'must_change_password', label: 'Forçar troca de senha no próximo login' },
+                      { key: 'beta_karaoke',        label: 'Beta: Karaoke (Read Aloud)' },
                     ] as { key: keyof Form; label: string }[]).map(({ key, label }) => (
                       <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5, color: 'var(--t2)' }}>
                         <div

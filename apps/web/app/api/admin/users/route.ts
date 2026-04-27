@@ -231,7 +231,7 @@ export async function PATCH(req: NextRequest) {
   const allowed = [
     'name', 'email', 'charlotte_level', 'is_institutional',
     'is_active', 'subscription_status', 'trial_ends_at',
-    'must_change_password', 'placement_test_done',
+    'must_change_password', 'placement_test_done', 'beta_features',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {
