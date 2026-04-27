@@ -524,6 +524,14 @@ export default function ConfiguracoesScreen() {
           }}
           chevron
         />
+        <SettingRow
+          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+          label={isPt ? 'Refazer tour do Meu Vocabulário' : 'Replay My Vocabulary tour'}
+          onPress={async () => {
+            await resetTour('my-vocabulary');
+          }}
+          chevron
+        />
 
         {/* Legal */}
         <SectionTitle label="Legal" />
