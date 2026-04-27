@@ -292,14 +292,14 @@ export default function KaraokeExerciseScreen() {
       const metering = recorder.getMeteringLevel();
 
       if (metering !== undefined && metering !== null) {
-        if (!hasSpeechRef.current && metering > -28) {
+        if (!hasSpeechRef.current && metering > -25) {
           hasSpeechRef.current    = true;
           silenceStartRef.current = null;
         }
         if (hasSpeechRef.current) {
-          if (metering < -38) {
+          if (metering < -35) {
             if (!silenceStartRef.current) silenceStartRef.current = Date.now();
-            if (Date.now() - silenceStartRef.current >= 900 && elapsed >= 1200) {
+            if (Date.now() - silenceStartRef.current >= 450 && elapsed >= 700) {
               clearInterval(silencePollRef.current!);
               silencePollRef.current = null;
               if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
@@ -311,15 +311,17 @@ export default function KaraokeExerciseScreen() {
           }
         }
       }
-    }, 150);
+    }, 100);
 
-    // Safety cap — stops even without silence detection (no metering or very long speech)
+    // Safety cap proporcional ao número de palavras do chunk
+    const wordCount = exercise.chunks[idx]?.words.length ?? 4;
+    const safetyCap = Math.max(2500, wordCount * 700 + 800);
     if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
     safetyTimerRef.current = setTimeout(() => {
       safetyTimerRef.current = null;
       if (silencePollRef.current) { clearInterval(silencePollRef.current); silencePollRef.current = null; }
       scoreChunkRef.current(idx);
-    }, 9000);
+    }, safetyCap);
   }, [recorder, micPulse, patchChunk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Score chunk ──────────────────────────────────────────────
