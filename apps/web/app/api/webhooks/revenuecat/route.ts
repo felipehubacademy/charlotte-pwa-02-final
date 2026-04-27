@@ -81,6 +81,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, action: 'ignored', eventType });
   }
 
+  // ── Ignorar usuários institucionais — assinatura gerenciada manualmente ──
+  const { data: userRow } = await supabase
+    .from('charlotte_users')
+    .select('is_institutional')
+    .eq('id', appUserId)
+    .maybeSingle();
+
+  if (userRow?.is_institutional) {
+    console.log(`[RC webhook] Skipped institutional user ${appUserId} (${eventType})`);
+    return NextResponse.json({ received: true, action: 'skipped_institutional', eventType });
+  }
+
   // ── Update Supabase ───────────────────────────────────────────────────────
   const { error } = await supabase
     .from('charlotte_users')
