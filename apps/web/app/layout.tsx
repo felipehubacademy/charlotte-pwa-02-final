@@ -100,17 +100,7 @@ export default function RootLayout({
         <link rel="icon" href="/icons/icon-512x512.png" sizes="512x512" type="image/png" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         
-        {/* 🌐 Open Graph adicional */}
-        <meta property="og:image" content="/images/og-image.png" />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta property="og:image:alt" content="Charlotte - AI English Learning Assistant" />
-        
-        {/* 🐦 Twitter Card adicional */}
-        <meta name="twitter:image" content="/images/og-image.png" />
-        <meta name="twitter:image:alt" content="Charlotte - AI English Learning Assistant" />
-        
-        {/* 🔍 SEO adicional */}
+        {/* SEO adicional */}
         <meta name="description" content="AI-powered English learning assistant with live voice conversations and personalized lessons" />
         <meta name="keywords" content="English learning, AI assistant, voice conversation, pronunciation, Hub Academy, Charlotte" />
         <meta name="author" content="Hub Academy" />
