@@ -133,6 +133,7 @@ function buildUserFromProfile(
     last_activity: (profile.last_activity as string) || new Date().toISOString(),
     created_at: (profile.created_at as string) || new Date().toISOString(),
     updated_at: (profile.updated_at as string) || new Date().toISOString(),
+    is_admin: (profile.is_admin as boolean) || false,
   };
 }
 

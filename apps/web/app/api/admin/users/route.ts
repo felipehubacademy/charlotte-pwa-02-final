@@ -170,6 +170,7 @@ export async function POST(req: NextRequest) {
     subscription_status   = 'none',
     must_change_password  = true,
     placement_test_done   = false,
+    is_admin              = false,
   } = body;
 
   if (!email || !password) {
@@ -199,6 +200,7 @@ export async function POST(req: NextRequest) {
       is_active,
       charlotte_level:      charlotte_level || null,
       subscription_status:  is_institutional ? 'none' : subscription_status,
+      is_admin,
     })
     .eq('id', userId);
 
@@ -232,6 +234,7 @@ export async function PATCH(req: NextRequest) {
     'name', 'email', 'charlotte_level', 'is_institutional',
     'is_active', 'subscription_status', 'trial_ends_at',
     'must_change_password', 'placement_test_done', 'beta_features',
+    'is_admin',
   ];
   const updates: Record<string, unknown> = {};
   for (const key of allowed) {

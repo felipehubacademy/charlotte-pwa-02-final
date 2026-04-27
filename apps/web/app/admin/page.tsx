@@ -14,6 +14,7 @@ interface User {
   trial_ends_at: string | null; must_change_password: boolean; created_at: string;
   engagement: Engagement | null; trailProgress: TrailProgress | null;
   streak: number; longestStreak: number; beta_features: string[];
+  is_admin: boolean;
 }
 interface Stats {
   total: number; institutional: number; subscribers: number; onTrial: number;
@@ -24,6 +25,7 @@ interface Form {
   is_institutional: boolean; is_active: boolean; subscription_status: string;
   must_change_password: boolean; placement_test_done: boolean;
   beta_karaoke: boolean;
+  is_admin: boolean;
 }
 
 type SortKey = 'name' | 'level' | 'created_at' | 'xp' | 'lastActive' | 'lessons' | 'topics' | 'streak';
@@ -94,7 +96,7 @@ const EMPTY_FORM: Form = {
   email: '', password: '', name: '', charlotte_level: '',
   is_institutional: false, is_active: true,
   subscription_status: 'none', must_change_password: false,
-  placement_test_done: false, beta_karaoke: false,
+  placement_test_done: false, beta_karaoke: false, is_admin: false,
 };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -187,6 +189,7 @@ export default function AdminUsersPage() {
       must_change_password: u.must_change_password,
       placement_test_done: u.placement_test_done,
       beta_karaoke: (u.beta_features ?? []).includes('karaoke'),
+      is_admin: u.is_admin ?? false,
     });
     setFormErr(''); setModal('edit');
   };
@@ -210,6 +213,7 @@ export default function AdminUsersPage() {
           subscription_status: form.is_institutional ? 'none' : form.subscription_status,
           must_change_password: form.must_change_password,
           placement_test_done: form.placement_test_done,
+          is_admin: form.is_admin,
         }),
       });
       if (!res.ok) { const j = await res.json(); throw new Error(j.error ?? `HTTP ${res.status}`); }
@@ -233,6 +237,7 @@ export default function AdminUsersPage() {
         must_change_password: form.must_change_password,
         placement_test_done: form.placement_test_done,
         beta_features: betaFeatures,
+        is_admin: form.is_admin,
       };
       if (form.email !== selected.email) body.email = form.email;
       const res = await fetch('/api/admin/users', {
@@ -546,6 +551,7 @@ export default function AdminUsersPage() {
                       { key: 'placement_test_done', label: 'Placement test concluído' },
                       { key: 'must_change_password', label: 'Forçar troca de senha no próximo login' },
                       { key: 'beta_karaoke',        label: 'Beta: Karaoke (Read Aloud)' },
+                      { key: 'is_admin',            label: 'Admin (tour replay + OTA)' },
                     ] as { key: keyof Form; label: string }[]).map(({ key, label }) => (
                       <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 13.5, color: 'var(--t2)' }}>
                         <div

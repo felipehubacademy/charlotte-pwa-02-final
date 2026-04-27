@@ -501,50 +501,54 @@ export default function ConfiguracoesScreen() {
           </>
         )}
 
-        {/* Tour */}
-        <SectionTitle label="Tour" />
-        <SettingRow
-          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
-          label={isPt ? 'Refazer tour da Home' : 'Replay Home tour'}
-          onPress={async () => {
-            await resetTour('HOME');
-            router.back();
-          }}
-          chevron
-        />
-        <SettingRow
-          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
-          label={isPt ? 'Refazer tour da Sessão de Aprendizado' : 'Replay Learn Session tour'}
-          onPress={async () => {
-            await resetTour('learn-session-grammar');
-            await resetTour('learn-session-pron');
-          }}
-          chevron
-        />
-        <SettingRow
-          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
-          label={isPt ? 'Refazer tour do Vocab Review' : 'Replay Vocab Review tour'}
-          onPress={async () => {
-            await resetTour('vocab-review');
-          }}
-          chevron
-        />
-        <SettingRow
-          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
-          label={isPt ? 'Refazer tour da Trilha' : 'Replay Learning Trail tour'}
-          onPress={async () => {
-            await resetTour('learn-trail');
-          }}
-          chevron
-        />
-        <SettingRow
-          icon={<Play size={18} color={C.navyMid} weight="duotone" />}
-          label={isPt ? 'Refazer tour do Meu Vocabulário' : 'Replay My Vocabulary tour'}
-          onPress={async () => {
-            await resetTour('my-vocabulary');
-          }}
-          chevron
-        />
+        {/* Tour — admin only */}
+        {profile?.is_admin && (
+          <>
+            <SectionTitle label="Tour" />
+            <SettingRow
+              icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+              label={isPt ? 'Refazer tour da Home' : 'Replay Home tour'}
+              onPress={async () => {
+                await resetTour('HOME');
+                router.back();
+              }}
+              chevron
+            />
+            <SettingRow
+              icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+              label={isPt ? 'Refazer tour da Sessão de Aprendizado' : 'Replay Learn Session tour'}
+              onPress={async () => {
+                await resetTour('learn-session-grammar');
+                await resetTour('learn-session-pron');
+              }}
+              chevron
+            />
+            <SettingRow
+              icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+              label={isPt ? 'Refazer tour do Vocab Review' : 'Replay Vocab Review tour'}
+              onPress={async () => {
+                await resetTour('vocab-review');
+              }}
+              chevron
+            />
+            <SettingRow
+              icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+              label={isPt ? 'Refazer tour da Trilha' : 'Replay Learning Trail tour'}
+              onPress={async () => {
+                await resetTour('learn-trail');
+              }}
+              chevron
+            />
+            <SettingRow
+              icon={<Play size={18} color={C.navyMid} weight="duotone" />}
+              label={isPt ? 'Refazer tour do Meu Vocabulário' : 'Replay My Vocabulary tour'}
+              onPress={async () => {
+                await resetTour('my-vocabulary');
+              }}
+              chevron
+            />
+          </>
+        )}
 
         {/* Legal */}
         <SectionTitle label="Legal" />
@@ -597,9 +601,11 @@ export default function ConfiguracoesScreen() {
           <AppText style={{ fontSize: 11, color: C.navyLight, letterSpacing: 0.2 }}>
             {`Charlotte AI v${Constants.expoConfig?.version ?? '—'} · ${Platform.OS} · ${Updates.runtimeVersion ?? '1.0.0'}`}
           </AppText>
-          <AppText style={{ fontSize: 10, color: C.navyLight, opacity: 0.6, letterSpacing: 0.2 }}>
-            {`OTA: ${Updates.updateId ? Updates.updateId.slice(0, 8) : 'embedded'}`}
-          </AppText>
+          {profile?.is_admin && (
+            <AppText style={{ fontSize: 10, color: C.navyLight, opacity: 0.6, letterSpacing: 0.2 }}>
+              {`OTA: ${Updates.updateId ? Updates.updateId.slice(0, 8) : 'embedded'}`}
+            </AppText>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

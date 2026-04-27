@@ -12,6 +12,7 @@ export interface User {
   last_activity: string;
   created_at: string;
   updated_at: string;
+  is_admin?: boolean;
 }
 
 // Only create Supabase client if we have valid credentials
