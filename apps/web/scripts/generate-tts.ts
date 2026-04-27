@@ -17,9 +17,9 @@ dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { CURRICULUM } = require('../charlotte-rn/data/curriculum') as typeof import('../charlotte-rn/data/curriculum');
+const { CURRICULUM } = require('../../mobile/data/curriculum') as typeof import('../../mobile/data/curriculum');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { MODULE_INTROS } = require('../charlotte-rn/data/moduleIntros') as typeof import('../charlotte-rn/data/moduleIntros');
+const { MODULE_INTROS } = require('../../mobile/data/moduleIntros') as typeof import('../../mobile/data/moduleIntros');
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 // Rachel — clear American English, excellent for language teaching
@@ -172,6 +172,39 @@ async function main() {
     await new Promise(r => setTimeout(r, 600));
   }
   console.log(`\nIntro slides: Generated ${igen}  Skipped ${iskip}  Failed ${ifail}`);
+
+  // ── 3. Karaoke exercise chunks (with-timestamps) ───────────
+  const karaokeChunks = [
+    'Every morning',
+    'I wake up',
+    'at seven',
+    'After months of working overtime',
+    'she finally decided',
+    'to hand in her resignation',
+    'He kept telling himself',
+    'he just needed more time to adjust',
+    'but deep down he knew',
+    'something had to change',
+  ];
+
+  console.log(`\nFound ${karaokeChunks.length} karaoke chunks.\n`);
+  let kgen = 0, kskip = 0, kfail = 0;
+
+  for (const text of karaokeChunks) {
+    const key  = ttsKey(text);
+    const mp3  = path.join(outDir, `${key}.mp3`);
+    const json = path.join(outDir, `${key}.json`);
+    if (fs.existsSync(mp3) && fs.existsSync(json)) { kskip++; process.stdout.write('.'); continue; }
+    try {
+      process.stdout.write(`\n  [karaoke] ${text}… `);
+      const { buffer, words } = await generateAudioWithTimings(text);
+      fs.writeFileSync(mp3, buffer);
+      fs.writeFileSync(json, JSON.stringify(words));
+      kgen++; console.log('✓');
+    } catch (e: any) { kfail++; console.log(`✗  ${e?.message ?? e}`); }
+    await new Promise(r => setTimeout(r, 600));
+  }
+  console.log(`\nKaraoke chunks: Generated ${kgen}  Skipped ${kskip}  Failed ${kfail}`);
   console.log(`\nFiles saved to: ${outDir}`);
 }
 
