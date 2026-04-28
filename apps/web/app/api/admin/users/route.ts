@@ -29,7 +29,7 @@ interface LearnProgress {
 }
 type TrailLevelKey = 'novice' | 'inter' | 'advanced';
 interface UserProgress {
-  user_id: string; streak_days: number | null; longest_streak: number | null;
+  user_id: string; streak_days: number | null;
 }
 
 function checkAuth(req: NextRequest) {
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     supabase.from('charlotte_users').select('*').order('created_at', { ascending: false }) as unknown as Promise<{ data: CharlotteUser[] | null; error: { message: string } | null }>,
     supabase.from('charlotte_practices').select('user_id, xp_earned, practice_type, created_at') as unknown as Promise<{ data: Practice[] | null; error: unknown }>,
     supabase.from('learn_progress').select('user_id, completed, module_index, topic_index, level') as unknown as Promise<{ data: LearnProgress[] | null; error: unknown }>,
-    supabase.from('user_progress').select('user_id, streak_days, longest_streak') as unknown as Promise<{ data: UserProgress[] | null; error: unknown }>,
+    supabase.from('charlotte_progress').select('user_id, streak_days') as unknown as Promise<{ data: UserProgress[] | null; error: unknown }>,
   ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -96,14 +96,10 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Streak map ────────────────────────────────────────────────────────────
-  type StreakMap = Record<string, { streak: number; longestStreak: number }>;
+  type StreakMap = Record<string, number>;
   const streakMap: StreakMap = {};
   for (const up of (userProgress ?? [])) {
-    const uid = String(up.user_id).toLowerCase();
-    streakMap[uid] = {
-      streak:        up.streak_days        ?? 0,
-      longestStreak: up.longest_streak     ?? 0,
-    };
+    streakMap[String(up.user_id).toLowerCase()] = up.streak_days ?? 0;
   }
 
   // ── Attach engagement to each user ───────────────────────────────────────
@@ -122,8 +118,8 @@ export async function GET(req: NextRequest) {
         messageCount: e.messageCount,
       } : null,
       trailProgress: p ?? null,
-      streak:        s?.streak        ?? 0,
-      longestStreak: s?.longestStreak ?? 0,
+      streak:        streakMap[uid] ?? 0,
+      longestStreak: 0,
     };
   });
 

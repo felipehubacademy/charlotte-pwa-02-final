@@ -28,7 +28,7 @@ interface Form {
   is_admin: boolean;
 }
 
-type SortKey = 'name' | 'level' | 'created_at' | 'xp' | 'lastActive' | 'lessons' | 'topics' | 'streak';
+type SortKey = 'name' | 'level' | 'created_at' | 'xp' | 'lastActive' | 'topics' | 'streak';
 type FilterKey = 'all' | 'institutional' | 'subscriber' | 'trial' | 'none';
 type ModalMode = 'create' | 'edit' | 'delete' | null;
 
@@ -162,7 +162,6 @@ export default function AdminUsersPage() {
         case 'created_at': av = a.created_at; bv = b.created_at; break;
         case 'xp': av = a.engagement?.totalXP ?? -1; bv = b.engagement?.totalXP ?? -1; break;
         case 'lastActive': av = a.engagement?.lastActive ?? ''; bv = b.engagement?.lastActive ?? ''; break;
-        case 'lessons': av = a.engagement?.lessonCount ?? -1; bv = b.engagement?.lessonCount ?? -1; break;
         case 'topics': {
           const sum = (p: TrailProgress | null) => p ? p.novice + p.inter + p.advanced : -1;
           av = sum(a.trailProgress); bv = sum(b.trailProgress); break;
@@ -365,7 +364,6 @@ export default function AdminUsersPage() {
                     <SortTh label="XP"            sk="xp"         sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortTh label="Streak"        sk="streak"     sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortTh label="Ativo"         sk="lastActive" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
-                    <SortTh label="Aulas"         sk="lessons"    sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortTh label="Tópicos"       sk="topics"     sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <SortTh label="Criado"        sk="created_at" sortKey={sortKey} sortDir={sortDir} onSort={onSort} />
                     <th />
@@ -374,7 +372,7 @@ export default function AdminUsersPage() {
                 <tbody>
                   {pageUsers.length === 0 ? (
                     <tr>
-                      <td colSpan={10}>
+                      <td colSpan={9}>
                         <div className="adm-empty">
                           <div className="adm-empty-title">Nenhum usuário encontrado</div>
                           <div className="adm-empty-sub">Tente ajustar os filtros ou a busca.</div>
@@ -402,7 +400,6 @@ export default function AdminUsersPage() {
                           <span className="num">{u.streak > 0 ? `🔥 ${u.streak}` : '—'}</span>
                         </td>
                         <td><span style={{ fontSize: 12, color: 'var(--t2)' }}>{timeAgo(u.engagement?.lastActive ?? null)}</span></td>
-                        <td><span className="num">{u.engagement?.lessonCount ?? '—'}</span></td>
                         <td>
                           {u.trailProgress ? (
                             <span className="num" style={{ fontSize: 11.5, letterSpacing: 0 }}>
