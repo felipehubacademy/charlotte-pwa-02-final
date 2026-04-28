@@ -103,11 +103,12 @@ function getWeekSeed(): number {
 export function getWeeklyChallenge(
   weeklyMessages: number,
   weeklyXP: number,
-  streakDays: number,
+  _streakDays: number,
   weeklyLessons: number,
   weeklyAudios: number,
   weeklyGrammarMessages: number = 0,
   userLevel: UserLevel = 'Inter',
+  weeklyActiveDays: number = 0,
 ): WeeklyChallengeState {
   const seed = getWeekSeed();
   // Filter pool to only challenges available for this level
@@ -121,7 +122,7 @@ export function getWeeklyChallenge(
   switch (challenge.id) {
     case 'messages_50':  current = weeklyMessages; break;
     case 'xp_500':       current = weeklyXP; break;
-    case 'streak_5':     current = streakDays; break;
+    case 'streak_5':     current = weeklyActiveDays; break;
     case 'lessons_5':    current = weeklyLessons; break;
     case 'audio_10':     current = weeklyAudios; break;
     case 'grammar_20':   current = weeklyGrammarMessages; break;
@@ -145,22 +146,25 @@ export async function fetchWeeklyData(userId: string): Promise<{
   weeklyLessons: number;
   weeklyAudios: number;
   weeklyGrammarMessages: number;
+  weeklyActiveDays: number;
 }> {
   // localWeekStartISO() retorna meia-noite da segunda-feira no fuso local,
   // convertida para UTC — correto para qualquer país.
   const { data, error } = await supabase
     .from('charlotte_practices')
-    .select('practice_type, xp_earned')
+    .select('practice_type, xp_earned, created_at')
     .eq('user_id', userId)
     .gte('created_at', localWeekStartISO());
 
-  if (error || !data) return { weeklyMessages: 0, weeklyXP: 0, weeklyLessons: 0, weeklyAudios: 0, weeklyGrammarMessages: 0 };
+  if (error || !data) return { weeklyMessages: 0, weeklyXP: 0, weeklyLessons: 0, weeklyAudios: 0, weeklyGrammarMessages: 0, weeklyActiveDays: 0 };
 
   const weeklyMessages        = data.filter(p => ['text_message', 'audio_message'].includes(p.practice_type)).length;
   const weeklyXP              = data.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
   const weeklyLessons         = data.filter(p => p.practice_type === 'learn_exercise').length;
   const weeklyAudios          = data.filter(p => p.practice_type === 'audio_message').length;
   const weeklyGrammarMessages = data.filter(p => p.practice_type === 'grammar_message').length;
+  // Dias distintos com pelo menos uma prática nesta semana (sempre cresce, nunca regride)
+  const weeklyActiveDays      = new Set(data.map(p => (p.created_at as string).slice(0, 10))).size;
 
-  return { weeklyMessages, weeklyXP, weeklyLessons, weeklyAudios, weeklyGrammarMessages };
+  return { weeklyMessages, weeklyXP, weeklyLessons, weeklyAudios, weeklyGrammarMessages, weeklyActiveDays };
 }

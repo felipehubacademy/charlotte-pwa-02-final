@@ -54,7 +54,7 @@ import { useTour } from '@/lib/tourContext';
 import { getPendingReviews, ReviewItem } from '@/lib/spacedRepetition';
 import { VocabFAB } from '@/components/vocabulary/VocabFAB';
 import { getWeeklyChallenge, fetchWeeklyData, WeeklyChallengeState } from '@/lib/weeklyChallenge';
-import { localMidnightUTC } from '@/lib/dateUtils';
+import { localMidnightUTC, localTodayStr } from '@/lib/dateUtils';
 import { HomeData, Mission, buildMissions } from '@/lib/missions';
 import { greetingCache, resetGreetingCache } from '@/lib/greetingCache';
 
@@ -130,7 +130,7 @@ const CHAT_UNLOCK_XP   = 2800; // modulo 8 completo @ 80% — 35 topics
 function charlotteMessage(firstName: string, streak: number, todayXP: number, isPortuguese = false): string {
   const now   = new Date();
   const h     = now.getHours();
-  const seed  = Math.floor(now.getTime() / 86400000); // stable within the same day
+  const seed  = localTodayStr().split('-').reduce((acc, p) => acc * 100 + parseInt(p, 10), 0);
   const hi    = h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
 
   if (isPortuguese) {
@@ -857,7 +857,7 @@ export default function HomeScreen() {
       const state = getWeeklyChallenge(
         weekly.weeklyMessages, weekly.weeklyXP,
         data?.streakDays ?? 0, weekly.weeklyLessons, weekly.weeklyAudios,
-        weekly.weeklyGrammarMessages, level,
+        weekly.weeklyGrammarMessages, level, weekly.weeklyActiveDays,
       );
 
       // ── Weekly challenge completion celebration & XP credit ───────────────
@@ -1017,7 +1017,7 @@ export default function HomeScreen() {
   const rank         = data?.rank;
   const levelNum     = getLevel(totalXP);
   const firstName    = (name.split(' ')[0] ?? name);
-  const daySeed      = Math.floor(Date.now() / 86400000);
+  const daySeed      = localTodayStr().split('-').reduce((acc, p) => acc * 100 + parseInt(p, 10), 0);
   const tip          = getTip(level, daySeed);
 
   const isPortuguese    = level === 'Novice';

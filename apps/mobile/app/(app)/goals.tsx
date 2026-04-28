@@ -205,6 +205,7 @@ export default function GoalsScreen() {
         weeklyRaw.weeklyAudios,
         weeklyRaw.weeklyGrammarMessages,
         level,
+        weeklyRaw.weeklyActiveDays,
       ));
     } catch (e) {
       console.warn('[Goals] fetch error:', e);
