@@ -179,6 +179,18 @@ export async function POST(req: NextRequest) {
 
   const supabase = getSupabaseAdmin();
 
+  // Profile fields shared between create and "already exists" update paths
+  const profileFields = {
+    name:                name || null,
+    is_institutional,
+    must_change_password,
+    placement_test_done,
+    is_active,
+    subscription_status: is_institutional ? 'none' : subscription_status,
+    is_admin,
+    ...(charlotte_level ? { charlotte_level } : {}),
+  };
+
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
@@ -186,22 +198,87 @@ export async function POST(req: NextRequest) {
     user_metadata: { name: name || null, is_institutional },
   });
 
-  if (authError) return NextResponse.json({ error: authError.message }, { status: 400 });
+  if (authError) {
+    // ── Usuário já existe no auth.users — tentar atualizar perfil ─────────────
+    const alreadyExists =
+      /already registered|already been registered/i.test(authError.message ?? '');
+
+    if (!alreadyExists) {
+      return NextResponse.json({ error: authError.message }, { status: 400 });
+    }
+
+    // 1. Busca UUID em charlotte_users pelo email (caminho mais rápido)
+    const { data: existingProfile } = await supabase
+      .from('charlotte_users')
+      .select('id')
+      .ilike('email', email)
+      .maybeSingle();
+
+    let userId: string | undefined = existingProfile?.id as string | undefined;
+
+    // 2. Fallback: busca na tabela users legada (PWA antigo)
+    if (!userId) {
+      const { data: legacyUser } = await supabase
+        .from('users')
+        .select('id')
+        .ilike('email', email)
+        .maybeSingle();
+      userId = legacyUser?.id as string | undefined;
+    }
+
+    // 3. Último recurso: Management REST API do auth
+    if (!userId) {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}&per_page=1`,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+            apikey: process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          },
+        },
+      );
+      const json = await res.json();
+      userId = (json?.users?.[0]?.id) as string | undefined;
+    }
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Usuário já registrado mas UUID não encontrado. Verifique no Supabase.' },
+        { status: 409 },
+      );
+    }
+
+    // Upsert charlotte_users — cria se não existir, atualiza se existir
+    const { error: upsertErr } = await supabase
+      .from('charlotte_users')
+      .upsert(
+        { id: userId, email, charlotte_level: charlotte_level || 'Novice', ...profileFields },
+        { onConflict: 'id' },
+      );
+
+    if (upsertErr) return NextResponse.json({ error: upsertErr.message }, { status: 500 });
+
+    // Atualiza senha e confirma email no auth.users
+    await supabase.auth.admin.updateUserById(userId, {
+      password,
+      email,
+      email_confirm: true,
+    });
+
+    // Envia email de convite
+    if (email && name) {
+      const { subject, html } = inviteTemplate({ name, email, tempPassword: password });
+      sendEmail({ to: email, subject, html }).catch(() => {});
+    }
+
+    return NextResponse.json({ success: true, userId, note: 'existing_user_updated' });
+  }
 
   const userId = authData.user.id;
 
   const { error: profileError } = await supabase
     .from('charlotte_users')
-    .update({
-      name:                 name || null,
-      is_institutional,
-      must_change_password,
-      placement_test_done,
-      is_active,
-      charlotte_level:      charlotte_level || null,
-      subscription_status:  is_institutional ? 'none' : subscription_status,
-      is_admin,
-    })
+    .update(profileFields)
     .eq('id', userId);
 
   if (profileError) {
