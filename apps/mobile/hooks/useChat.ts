@@ -26,11 +26,18 @@ function delay(ms: number) {
 }
 
 /** Persist a practice event to charlotte_practices (fires DB trigger → charlotte_progress + charlotte_leaderboard_cache). */
+// Debounce guard: evita duplicata por duplo tap. Chave = userId+type, janela = 1500ms.
+const _lastSaved: Record<string, number> = {};
 async function savePractice(
   userId: string,
   practiceType: 'text_message' | 'audio_message' | 'grammar_message',
   xpEarned: number,
 ): Promise<void> {
+  const key = `${userId}:${practiceType}`;
+  const now = Date.now();
+  if (_lastSaved[key] && now - _lastSaved[key] < 1500) return;
+  _lastSaved[key] = now;
+
   const { error } = await supabase.from('charlotte_practices').insert({
     user_id:       userId,
     practice_type: practiceType,
@@ -549,8 +556,9 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         }
 
         // ── 4. Charlotte feedback — TEXT only in pronunciation mode ──
-        const { feedback, xpAwarded } =
-          await getAssistantResponse(transcription, 'audio', pronunciationData);
+        const pronunciationResult = await getAssistantResponse(transcription, 'audio', pronunciationData);
+        if (!pronunciationResult) return;
+        const { feedback, xpAwarded } = pronunciationResult;
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 
@@ -752,8 +760,9 @@ export function useChat({ userLevel, userName, userId, mode = 'chat' }: UseChatO
         // Save transcription as user message in chat history
         saveChatMessage(userId, 'user', transcription, mode);
 
-        const { feedback, technicalFeedback, xpAwarded, vocabularySuggestions } =
-          await getAssistantResponse(transcription, 'audio');
+        const audioResult = await getAssistantResponse(transcription, 'audio');
+        if (!audioResult) return;
+        const { feedback, technicalFeedback, xpAwarded, vocabularySuggestions } = audioResult;
 
         contextManagerRef.current.addMessage('assistant', feedback, 'text');
 

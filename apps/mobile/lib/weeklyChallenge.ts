@@ -148,23 +148,35 @@ export async function fetchWeeklyData(userId: string): Promise<{
   weeklyGrammarMessages: number;
   weeklyActiveDays: number;
 }> {
-  // localWeekStartISO() retorna meia-noite da segunda-feira no fuso local,
-  // convertida para UTC — correto para qualquer país.
-  const { data, error } = await supabase
-    .from('charlotte_practices')
-    .select('practice_type, xp_earned, created_at')
-    .eq('user_id', userId)
-    .gte('created_at', localWeekStartISO());
+  const weekStart = localWeekStartISO();
+
+  // Práticas de chat + XP + dias ativos
+  const [{ data, error }, { data: historyData }] = await Promise.all([
+    supabase
+      .from('charlotte_practices')
+      .select('practice_type, xp_earned, created_at')
+      .eq('user_id', userId)
+      .gte('created_at', weekStart),
+    // Exercícios únicos da trilha — 1 por (module, topic, exercise_type) por semana
+    supabase
+      .from('learn_history')
+      .select('module_index, topic_index, exercise_type')
+      .eq('user_id', userId)
+      .gte('answered_at', weekStart),
+  ]);
 
   if (error || !data) return { weeklyMessages: 0, weeklyXP: 0, weeklyLessons: 0, weeklyAudios: 0, weeklyGrammarMessages: 0, weeklyActiveDays: 0 };
 
   const weeklyMessages        = data.filter(p => ['text_message', 'audio_message'].includes(p.practice_type)).length;
   const weeklyXP              = data.reduce((s, p) => s + (p.xp_earned ?? 0), 0);
-  const weeklyLessons         = data.filter(p => p.practice_type === 'learn_exercise').length;
   const weeklyAudios          = data.filter(p => p.practice_type === 'audio_message').length;
   const weeklyGrammarMessages = data.filter(p => p.practice_type === 'grammar_message').length;
   // Dias distintos com pelo menos uma prática nesta semana (sempre cresce, nunca regride)
   const weeklyActiveDays      = new Set(data.map(p => (p.created_at as string).slice(0, 10))).size;
+  // Exercícios únicos na trilha — cada (module, topic, exerciseType) conta 1x por semana
+  const weeklyLessons         = new Set(
+    (historyData ?? []).map(h => `${h.module_index}_${h.topic_index}_${h.exercise_type}`)
+  ).size;
 
   return { weeklyMessages, weeklyXP, weeklyLessons, weeklyAudios, weeklyGrammarMessages, weeklyActiveDays };
 }
