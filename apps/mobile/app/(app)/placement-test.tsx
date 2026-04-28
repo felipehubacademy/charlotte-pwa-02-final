@@ -850,23 +850,21 @@ function IntroScreen({ firstName, onStart, onSkip }: { firstName: string; onStar
             activeOpacity={0.85}
             style={{
               backgroundColor: C.green, borderRadius: 16,
-              paddingVertical: 17, width: '100%',
-              flexDirection: 'row', alignItems: 'center',
-              justifyContent: 'center', gap: 8,
+              paddingTop: 28, paddingBottom: 18, width: '100%',
+              alignItems: 'center', justifyContent: 'center',
             }}
           >
             {/* Badge RECOMENDADO — canto superior direito */}
             <View style={{
-              position: 'absolute', top: 7, right: 10,
+              position: 'absolute', top: 8, right: 12,
               backgroundColor: 'rgba(22,21,58,0.12)',
-              borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2,
+              borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3,
             }}>
               <AppText style={{ fontSize: 9, fontWeight: '800', color: C.navy, letterSpacing: 0.6 }}>
                 RECOMENDADO
               </AppText>
             </View>
             <AppText style={{ fontSize: 16, fontWeight: '800', color: C.navy }}>Descobrir meu nível</AppText>
-            <ArrowRight size={18} color={C.navy} weight="bold" />
           </TouchableOpacity>
 
           {/* Secundário — começar do zero */}
