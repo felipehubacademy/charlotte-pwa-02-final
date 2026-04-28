@@ -567,7 +567,7 @@ export default function KaraokeExerciseScreen() {
               borderRadius: 20,
               paddingHorizontal: 16,
               paddingVertical: 7,
-              marginBottom: 14,
+              marginBottom: 24,
             }}
           >
             <AppText style={{ fontSize: 12, fontWeight: '700', color: C.white, letterSpacing: 0.6 }}>
