@@ -850,17 +850,18 @@ function IntroScreen({ firstName, onStart, onSkip }: { firstName: string; onStar
             activeOpacity={0.85}
             style={{
               backgroundColor: C.green, borderRadius: 16,
-              paddingTop: 28, paddingBottom: 18, width: '100%',
+              paddingVertical: 18, width: '100%',
               alignItems: 'center', justifyContent: 'center',
+              overflow: 'visible',
             }}
           >
-            {/* Badge RECOMENDADO — canto superior direito */}
+            {/* Badge RECOMENDADO — vaza fora do botão no canto superior direito */}
             <View style={{
-              position: 'absolute', top: 8, right: 12,
-              backgroundColor: 'rgba(22,21,58,0.12)',
-              borderRadius: 5, paddingHorizontal: 6, paddingVertical: 3,
+              position: 'absolute', top: -13, right: 10,
+              backgroundColor: C.navy,
+              borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4,
             }}>
-              <AppText style={{ fontSize: 9, fontWeight: '800', color: C.navy, letterSpacing: 0.6 }}>
+              <AppText style={{ fontSize: 10, fontWeight: '800', color: C.green, letterSpacing: 0.6 }}>
                 RECOMENDADO
               </AppText>
             </View>
