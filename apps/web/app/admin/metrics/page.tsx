@@ -18,6 +18,7 @@ interface MetricsResponse {
     byEndpoint: Array<{ endpoint: string; cost: number; calls: number; tokens: number }>;
     byModel: Array<{ model: string; cost: number; calls: number; tokens: number }>;
     topUsers: Array<{ userId: string; email: string | null; name: string | null; cost: number }>;
+    systemCosts: Array<{ label: string; cost: number }>;
     timeseries: Array<{ date: string; cost: number }>;
   };
   mrrHealth: {
@@ -680,6 +681,27 @@ export default function MetricsPage() {
                         <td>{u.name ?? <span style={{ color: 'var(--t3)' }}>—</span>}</td>
                         <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{u.email ?? '—'}</span></td>
                         <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtUSD(u.cost)}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {(g.openai.systemCosts ?? []).length > 0 && (
+            <div className="col-12">
+              <div className="adm-panel">
+                <div className="adm-panel-hdr">
+                  <span className="adm-panel-title">Custo do Sistema</span>
+                  <span className="adm-panel-sub">infra, scheduler, cache</span>
+                </div>
+                <table className="adm-table">
+                  <thead><tr><th>Componente</th><th style={{ textAlign: 'right' }}>Custo</th></tr></thead>
+                  <tbody>
+                    {(g.openai.systemCosts ?? []).map(s => (
+                      <tr key={s.label}>
+                        <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{s.label}</span></td>
+                        <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--t3)' }}>{fmtUSD(s.cost)}</span></td>
                       </tr>
                     ))}
                   </tbody>

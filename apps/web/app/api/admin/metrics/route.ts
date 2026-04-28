@@ -271,23 +271,28 @@ export async function GET(req: NextRequest) {
     .map(([model, v]) => ({ model, ...v, cost: round6(v.cost) }))
     .sort((a, b) => b.cost - a.cost);
 
-  // Top 10 users por custo
-  const costByUser: Record<string, number> = {};
+  // Top 10 users por custo — separa custos do sistema de custos de usuarios reais
+  const SYSTEM_IDS = new Set(['system:scheduler', 'system:tts-cache', 'anonymous']);
+  const SYSTEM_LABELS: Record<string, string> = {
+    'system:scheduler': 'Notificacoes (scheduler)',
+    'system:tts-cache': 'TTS Cache (vocabulario)',
+    'anonymous':        'Sem usuario (bug)',
+  };
+
+  const costByUser: Record<string, number>   = {};
+  const costBySystem: Record<string, number> = {};
   for (const r of usageRows) {
     const uid = r.user_id ?? 'anonymous';
-    costByUser[uid] = (costByUser[uid] ?? 0) + Number(r.cost_usd || 0);
+    if (SYSTEM_IDS.has(uid) || uid.startsWith('system:')) {
+      costBySystem[uid] = (costBySystem[uid] ?? 0) + Number(r.cost_usd || 0);
+    } else {
+      costByUser[uid] = (costByUser[uid] ?? 0) + Number(r.cost_usd || 0);
+    }
   }
+
   const userMap = new Map(users.map(u => [String(u.id), u]));
-  const SYSTEM_LABELS: Record<string, string> = {
-    'system:scheduler': 'Sistema — Notificações',
-    'system:tts-cache': 'Sistema — TTS Cache',
-    'anonymous':        'Sem usuário (bug)',
-  };
   const topUsers = Object.entries(costByUser)
     .map(([userId, cost]) => {
-      if (userId in SYSTEM_LABELS) {
-        return { userId, email: userId, name: SYSTEM_LABELS[userId], cost: round6(cost) };
-      }
       const u = userMap.get(userId);
       return {
         userId,
@@ -298,6 +303,13 @@ export async function GET(req: NextRequest) {
     })
     .sort((a, b) => b.cost - a.cost)
     .slice(0, 10);
+
+  const systemCosts = Object.entries(costBySystem)
+    .map(([uid, cost]) => ({
+      label: SYSTEM_LABELS[uid] ?? uid,
+      cost:  round6(cost),
+    }))
+    .sort((a, b) => b.cost - a.cost);
 
   // Custo medio por assinante ativo (aproximacao — no periodo inteiro)
   const costPerActiveSub = activeSubs.length === 0 ? 0 : totalCost / activeSubs.length;
@@ -747,6 +759,7 @@ export async function GET(req: NextRequest) {
       byEndpoint,
       byModel,
       topUsers,
+      systemCosts,
       timeseries,
     },
     // ── New sections (high-priority pack) ───────────────────────────────
