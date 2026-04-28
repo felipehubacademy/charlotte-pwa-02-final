@@ -121,39 +121,108 @@ function Sparkline({ data, color = 'var(--accent)', h = 28, w = 80 }: {
 }
 
 // ── AreaChart (responsive via viewBox) ───────────────────────────────────────
-function AreaChart({ data, xKey, yKey, color = 'var(--accent)', h = 110 }: {
-  data: Record<string, any>[]; xKey: string; yKey: string; color?: string; h?: number;
+function AreaChart({ data, xKey, yKey, color = 'var(--accent)', h = 150, fmt }: {
+  data: Record<string, any>[]; xKey: string; yKey: string;
+  color?: string; h?: number; fmt?: (v: number) => string;
 }) {
-  const id = useRef(`ac${++_uid}`).current;
+  const id  = useRef(`ac${++_uid}`).current;
+  const [hi, setHi] = useState<number | null>(null);
   if (!data.length) return <div className="adm-empty" style={{ height: h }}><div className="adm-empty-title">Sem dados</div></div>;
-  const W = 600; const pd = { t: 8, b: 22, l: 2, r: 2 };
+
+  const W = 600;
+  const pd = { t: 12, b: 26, l: 52, r: 10 };
   const vals = data.map(d => Number(d[yKey]) || 0);
-  const max = Math.max(...vals, 1); const pw = W - pd.l - pd.r; const ph = h - pd.t - pd.b;
+  const max  = Math.max(...vals, 0.000001);
+  const pw   = W - pd.l - pd.r;
+  const ph   = h - pd.t - pd.b;
+  const fmtY = fmt ?? fmtUSD;
+
   const pts = vals.map((v, i) => ({
-    x: pd.l + (i / Math.max(vals.length - 1, 1)) * pw,
-    y: pd.t + (1 - v / max) * ph,
-    lbl: String(data[i][xKey]).slice(5),
+    x:   pd.l + (i / Math.max(vals.length - 1, 1)) * pw,
+    y:   pd.t + (1 - v / max) * ph,
+    raw: v,
+    lbl: String(data[i][xKey]).slice(5), // "MM-DD"
+    date: String(data[i][xKey]),
   }));
+
   const line = pts.map((p, i) => `${i ? 'L' : 'M'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   const fill = `${line} L ${pts.at(-1)!.x.toFixed(1)},${(pd.t + ph).toFixed(1)} L ${pd.l},${(pd.t + ph).toFixed(1)} Z`;
+
+  // X labels — até 8, distribuídos uniformemente, sempre mostra primeiro e último
+  const step = Math.max(1, Math.ceil(pts.length / 7));
+  const xIdxs = [...new Set([0, ...pts.map((_, i) => i).filter(i => i % step === 0), pts.length - 1])];
+
+  // Y grid — 3 linhas em 0%, 50%, 100%
+  const yLines = [1, 0.5, 0].map(f => ({ y: pd.t + (1 - f) * ph, val: max * f }));
+
+  // Tooltip
+  const hov = hi !== null ? pts[hi] : null;
+  const tipW = 110;
+  const tipX = hov ? (hov.x + tipW + 8 > W - pd.r ? hov.x - tipW - 8 : hov.x + 8) : 0;
+  const tipY = hov ? Math.max(pd.t, hov.y - 14) : 0;
+
   return (
-    <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', height: h, display: 'block' }}>
+    <svg viewBox={`0 0 ${W} ${h}`} style={{ width: '100%', height: h, display: 'block', cursor: 'crosshair' }}
+      onMouseLeave={() => setHi(null)}>
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.30" />
           <stop offset="100%" stopColor={color} stopOpacity="0.02" />
         </linearGradient>
       </defs>
-      {[0.33, 0.66, 1].map(f => (
-        <line key={f} x1={pd.l} x2={W - pd.r} y1={pd.t + (1 - f) * ph} y2={pd.t + (1 - f) * ph}
-          stroke="rgba(255,255,255,0.04)" strokeWidth="1" />
+
+      {/* Y grid + labels */}
+      {yLines.map(({ y, val }) => (
+        <g key={y}>
+          <line x1={pd.l} x2={W - pd.r} y1={y} y2={y}
+            stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="4 3" />
+          <text x={pd.l - 5} y={y + 3.5} textAnchor="end"
+            fill="rgba(255,255,255,0.28)" fontSize="9.5" fontFamily="var(--font-mono)">
+            {fmtY(val)}
+          </text>
+        </g>
       ))}
+
+      {/* Y axis baseline */}
+      <line x1={pd.l} x2={pd.l} y1={pd.t} y2={pd.t + ph}
+        stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+
+      {/* Area + line */}
       <path d={fill} fill={`url(#${id})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-      {[0, Math.floor(pts.length / 2), pts.length - 1].map(i => pts[i] && (
-        <text key={i} x={pts[i].x} y={h - 4} textAnchor="middle"
-          fill="rgba(255,255,255,0.28)" fontSize="9" fontFamily="var(--font-mono)">{pts[i].lbl}</text>
+      <path d={line} fill="none" stroke={color} strokeWidth="2"
+        strokeLinejoin="round" strokeLinecap="round" />
+
+      {/* X labels */}
+      {xIdxs.map(i => (
+        <text key={i} x={pts[i].x} y={h - 6} textAnchor="middle"
+          fill="rgba(255,255,255,0.32)" fontSize="9.5" fontFamily="var(--font-mono)">
+          {pts[i].lbl}
+        </text>
       ))}
+
+      {/* Hover crosshair + dot */}
+      {hov && (
+        <g>
+          <line x1={hov.x} x2={hov.x} y1={pd.t} y2={pd.t + ph}
+            stroke="rgba(255,255,255,0.18)" strokeWidth="1" strokeDasharray="3 3" />
+          <circle cx={hov.x} cy={hov.y} r={4} fill={color} stroke="var(--bg-card,#1a1a26)" strokeWidth="2" />
+          <rect x={tipX} y={tipY} width={tipW} height={22} rx="5"
+            fill="rgba(20,20,30,0.92)" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+          <text x={tipX + tipW / 2} y={tipY + 14} textAnchor="middle"
+            fill="rgba(255,255,255,0.80)" fontSize="10" fontFamily="var(--font-mono)">
+            {hov.lbl}  {fmtY(hov.raw)}
+          </text>
+        </g>
+      )}
+
+      {/* Invisible hit rects */}
+      {pts.map((p, i) => {
+        const slotW = pw / Math.max(pts.length - 1, 1);
+        return (
+          <rect key={i} x={p.x - slotW / 2} y={pd.t} width={slotW} height={ph}
+            fill="transparent" onMouseEnter={() => setHi(i)} />
+        );
+      })}
     </svg>
   );
 }
@@ -304,15 +373,17 @@ function Delta({ pct }: { pct: number | null }) {
 }
 
 // ── KpiCard ───────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, display, dlt, ctx, spark, sparkColor, accent, delay = 0 }: {
+function KpiCard({ label, value, display, dlt, ctx, spark, sparkColor, accent, delay = 0, tip }: {
   label: string; value?: number | null; display?: string;
-  dlt?: number | null; ctx?: string; spark?: number[]; sparkColor?: string; accent?: string; delay?: number;
+  dlt?: number | null; ctx?: string; spark?: number[]; sparkColor?: string; accent?: string; delay?: number; tip?: string;
 }) {
   const counted = useCount(value ?? null);
   const shown = display ?? (value != null ? fmtN(counted) : '—');
   return (
     <div className="kpi-card fade-up" style={{ animationDelay: `${delay}ms` }}>
-      <div className="kpi-label">{label}</div>
+      <div className="kpi-label" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        {label}{tip && <HelpTip text={tip} />}
+      </div>
       <div className="kpi-value" style={accent ? { color: accent } : {}}>{shown}</div>
       <div className="kpi-footer">
         {dlt !== undefined && <Delta pct={dlt} />}
@@ -324,6 +395,36 @@ function KpiCard({ label, value, display, dlt, ctx, spark, sparkColor, accent, d
         </div>
       )}
     </div>
+  );
+}
+
+// ── HelpTip ───────────────────────────────────────────────────────────────────
+function HelpTip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+      <span
+        onMouseEnter={() => setShow(true)}
+        onMouseLeave={() => setShow(false)}
+        style={{
+          width: 14, height: 14, borderRadius: '50%',
+          background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.32)',
+          fontSize: 9, fontWeight: 700, lineHeight: 1,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          cursor: 'help', userSelect: 'none',
+        }}>?</span>
+      {show && (
+        <span style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(18,18,28,0.97)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 7, padding: '8px 11px', fontSize: 11, lineHeight: 1.55,
+          color: 'rgba(255,255,255,0.68)', zIndex: 200, pointerEvents: 'none',
+          width: 240, whiteSpace: 'normal', textAlign: 'left',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+        }}>{text}</span>
+      )}
+    </span>
   );
 }
 
@@ -407,24 +508,27 @@ export default function MetricsPage() {
     <>
       <Sec>Receita</Sec>
       <div className="adm-grid" style={{ marginBottom: 20 }}>
-        <div className="col-3"><KpiCard label="MRR" display={g ? fmtBRL(g.revenue.mrr) : '—'} ctx="receita mensal recorrente" accent="var(--brand)" delay={0} /></div>
-        <div className="col-3"><KpiCard label="ARR" display={g ? fmtBRL(g.revenue.arr) : '—'} ctx="projeção anual" delay={60} /></div>
-        <div className="col-3"><KpiCard label="Assinantes Ativos" value={g?.revenue.activeSubs} ctx={g ? `${g.revenue.monthlySubs} mensais · ${g.revenue.yearlySubs} anuais` : undefined} delay={120} /></div>
-        <div className="col-3"><KpiCard label="Em Trial" value={g?.revenue.onTrial} ctx={g?.revenue.trialConversionPct != null ? `${g.revenue.trialConversionPct.toFixed(1)}% conversão` : undefined} delay={180} /></div>
+        <div className="col-3"><KpiCard label="MRR" display={g ? fmtBRL(g.revenue.mrr) : '—'} ctx="receita mensal recorrente" accent="var(--brand)" delay={0} tip="Monthly Recurring Revenue — soma das assinaturas ativas convertidas para valor mensal." /></div>
+        <div className="col-3"><KpiCard label="ARR" display={g ? fmtBRL(g.revenue.arr) : '—'} ctx="projeção anual" delay={60} tip="Annual Recurring Revenue — projeção do MRR atual multiplicada por 12." /></div>
+        <div className="col-3"><KpiCard label="Assinantes Ativos" value={g?.revenue.activeSubs} ctx={g ? `${g.revenue.monthlySubs} mensais · ${g.revenue.yearlySubs} anuais` : undefined} delay={120} tip="Usuários com subscription_status = 'active' — pagando no momento." /></div>
+        <div className="col-3"><KpiCard label="Em Trial" value={g?.revenue.onTrial} ctx={g?.revenue.trialConversionPct != null ? `${g.revenue.trialConversionPct.toFixed(1)}% conversão` : undefined} delay={180} tip="Usuários em período de teste gratuito. Inclui trials ainda válidos." /></div>
         <div className="col-3">
           <KpiCard label="Churn Rate" display={fmtPct(g?.revenue.churnPct ?? null)} ctx="mensal estimado" delay={240}
-            accent={g?.revenue.churnPct != null && g.revenue.churnPct > 5 ? 'var(--err)' : undefined} />
+            accent={g?.revenue.churnPct != null && g.revenue.churnPct > 5 ? 'var(--err)' : undefined}
+            tip="% de assinantes que cancelaram no período. Saudável: < 5%. Alerta: > 10%." />
         </div>
         <div className="col-3">
           <KpiCard label="Conversão Trial" display={fmtPct(g?.revenue.trialConversionPct ?? null)} ctx="trial → pago" delay={300}
-            accent={g?.revenue.trialConversionPct != null && g.revenue.trialConversionPct > 15 ? 'var(--ok)' : undefined} />
+            accent={g?.revenue.trialConversionPct != null && g.revenue.trialConversionPct > 15 ? 'var(--ok)' : undefined}
+            tip="% de usuários que completaram o trial e viraram assinantes pagos." />
         </div>
         <div className="col-3">
           <KpiCard label="Total Usuários" value={g?.revenue.totalUsers}
             dlt={prev && g ? pctDelta(g.revenue.newUsers, prev.newUsers) : undefined}
-            ctx="todos os planos" delay={360} />
+            ctx="todos os planos" delay={360}
+            tip="Total de contas cadastradas, independente de plano ou status." />
         </div>
-        <div className="col-3"><KpiCard label="Renovações 7d" value={g?.revenue.renewals7d} ctx="próximas renovações" delay={420} /></div>
+        <div className="col-3"><KpiCard label="Renovações 7d" value={g?.revenue.renewals7d} ctx="próximas renovações" delay={420} tip="Assinaturas que renovam (e cobram) nos próximos 7 dias." /></div>
       </div>
 
       {g?.mrrHealth && (
@@ -434,7 +538,7 @@ export default function MetricsPage() {
             <div className="col-4">
               <div className="adm-panel">
                 <div className="adm-panel-hdr">
-                  <span className="adm-panel-title">Quick Ratio</span>
+                  <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Quick Ratio <HelpTip text="Novo MRR ÷ MRR Perdido. ≥ 4 = crescimento saudável. < 1 = receita encolhendo." /></span>
                   <span style={{ fontSize: 14, fontFamily: 'var(--font-mono)', fontWeight: 700, color: g.mrrHealth.quickRatio >= 4 ? 'var(--ok)' : g.mrrHealth.quickRatio >= 1 ? 'var(--warn)' : 'var(--err)' }}>
                     {g.mrrHealth.quickRatio.toFixed(2)}
                   </span>
@@ -456,11 +560,11 @@ export default function MetricsPage() {
             <div className="col-8">
               <div className="adm-panel">
                 <div className="adm-panel-hdr">
-                  <span className="adm-panel-title">Tendência MRR</span>
+                  <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Tendência MRR <HelpTip text="Evolução semanal da receita recorrente mensal. Tendência de alta = crescimento saudável." /></span>
                   <span className="adm-panel-sub">{g.mrrHealth.mrrTrend.length} semanas</span>
                 </div>
                 <div className="adm-panel-body">
-                  <AreaChart data={g.mrrHealth.mrrTrend} xKey="week" yKey="amount" color="var(--brand)" h={100} />
+                  <AreaChart data={g.mrrHealth.mrrTrend} xKey="week" yKey="amount" color="var(--brand)" h={110} fmt={fmtBRL} />
                 </div>
               </div>
             </div>
@@ -479,17 +583,20 @@ export default function MetricsPage() {
           <KpiCard label="DAU" value={g?.engagement.dau}
             dlt={prev && g ? pctDelta(g.engagement.dau, prev.dau) : undefined}
             spark={g?.engagement.dauTimeseries.map(d => d.dau)} sparkColor="var(--accent)"
-            ctx="usuários ativos hoje" accent="var(--accent)" delay={0} />
+            ctx="usuários ativos hoje" accent="var(--accent)" delay={0}
+            tip="Daily Active Users — usuários com pelo menos uma prática hoje." />
         </div>
-        <div className="col-3"><KpiCard label="WAU" value={g?.engagement.wau} ctx="últimos 7 dias" delay={60} /></div>
+        <div className="col-3"><KpiCard label="WAU" value={g?.engagement.wau} ctx="últimos 7 dias" delay={60} tip="Weekly Active Users — usuários com prática nos últimos 7 dias." /></div>
         <div className="col-3">
           <KpiCard label="MAU" value={g?.engagement.mau}
             dlt={prev && g ? pctDelta(g.engagement.mau, prev.mau) : undefined}
-            ctx="últimos 30 dias" delay={120} />
+            ctx="últimos 30 dias" delay={120}
+            tip="Monthly Active Users — usuários com prática nos últimos 30 dias." />
         </div>
         <div className="col-3">
           <KpiCard label="Stickiness" display={fmtPct(g?.engagement.stickinessPct ?? null)} ctx="DAU ÷ MAU" delay={180}
-            accent={g?.engagement.stickinessPct != null && g.engagement.stickinessPct > 20 ? 'var(--ok)' : undefined} />
+            accent={g?.engagement.stickinessPct != null && g.engagement.stickinessPct > 20 ? 'var(--ok)' : undefined}
+            tip="DAU ÷ MAU. Mede o hábito diário. Apps de educação saudáveis ficam acima de 20%." />
         </div>
       </div>
 
@@ -497,11 +604,11 @@ export default function MetricsPage() {
         <>
           <div className="adm-panel" style={{ marginBottom: 16 }}>
             <div className="adm-panel-hdr">
-              <span className="adm-panel-title">DAU — Série temporal</span>
+              <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>DAU — Série temporal <HelpTip text="Usuários ativos por dia no período. Tendência crescente indica retenção saudável." /></span>
               <span className="adm-panel-sub">{g.range.days}d</span>
             </div>
             <div className="adm-panel-body">
-              <AreaChart data={g.engagement.dauTimeseries} xKey="date" yKey="dau" h={110} />
+              <AreaChart data={g.engagement.dauTimeseries} xKey="date" yKey="dau" h={130} fmt={v => fmtN(Math.round(v))} />
             </div>
           </div>
 
@@ -509,7 +616,7 @@ export default function MetricsPage() {
             <div className="col-6">
               <div className="adm-panel">
                 <div className="adm-panel-hdr">
-                  <span className="adm-panel-title">Funil de Ativação</span>
+                  <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Funil de Ativação <HelpTip text="Passos do onboarding — quantos usuários completaram cada etapa. Quedas grandes indicam fricção." /></span>
                 </div>
                 <div className="adm-panel-body">
                   <FunnelBars data={g.activationFunnel.map(f => ({ label: f.label, count: f.count }))} />
@@ -519,7 +626,7 @@ export default function MetricsPage() {
             <div className="col-6">
               <div className="adm-panel">
                 <div className="adm-panel-hdr">
-                  <span className="adm-panel-title">Tempo até 1ª Prática (TTFV)</span>
+                  <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Tempo até 1ª Prática (TTFV) <HelpTip text="Time to First Value — quanto tempo após o cadastro o usuário fez a 1ª prática. Mediana ideal: abaixo de 1h." /></span>
                   <span className="adm-panel-sub">{fmtN(g.timeToFirstValue.sampleSize)} usuários</span>
                 </div>
                 <div className="adm-panel-body">
@@ -541,7 +648,7 @@ export default function MetricsPage() {
 
           <div className="adm-panel">
             <div className="adm-panel-hdr">
-              <span className="adm-panel-title">Heatmap de Prática</span>
+              <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Heatmap de Prática <HelpTip text="Práticas por dia da semana × hora do dia (horário local do usuário). Cores mais intensas = mais práticas. Útil para definir horário de push notifications." /></span>
               <span className="adm-panel-sub">dia × hora local</span>
             </div>
             <div className="adm-panel-body">
@@ -560,15 +667,18 @@ export default function MetricsPage() {
       <div className="adm-grid" style={{ marginBottom: 20 }}>
         <div className="col-4">
           <KpiCard label="Retenção D1" display={fmtPct(g?.retention.d1 ?? null)} ctx="volta no dia 1" delay={0}
-            accent={g?.retention.d1 != null ? (g.retention.d1 > 40 ? 'var(--ok)' : g.retention.d1 > 20 ? 'var(--warn)' : 'var(--err)') : undefined} />
+            accent={g?.retention.d1 != null ? (g.retention.d1 > 40 ? 'var(--ok)' : g.retention.d1 > 20 ? 'var(--warn)' : 'var(--err)') : undefined}
+            tip="% dos novos usuários que voltaram e fizeram uma prática no dia seguinte ao cadastro. Benchmark apps de educação: > 40% excelente." />
         </div>
         <div className="col-4">
           <KpiCard label="Retenção D7" display={fmtPct(g?.retention.d7 ?? null)} ctx="volta na semana 1" delay={60}
-            accent={g?.retention.d7 != null ? (g.retention.d7 > 25 ? 'var(--ok)' : g.retention.d7 > 10 ? 'var(--warn)' : 'var(--err)') : undefined} />
+            accent={g?.retention.d7 != null ? (g.retention.d7 > 25 ? 'var(--ok)' : g.retention.d7 > 10 ? 'var(--warn)' : 'var(--err)') : undefined}
+            tip="% dos novos usuários que voltaram 7 dias após o cadastro. Benchmark: > 25% bom, > 10% aceitável." />
         </div>
         <div className="col-4">
           <KpiCard label="Retenção D30" display={fmtPct(g?.retention.d30 ?? null)} ctx="volta no mês 1" delay={120}
-            accent={g?.retention.d30 != null ? (g.retention.d30 > 15 ? 'var(--ok)' : g.retention.d30 > 5 ? 'var(--warn)' : 'var(--err)') : undefined} />
+            accent={g?.retention.d30 != null ? (g.retention.d30 > 15 ? 'var(--ok)' : g.retention.d30 > 5 ? 'var(--warn)' : 'var(--err)') : undefined}
+            tip="% dos novos usuários que voltaram 30 dias após o cadastro. Benchmark: > 15% bom, > 5% aceitável." />
         </div>
       </div>
 
@@ -576,7 +686,7 @@ export default function MetricsPage() {
         <>
           <div className="adm-panel" style={{ marginBottom: 16 }}>
             <div className="adm-panel-hdr">
-              <span className="adm-panel-title">Análise de Coorte</span>
+              <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Análise de Coorte <HelpTip text="Retenção por semana de cadastro. Cada linha = uma coorte (semana). Colunas = semanas subsequentes. Cores mais fortes = mais usuários retendo." /></span>
               <span className="adm-panel-sub">{g.retentionCohorts.length} coortes</span>
             </div>
             <div className="adm-panel-body">
@@ -584,7 +694,7 @@ export default function MetricsPage() {
             </div>
           </div>
           <div className="adm-panel">
-            <div className="adm-panel-hdr"><span className="adm-panel-title">Distribuição de Streak</span></div>
+            <div className="adm-panel-hdr"><span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Distribuição de Streak <HelpTip text="Quantos usuários têm cada faixa de streak de dias consecutivos. Concentração em faixas altas indica hábito formado." /></span></div>
             <div className="adm-panel-body">
               <BarChart data={g.streakDistribution} labelKey="bucket" valueKey="count" color="var(--brand)" />
             </div>
@@ -605,25 +715,26 @@ export default function MetricsPage() {
         <div className="col-4">
           <KpiCard label="Custo Total APIs" display={g ? fmtUSD(g.openai.totalCost) : '—'}
             dlt={prev && g ? pctDelta(g.openai.totalCost, prev.totalCost) : undefined}
-            ctx="OpenAI + ElevenLabs + Azure" accent="var(--warn)" delay={0} />
+            ctx="OpenAI + ElevenLabs + Azure" accent="var(--warn)" delay={0}
+            tip="Soma dos custos de OpenAI (GPT, Whisper), ElevenLabs (TTS) e Azure Speech no período selecionado." />
         </div>
-        <div className="col-4"><KpiCard label="Custo/Assinante" display={g ? fmtUSD(g.openai.costPerActiveSub) : '—'} ctx="custo total / assinante ativo" delay={60} /></div>
-        <div className="col-4"><KpiCard label="Requisições" value={g?.openai.callCount} ctx="chamadas a APIs externas no período" delay={120} /></div>
+        <div className="col-4"><KpiCard label="Custo/Assinante" display={g ? fmtUSD(g.openai.costPerActiveSub) : '—'} ctx="custo total / assinante ativo" delay={60} tip="Custo total de APIs ÷ assinantes ativos. Indica a margem de custo por usuário pagante." /></div>
+        <div className="col-4"><KpiCard label="Requisições" value={g?.openai.callCount} ctx="chamadas a APIs externas no período" delay={120} tip="Total de chamadas a APIs externas pagas (OpenAI, ElevenLabs, Azure) no período." /></div>
       </div>
 
       {g && (
         <div className="adm-grid" style={{ gap: 16 }}>
           <div className="col-12">
             <div className="adm-panel" style={{ marginBottom: 0 }}>
-              <div className="adm-panel-hdr"><span className="adm-panel-title">Custo Diário</span></div>
+              <div className="adm-panel-hdr"><span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Custo Diário <HelpTip text="Custo diário total em APIs externas. Passe o mouse sobre o gráfico para ver o valor exato de cada dia." /></span></div>
               <div className="adm-panel-body">
-                <AreaChart data={g.openai.timeseries} xKey="date" yKey="cost" color="var(--warn)" h={100} />
+                <AreaChart data={g.openai.timeseries} xKey="date" yKey="cost" color="var(--warn)" h={150} />
               </div>
             </div>
           </div>
           <div className="col-6">
             <div className="adm-panel">
-              <div className="adm-panel-hdr"><span className="adm-panel-title">Por Endpoint</span></div>
+              <div className="adm-panel-hdr"><span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Por Endpoint <HelpTip text="Custo e volume de chamadas por rota da API. Identifica quais funcionalidades geram mais custo." /></span></div>
               <table className="adm-table">
                 <thead><tr><th>Endpoint</th><th>Provider</th><th style={{ textAlign: 'right' }}>Custo</th><th style={{ textAlign: 'right' }}>Chamadas</th></tr></thead>
                 <tbody>
@@ -651,7 +762,7 @@ export default function MetricsPage() {
           </div>
           <div className="col-6">
             <div className="adm-panel">
-              <div className="adm-panel-hdr"><span className="adm-panel-title">Por Modelo</span></div>
+              <div className="adm-panel-hdr"><span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Por Modelo <HelpTip text="Custo e tokens consumidos por modelo de IA. Tokens = unidade de cobrança de texto processado." /></span></div>
               <table className="adm-table">
                 <thead><tr><th>Modelo</th><th style={{ textAlign: 'right' }}>Custo</th><th style={{ textAlign: 'right' }}>Tokens</th></tr></thead>
                 <tbody>
@@ -670,7 +781,7 @@ export default function MetricsPage() {
             <div className="col-12">
               <div className="adm-panel">
                 <div className="adm-panel-hdr">
-                  <span className="adm-panel-title">Top Usuários por Custo</span>
+                  <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Top Usuários por Custo <HelpTip text="Usuários que geraram mais custo em APIs externas no período. Útil para identificar uso excessivo ou abuso." /></span>
                   <span className="adm-panel-sub">top {g.openai.topUsers.length}</span>
                 </div>
                 <table className="adm-table">
@@ -692,7 +803,7 @@ export default function MetricsPage() {
             <div className="col-12">
               <div className="adm-panel">
                 <div className="adm-panel-hdr">
-                  <span className="adm-panel-title">Custo do Sistema</span>
+                  <span className="adm-panel-title" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>Custo do Sistema <HelpTip text="Custos de infraestrutura não atribuíveis a usuários específicos: scheduler de notificações (GPT) e geração de cache de TTS de vocabulário." /></span>
                   <span className="adm-panel-sub">infra, scheduler, cache</span>
                 </div>
                 <table className="adm-table">
