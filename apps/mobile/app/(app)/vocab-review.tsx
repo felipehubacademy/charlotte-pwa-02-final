@@ -208,7 +208,7 @@ export default function VocabReview() {
     if (!current?.term || ttsLoading) return;
     setTtsLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/api/tts-cached?term=${encodeURIComponent(current.term)}`);
+      const res = await fetch(`${API_BASE}/api/tts-cached?term=${encodeURIComponent(current.term)}${userId ? `&userId=${userId}` : ''}`);
       if (!res.ok) throw new Error('TTS failed');
       const { url } = await res.json();
       await setAudioModeAsync({ playsInSilentMode: true });

@@ -278,8 +278,16 @@ export async function GET(req: NextRequest) {
     costByUser[uid] = (costByUser[uid] ?? 0) + Number(r.cost_usd || 0);
   }
   const userMap = new Map(users.map(u => [String(u.id), u]));
+  const SYSTEM_LABELS: Record<string, string> = {
+    'system:scheduler': 'Sistema — Notificações',
+    'system:tts-cache': 'Sistema — TTS Cache',
+    'anonymous':        'Sem usuário (bug)',
+  };
   const topUsers = Object.entries(costByUser)
     .map(([userId, cost]) => {
+      if (userId in SYSTEM_LABELS) {
+        return { userId, email: userId, name: SYSTEM_LABELS[userId], cost: round6(cost) };
+      }
       const u = userMap.get(userId);
       return {
         userId,

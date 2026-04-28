@@ -339,7 +339,7 @@ export default function LearnSessionScreen() {
       linearPCMIsBigEndian: false,
       linearPCMIsFloat: false,
     },
-  }, 10); // 10s max — learn-session sentences are short
+  }); // duration handled by recordingRef auto-stop
   const recordingRef      = useRef(false);
   const recordingStartRef = useRef(0);
 
@@ -603,6 +603,7 @@ export default function LearnSessionScreen() {
       formData.append('audio', { uri: audioUri, name: isWav ? 'recording.wav' : 'recording.m4a', type: isWav ? 'audio/wav' : 'audio/x-m4a' } as unknown as Blob);
       const referenceText = currentStep.phrase.text ?? '';
       formData.append('referenceText', referenceText);
+      if (userId) formData.append('userId', userId);
 
       const res = await fetch(`${API_BASE_URL}/api/pronunciation`, { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Assessment failed');
@@ -698,7 +699,7 @@ export default function LearnSessionScreen() {
           // ✅ Marcar revisão como concluída — ou reagendar se houve erros
           if (sessionErrors > 0) {
             rescheduleReview(
-              parseInt(params.reviewId, 10),
+              params.reviewId,
               userId,
               level,
               moduleIndex,
@@ -706,7 +707,7 @@ export default function LearnSessionScreen() {
               topic?.title ?? '',
             ).catch(console.warn);
           } else {
-            markReviewDone(parseInt(params.reviewId, 10)).catch(console.warn);
+            markReviewDone(params.reviewId).catch(console.warn);
           }
         }
         track('lesson_completed', { level, module: moduleIndex, topic: topicIndex, isReview: !!params.reviewId });

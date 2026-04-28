@@ -158,7 +158,7 @@ export default function AddWordScreen() {
     try {
       // Busca URL do CDN (cache global) — gera via ElevenLabs so se nao existir
       const res = await fetch(
-        `${API_BASE}/api/tts-cached?term=${encodeURIComponent(term.trim())}`,
+        `${API_BASE}/api/tts-cached?term=${encodeURIComponent(term.trim())}${userId ? `&userId=${userId}` : ''}`,
       );
       if (!res.ok) throw new Error('TTS fetch failed');
       const { url } = await res.json();

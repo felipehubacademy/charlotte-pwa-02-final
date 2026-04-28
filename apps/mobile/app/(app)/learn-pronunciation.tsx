@@ -216,9 +216,9 @@ export default function LearnPronunciationScreen() {
       },
     },
     default: RecordingPresets.HIGH_QUALITY,
-  })!;
+  } as any)!;
 
-  const recorder     = useAudioRecorder(PRONUNCIATION_PRESET, 10); // 10s max
+  const recorder     = useAudioRecorder(PRONUNCIATION_PRESET); // 10s max handled by recordingRef
   const recordingRef = useRef(false);
   const resultAnim   = useRef(new Animated.Value(0)).current;
 
@@ -323,6 +323,7 @@ export default function LearnPronunciationScreen() {
         type: audioType,
       } as unknown as Blob);
       formData.append('referenceText', phrase.text); // ← precise reference text mode
+      if (userId) formData.append('userId', userId);
 
       const res = await fetch(`${API_BASE_URL}/api/pronunciation`, { method: 'POST', body: formData });
       if (!res.ok) throw new Error('Assessment failed');

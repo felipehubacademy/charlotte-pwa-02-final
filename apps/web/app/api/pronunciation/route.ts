@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const audioFile = formData.get('audio') as File;
     const referenceText = formData.get('referenceText') as string;
+    const userId = (formData.get('userId') as string | null) || null;
 
     if (!audioFile) {
       return NextResponse.json({
@@ -182,6 +183,7 @@ export async function POST(request: NextRequest) {
       const apiResult = convertDefinitiveToAPIFormat(sdkResult.result);
 
       logAzureSpeechUsage({
+        userId,
         audioSeconds: audioDurationSeconds,
         meta: { referenceText: referenceText?.slice(0, 80) ?? null },
       });

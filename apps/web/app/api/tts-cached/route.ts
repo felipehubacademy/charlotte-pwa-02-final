@@ -33,7 +33,8 @@ function termToSlug(term: string): string {
 }
 
 export async function GET(req: NextRequest) {
-  const term = req.nextUrl.searchParams.get('term')?.trim();
+  const term   = req.nextUrl.searchParams.get('term')?.trim();
+  const userId = req.nextUrl.searchParams.get('userId') || null;
   if (!term) {
     return NextResponse.json({ error: 'Missing term' }, { status: 400 });
   }
@@ -82,7 +83,7 @@ export async function GET(req: NextRequest) {
   const audioBuffer = await elRes.arrayBuffer();
   const filePath    = `${slug}.mp3`;
 
-  logElevenLabsUsage({ endpoint: '/api/tts-cached', charCount: term.length });
+  logElevenLabsUsage({ endpoint: '/api/tts-cached', charCount: term.length, userId: userId ?? undefined });
 
   // ── 3. Upload to Supabase Storage ─────────────────────────────────────────
   const { error: uploadError } = await supabase.storage

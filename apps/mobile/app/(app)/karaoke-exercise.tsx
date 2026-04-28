@@ -382,6 +382,7 @@ export default function KaraokeExerciseScreen() {
       const formData = new FormData();
       formData.append('audio', { uri: result.uri, name: isWav ? 'r.wav' : 'r.m4a', type: isWav ? 'audio/wav' : 'audio/x-m4a' } as unknown as Blob);
       formData.append('referenceText', chunk.text);
+      if (userId) formData.append('userId', userId);
 
       const res  = await fetch(`${API_BASE_URL}/api/pronunciation`, { method: 'POST', body: formData });
       const d    = await res.json();

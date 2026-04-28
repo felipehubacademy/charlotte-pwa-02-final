@@ -74,6 +74,7 @@ Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
     // Fire-and-forget usage logging so we can watch cost vs. value.
     if (json.usage) {
       logOpenAIUsage({
+        userId: 'system:scheduler',
         endpoint: '/api/notifications/scheduler',
         model: 'gpt-4o-mini',
         promptTokens: json.usage.prompt_tokens ?? 0,
@@ -168,6 +169,7 @@ Return ONLY valid JSON: {"variants": [{"title": "...", "body": "..."}, ...]}`;
     const json = await res.json();
     if (json.usage) {
       logOpenAIUsage({
+        userId: 'system:scheduler',
         endpoint: '/api/notifications/scheduler',
         model: 'gpt-4o-mini',
         promptTokens: json.usage.prompt_tokens ?? 0,
