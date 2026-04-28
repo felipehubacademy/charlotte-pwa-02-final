@@ -27,6 +27,7 @@ interface LearnProgress {
   user_id: string; completed: unknown; module_index: number | null;
   topic_index: number | null; level: string | null;
 }
+type TrailLevelKey = 'novice' | 'inter' | 'advanced';
 interface UserProgress {
   user_id: string; streak_days: number | null; longest_streak: number | null;
 }
@@ -81,18 +82,17 @@ export async function GET(req: NextRequest) {
     if (['text_message', 'audio_message', 'grammar_message'].includes(p.practice_type)) e.messageCount++;
   }
 
-  // ── Aggregate learn_progress per user (Novice trail) ─────────────────────
-  type ProgMap = Record<string, { topicsCompleted: number; moduleIndex: number; topicIndex: number }>;
+  // ── Aggregate learn_progress per user (all levels) ───────────────────────
+  type ProgMap = Record<string, { novice: number; inter: number; advanced: number }>;
   const progMap: ProgMap = {};
+  const levelKey: Record<string, TrailLevelKey> = { Novice: 'novice', Inter: 'inter', Advanced: 'advanced' };
   for (const lp of (learnProgress ?? [])) {
-    if ((lp.level ?? 'Novice') !== 'Novice') continue; // track Novice trail as main metric
+    const key = levelKey[lp.level ?? 'Novice'];
+    if (!key) continue;
     const uid = String(lp.user_id).toLowerCase();
     const completed = (lp.completed as Array<{ m: number; t: number }>) ?? [];
-    progMap[uid] = {
-      topicsCompleted: completed.length,
-      moduleIndex:     lp.module_index ?? 0,
-      topicIndex:      lp.topic_index  ?? 0,
-    };
+    if (!progMap[uid]) progMap[uid] = { novice: 0, inter: 0, advanced: 0 };
+    progMap[uid][key] = completed.length;
   }
 
   // ── Streak map ────────────────────────────────────────────────────────────

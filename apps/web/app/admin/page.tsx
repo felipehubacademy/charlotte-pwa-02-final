@@ -5,7 +5,7 @@ import { Search, Plus, Edit2, Trash2, RefreshCw, ExternalLink, ChevronUp, Chevro
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface Engagement { totalXP: number; lastActive: string | null; sessionDays: number; lessonCount: number; messageCount: number; }
-interface TrailProgress { topicsCompleted: number; moduleIndex: number; topicIndex: number; }
+interface TrailProgress { novice: number; inter: number; advanced: number; }
 interface User {
   id: string; email: string; name: string | null;
   charlotte_level: 'Novice' | 'Inter' | 'Advanced' | null;
@@ -163,7 +163,10 @@ export default function AdminUsersPage() {
         case 'xp': av = a.engagement?.totalXP ?? -1; bv = b.engagement?.totalXP ?? -1; break;
         case 'lastActive': av = a.engagement?.lastActive ?? ''; bv = b.engagement?.lastActive ?? ''; break;
         case 'lessons': av = a.engagement?.lessonCount ?? -1; bv = b.engagement?.lessonCount ?? -1; break;
-        case 'topics': av = a.trailProgress?.topicsCompleted ?? -1; bv = b.trailProgress?.topicsCompleted ?? -1; break;
+        case 'topics': {
+          const sum = (p: TrailProgress | null) => p ? p.novice + p.inter + p.advanced : -1;
+          av = sum(a.trailProgress); bv = sum(b.trailProgress); break;
+        }
         case 'streak': av = a.streak ?? -1; bv = b.streak ?? -1; break;
         default: av = ''; bv = '';
       }
@@ -400,7 +403,17 @@ export default function AdminUsersPage() {
                         </td>
                         <td><span style={{ fontSize: 12, color: 'var(--t2)' }}>{timeAgo(u.engagement?.lastActive ?? null)}</span></td>
                         <td><span className="num">{u.engagement?.lessonCount ?? '—'}</span></td>
-                        <td><span className="num">{u.trailProgress?.topicsCompleted ?? '—'}</span></td>
+                        <td>
+                          {u.trailProgress ? (
+                            <span className="num" style={{ fontSize: 11.5, letterSpacing: 0 }}>
+                              <span style={{ color: 'var(--brand)',  opacity: u.trailProgress.novice   > 0 ? 1 : 0.35 }}>N {u.trailProgress.novice}</span>
+                              <span style={{ color: 'var(--t3)',     margin: '0 3px' }}>/</span>
+                              <span style={{ color: 'var(--accent)', opacity: u.trailProgress.inter    > 0 ? 1 : 0.35 }}>I {u.trailProgress.inter}</span>
+                              <span style={{ color: 'var(--t3)',     margin: '0 3px' }}>/</span>
+                              <span style={{ color: 'var(--ok)',     opacity: u.trailProgress.advanced > 0 ? 1 : 0.35 }}>A {u.trailProgress.advanced}</span>
+                            </span>
+                          ) : <span style={{ color: 'var(--t3)' }}>—</span>}
+                        </td>
                         <td><span style={{ fontSize: 11.5, color: 'var(--t3)' }}>{fmtDate(u.created_at)}</span></td>
                         <td>
                           <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
