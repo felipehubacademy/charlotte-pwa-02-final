@@ -21,7 +21,17 @@ import { AudioStatus } from 'expo-audio/build/Audio.types';
 
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
-import { useAudioRecorder, PRONUNCIATION_RECORDING_OPTIONS } from '@/hooks/useAudioRecorder';
+import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { RecordingPresets } from 'expo-audio';
+
+// HIGH_QUALITY com metering habilitado para o karaoke.
+// LINEARPCM (PRONUNCIATION_RECORDING_OPTIONS) nao suporta currentMetering no iOS —
+// sem metering, a deteccao de silencio nunca dispara.
+// O route /api/pronunciation ja transcodifica AAC → WAV antes de enviar para Azure.
+const KARAOKE_RECORDING_OPTIONS = {
+  ...RecordingPresets.HIGH_QUALITY,
+  isMeteringEnabled: true,
+};
 
 const API_BASE_URL =
   (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
@@ -152,7 +162,7 @@ export default function KaraokeExerciseScreen() {
   const recordStartRef        = useRef(0);
   const userInitiatedScoreRef = useRef(false);
 
-  const recorder = useAudioRecorder(PRONUNCIATION_RECORDING_OPTIONS, 12);
+  const recorder = useAudioRecorder(KARAOKE_RECORDING_OPTIONS, 12);
 
   const patchChunk = useCallback((idx: number, patch: Partial<ChunkState>) => {
     setChunks(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
