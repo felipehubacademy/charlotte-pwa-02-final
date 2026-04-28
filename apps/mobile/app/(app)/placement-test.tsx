@@ -857,7 +857,7 @@ function IntroScreen({ firstName, onStart, onSkip }: { firstName: string; onStar
           >
             {/* Badge RECOMENDADO — vaza fora do botão no canto superior direito */}
             <View style={{
-              position: 'absolute', top: -13, right: 10,
+              position: 'absolute', top: -13, right: -4,
               backgroundColor: C.navy,
               borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4,
             }}>
