@@ -535,60 +535,46 @@ export default function KaraokeExerciseScreen() {
         <View style={{ height: 2, borderRadius: 1, backgroundColor: C.accentLight, width: `${progressPct * 100}%` }} />
       </View>
 
-      {/* Sentence — one continuous text block */}
+      {/* Texto + mic centralizados juntos */}
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 12, flexGrow: 1, justifyContent: 'center' }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 32 }}
         showsVerticalScrollIndicator={false}
       >
+        {/* Sentence */}
         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
           {exercise.chunks.map((chunk, chunkIdx) =>
             chunk.words.map((word, wordIdx) => (
               <AppText
                 key={`${chunkIdx}-${wordIdx}`}
-                style={{
-                  fontSize: 30,
-                  fontWeight: '700',
-                  lineHeight: 46,
-                  color: wordColor(chunkIdx, wordIdx),
-                }}
+                style={{ fontSize: 30, fontWeight: '700', lineHeight: 46, color: wordColor(chunkIdx, wordIdx) }}
               >
                 {word}{' '}
               </AppText>
             ))
           )}
         </View>
-      </ScrollView>
 
-      {/* Mic — always visible at bottom */}
-      <View style={{ alignItems: 'center', paddingBottom: 32, paddingTop: 8 }}>
+        {/* Mic — logo abaixo do texto */}
+        <View style={{ alignItems: 'center', marginTop: 40 }}>
 
-        {/* Tooltip "your turn" */}
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            opacity: tooltipOpacity,
-            transform: [{ translateY: tooltipY }],
-            backgroundColor: 'rgba(124,58,237,0.88)',
-            borderRadius: 20,
-            paddingHorizontal: 16,
-            paddingVertical: 7,
-            marginBottom: 14,
-          }}
-        >
-          <AppText style={{ fontSize: 12, fontWeight: '700', color: C.white, letterSpacing: 0.6 }}>
-            {isPt ? 'sua vez' : 'your turn'}
-          </AppText>
-        </Animated.View>
+          {/* Tooltip "your turn" */}
+          <Animated.View
+            pointerEvents="none"
+            style={{
+              opacity: tooltipOpacity,
+              transform: [{ translateY: tooltipY }],
+              backgroundColor: 'rgba(124,58,237,0.88)',
+              borderRadius: 20,
+              paddingHorizontal: 16,
+              paddingVertical: 7,
+              marginBottom: 14,
+            }}
+          >
+            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.white, letterSpacing: 0.6 }}>
+              {isPt ? 'sua vez' : 'your turn'}
+            </AppText>
+          </Animated.View>
 
-        <TouchableOpacity
-          activeOpacity={isListening ? 0.7 : 1}
-          onPress={() => {
-            if (isListening && activeIdx >= 0) {
-              userInitiatedScoreRef.current = true;
-              scoreChunkRef.current(activeIdx);
-            }
-          }}
-        >
           <Animated.View style={{
             width: 80, height: 80, borderRadius: 40,
             backgroundColor: isListening
@@ -610,8 +596,8 @@ export default function KaraokeExerciseScreen() {
               : <Microphone      size={34} color={isListening ? C.accentLight : C.whiteAlpha} weight="fill" />
             }
           </Animated.View>
-        </TouchableOpacity>
-      </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
