@@ -168,27 +168,13 @@ export default function KaraokeExerciseScreen() {
     setChunks(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
   }, []);
 
-  // ── Tooltip "your turn" — aparece quando mic abre, some após 1.5s ────
+  // ── Tooltip "your turn" — aparece quando mic abre, some quando fecha ──
   useEffect(() => {
     const listening = activeIdx >= 0 && chunks[activeIdx]?.phase === 'listening';
-    if (listening) {
-      tooltipOpacity.setValue(0);
-      tooltipY.setValue(8);
-      Animated.parallel([
-        Animated.timing(tooltipOpacity, { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(tooltipY,       { toValue: 0, duration: 220, useNativeDriver: true }),
-      ]).start();
-      const t = setTimeout(() => {
-        Animated.parallel([
-          Animated.timing(tooltipOpacity, { toValue: 0, duration: 280, useNativeDriver: true }),
-          Animated.timing(tooltipY,       { toValue: 6, duration: 280, useNativeDriver: true }),
-        ]).start();
-      }, 1400);
-      return () => clearTimeout(t);
-    } else {
-      tooltipOpacity.setValue(0);
-      tooltipY.setValue(8);
-    }
+    Animated.parallel([
+      Animated.timing(tooltipOpacity, { toValue: listening ? 1 : 0, duration: 220, useNativeDriver: true }),
+      Animated.timing(tooltipY,       { toValue: listening ? 0 : 8, duration: 220, useNativeDriver: true }),
+    ]).start();
   }, [activeIdx, chunks]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Ref so silence detection can call scoreChunk without circular dep
@@ -551,7 +537,7 @@ export default function KaraokeExerciseScreen() {
 
       {/* Sentence — one continuous text block */}
       <ScrollView
-        contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 24, flexGrow: 1, justifyContent: 'center' }}
+        contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 12, flexGrow: 1, justifyContent: 'center' }}
         showsVerticalScrollIndicator={false}
       >
         <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
@@ -574,7 +560,7 @@ export default function KaraokeExerciseScreen() {
       </ScrollView>
 
       {/* Mic — always visible at bottom */}
-      <View style={{ alignItems: 'center', paddingBottom: 44, paddingTop: 16 }}>
+      <View style={{ alignItems: 'center', paddingBottom: 32, paddingTop: 8 }}>
 
         {/* Tooltip "your turn" */}
         <Animated.View
