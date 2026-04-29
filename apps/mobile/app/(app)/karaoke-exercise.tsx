@@ -144,9 +144,9 @@ export default function KaraokeExerciseScreen() {
   const [chunks, setChunks] = useState<ChunkState[]>(() => initChunkStates(exercise));
   const activeIdx = chunks.findIndex(c => c.phase !== 'done' && c.phase !== 'upcoming');
 
-  // Video state
+  // Video state — showVideoView only becomes true once the video is actually playing
   const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [videoAvailable, setVideoAvailable] = useState(false);
+  const [showVideoView,  setShowVideoView]  = useState(false);
 
   // Mic pulse + tooltip
   const micPulse       = useRef(new Animated.Value(1)).current;
@@ -283,7 +283,7 @@ export default function KaraokeExerciseScreen() {
     pendingPlay.current = false;
 
     setIsVideoLoading(true);
-    setVideoAvailable(false);
+    setShowVideoView(false);
     patchChunk(idx, { phase: 'charlotte', currentTime: 0, timings: [] });
 
     // Try video first — audio is NOT loaded if video exists
@@ -294,7 +294,6 @@ export default function KaraokeExerciseScreen() {
       patchChunk(idx, { timings });
 
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
-      setVideoAvailable(true);
 
       try {
         videoPlayer.replace({ uri: videoUri });
@@ -305,11 +304,13 @@ export default function KaraokeExerciseScreen() {
         videoSubRef.current = videoPlayer.addListener('playingChange', ({ isPlaying }: { isPlaying: boolean }) => {
           if (isPlaying && !videoStarted) {
             videoStarted = true;
-            setIsVideoLoading(false); // video is actually playing — hide spinner
+            // Video is actually playing — hide spinner, show VideoView
+            setIsVideoLoading(false);
+            setShowVideoView(true);
           } else if (!isPlaying && videoStarted) {
             videoSubRef.current?.remove();
             videoSubRef.current = null;
-            // Freeze on last frame: do NOT hide video, just stop it
+            // Video ended — freeze on last frame (keep VideoView), open mic
             openMic(idx);
           }
         });
@@ -321,7 +322,7 @@ export default function KaraokeExerciseScreen() {
         }, 15_000);
       } catch {
         setIsVideoLoading(false);
-        setVideoAvailable(false);
+        setShowVideoView(false);
         openMic(idx);
       }
       return;
@@ -520,7 +521,7 @@ export default function KaraokeExerciseScreen() {
     micPulseLoop.current?.stop();
     micPulse.setValue(1);
     try { playerRef.current?.pause(); videoPlayer.pause(); } catch {}
-    setVideoAvailable(false);
+    setShowVideoView(false);
     setIsVideoLoading(false);
     setExIdx(0);
     setDone(false);
@@ -590,39 +591,14 @@ export default function KaraokeExerciseScreen() {
   const progressPct = totalDone / exercise.chunks.length;
 
   return (
+    // root bg = white → safe area bottom matches white box (no dark bar)
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} />
 
       {/* ── Charlotte zone (top) ───────────────────────────────── */}
       <View style={styles.charlotteZone}>
 
-        {/* Static image — always behind as placeholder */}
-        <Image
-          source={require('@/assets/charlotte-bust.png')}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
-        />
-
-        {/* Video — only rendered when available, covers image */}
-        {videoAvailable && (
-          <VideoView
-            player={videoPlayer}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-            nativeControls={false}
-            allowsFullscreen={false}
-            allowsPictureInPicture={false}
-          />
-        )}
-
-        {/* Loading spinner — shown while download+buffer */}
-        {isVideoLoading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator color="rgba(255,255,255,0.7)" size="large" />
-          </View>
-        )}
-
-        {/* Header inside video zone */}
+        {/* Header — above image, not overlapping Charlotte */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
             <ArrowLeft size={22} color="rgba(255,255,255,0.7)" />
@@ -634,6 +610,35 @@ export default function KaraokeExerciseScreen() {
         {/* Progress bar */}
         <View style={styles.progressBg}>
           <View style={[styles.progressFill, { width: `${progressPct * 100}%` }]} />
+        </View>
+
+        {/* Media area — Charlotte image + video, below header */}
+        <View style={styles.charlotteMedia}>
+          {/* Static image — always shown as placeholder / frozen frame fallback */}
+          <Image
+            source={require('@/assets/charlotte-bust.png')}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+
+          {/* Video — only rendered after video is confirmed playing */}
+          {showVideoView && (
+            <VideoView
+              player={videoPlayer}
+              style={StyleSheet.absoluteFill}
+              contentFit="cover"
+              nativeControls={false}
+              allowsFullscreen={false}
+              allowsPictureInPicture={false}
+            />
+          )}
+
+          {/* Loading overlay — opaque, covers image while buffering */}
+          {isVideoLoading && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator color="rgba(255,255,255,0.75)" size="large" />
+            </View>
+          )}
         </View>
       </View>
 
@@ -654,10 +659,11 @@ export default function KaraokeExerciseScreen() {
           )}
         </View>
 
+        {/* Spacer — pushes mic up, compresses if text is long */}
+        <View style={{ flex: 1 }} />
+
         {/* Mic area */}
         <View style={styles.micArea}>
-
-          {/* Tooltip "your turn" */}
           <Animated.View
             pointerEvents="none"
             style={[styles.tooltip, { opacity: tooltipOpacity, transform: [{ translateY: tooltipY }] }]}
@@ -667,7 +673,6 @@ export default function KaraokeExerciseScreen() {
             </AppText>
           </Animated.View>
 
-          {/* Mic button */}
           <Animated.View style={[
             styles.micButton,
             {
@@ -690,16 +695,19 @@ export default function KaraokeExerciseScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#16153A',
+    backgroundColor: '#FFFFFF', // white → safe area bottom matches white box
   },
   charlotteZone: {
     flex: 52,
     backgroundColor: '#0d0c2e',
+  },
+  charlotteMedia: {
+    flex: 1,
     overflow: 'hidden',
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(13,12,46,0.55)',
+    backgroundColor: '#0d0c2e', // opaque — hides image during buffer
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -724,6 +732,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.10)',
     marginHorizontal: 20,
     borderRadius: 1,
+    marginBottom: 4,
   },
   progressFill: {
     height: 2,
@@ -736,11 +745,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   wordsContainer: {
-    flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignContent: 'flex-start',
@@ -752,7 +760,6 @@ const styles = StyleSheet.create({
   },
   micArea: {
     alignItems: 'center',
-    paddingBottom: 8,
   },
   tooltip: {
     backgroundColor: 'rgba(124,58,237,0.88)',
