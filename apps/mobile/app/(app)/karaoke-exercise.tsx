@@ -1,14 +1,14 @@
 /**
  * karaoke-exercise.tsx — Beta: Read Aloud (Karaoke)
  *
- * Charlotte reads each chunk with karaoke word highlight → mic opens automatically →
- * silence detection stops recording → Azure scores each word → colors appear inline.
- * One continuous text block. Mic always visible at bottom.
+ * Layout: Charlotte video (top, always visible) + white box (karaoke + mic).
+ * Charlotte stays on screen during user's turn (frozen on last frame).
+ * Video and audio are exclusive: audio only loads when no video exists.
  */
 
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import {
-  View, TouchableOpacity, Animated, StatusBar, ScrollView, StyleSheet,
+  View, TouchableOpacity, Animated, StatusBar, StyleSheet, ActivityIndicator, Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -16,19 +16,14 @@ import { Microphone, MicrophoneSlash, ArrowLeft, CheckCircle } from 'phosphor-re
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
-import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
+import { createAudioPlayer, setAudioModeAsync, AudioPlayer, RecordingPresets } from 'expo-audio';
 import { AudioStatus } from 'expo-audio/build/Audio.types';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
 import { useAudioRecorder } from '@/hooks/useAudioRecorder';
-import { RecordingPresets } from 'expo-audio';
 
-// HIGH_QUALITY com metering habilitado para o karaoke.
-// LINEARPCM (PRONUNCIATION_RECORDING_OPTIONS) nao suporta currentMetering no iOS —
-// sem metering, a deteccao de silencio nunca dispara.
-// O route /api/pronunciation ja transcodifica AAC → WAV antes de enviar para Azure.
 const KARAOKE_RECORDING_OPTIONS = {
   ...RecordingPresets.HIGH_QUALITY,
   isMeteringEnabled: true,
@@ -95,27 +90,34 @@ const KARAOKE_DATA: KaraokeText[] = [
 // ── Palette ───────────────────────────────────────────────────────
 const C = {
   bg:          '#16153A',
-  wordDim:     'rgba(255,255,255,0.22)',
-  wordActive:  '#FCD34D',
-  wordSpoken:  '#FFFFFF',
-  wordGood:    '#4ADE80',
-  wordOk:      '#FCD34D',
-  wordBad:     '#F87171',
-  wordOmit:    '#DC2626',
   accent:      '#7C3AED',
   accentLight: '#A78BFA',
   white:       '#FFFFFF',
   whiteAlpha:  'rgba(255,255,255,0.45)',
-  micMuted:    'rgba(255,255,255,0.18)',
+  wordGood:    '#4ADE80',
+  wordOk:      '#FCD34D',
+  wordBad:     '#F87171',
+  wordOmit:    '#DC2626',
 };
 
-function scoreColor(s: WordScore): string {
+// Colors for words on the white bottom box
+const CW = {
+  dim:    'rgba(0,0,0,0.18)',
+  active: '#7C3AED',
+  spoken: '#1e1b4b',
+  good:   '#16a34a',
+  ok:     '#d97706',
+  bad:    '#dc2626',
+  omit:   '#991b1b',
+};
+
+function scoreColorW(s: WordScore): string {
   switch (s) {
-    case 'good':     return C.wordGood;
-    case 'ok':       return C.wordOk;
-    case 'bad':      return C.wordBad;
-    case 'omission': return C.wordOmit;
-    default:         return C.wordDim;
+    case 'good':     return CW.good;
+    case 'ok':       return CW.ok;
+    case 'bad':      return CW.bad;
+    case 'omission': return CW.omit;
+    default:         return CW.dim;
   }
 }
 
@@ -142,9 +144,13 @@ export default function KaraokeExerciseScreen() {
   const [chunks, setChunks] = useState<ChunkState[]>(() => initChunkStates(exercise));
   const activeIdx = chunks.findIndex(c => c.phase !== 'done' && c.phase !== 'upcoming');
 
-  // Mic pulse + tooltip animation
-  const micPulse      = useRef(new Animated.Value(1)).current;
-  const micPulseLoop  = useRef<Animated.CompositeAnimation | null>(null);
+  // Video state
+  const [isVideoLoading, setIsVideoLoading] = useState(false);
+  const [videoAvailable, setVideoAvailable] = useState(false);
+
+  // Mic pulse + tooltip
+  const micPulse       = useRef(new Animated.Value(1)).current;
+  const micPulseLoop   = useRef<Animated.CompositeAnimation | null>(null);
   const tooltipOpacity = useRef(new Animated.Value(0)).current;
   const tooltipY       = useRef(new Animated.Value(8)).current;
 
@@ -157,25 +163,21 @@ export default function KaraokeExerciseScreen() {
   // Silence detection
   const silencePollRef       = useRef<ReturnType<typeof setInterval> | null>(null);
   const safetyTimerRef       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const hasSpeechRef          = useRef(false);
-  const meteringWorkedRef     = useRef(false); // true se getMeteringLevel() retornou algum valor
-  const silenceStartRef       = useRef<number | null>(null);
-  const recordStartRef        = useRef(0);
+  const hasSpeechRef         = useRef(false);
+  const meteringWorkedRef    = useRef(false);
+  const silenceStartRef      = useRef<number | null>(null);
+  const recordStartRef       = useRef(0);
   const userInitiatedScoreRef = useRef(false);
 
-  const recorder = useAudioRecorder(KARAOKE_RECORDING_OPTIONS, 12);
-
-  // Video player for Charlotte's lip-sync chunks
-  const videoPlayer   = useVideoPlayer(null, () => {});
-  const videoSubRef   = useRef<ReturnType<typeof videoPlayer.addListener> | null>(null);
-  const [showVideo, setShowVideo] = useState(false);
-  const videoFadeAnim = useRef(new Animated.Value(0)).current;
+  const recorder    = useAudioRecorder(KARAOKE_RECORDING_OPTIONS, 12);
+  const videoPlayer = useVideoPlayer(null, () => {});
+  const videoSubRef = useRef<ReturnType<typeof videoPlayer.addListener> | null>(null);
 
   const patchChunk = useCallback((idx: number, patch: Partial<ChunkState>) => {
     setChunks(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
   }, []);
 
-  // ── Tooltip "your turn" — aparece quando mic abre, some quando fecha ──
+  // ── Tooltip: aparece durante 'listening', some quando fecha ──
   useEffect(() => {
     const listening = activeIdx >= 0 && chunks[activeIdx]?.phase === 'listening';
     Animated.parallel([
@@ -184,7 +186,6 @@ export default function KaraokeExerciseScreen() {
     ]).start();
   }, [activeIdx, chunks]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Ref so silence detection can call scoreChunk without circular dep
   const scoreChunkRef = useRef<(idx: number) => void>(() => {});
 
   // ── Audio player setup ───────────────────────────────────────
@@ -202,7 +203,7 @@ export default function KaraokeExerciseScreen() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Poll currentTime for karaoke ─────────────────────────────
+  // ── Poll currentTime for karaoke word highlight (audio mode) ──
   useEffect(() => {
     pollRef.current = setInterval(() => {
       if (playerRef.current?.playing && activeIdx >= 0) {
@@ -270,16 +271,6 @@ export default function KaraokeExerciseScreen() {
     } catch { return null; }
   }, [userId]);
 
-  // ── Dismiss video overlay and open mic ──────────────────────
-  const dismissVideoAndOpenMic = useCallback((idx: number) => {
-    videoSubRef.current?.remove();
-    videoSubRef.current = null;
-    Animated.timing(videoFadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => {
-      setShowVideo(false);
-      openMic(idx);
-    });
-  }, [videoFadeAnim]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // ── Play Charlotte's chunk → then open mic ───────────────────
   const playChunk = useCallback(async (idx: number) => {
     const chunk = exercise.chunks[idx];
@@ -290,21 +281,20 @@ export default function KaraokeExerciseScreen() {
     subRef.current = null;
     videoSubRef.current = null;
     pendingPlay.current = false;
+
+    setIsVideoLoading(true);
+    setVideoAvailable(false);
     patchChunk(idx, { phase: 'charlotte', currentTime: 0, timings: [] });
 
-    const [videoUri, audioUri, timings] = await Promise.all([
-      fetchVideo(chunk.text),
-      fetchAudio(chunk.text),
-      fetchTimings(chunk.text),
-    ]);
-    patchChunk(idx, { timings });
+    // Try video first — audio is NOT loaded if video exists
+    const videoUri = await fetchVideo(chunk.text);
 
-    // ── Try video first (Charlotte lip-sync) ─────────────────
     if (videoUri) {
+      const timings = await fetchTimings(chunk.text);
+      patchChunk(idx, { timings });
+
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
-      videoFadeAnim.setValue(0);
-      setShowVideo(true);
-      Animated.timing(videoFadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+      setVideoAvailable(true);
 
       try {
         videoPlayer.replace({ uri: videoUri });
@@ -313,19 +303,38 @@ export default function KaraokeExerciseScreen() {
 
         let videoStarted = false;
         videoSubRef.current = videoPlayer.addListener('playingChange', ({ isPlaying }: { isPlaying: boolean }) => {
-          if (isPlaying) { videoStarted = true; }
-          else if (videoStarted) { dismissVideoAndOpenMic(idx); }
+          if (isPlaying && !videoStarted) {
+            videoStarted = true;
+            setIsVideoLoading(false); // video is actually playing — hide spinner
+          } else if (!isPlaying && videoStarted) {
+            videoSubRef.current?.remove();
+            videoSubRef.current = null;
+            // Freeze on last frame: do NOT hide video, just stop it
+            openMic(idx);
+          }
         });
 
-        // Safety: if listener never fires, fall through after 15s
+        // Safety: if video never starts, fall through after 15s
         setTimeout(() => {
-          if (showVideo) dismissVideoAndOpenMic(idx);
+          setIsVideoLoading(false);
+          if (!videoStarted) openMic(idx);
         }, 15_000);
-      } catch { dismissVideoAndOpenMic(idx); }
+      } catch {
+        setIsVideoLoading(false);
+        setVideoAvailable(false);
+        openMic(idx);
+      }
       return;
     }
 
-    // ── Fallback: audio only (karaoke word highlight) ────────
+    // No video — load audio only
+    setIsVideoLoading(false);
+    const [audioUri, timings] = await Promise.all([
+      fetchAudio(chunk.text),
+      fetchTimings(chunk.text),
+    ]);
+    patchChunk(idx, { timings });
+
     if (!audioUri || !playerRef.current) { openMic(idx); return; }
 
     try {
@@ -352,12 +361,15 @@ export default function KaraokeExerciseScreen() {
         }
       }, 1500);
     } catch { openMic(idx); }
-  }, [exercise, fetchVideo, fetchAudio, fetchTimings, patchChunk, videoPlayer, videoFadeAnim, dismissVideoAndOpenMic]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exercise, fetchVideo, fetchAudio, fetchTimings, patchChunk, videoPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Open mic automatically ───────────────────────────────────
+  // ── Open mic ─────────────────────────────────────────────────
   const openMic = useCallback(async (idx: number) => {
     patchChunk(idx, { phase: 'listening' });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    // Freeze video on last frame during user's turn
+    try { videoPlayer.pause(); } catch {}
 
     micPulseLoop.current?.stop();
     micPulseLoop.current = Animated.loop(
@@ -370,7 +382,6 @@ export default function KaraokeExerciseScreen() {
 
     await recorder.startRecording();
 
-    // Silence detection
     hasSpeechRef.current          = false;
     meteringWorkedRef.current     = false;
     silenceStartRef.current       = null;
@@ -405,7 +416,6 @@ export default function KaraokeExerciseScreen() {
       }
     }, 100);
 
-    // Safety cap proporcional ao número de palavras do chunk
     const wordCount = exercise.chunks[idx]?.words.length ?? 4;
     const safetyCap = Math.max(2500, wordCount * 700 + 800);
     if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
@@ -414,15 +424,13 @@ export default function KaraokeExerciseScreen() {
       if (silencePollRef.current) { clearInterval(silencePollRef.current); silencePollRef.current = null; }
       scoreChunkRef.current(idx);
     }, safetyCap);
-  }, [recorder, micPulse, patchChunk]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [recorder, micPulse, patchChunk, videoPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Score chunk ──────────────────────────────────────────────
   const scoreChunk = useCallback(async (idx: number) => {
     if (silencePollRef.current) { clearInterval(silencePollRef.current); silencePollRef.current = null; }
     if (safetyTimerRef.current) { clearTimeout(safetyTimerRef.current); safetyTimerRef.current = null; }
 
-    // Só bloqueia se o metering confirmou que não houve fala.
-    // Se metering não funcionou (undefined sempre), deixa passar para o Azure normalmente.
     if (meteringWorkedRef.current && !hasSpeechRef.current && !userInitiatedScoreRef.current) {
       await recorder.stopRecording().catch(() => {});
       setTimeout(() => openMic(idx), 300);
@@ -485,7 +493,6 @@ export default function KaraokeExerciseScreen() {
     }
   }, [exercise, recorder, chunks, patchChunk, micPulse]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep ref in sync so silence detection can call scoreChunk without circular dep
   useLayoutEffect(() => { scoreChunkRef.current = scoreChunk; }, [scoreChunk]);
 
   // ── Advance to next chunk ────────────────────────────────────
@@ -504,14 +511,17 @@ export default function KaraokeExerciseScreen() {
     }
   }, [exercise, exIdx, data.exercises, patchChunk, playChunk]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Reset when level changes ─────────────────────────────────
+  // ── Reset on level change ────────────────────────────────────
   useEffect(() => {
     subRef.current?.remove();
+    videoSubRef.current?.remove();
     if (silencePollRef.current) clearInterval(silencePollRef.current);
     if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
     micPulseLoop.current?.stop();
     micPulse.setValue(1);
-    try { playerRef.current?.pause(); } catch {}
+    try { playerRef.current?.pause(); videoPlayer.pause(); } catch {}
+    setVideoAvailable(false);
+    setIsVideoLoading(false);
     setExIdx(0);
     setDone(false);
     setChunks(initChunkStates(data.exercises[0]));
@@ -521,32 +531,31 @@ export default function KaraokeExerciseScreen() {
     setChunks(initChunkStates(data.exercises[exIdx]));
   }, [exIdx]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Start first chunk on mount / exercise change ─────────────
   useEffect(() => {
     if (chunks[0]?.phase === 'charlotte') playChunk(0);
   }, [exIdx, selectedLevel]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Word color ───────────────────────────────────────────────
+  // ── Word color (white box) ───────────────────────────────────
   function wordColor(chunkIdx: number, wordIdx: number): string {
     const state = chunks[chunkIdx];
-    if (!state) return C.wordDim;
+    if (!state) return CW.dim;
     switch (state.phase) {
-      case 'upcoming': return C.wordDim;
+      case 'upcoming': return CW.dim;
       case 'charlotte': {
-        if (!state.timings.length) return C.wordDim;
+        if (!state.timings.length) return CW.dim;
         const t = state.timings[wordIdx];
-        if (!t) return C.wordDim;
-        if (t.start <= state.currentTime && state.currentTime < t.end) return C.wordActive;
-        if (t.end <= state.currentTime) return C.wordSpoken;
-        return C.wordDim;
+        if (!t) return CW.dim;
+        if (t.start <= state.currentTime && state.currentTime < t.end) return CW.active;
+        if (t.end <= state.currentTime) return CW.spoken;
+        return CW.dim;
       }
       case 'listening':
       case 'scoring':
-        if (state.wordScores.length) return scoreColor(state.wordScores[wordIdx] ?? 'dim');
-        return C.wordSpoken;
+        if (state.wordScores.length) return scoreColorW(state.wordScores[wordIdx] ?? 'dim');
+        return CW.spoken;
       case 'done':
-        return scoreColor(state.wordScores[wordIdx] ?? 'dim');
-      default: return C.wordDim;
+        return scoreColorW(state.wordScores[wordIdx] ?? 'dim');
+      default: return CW.dim;
     }
   }
 
@@ -581,68 +590,63 @@ export default function KaraokeExerciseScreen() {
   const progressPct = totalDone / exercise.chunks.length;
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+    <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} />
 
-      {/* Header */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 12, paddingBottom: 10 }}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <ArrowLeft size={22} color={C.whiteAlpha} />
-        </TouchableOpacity>
-        <View style={{ flex: 1, alignItems: 'center' }}>
-          <AppText style={{ color: C.whiteAlpha, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1.6 }}>
-            {data.title}
-          </AppText>
-        </View>
-        <View style={{ width: 22 }} />
-      </View>
+      {/* ── Charlotte zone (top) ───────────────────────────────── */}
+      <View style={styles.charlotteZone}>
 
-      {/* Progress bar */}
-      <View style={{ height: 2, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 20, borderRadius: 1, marginBottom: 32 }}>
-        <View style={{ height: 2, borderRadius: 1, backgroundColor: C.accentLight, width: `${progressPct * 100}%` }} />
-      </View>
+        {/* Static image — always behind as placeholder */}
+        <Image
+          source={require('@/assets/charlotte-bust.png')}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
 
-      {/* Charlotte full-screen video overlay */}
-      {showVideo && (
-        <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: videoFadeAnim, zIndex: 20 }]}>
+        {/* Video — only rendered when available, covers image */}
+        {videoAvailable && (
           <VideoView
             player={videoPlayer}
-            style={{ flex: 1 }}
+            style={StyleSheet.absoluteFill}
             contentFit="cover"
             nativeControls={false}
             allowsFullscreen={false}
             allowsPictureInPicture={false}
           />
-          {/* Karaoke word highlight overlay */}
-          <View style={{ position: 'absolute', bottom: 80, left: 28, right: 28 }}>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              {exercise.chunks.map((chunk, chunkIdx) =>
-                chunk.words.map((word, wordIdx) => (
-                  <AppText
-                    key={`v-${chunkIdx}-${wordIdx}`}
-                    style={{ fontSize: 28, fontWeight: '700', lineHeight: 44, color: wordColor(chunkIdx, wordIdx) }}
-                  >
-                    {word}{' '}
-                  </AppText>
-                ))
-              )}
-            </View>
-          </View>
-        </Animated.View>
-      )}
+        )}
 
-      {/* Texto + mic centralizados juntos */}
-      <ScrollView
-        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 28, paddingBottom: 32 }}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Sentence */}
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+        {/* Loading spinner — shown while download+buffer */}
+        {isVideoLoading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator color="rgba(255,255,255,0.7)" size="large" />
+          </View>
+        )}
+
+        {/* Header inside video zone */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <ArrowLeft size={22} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+          <AppText style={styles.headerTitle}>{data.title}</AppText>
+          <View style={{ width: 22 }} />
+        </View>
+
+        {/* Progress bar */}
+        <View style={styles.progressBg}>
+          <View style={[styles.progressFill, { width: `${progressPct * 100}%` }]} />
+        </View>
+      </View>
+
+      {/* ── White box (bottom) ─────────────────────────────────── */}
+      <View style={styles.bottomBox}>
+
+        {/* Karaoke words */}
+        <View style={styles.wordsContainer}>
           {exercise.chunks.map((chunk, chunkIdx) =>
             chunk.words.map((word, wordIdx) => (
               <AppText
                 key={`${chunkIdx}-${wordIdx}`}
-                style={{ fontSize: 30, fontWeight: '700', lineHeight: 46, color: wordColor(chunkIdx, wordIdx) }}
+                style={[styles.word, { color: wordColor(chunkIdx, wordIdx) }]}
               >
                 {word}{' '}
               </AppText>
@@ -650,50 +654,125 @@ export default function KaraokeExerciseScreen() {
           )}
         </View>
 
-        {/* Mic — logo abaixo do texto */}
-        <View style={{ alignItems: 'center', marginTop: 40 }}>
+        {/* Mic area */}
+        <View style={styles.micArea}>
 
           {/* Tooltip "your turn" */}
           <Animated.View
             pointerEvents="none"
-            style={{
-              opacity: tooltipOpacity,
-              transform: [{ translateY: tooltipY }],
-              backgroundColor: 'rgba(124,58,237,0.88)',
-              borderRadius: 20,
-              paddingHorizontal: 16,
-              paddingVertical: 7,
-              marginBottom: 24,
-            }}
+            style={[styles.tooltip, { opacity: tooltipOpacity, transform: [{ translateY: tooltipY }] }]}
           >
-            <AppText style={{ fontSize: 12, fontWeight: '700', color: C.white, letterSpacing: 0.6 }}>
+            <AppText style={styles.tooltipText}>
               {isPt ? 'sua vez' : 'your turn'}
             </AppText>
           </Animated.View>
 
-          <Animated.View style={{
-            width: 80, height: 80, borderRadius: 40,
-            backgroundColor: isListening
-              ? 'rgba(124,58,237,0.25)'
-              : isCharlotte
-                ? 'rgba(248,113,113,0.10)'
-                : 'rgba(255,255,255,0.05)',
-            alignItems: 'center', justifyContent: 'center',
-            borderWidth: 1.5,
-            borderColor: isListening
-              ? C.accentLight
-              : isCharlotte
-                ? 'rgba(248,113,113,0.35)'
-                : 'rgba(255,255,255,0.10)',
-            transform: [{ scale: isListening ? micPulse : 1 }],
-          }}>
+          {/* Mic button */}
+          <Animated.View style={[
+            styles.micButton,
+            {
+              backgroundColor: isListening ? 'rgba(124,58,237,0.12)' : isCharlotte ? 'rgba(248,113,113,0.08)' : 'rgba(0,0,0,0.05)',
+              borderColor:     isListening ? C.accentLight : isCharlotte ? 'rgba(248,113,113,0.3)' : 'rgba(0,0,0,0.08)',
+              transform: [{ scale: isListening ? micPulse : 1 }],
+            },
+          ]}>
             {isCharlotte
               ? <MicrophoneSlash size={34} color="#F87171" weight="fill" />
-              : <Microphone      size={34} color={isListening ? C.accentLight : C.whiteAlpha} weight="fill" />
+              : <Microphone      size={34} color={isListening ? C.accent : 'rgba(0,0,0,0.3)'} weight="fill" />
             }
           </Animated.View>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: '#16153A',
+  },
+  charlotteZone: {
+    flex: 52,
+    backgroundColor: '#0d0c2e',
+    overflow: 'hidden',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13,12,46,0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1.6,
+  },
+  progressBg: {
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    marginHorizontal: 20,
+    borderRadius: 1,
+  },
+  progressFill: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#A78BFA',
+  },
+  bottomBox: {
+    flex: 48,
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 16,
+  },
+  wordsContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignContent: 'flex-start',
+  },
+  word: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 38,
+  },
+  micArea: {
+    alignItems: 'center',
+    paddingBottom: 8,
+  },
+  tooltip: {
+    backgroundColor: 'rgba(124,58,237,0.88)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    marginBottom: 16,
+  },
+  tooltipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.6,
+  },
+  micButton: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+  },
+});
