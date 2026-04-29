@@ -177,30 +177,20 @@ export default function OpenPage() {
             margin: 0 auto 28px;
           }
           @keyframes spin { to { transform: rotate(360deg); } }
-          .btn-primary {
-            display: block;
-            background: #16153A;
-            color: #fff;
-            text-decoration: none;
-            padding: 15px 32px;
-            border-radius: 14px;
-            font-size: 16px;
-            font-weight: 800;
-            letter-spacing: -0.2px;
+          .store-badges {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
             margin-bottom: 10px;
           }
-          .btn-secondary {
+          .store-badge {
             display: block;
-            background: transparent;
-            color: #16153A;
-            text-decoration: none;
-            padding: 13px 32px;
-            border-radius: 14px;
-            font-size: 15px;
-            font-weight: 600;
-            border: 1.5px solid rgba(22,21,58,0.15);
-            margin-bottom: 10px;
+            width: 170px;
+            transition: opacity 0.15s;
           }
+          .store-badge:hover { opacity: 0.85; }
+          .store-badge img { display: block; width: 100%; height: auto; }
           .qr-wrap {
             background: #F4F3FA;
             border-radius: 16px;
@@ -260,8 +250,10 @@ export default function OpenPage() {
                 <a href="intent://#Intent;scheme=charlotte;package=com.hubacademy.charlotte;end" className="btn-primary">Abrir Charlotte AI</a>
               ) : null}
               <div className="divider">nao tem o app?</div>
-              <a href={IOS_URL} className="btn-secondary">App Store &mdash; iPhone</a>
-              <a href={ANDROID_URL} className="btn-secondary">Google Play &mdash; Android</a>
+              <div className="store-badges">
+                <a href={IOS_URL} className="store-badge"><img src="/images/store-badges/app-store-pt.svg" alt="Download on the App Store" /></a>
+                <a href={ANDROID_URL} className="store-badge"><img src="/images/store-badges/google-play-pt.png" alt="Disponível no Google Play" /></a>
+              </div>
             </>
           ) : phase === 'launching' ? (
             /* ── Tentando abrir o app (mobile) ── */
@@ -290,12 +282,10 @@ export default function OpenPage() {
 
               <div className="divider">ou baixe diretamente</div>
 
-              <a href={IOS_URL} className="btn-primary">
-                App Store &mdash; iPhone
-              </a>
-              <a href={ANDROID_URL} className="btn-secondary">
-                Google Play &mdash; Android
-              </a>
+              <div className="store-badges">
+                <a href={IOS_URL} className="store-badge"><img src="/images/store-badges/app-store-pt.svg" alt="Download on the App Store" /></a>
+                <a href={ANDROID_URL} className="store-badge"><img src="/images/store-badges/google-play-pt.png" alt="Disponível no Google Play" /></a>
+              </div>
             </>
           ) : (
             /* ── Mobile: app nao instalado ── */
@@ -305,17 +295,10 @@ export default function OpenPage() {
                 Instale o app para confirmar sua conta<br />e come&ccedil;ar a praticar ingl&ecirc;s.
               </p>
 
-              {os === 'ios' ? (
-                <>
-                  <a href={IOS_URL} className="btn-primary">Baixar na App Store</a>
-                  <a href={ANDROID_URL} className="btn-secondary">Tenho Android</a>
-                </>
-              ) : (
-                <>
-                  <a href={ANDROID_URL} className="btn-primary">Baixar no Google Play</a>
-                  <a href={IOS_URL} className="btn-secondary">Tenho iPhone</a>
-                </>
-              )}
+              <div className="store-badges">
+                <a href={IOS_URL} className="store-badge"><img src="/images/store-badges/app-store-pt.svg" alt="Download on the App Store" /></a>
+                <a href={ANDROID_URL} className="store-badge"><img src="/images/store-badges/google-play-pt.png" alt="Disponível no Google Play" /></a>
+              </div>
 
               <p className="note">
                 J&aacute; tem o app? Abra o Charlotte AI e entre com seu email e senha.
