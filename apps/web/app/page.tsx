@@ -234,8 +234,8 @@ export default function Page() {
           gap: 64, flexWrap: 'wrap',
         }}>
           {[
-            ['3 níveis', 'Novice ao Advanced'],
-            ['OpenAI', 'Realtime API'],
+            ['3 níveis', 'do ZERO ao Avançado'],
+            ['Ao vivo', 'Conversação em tempo real'],
             ['24 / 7', 'Sempre disponível'],
             ['7 dias', 'Grátis para começar'],
           ].map(([v, l]) => (
