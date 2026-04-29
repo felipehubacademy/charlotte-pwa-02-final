@@ -96,7 +96,15 @@ export default function OpenPage() {
     }
 
     // Fallback: se o usuario ainda estiver aqui apos 2.5s, o app nao foi aberto
-    const fallbackTimer = setTimeout(() => setPhase('fallback'), 2500);
+    const fallbackTimer = setTimeout(() => {
+      if (currentOs === 'ios') {
+        window.location.href = IOS_URL;
+      } else if (currentOs === 'android') {
+        window.location.href = ANDROID_URL;
+      } else {
+        setPhase('fallback');
+      }
+    }, 2500);
 
     // Animacao de pontos
     const dotsTimer = setInterval(() => {
