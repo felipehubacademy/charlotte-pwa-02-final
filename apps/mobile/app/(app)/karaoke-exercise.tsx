@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import {
-  View, TouchableOpacity, Animated, StatusBar, ScrollView,
+  View, TouchableOpacity, Animated, StatusBar, ScrollView, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -18,6 +18,7 @@ import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
 import { createAudioPlayer, setAudioModeAsync, AudioPlayer } from 'expo-audio';
 import { AudioStatus } from 'expo-audio/build/Audio.types';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 import { AppText } from '@/components/ui/Text';
 import { useAuth } from '@/hooks/useAuth';
@@ -164,6 +165,12 @@ export default function KaraokeExerciseScreen() {
 
   const recorder = useAudioRecorder(KARAOKE_RECORDING_OPTIONS, 12);
 
+  // Video player for Charlotte's lip-sync chunks
+  const videoPlayer   = useVideoPlayer(null, () => {});
+  const videoSubRef   = useRef<ReturnType<typeof videoPlayer.addListener> | null>(null);
+  const [showVideo, setShowVideo] = useState(false);
+  const videoFadeAnim = useRef(new Animated.Value(0)).current;
+
   const patchChunk = useCallback((idx: number, patch: Partial<ChunkState>) => {
     setChunks(prev => prev.map((c, i) => i === idx ? { ...c, ...patch } : c));
   }, []);
@@ -186,13 +193,14 @@ export default function KaraokeExerciseScreen() {
     playerRef.current = player;
     return () => {
       subRef.current?.remove();
+      videoSubRef.current?.remove();
       if (pollRef.current)        clearInterval(pollRef.current);
       if (silencePollRef.current) clearInterval(silencePollRef.current);
       if (safetyTimerRef.current) clearTimeout(safetyTimerRef.current);
       micPulseLoop.current?.stop();
       try { player.pause(); player.remove(); } catch {}
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Poll currentTime for karaoke ─────────────────────────────
   useEffect(() => {
@@ -224,6 +232,21 @@ export default function KaraokeExerciseScreen() {
     return [];
   }, []);
 
+  const fetchVideo = useCallback(async (text: string): Promise<string | null> => {
+    try {
+      const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
+      await FileSystem.makeDirectoryAsync(cacheDir, { intermediates: true }).catch(() => {});
+      const key      = text.slice(0, 80).replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+      const localUri = `${cacheDir}karaoke_${key}.mp4`;
+      const info     = await FileSystem.getInfoAsync(localUri);
+      if (info.exists) return localUri;
+      const dl = await FileSystem.downloadAsync(`${API_BASE_URL}/tts/${key}.mp4`, localUri);
+      if (dl.status === 200) return localUri;
+      await FileSystem.deleteAsync(localUri, { idempotent: true });
+      return null;
+    } catch { return null; }
+  }, []);
+
   const fetchAudio = useCallback(async (text: string): Promise<string | null> => {
     try {
       const cacheDir = `${FileSystem.documentDirectory}tts_cache/`;
@@ -247,24 +270,67 @@ export default function KaraokeExerciseScreen() {
     } catch { return null; }
   }, [userId]);
 
+  // ── Dismiss video overlay and open mic ──────────────────────
+  const dismissVideoAndOpenMic = useCallback((idx: number) => {
+    videoSubRef.current?.remove();
+    videoSubRef.current = null;
+    Animated.timing(videoFadeAnim, { toValue: 0, duration: 400, useNativeDriver: true }).start(() => {
+      setShowVideo(false);
+      openMic(idx);
+    });
+  }, [videoFadeAnim]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Play Charlotte's chunk → then open mic ───────────────────
   const playChunk = useCallback(async (idx: number) => {
     const chunk = exercise.chunks[idx];
-    if (!chunk || !playerRef.current) return;
+    if (!chunk) return;
 
     subRef.current?.remove();
+    videoSubRef.current?.remove();
     subRef.current = null;
+    videoSubRef.current = null;
     pendingPlay.current = false;
     patchChunk(idx, { phase: 'charlotte', currentTime: 0, timings: [] });
 
-    const [uri, timings] = await Promise.all([fetchAudio(chunk.text), fetchTimings(chunk.text)]);
+    const [videoUri, audioUri, timings] = await Promise.all([
+      fetchVideo(chunk.text),
+      fetchAudio(chunk.text),
+      fetchTimings(chunk.text),
+    ]);
     patchChunk(idx, { timings });
 
-    if (!uri || !playerRef.current) { openMic(idx); return; }
+    // ── Try video first (Charlotte lip-sync) ─────────────────
+    if (videoUri) {
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      videoFadeAnim.setValue(0);
+      setShowVideo(true);
+      Animated.timing(videoFadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+
+      try {
+        videoPlayer.replace({ uri: videoUri });
+        videoPlayer.muted = false;
+        videoPlayer.play();
+
+        let videoStarted = false;
+        videoSubRef.current = videoPlayer.addListener('playingChange', ({ isPlaying }: { isPlaying: boolean }) => {
+          if (isPlaying) { videoStarted = true; }
+          else if (videoStarted) { dismissVideoAndOpenMic(idx); }
+        });
+
+        // Safety: if listener never fires, fall through after 15s
+        setTimeout(() => {
+          if (showVideo) dismissVideoAndOpenMic(idx);
+        }, 15_000);
+      } catch { dismissVideoAndOpenMic(idx); }
+      return;
+    }
+
+    // ── Fallback: audio only (karaoke word highlight) ────────
+    if (!audioUri || !playerRef.current) { openMic(idx); return; }
 
     try {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
-      playerRef.current.replace({ uri });
+      playerRef.current.replace({ uri: audioUri });
       pendingPlay.current = true;
 
       subRef.current = playerRef.current.addListener('playbackStatusUpdate', (status: AudioStatus) => {
@@ -286,7 +352,7 @@ export default function KaraokeExerciseScreen() {
         }
       }, 1500);
     } catch { openMic(idx); }
-  }, [exercise, fetchAudio, fetchTimings, patchChunk]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [exercise, fetchVideo, fetchAudio, fetchTimings, patchChunk, videoPlayer, videoFadeAnim, dismissVideoAndOpenMic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Open mic automatically ───────────────────────────────────
   const openMic = useCallback(async (idx: number) => {
@@ -535,6 +601,35 @@ export default function KaraokeExerciseScreen() {
       <View style={{ height: 2, backgroundColor: 'rgba(255,255,255,0.08)', marginHorizontal: 20, borderRadius: 1, marginBottom: 32 }}>
         <View style={{ height: 2, borderRadius: 1, backgroundColor: C.accentLight, width: `${progressPct * 100}%` }} />
       </View>
+
+      {/* Charlotte full-screen video overlay */}
+      {showVideo && (
+        <Animated.View style={[StyleSheet.absoluteFillObject, { opacity: videoFadeAnim, zIndex: 20 }]}>
+          <VideoView
+            player={videoPlayer}
+            style={{ flex: 1 }}
+            contentFit="cover"
+            nativeControls={false}
+            allowsFullscreen={false}
+            allowsPictureInPicture={false}
+          />
+          {/* Karaoke word highlight overlay */}
+          <View style={{ position: 'absolute', bottom: 80, left: 28, right: 28 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+              {exercise.chunks.map((chunk, chunkIdx) =>
+                chunk.words.map((word, wordIdx) => (
+                  <AppText
+                    key={`v-${chunkIdx}-${wordIdx}`}
+                    style={{ fontSize: 28, fontWeight: '700', lineHeight: 44, color: wordColor(chunkIdx, wordIdx) }}
+                  >
+                    {word}{' '}
+                  </AppText>
+                ))
+              )}
+            </View>
+          </View>
+        </Animated.View>
+      )}
 
       {/* Texto + mic centralizados juntos */}
       <ScrollView
