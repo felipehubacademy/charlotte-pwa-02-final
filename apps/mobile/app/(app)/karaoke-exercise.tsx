@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Microphone, MicrophoneSlash, ArrowLeft, CheckCircle } from 'phosphor-react-native';
+import { Microphone, MicrophoneSlash, ArrowLeft, CheckCircle, Play } from 'phosphor-react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
@@ -144,9 +144,16 @@ export default function KaraokeExerciseScreen() {
   const [chunks, setChunks] = useState<ChunkState[]>(() => initChunkStates(exercise));
   const activeIdx = chunks.findIndex(c => c.phase !== 'done' && c.phase !== 'upcoming');
 
-  // Video state — showVideoView only becomes true once the video is actually playing
-  const [isVideoLoading, setIsVideoLoading] = useState(false);
-  const [showVideoView,  setShowVideoView]  = useState(false);
+  // Video state
+  const [isVideoLoading, setIsVideoLoading] = useState(false); // download in progress
+  const [readyToPlay,    setReadyToPlay]    = useState(false); // download done, waiting for tap
+  const [showVideoView,  setShowVideoView]  = useState(false); // video confirmed playing
+
+  // Pending URIs — set during download, consumed when user taps play
+  const pendingVideoUri = useRef<string | null>(null);
+  const pendingAudioUri = useRef<string | null>(null);
+  const pendingTimings  = useRef<WordTiming[]>([]);
+  const pendingChunkIdx = useRef(0);
 
   // Mic pulse + tooltip
   const micPulse       = useRef(new Animated.Value(1)).current;
@@ -271,7 +278,7 @@ export default function KaraokeExerciseScreen() {
     } catch { return null; }
   }, [userId]);
 
-  // ── Play Charlotte's chunk → then open mic ───────────────────
+  // ── Download chunk assets → show play button when ready ──────
   const playChunk = useCallback(async (idx: number) => {
     const chunk = exercise.chunks[idx];
     if (!chunk) return;
@@ -281,18 +288,47 @@ export default function KaraokeExerciseScreen() {
     subRef.current = null;
     videoSubRef.current = null;
     pendingPlay.current = false;
+    pendingVideoUri.current = null;
+    pendingAudioUri.current = null;
+    pendingChunkIdx.current = idx;
 
     setIsVideoLoading(true);
+    setReadyToPlay(false);
     setShowVideoView(false);
     patchChunk(idx, { phase: 'charlotte', currentTime: 0, timings: [] });
 
-    // Try video first — audio is NOT loaded if video exists
+    // Try video first — audio NOT loaded if video exists
     const videoUri = await fetchVideo(chunk.text);
 
     if (videoUri) {
       const timings = await fetchTimings(chunk.text);
+      pendingTimings.current = timings;
       patchChunk(idx, { timings });
+      pendingVideoUri.current = videoUri;
+    } else {
+      const [audioUri, timings] = await Promise.all([
+        fetchAudio(chunk.text),
+        fetchTimings(chunk.text),
+      ]);
+      pendingTimings.current = timings;
+      patchChunk(idx, { timings });
+      pendingAudioUri.current = audioUri;
+    }
 
+    setIsVideoLoading(false);
+    setReadyToPlay(true); // show play button — user decides when to start
+  }, [exercise, fetchVideo, fetchAudio, fetchTimings, patchChunk]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── User taps play → Charlotte speaks ────────────────────────
+  const startPlaying = useCallback(async () => {
+    const idx      = pendingChunkIdx.current;
+    const videoUri = pendingVideoUri.current;
+    const audioUri = pendingAudioUri.current;
+
+    setReadyToPlay(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (videoUri) {
       await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
 
       try {
@@ -304,37 +340,18 @@ export default function KaraokeExerciseScreen() {
         videoSubRef.current = videoPlayer.addListener('playingChange', ({ isPlaying }: { isPlaying: boolean }) => {
           if (isPlaying && !videoStarted) {
             videoStarted = true;
-            // Video is actually playing — hide spinner, show VideoView
-            setIsVideoLoading(false);
             setShowVideoView(true);
           } else if (!isPlaying && videoStarted) {
             videoSubRef.current?.remove();
             videoSubRef.current = null;
-            // Video ended — freeze on last frame (keep VideoView), open mic
             openMic(idx);
           }
         });
 
-        // Safety: if video never starts, fall through after 15s
-        setTimeout(() => {
-          setIsVideoLoading(false);
-          if (!videoStarted) openMic(idx);
-        }, 15_000);
-      } catch {
-        setIsVideoLoading(false);
-        setShowVideoView(false);
-        openMic(idx);
-      }
+        setTimeout(() => { if (!videoStarted) openMic(idx); }, 15_000);
+      } catch { openMic(idx); }
       return;
     }
-
-    // No video — load audio only
-    setIsVideoLoading(false);
-    const [audioUri, timings] = await Promise.all([
-      fetchAudio(chunk.text),
-      fetchTimings(chunk.text),
-    ]);
-    patchChunk(idx, { timings });
 
     if (!audioUri || !playerRef.current) { openMic(idx); return; }
 
@@ -362,7 +379,7 @@ export default function KaraokeExerciseScreen() {
         }
       }, 1500);
     } catch { openMic(idx); }
-  }, [exercise, fetchVideo, fetchAudio, fetchTimings, patchChunk, videoPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [videoPlayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Open mic ─────────────────────────────────────────────────
   const openMic = useCallback(async (idx: number) => {
@@ -523,6 +540,7 @@ export default function KaraokeExerciseScreen() {
     try { playerRef.current?.pause(); videoPlayer.pause(); } catch {}
     setShowVideoView(false);
     setIsVideoLoading(false);
+    setReadyToPlay(false);
     setExIdx(0);
     setDone(false);
     setChunks(initChunkStates(data.exercises[0]));
@@ -633,11 +651,24 @@ export default function KaraokeExerciseScreen() {
             />
           )}
 
-          {/* Loading overlay — opaque, covers image while buffering */}
+          {/* Loading overlay — opaque while downloading */}
           {isVideoLoading && (
             <View style={styles.loadingOverlay}>
-              <ActivityIndicator color="rgba(255,255,255,0.75)" size="large" />
+              <ActivityIndicator color="rgba(255,255,255,0.6)" size="large" />
             </View>
+          )}
+
+          {/* Play button — download done, waiting for user tap */}
+          {readyToPlay && (
+            <TouchableOpacity
+              onPress={startPlaying}
+              style={styles.playButtonOverlay}
+              activeOpacity={0.8}
+            >
+              <View style={styles.playButtonCircle}>
+                <Play size={36} color="#FFFFFF" weight="fill" />
+              </View>
+            </TouchableOpacity>
           )}
         </View>
       </View>
@@ -781,5 +812,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
+  },
+  playButtonOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  playButtonCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(124,58,237,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingLeft: 4, // optical center for play icon
   },
 });
