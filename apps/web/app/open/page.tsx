@@ -288,12 +288,6 @@ export default function OpenPage() {
                 Aponte a c&acirc;mera para o QR code<br />e toque no link que aparecer.
               </p>
 
-              <div className="divider">ou baixe diretamente</div>
-
-              <div className="store-badges">
-                <a href={IOS_URL} className="store-badge"><img src="/images/store-badges/app-store-pt.svg" alt="Download on the App Store" /></a>
-                <a href={ANDROID_URL} className="store-badge"><img src="/images/store-badges/google-play-pt.png" alt="Disponível no Google Play" /></a>
-              </div>
             </>
           ) : (
             /* ── Mobile: app nao instalado ── */
