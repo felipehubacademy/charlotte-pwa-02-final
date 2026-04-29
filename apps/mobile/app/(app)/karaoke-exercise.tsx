@@ -637,12 +637,14 @@ export default function KaraokeExerciseScreen() {
 
         {/* Media area — Charlotte image + video, below header */}
         <View style={styles.charlotteMedia}>
-          {/* Static image — contain para não cortar Charlotte */}
-          <Image
-            source={require('@/assets/charlotte-bust.png')}
-            style={StyleSheet.absoluteFill}
-            resizeMode="contain"
-          />
+          {/* Static image — wrapper centraliza o conteúdo do PNG */}
+          <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center' }]}>
+            <Image
+              source={require('@/assets/charlotte-bust.png')}
+              style={{ width: '100%', height: '100%' }}
+              resizeMode="contain"
+            />
+          </View>
 
           {/* Video — only rendered after video is confirmed playing */}
           {showVideoView && (
@@ -695,8 +697,7 @@ export default function KaraokeExerciseScreen() {
           )}
         </View>
 
-        {/* Spacer — pushes mic up, compresses if text is long */}
-        <View style={{ flex: 1 }} />
+        <View style={{ height: 16 }} />
 
         {/* Mic area */}
         <View style={styles.micArea}>
