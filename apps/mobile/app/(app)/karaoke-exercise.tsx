@@ -316,7 +316,13 @@ export default function KaraokeExerciseScreen() {
     }
 
     setIsVideoLoading(false);
-    setReadyToPlay(true); // show play button — user decides when to start
+    // Chunk 0: show play button so user controls when to start.
+    // Chunks 1+: auto-play immediately after download.
+    if (idx === 0) {
+      setReadyToPlay(true);
+    } else {
+      startPlaying();
+    }
   }, [exercise, fetchVideo, fetchAudio, fetchTimings, patchChunk]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── User taps play → Charlotte speaks ────────────────────────
@@ -609,7 +615,6 @@ export default function KaraokeExerciseScreen() {
   const progressPct = totalDone / exercise.chunks.length;
 
   return (
-    // root bg = white → safe area bottom matches white box (no dark bar)
     <SafeAreaView style={styles.root}>
       <StatusBar barStyle="light-content" backgroundColor={C.bg} />
 
@@ -632,11 +637,11 @@ export default function KaraokeExerciseScreen() {
 
         {/* Media area — Charlotte image + video, below header */}
         <View style={styles.charlotteMedia}>
-          {/* Static image — always shown as placeholder / frozen frame fallback */}
+          {/* Static image — contain para não cortar Charlotte */}
           <Image
             source={require('@/assets/charlotte-bust.png')}
             style={StyleSheet.absoluteFill}
-            resizeMode="cover"
+            resizeMode="contain"
           />
 
           {/* Video — only rendered after video is confirmed playing */}
@@ -673,7 +678,7 @@ export default function KaraokeExerciseScreen() {
         </View>
       </View>
 
-      {/* ── White box (bottom) ─────────────────────────────────── */}
+      {/* ── Card flutuante (bottom) ────────────────────────────── */}
       <View style={styles.bottomBox}>
 
         {/* Karaoke words */}
@@ -726,10 +731,10 @@ export default function KaraokeExerciseScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FFFFFF', // white → safe area bottom matches white box
+    backgroundColor: '#16153A', // dark bg visível abaixo do card
   },
   charlotteZone: {
-    flex: 52,
+    flex: 58,
     backgroundColor: '#0d0c2e',
   },
   charlotteMedia: {
@@ -738,7 +743,7 @@ const styles = StyleSheet.create({
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0d0c2e', // opaque — hides image during buffer
+    backgroundColor: '#0d0c2e',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -771,13 +776,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#A78BFA',
   },
   bottomBox: {
-    flex: 48,
+    flex: 42,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24, // raio em todos os cantos — card flutuante
+    marginHorizontal: 12,
+    marginBottom: 16,
     paddingHorizontal: 24,
     paddingTop: 20,
-    paddingBottom: 20,
+    paddingBottom: 16,
+    // sombra sutil
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
   },
   wordsContainer: {
     flexDirection: 'row',
