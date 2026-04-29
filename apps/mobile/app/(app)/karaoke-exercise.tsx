@@ -210,16 +210,21 @@ export default function KaraokeExerciseScreen() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Poll currentTime for karaoke word highlight (audio mode) ──
+  // ── Poll currentTime for karaoke word highlight ──────────────
+  // Video and audio player are exclusive — check which one is playing.
   useEffect(() => {
     pollRef.current = setInterval(() => {
-      if (playerRef.current?.playing && activeIdx >= 0) {
+      if (activeIdx < 0) return;
+      if (showVideoView && videoPlayer.playing) {
+        const t = videoPlayer.currentTime ?? 0;
+        patchChunk(activeIdx, { currentTime: t });
+      } else if (playerRef.current?.playing) {
         const t = playerRef.current.currentTime ?? 0;
         patchChunk(activeIdx, { currentTime: t });
       }
     }, 50);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
-  }, [activeIdx, patchChunk]);
+  }, [activeIdx, patchChunk, showVideoView, videoPlayer]);
 
   // ── Fetch helpers ────────────────────────────────────────────
   const fetchTimings = useCallback(async (text: string): Promise<WordTiming[]> => {
