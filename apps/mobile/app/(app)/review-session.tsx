@@ -461,11 +461,11 @@ export default function ReviewSession() {
   const nextReviewStr = nextReview
     ? (nextReview.toDateString() === new Date().toDateString()
         ? (isPt ? 'hoje' : 'today')
-        : nextReview.toDateString() === new Date(Date.now() + 86400000).toDateString()
+        : nextReview.toDateString() === (() => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(0, 0, 0, 0); return d; })().toDateString()
           ? (isPt ? 'amanhã' : 'tomorrow')
           : isPt
-            ? `em ${Math.ceil((nextReview.getTime() - Date.now()) / 86400000)} dias`
-            : `in ${Math.ceil((nextReview.getTime() - Date.now()) / 86400000)} days`)
+            ? `em ${Math.ceil((nextReview.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000)} dias`
+            : `in ${Math.ceil((nextReview.getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000)} days`)
     : '';
 
   // ── Loading ───────────────────────────────────────────────────────────────

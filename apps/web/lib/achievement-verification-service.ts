@@ -6,6 +6,27 @@
 
 import { supabaseService } from './supabase-service';
 
+const DEFAULT_TZ = 'America/Sao_Paulo';
+
+function localHourInTz(utc: Date, tz: string): number {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false }).formatToParts(utc);
+    const n = parseInt(parts.find(p => p.type === 'hour')?.value ?? '0', 10);
+    return Number.isFinite(n) ? n % 24 : 0;
+  } catch {
+    return localHourInTz(utc, DEFAULT_TZ);
+  }
+}
+
+function localDayInTz(utc: Date, tz: string): number {
+  try {
+    const wd = new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'short' }).format(utc);
+    return ({ Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 } as Record<string, number>)[wd] ?? 0;
+  } catch {
+    return localDayInTz(utc, DEFAULT_TZ);
+  }
+}
+
 interface UserStats {
   total_practices: number;
   perfect_practices: number;
@@ -59,6 +80,9 @@ export class AchievementVerificationService {
       const earnedCodes = await supabaseService.getUserAchievementCodes(userId);
       const earnedCodesSet = new Set(earnedCodes);
 
+      // 3. Timezone do usuário para badges baseados em hora/dia local
+      const userTimezone = await this.getUserTimezone(userId);
+
       // 3. Calcular estatísticas do usuário
       const userStats = await this.calculateUserStats(userId, practiceData);
       
@@ -72,7 +96,7 @@ export class AchievementVerificationService {
         }
 
         // Verificar se o usuário atende aos critérios
-        if (await this.meetsRequirement(achievement, userStats, practiceData, userId)) {
+        if (await this.meetsRequirement(achievement, userStats, practiceData, userId, userTimezone)) {
           achievementsToAward.push({
             code: achievement.code,
             name: achievement.name,
@@ -192,10 +216,11 @@ export class AchievementVerificationService {
    * Verificar se o usuário atende aos critérios de um achievement
    */
   private static async meetsRequirement(
-    achievement: any, 
-    userStats: UserStats, 
+    achievement: any,
+    userStats: UserStats,
     currentPractice: any,
-    userId: string
+    userId: string,
+    userTimezone: string
   ): Promise<boolean> {
     
     const { requirement_type, requirement_value } = achievement;
@@ -240,27 +265,31 @@ export class AchievementVerificationService {
       case 'levels_practiced':
         return userStats.levels_practiced >= requirement_value;
 
-      case 'morning_practice':
-        const currentHour = new Date().getHours();
-        return currentHour >= 5 && currentHour <= 7;
+      case 'morning_practice': {
+        const h = localHourInTz(new Date(), userTimezone);
+        return h >= 5 && h <= 7;
+      }
 
-      case 'lunch_practice':
-        const lunchHour = new Date().getHours();
-        return lunchHour >= 12 && lunchHour <= 14;
+      case 'lunch_practice': {
+        const h = localHourInTz(new Date(), userTimezone);
+        return h >= 12 && h <= 14;
+      }
 
-      case 'night_practice':
-        const nightHour = new Date().getHours();
-        return (nightHour >= 22 || nightHour <= 2);
+      case 'night_practice': {
+        const h = localHourInTz(new Date(), userTimezone);
+        return h >= 22 || h <= 2;
+      }
 
       case 'monday_practice':
-        return new Date().getDay() === 1; // Segunda-feira
+        return localDayInTz(new Date(), userTimezone) === 1;
 
       case 'friday_practice':
-        return new Date().getDay() === 5; // Sexta-feira
+        return localDayInTz(new Date(), userTimezone) === 5;
 
-      case 'weekend_practice':
-        const dayOfWeek = new Date().getDay();
-        return dayOfWeek === 0 || dayOfWeek === 6; // Domingo ou Sábado
+      case 'weekend_practice': {
+        const d = localDayInTz(new Date(), userTimezone);
+        return d === 0 || d === 6;
+      }
 
       case 'message_length':
         return currentPractice.text && currentPractice.text.length >= requirement_value;
@@ -492,6 +521,22 @@ export class AchievementVerificationService {
   /**
    * 🌐 Buscar nível do usuário
    */
+  private static async getUserTimezone(userId: string): Promise<string> {
+    try {
+      const { getSupabase } = await import('./supabase');
+      const supabase = getSupabase();
+      if (!supabase) return DEFAULT_TZ;
+      const { data } = await supabase
+        .from('charlotte_users')
+        .select('timezone')
+        .eq('id', userId)
+        .maybeSingle();
+      return data?.timezone || DEFAULT_TZ;
+    } catch {
+      return DEFAULT_TZ;
+    }
+  }
+
   private static async getUserLevel(userId: string): Promise<'Novice' | 'Inter' | 'Advanced'> {
     // Simplificar: assumir que a maioria é Inter, Advanced é minoria
     // Futuramente pode ser melhorado com lookup real no banco

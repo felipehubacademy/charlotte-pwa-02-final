@@ -465,6 +465,26 @@ export default function LiveVoiceModal({
     }
   }, [warningCountdown, inactivityWarning]); // eslint-disable-line
 
+  // ── Disconnect WebRTC (sem fechar modal) ─────────────────────────────────
+  const disconnectWebRTC = React.useCallback(() => {
+    if (pendingResponseTimerRef.current) {
+      clearTimeout(pendingResponseTimerRef.current);
+      pendingResponseTimerRef.current = null;
+    }
+    localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
+    localStreamRef.current = null;
+    dcRef.current?.close();
+    dcRef.current = null;
+    pcRef.current?.close();
+    pcRef.current = null;
+    InCallManager.stopRingback();
+    InCallManager.stop(); // devolve o AVAudioSession ao estado anterior
+    charlotteSpeakingRef.current = false;
+    responseActiveRef.current    = false;
+    setCharlotteSpeaking(false);
+    setUserSpeaking(false);
+  }, []);
+
   // ── Disparar a despedida (função pura — pode ser chamada de vários lugares)
   const triggerFarewell = React.useCallback(() => {
     // Idempotente: só executa uma vez
@@ -537,26 +557,6 @@ export default function LiveVoiceModal({
     }
     // Se responseActive, não faz nada aqui — response.done handler cuida.
   }, [poolExhausted]); // eslint-disable-line
-
-  // ── Disconnect WebRTC (sem fechar modal) ─────────────────────────────────
-  const disconnectWebRTC = React.useCallback(() => {
-    if (pendingResponseTimerRef.current) {
-      clearTimeout(pendingResponseTimerRef.current);
-      pendingResponseTimerRef.current = null;
-    }
-    localStreamRef.current?.getTracks().forEach((t: any) => t.stop());
-    localStreamRef.current = null;
-    dcRef.current?.close();
-    dcRef.current = null;
-    pcRef.current?.close();
-    pcRef.current = null;
-    InCallManager.stopRingback();
-    InCallManager.stop(); // devolve o AVAudioSession ao estado anterior
-    charlotteSpeakingRef.current = false;
-    responseActiveRef.current    = false;
-    setCharlotteSpeaking(false);
-    setUserSpeaking(false);
-  }, []);
 
   // ── Pause por inatividade ─────────────────────────────────────────────────
   const pauseSession = React.useCallback(() => {
@@ -652,7 +652,7 @@ export default function LiveVoiceModal({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
-        },
+        } as any,
         video: false,
       });
       localStreamRef.current = stream;

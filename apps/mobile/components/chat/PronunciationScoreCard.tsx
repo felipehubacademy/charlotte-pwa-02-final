@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, TouchableOpacity, Modal, ScrollView, Pressable } from 'react-native';
+import { View, TouchableOpacity, Modal, ScrollView, Pressable, Platform } from 'react-native';
 import {
   Target, TextT, Wind, CheckCircle, MusicNotes,
   X as XIcon,

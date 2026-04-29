@@ -61,9 +61,9 @@ export function AddWordModal({
   initialTerm = '', initialDefinition = '', initialExample = '',
   initialCategory = 'word', source = 'manual',
 }: AddWordModalProps) {
-  const { profile, user } = useAuth();
+  const { profile, session } = useAuth();
   const insets = useSafeAreaInsets();
-  const level  = profile?.level ?? 'Inter';
+  const level  = profile?.charlotte_level ?? 'Inter';
   const isPt   = level === 'Novice';
 
   const [term,        setTerm]       = useState(initialTerm);
@@ -128,7 +128,7 @@ export function AddWordModal({
       const res = await fetch(`${API_BASE}/api/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: term.trim(), ...(user?.id ? { userId: user.id } : {}) }),
+        body: JSON.stringify({ text: term.trim(), ...(session?.user?.id ? { userId: session.user.id } : {}) }),
       });
       if (!res.ok) throw new Error('TTS failed');
       const blob = await res.blob();
@@ -149,7 +149,7 @@ export function AddWordModal({
   }, [term, ttsLoading]);
 
   const handleSave = useCallback(async () => {
-    if (!user?.id || !term.trim()) return;
+    if (!session?.user?.id || !term.trim()) return;
     if (!definition.trim()) {
       Alert.alert(
         isPt ? 'Definição necessária' : 'Definition required',
@@ -164,7 +164,7 @@ export function AddWordModal({
       const { data: existing } = await supabase
         .from('user_vocabulary')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', session!.user!.id)
         .ilike('term', term.trim())
         .maybeSingle();
 
@@ -182,7 +182,7 @@ export function AddWordModal({
         .from('user_vocabulary')
         .insert({
           id:                  newId,
-          user_id:             user.id,
+          user_id:             session!.user!.id,
           term:                term.trim(),
           definition:          definition.trim(),
           example:             example.trim() || null,
@@ -198,7 +198,7 @@ export function AddWordModal({
 
       // Schedule SR review cards for this vocabulary item
       if (inserted?.id) {
-        scheduleVocabReviews(user.id, inserted.id, category, term.trim(), level).catch(console.warn);
+        scheduleVocabReviews(session!.user!.id, inserted.id, category, term.trim(), level).catch(console.warn);
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -212,7 +212,7 @@ export function AddWordModal({
     } finally {
       setSaving(false);
     }
-  }, [user?.id, term, definition, example, exampleTr, phonetic, category, source, isPt, onClose]);
+  }, [session?.user?.id, term, definition, example, exampleTr, phonetic, category, source, isPt, onClose]);
 
   const canSave = !!term.trim() && !!definition.trim() && !saving && !alreadyAdded;
 
