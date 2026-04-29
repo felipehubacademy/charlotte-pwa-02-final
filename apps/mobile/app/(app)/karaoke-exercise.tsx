@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import {
-  View, TouchableOpacity, Animated, StatusBar, StyleSheet, ActivityIndicator, Image,
+  View, TouchableOpacity, Animated, StatusBar, StyleSheet, ActivityIndicator, Image, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -302,8 +302,8 @@ export default function KaraokeExerciseScreen() {
     setShowVideoView(false);
     patchChunk(idx, { phase: 'charlotte', currentTime: 0, timings: [] });
 
-    // Try video first — audio NOT loaded if video exists
-    const videoUri = await fetchVideo(chunk.text);
+    // Android: expo-video has known local playback issues — use audio only
+    const videoUri = Platform.OS === 'android' ? null : await fetchVideo(chunk.text);
 
     if (videoUri) {
       const timings = await fetchTimings(chunk.text);
@@ -686,6 +686,7 @@ export default function KaraokeExerciseScreen() {
       </View>
 
       {/* ── Card flutuante (bottom) ────────────────────────────── */}
+      <View style={styles.bottomBoxWrapper}>
       <View style={styles.bottomBox}>
 
         {/* Karaoke words */}
@@ -729,6 +730,7 @@ export default function KaraokeExerciseScreen() {
             }
           </Animated.View>
         </View>
+      </View>
       </View>
     </SafeAreaView>
   );
@@ -781,21 +783,26 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: '#A78BFA',
   },
-  bottomBox: {
+  bottomBoxWrapper: {
     flex: 42,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24, // raio em todos os cantos — card flutuante
     marginHorizontal: 12,
     marginBottom: 16,
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 16,
-    // sombra sutil
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.12,
     shadowRadius: 12,
     elevation: 8,
+  },
+  bottomBox: {
+    flex: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
   wordsContainer: {
     flexDirection: 'row',
