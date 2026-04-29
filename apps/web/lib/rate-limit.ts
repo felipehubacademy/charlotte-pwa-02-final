@@ -77,7 +77,7 @@ export async function checkRateLimit(
         .eq('id', userId)
         .maybeSingle(),
       supabase
-        .from('charlotte_rate_limits')
+        .from('rate_limits')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle(),
@@ -137,7 +137,7 @@ export async function checkRateLimit(
     const newDayCount  = dayCount  + 1;
 
     await supabase
-      .from('charlotte_rate_limits')
+      .from('rate_limits')
       .upsert({
         user_id:     userId,
         hour_count:  newHourCount,
