@@ -19,7 +19,7 @@
 
 import { useEffect, useState } from 'react';
 
-const IOS_URL     = 'https://apps.apple.com/app/id6745037039';
+const IOS_URL     = 'https://apps.apple.com/app/id6760943273';
 const ANDROID_URL = 'https://play.google.com/store/apps/details?id=com.hubacademy.charlotte';
 const QR_PAGE_URL = 'https://charlotte.hubacademybr.com/open';
 
