@@ -222,17 +222,7 @@ export async function POST(req: NextRequest) {
 
     let userId: string | undefined = existingProfile?.id as string | undefined;
 
-    // 2. Fallback: busca na tabela users legada (PWA antigo)
-    if (!userId) {
-      const { data: legacyUser } = await supabase
-        .from('users')
-        .select('id')
-        .ilike('email', email)
-        .maybeSingle();
-      userId = legacyUser?.id as string | undefined;
-    }
-
-    // 3. Último recurso: Management REST API do auth
+    // 2. Último recurso: Management REST API do auth
     if (!userId) {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users?filter=${encodeURIComponent(email)}&per_page=1`,

@@ -1,12 +1,9 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { AuthProvider } from '@/components/auth/AuthProvider';
 import { Toaster } from 'react-hot-toast';
 import { Suspense } from 'react';
 
-import ClientLayout from './ClientLayout';
-import IOSAutoRecovery from '@/components/notifications/IOSAutoRecovery';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -41,16 +38,8 @@ export const metadata: Metadata = {
     creator: '@hubacademybr',
   },
   
-  // 🎯 Icons e Favicon
   icons: {
-    icon: [
-      { url: '/favicon.ico', sizes: '32x32' },
-      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-      { url: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-    ],
-    apple: [
-      { url: '/icons/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
-    ],
+    icon: '/favicon.ico',
     shortcut: '/favicon.ico',
   },
   
@@ -78,7 +67,6 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
   userScalable: false,
   themeColor: '#16153A',
-  interactiveWidget: 'resizes-content',
 };
 
 export default function RootLayout({
@@ -96,10 +84,7 @@ export default function RootLayout({
         
         {/* 🎯 Favicon e Icons */}
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
-        <link rel="icon" href="/icons/icon-192x192.png" sizes="192x192" type="image/png" />
-        <link rel="icon" href="/icons/icon-512x512.png" sizes="512x512" type="image/png" />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        
+
         {/* SEO adicional */}
         <meta name="description" content="AI-powered English learning assistant with live voice conversations and personalized lessons" />
         <meta name="keywords" content="English learning, AI assistant, voice conversation, pronunciation, Hub Academy, Charlotte" />
@@ -107,41 +92,35 @@ export default function RootLayout({
         <link rel="canonical" href="https://charlotte.hubacademybr.com" />
       </head>
       <body className={`${inter.className} antialiased`} suppressHydrationWarning>
-        <AuthProvider>
-          <Suspense fallback={
-            <div className="min-h-screen bg-secondary flex items-center justify-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
-            </div>
-          }>
-            <ClientLayout>
-              {children}
-            </ClientLayout>
-          </Suspense>
-          <Toaster
-            position="top-center"
-            toastOptions={{
-              style: {
-                background: '#212121',
-                color: '#FFFFFF',
-                border: '1px solid rgba(163, 255, 60, 0.2)',
+        <Suspense fallback={
+          <div className="min-h-screen bg-secondary flex items-center justify-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent"></div>
+          </div>
+        }>
+          {children}
+        </Suspense>
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              background: '#212121',
+              color: '#FFFFFF',
+              border: '1px solid rgba(163, 255, 60, 0.2)',
+            },
+            success: {
+              iconTheme: {
+                primary: '#A3FF3C',
+                secondary: '#000000',
               },
-              success: {
-                iconTheme: {
-                  primary: '#A3FF3C',
-                  secondary: '#000000',
-                },
+            },
+            error: {
+              iconTheme: {
+                primary: '#FF3B30',
+                secondary: '#FFFFFF',
               },
-              error: {
-                iconTheme: {
-                  primary: '#FF3B30',
-                  secondary: '#FFFFFF',
-                },
-              },
-            }}
-          />
-          {/* 🍎 iOS Auto-Recovery System */}
-          <IOSAutoRecovery />
-        </AuthProvider>
+            },
+          }}
+        />
       </body>
     </html>
   );
