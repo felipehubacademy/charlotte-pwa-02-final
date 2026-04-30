@@ -48,8 +48,10 @@ const timeAgo = (s: string | null) => {
   if (calDays === 0) return 'hoje';
   if (calDays === 1) return 'ontem';
   if (calDays < 7)  return `${calDays}d`;
-  if (calDays < 30) return `${Math.floor(calDays / 7)}sem`;
-  return `${Math.floor(calDays / 30)}mês`;
+  const weeks  = Math.floor(calDays / 7);
+  if (calDays < 30) return `${weeks}${weeks === 1 ? 'sem' : 'sem'}`;
+  const months = Math.floor(calDays / 30);
+  return `${months}${months === 1 ? 'mês' : 'meses'}`;
 };
 
 // ── DateTip — mostra data completa ao hover ───────────────────────────────────
