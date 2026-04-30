@@ -38,20 +38,18 @@ const fmtDate = (s: string | null) => {
   return new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' });
 };
 const fmtXP = (n: number) => n.toLocaleString('pt-BR');
-const localDay = (d: Date) =>
-  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const timeAgo = (s: string | null) => {
   if (!s) return '—';
-  const now = new Date();
-  const yd = new Date(now); yd.setDate(yd.getDate() - 1);
-  const today     = localDay(now);
-  const yesterday = localDay(yd);
-  const date      = localDay(new Date(s));
-  if (date === today) return 'hoje';
-  if (date === yesterday) return 'ontem';
-  const d = Math.floor((Date.now() - new Date(s).getTime()) / 86400000);
-  if (d < 7) return `${d}d`; if (d < 30) return `${Math.floor(d / 7)}sem`;
-  return `${Math.floor(d / 30)}mês`;
+  const now  = new Date();
+  const past = new Date(s);
+  // diferença em dias de calendário (local), sem ambiguidade de horário
+  const startOf = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const calDays = Math.round((startOf(now) - startOf(past)) / 86400000);
+  if (calDays === 0) return 'hoje';
+  if (calDays === 1) return 'ontem';
+  if (calDays < 7)  return `${calDays}d`;
+  if (calDays < 30) return `${Math.floor(calDays / 7)}sem`;
+  return `${Math.floor(calDays / 30)}mês`;
 };
 
 // ── DateTip — mostra data completa ao hover ───────────────────────────────────
