@@ -103,13 +103,51 @@ export async function GET(req: NextRequest) {
   // practicesRange (in selected range) powers funnel + period-specific sums.
   const d90 = new Date();
   d90.setDate(d90.getDate() - 90);
+
+  // openai_usage: pagina em blocos de 1000 (max-rows do PostgREST) para garantir
+  // que todos os rows do periodo sejam contabilizados na agregacao por usuario.
+  async function fetchAllUsage(): Promise<{ data: UsageRow[] | null; error: { message: string } | null }> {
+    const PAGE = 1000;
+    const fromIso = from.toISOString();
+    const toIso   = to.toISOString();
+    const baseQ   = () => supabase
+      .from('openai_usage')
+      .select('user_id, endpoint, model, total_tokens, cost_usd, created_at')
+      .gte('created_at', fromIso)
+      .lte('created_at', toIso);
+
+    // Primeira pagina + count total
+    const firstQ = () => supabase
+      .from('openai_usage')
+      .select('user_id, endpoint, model, total_tokens, cost_usd, created_at', { count: 'exact' })
+      .gte('created_at', fromIso)
+      .lte('created_at', toIso);
+    const first = await firstQ().range(0, PAGE - 1) as unknown as { data: UsageRow[] | null; count: number | null; error: { message: string } | null };
+    if (first.error) return { data: null, error: first.error };
+
+    const rows = [...(first.data ?? [])];
+    const total = first.count ?? rows.length;
+
+    if (total > PAGE) {
+      const extraPages = Math.ceil((total - PAGE) / PAGE);
+      const extras = await Promise.all(
+        Array.from({ length: extraPages }, (_, i) =>
+          baseQ().range((i + 1) * PAGE, (i + 2) * PAGE - 1) as unknown as Promise<{ data: UsageRow[] | null }>
+        )
+      );
+      for (const p of extras) rows.push(...(p.data ?? []));
+    }
+
+    return { data: rows, error: null };
+  }
+
   const [usersRes, practicesRangeRes, practicesWideRes, progressRes, usageRes, notifRes, placementRes] = await Promise.all([
     supabase.from('charlotte_users').select('id, email, name, created_at, charlotte_level, is_institutional, subscription_status, subscription_product, subscription_expires_at, trial_ends_at, placement_test_done, expo_push_token'),
     supabase.from('charlotte_practices').select('user_id, created_at, xp_earned').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
     supabase.from('charlotte_practices').select('user_id, created_at').gte('created_at', d90.toISOString()),
     supabase.from('charlotte_progress').select('user_id, streak_days, total_xp'),
-    // openai_usage pode nao existir ainda — catch silencioso
-    supabase.from('openai_usage').select('user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, audio_seconds, audio_input_min, audio_output_min, cost_usd, created_at').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()).limit(10000),
+    // openai_usage: paginado para superar o limite de 1000 rows do PostgREST
+    fetchAllUsage(),
     // notification_logs tambem pode nao existir
     supabase.from('notification_logs').select('user_id, notification_type, status, created_at').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
     // users.placement_test_done ja veio no users select acima; placementRes fica vazio por ora
