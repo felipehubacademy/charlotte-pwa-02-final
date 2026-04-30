@@ -428,6 +428,153 @@ function HelpTip({ text }: { text: string }) {
   );
 }
 
+// ── CostModal ─────────────────────────────────────────────────────────────────
+interface CostBreakdown { endpoint: string; cost: number; calls: number; tokens: number; }
+interface UserCostData  { totalCost: number; totalCalls: number; breakdown: CostBreakdown[]; byModel: { model: string; cost: number; calls: number }[] }
+
+const ENDPOINT_LABELS: Record<string, string> = {
+  chat:              'Conversa (chat)',
+  pronunciation:     'Pronúncia (Azure)',
+  'tts-cached':      'TTS cache (ElevenLabs)',
+  tts:               'TTS on-demand (ElevenLabs)',
+  grammar:           'Feedback gramatical',
+  'learn-exercise':  'Exercício (Learn)',
+  scheduler:         'Scheduler (sistema)',
+  unknown:           'Desconhecido',
+};
+const endpointLabel = (e: string) => ENDPOINT_LABELS[e] ?? e;
+
+function CostModal({ userId, userName, userEmail, days, onClose }: {
+  userId: string; userName: string | null; userEmail: string | null; days: number; onClose: () => void;
+}) {
+  const [costData, setCostData] = useState<UserCostData | null>(null);
+  const [loading, setLoading]   = useState(true);
+  const [err, setErr]           = useState('');
+
+  useEffect(() => {
+    const secret = sessionStorage.getItem('adminSecret') ?? '';
+    fetch(`/api/admin/user-cost?userId=${encodeURIComponent(userId)}&days=${days}`, {
+      headers: { 'x-admin-secret': secret },
+    })
+      .then(r => r.json())
+      .then(d => { setCostData(d); setLoading(false); })
+      .catch(e => { setErr(String(e)); setLoading(false); });
+  }, [userId, days]);
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--s1)', border: '1px solid var(--b1)', borderRadius: 12,
+          width: 520, maxWidth: '92vw', maxHeight: '80vh',
+          display: 'flex', flexDirection: 'column',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.6)',
+        }}
+      >
+        {/* Header */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--b1)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--t1)' }}>{userName ?? 'Usuário'}</div>
+            <div style={{ fontSize: 11, color: 'var(--t3)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>{userEmail}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            {costData && (
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 11, color: 'var(--t3)' }}>Total ({days}d)</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--warn)', fontFamily: 'var(--font-mono)' }}>{fmtUSD(costData.totalCost)}</div>
+              </div>
+            )}
+            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--t3)', fontSize: 20, lineHeight: 1, padding: 4 }}>
+              &times;
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div style={{ overflowY: 'auto', padding: '12px 20px 20px' }}>
+          {loading && (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--t3)', fontSize: 13 }}>Carregando...</div>
+          )}
+          {err && (
+            <div style={{ padding: 16, color: 'var(--err)', fontSize: 12 }}>{err}</div>
+          )}
+          {costData && !loading && (
+            <>
+              {/* Por endpoint */}
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 8, marginTop: 4 }}>
+                Por Feature
+              </div>
+              {costData.breakdown.length === 0 ? (
+                <div style={{ color: 'var(--t3)', fontSize: 12, padding: '8px 0' }}>Nenhum custo no período.</div>
+              ) : (
+                <table className="adm-table" style={{ marginBottom: 20 }}>
+                  <thead>
+                    <tr>
+                      <th>Feature</th>
+                      <th style={{ textAlign: 'right' }}>Chamadas</th>
+                      <th style={{ textAlign: 'right' }}>Tokens</th>
+                      <th style={{ textAlign: 'right' }}>Custo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {costData.breakdown.map(b => {
+                      const pct = costData.totalCost > 0 ? (b.cost / costData.totalCost) * 100 : 0;
+                      return (
+                        <tr key={b.endpoint}>
+                          <td>
+                            <div style={{ fontSize: 12 }}>{endpointLabel(b.endpoint)}</div>
+                            <div style={{ height: 3, borderRadius: 2, background: 'var(--b2)', marginTop: 4, overflow: 'hidden' }}>
+                              <div style={{ height: '100%', width: `${pct}%`, background: 'var(--warn)', borderRadius: 2 }} />
+                            </div>
+                          </td>
+                          <td style={{ textAlign: 'right' }}><span className="num">{b.calls}</span></td>
+                          <td style={{ textAlign: 'right' }}><span className="num">{b.tokens > 0 ? fmtN(b.tokens) : '—'}</span></td>
+                          <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtUSD(b.cost)}</span></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+
+              {/* Por modelo */}
+              {costData.byModel.length > 0 && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--t3)', marginBottom: 8 }}>
+                    Por Modelo
+                  </div>
+                  <table className="adm-table">
+                    <thead>
+                      <tr><th>Modelo</th><th style={{ textAlign: 'right' }}>Chamadas</th><th style={{ textAlign: 'right' }}>Custo</th></tr>
+                    </thead>
+                    <tbody>
+                      {costData.byModel.map(m => (
+                        <tr key={m.model}>
+                          <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{m.model}</span></td>
+                          <td style={{ textAlign: 'right' }}><span className="num">{m.calls}</span></td>
+                          <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--t2)' }}>{fmtUSD(m.cost)}</span></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── SkeletonCard ──────────────────────────────────────────────────────────────
 function Skel({ h = 120 }: { h?: number }) {
   return (
@@ -462,6 +609,7 @@ export default function MetricsPage() {
   const [planFilter,  setPlanFilter]  = useState('');
   const [tab, setTab] = useState<Tab>('overview');
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const [selectedUser, setSelectedUser] = useState<{ userId: string; name: string | null; email: string | null } | null>(null);
 
   const fetch_ = useCallback(async () => {
     const secret = sessionStorage.getItem('adminSecret') ?? '';
@@ -788,7 +936,10 @@ export default function MetricsPage() {
                   <thead><tr><th>Nome</th><th>Email</th><th style={{ textAlign: 'right' }}>Custo</th></tr></thead>
                   <tbody>
                     {g.openai.topUsers.map(u => (
-                      <tr key={u.userId}>
+                      <tr key={u.userId}
+                        onClick={() => setSelectedUser({ userId: u.userId, name: u.name, email: u.email })}
+                        style={{ cursor: 'pointer' }}
+                        title="Clique para ver breakdown de custo">
                         <td>{u.name ?? <span style={{ color: 'var(--t3)' }}>—</span>}</td>
                         <td><span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{u.email ?? '—'}</span></td>
                         <td style={{ textAlign: 'right' }}><span className="num" style={{ color: 'var(--warn)' }}>{fmtUSD(u.cost)}</span></td>
@@ -896,6 +1047,16 @@ export default function MetricsPage() {
       </div>
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+
+      {selectedUser && (
+        <CostModal
+          userId={selectedUser.userId}
+          userName={selectedUser.name}
+          userEmail={selectedUser.email}
+          days={preset === '7d' ? 7 : preset === '30d' ? 30 : 90}
+          onClose={() => setSelectedUser(null)}
+        />
+      )}
     </div>
   );
 }
