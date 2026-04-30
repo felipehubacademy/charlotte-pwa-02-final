@@ -38,11 +38,15 @@ const fmtDate = (s: string | null) => {
   return new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' });
 };
 const fmtXP = (n: number) => n.toLocaleString('pt-BR');
+const localDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const timeAgo = (s: string | null) => {
   if (!s) return '—';
-  const today = new Date().toISOString().slice(0, 10);
-  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-  const date = new Date(s).toISOString().slice(0, 10);
+  const now = new Date();
+  const yd = new Date(now); yd.setDate(yd.getDate() - 1);
+  const today     = localDay(now);
+  const yesterday = localDay(yd);
+  const date      = localDay(new Date(s));
   if (date === today) return 'hoje';
   if (date === yesterday) return 'ontem';
   const d = Math.floor((Date.now() - new Date(s).getTime()) / 86400000);
