@@ -40,8 +40,12 @@ const fmtDate = (s: string | null) => {
 const fmtXP = (n: number) => n.toLocaleString('pt-BR');
 const timeAgo = (s: string | null) => {
   if (!s) return '—';
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  const date = new Date(s).toISOString().slice(0, 10);
+  if (date === today) return 'hoje';
+  if (date === yesterday) return 'ontem';
   const d = Math.floor((Date.now() - new Date(s).getTime()) / 86400000);
-  if (d === 0) return 'hoje'; if (d === 1) return 'ontem';
   if (d < 7) return `${d}d`; if (d < 30) return `${Math.floor(d / 7)}sem`;
   return `${Math.floor(d / 30)}mês`;
 };
