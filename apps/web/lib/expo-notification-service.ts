@@ -260,6 +260,11 @@ function pickTemplate(
 // Brazil-heavy base is never silently dropped.
 const DEFAULT_TZ = 'America/Sao_Paulo';
 
+/** YYYY-MM-DD no fuso especificado — usado para comparar com last_practice_date. */
+function localDateForTz(tz: string): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: tz || DEFAULT_TZ }).format(new Date());
+}
+
 function localHourInTz(utc: Date, tz: string): number {
   try {
     const parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', hour12: false })
@@ -643,31 +648,27 @@ export async function sendStreakReminders(supabase: any): Promise<void> {
 export async function sendDailyReminders(supabase: any): Promise<void> {
   console.log('⏰ [Expo] Sending daily reminders...');
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // 1) last_practice_date de cada usuário (fuso-aware via trigger).
+    const { data: progressRows } = await supabase
+      .from('charlotte_progress')
+      .select('user_id, last_practice_date');
+    const lastPracticeMap = new Map<string, string>(
+      (progressRows ?? []).map((r: any) => [String(r.user_id), r.last_practice_date ?? ''])
+    );
 
-    // 1) Fetch user_ids who practiced today (PostgREST doesn't support inline
-    //    SQL subqueries, so we split into two queries).
-    const { data: practicedRows, error: practicedErr } = await supabase
-      .from('charlotte_practices')
-      .select('user_id')
-      .gte('created_at', `${today}T00:00:00Z`);
-    if (practicedErr) { console.error('❌ [Expo] practices query error:', practicedErr.message); return; }
-    const practicedIds = [...new Set((practicedRows ?? []).map((r: any) => r.user_id))] as string[];
-
-    // 2) Users with token who haven't practiced today.
-    let q = supabase
+    // 2) Todos os usuários com token e timezone.
+    const { data: cuUsers, error: usersErr } = await supabase
       .from('charlotte_users')
       .select('id, name, expo_push_token, charlotte_level, timezone')
       .not('expo_push_token', 'is', null);
-    if (practicedIds.length) {
-      q = q.not('id', 'in', `(${practicedIds.map(id => `"${id}"`).join(',')})`);
-    }
-    const { data: cuUsers, error: usersErr } = await q;
     if (usersErr) { console.error('❌ [Expo] users query error:', usersErr.message); return; }
 
-    const withToken = (cuUsers ?? []).filter((u: any) =>
-      u.expo_push_token?.startsWith('ExponentPushToken[')
-    );
+    // 3) Filtrar quem ainda não praticou hoje no seu próprio fuso.
+    const withToken = (cuUsers ?? []).filter((u: any) => {
+      if (!u.expo_push_token?.startsWith('ExponentPushToken[')) return false;
+      const localToday = localDateForTz(u.timezone);
+      return lastPracticeMap.get(String(u.id)) !== localToday;
+    });
     if (!withToken.length) { console.log('✅ [Expo] No eligible users for daily reminder'); return; }
 
     const tzFiltered = usersAtLocalHour(withToken, TARGET_HOUR_DAILY);
@@ -739,17 +740,29 @@ export async function sendDailyReminders(supabase: any): Promise<void> {
 export async function sendCharlotteMessages(supabase: any): Promise<void> {
   console.log('💬 [Expo] Sending Charlotte praise messages...');
   try {
-    const today = new Date().toISOString().split('T')[0];
+    // Quem praticou hoje no seu próprio fuso: last_practice_date = localToday(tz).
+    const { data: progressRows } = await supabase
+      .from('charlotte_progress')
+      .select('user_id, last_practice_date');
+    if (!progressRows?.length) { console.log('✅ [Expo] No practice data yet'); return; }
 
-    const { data: practicedRows } = await supabase
-      .from('charlotte_practices')
-      .select('user_id')
-      .gte('created_at', `${today}T00:00:00Z`);
+    const { data: allUsers } = await supabase
+      .from('charlotte_users')
+      .select('id, name, expo_push_token, charlotte_level, timezone')
+      .not('expo_push_token', 'is', null);
 
-    const practicedIds = [...new Set((practicedRows ?? []).map((r: any) => r.user_id))] as string[];
-    if (!practicedIds.length) { console.log('✅ [Expo] No users practiced today yet'); return; }
+    const progressByUser = new Map<string, string>(
+      progressRows.map((r: any) => [String(r.user_id), r.last_practice_date ?? ''])
+    );
 
-    const rawUsers = await fetchCharlotteUsers(supabase, practicedIds);
+    const practicedTodayUsers = (allUsers ?? []).filter((u: any) => {
+      if (!u.expo_push_token?.startsWith('ExponentPushToken[')) return false;
+      const localToday = localDateForTz(u.timezone);
+      return progressByUser.get(String(u.id)) === localToday;
+    });
+    if (!practicedTodayUsers.length) { console.log('✅ [Expo] No users practiced today yet'); return; }
+
+    const rawUsers = practicedTodayUsers;
     if (!rawUsers.length) return;
 
     const tzFiltered = usersAtLocalHour(rawUsers, TARGET_HOUR_PRAISE);

@@ -480,7 +480,7 @@ export default function ConfiguracoesScreen() {
               </View>
               <AppText style={{ fontSize: 11, color: C.navyLight, marginTop: 6 }}>
                 {isPt
-                  ? `Renova em 1/${String(new Date().getMonth() + 2).padStart(2,'0')}`
+                  ? `Renova em 1/${String(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).getMonth() + 1).padStart(2,'0')}`
                   : `Resets ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toLocaleDateString('en', { month: 'short', day: 'numeric' })}`
                 }
               </AppText>
