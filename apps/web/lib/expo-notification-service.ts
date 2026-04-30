@@ -240,13 +240,17 @@ function pickTemplate(
   streak?: number,
   excludeHashes: Set<string> = new Set(),
 ): { msg: MsgTemplate; hash: string } {
-  const eligible = pool.filter(t => !excludeHashes.has(variantHash(t)));
-  const source = eligible.length > 0 ? eligible : (pool.length > 0 ? pool : [fallback]);
-  const tpl    = source[Math.floor(Math.random() * source.length)];
+  const hasStreak = streak != null && streak > 0;
+  // Se não há streak, descarta variantes que contêm {streak} para evitar "-day streak"
+  const streakSafe = hasStreak ? pool : pool.filter(t => !t.title.includes('{streak}') && !t.body.includes('{streak}'));
+  const base    = streakSafe.length > 0 ? streakSafe : pool;
+  const eligible = base.filter(t => !excludeHashes.has(variantHash(t)));
+  const source  = eligible.length > 0 ? eligible : (base.length > 0 ? base : [fallback]);
+  const tpl     = source[Math.floor(Math.random() * source.length)];
   const replace = (s: string) => s
     .replace(/\{name\}/g, firstName)
     .replace(/\{xp\}/g, xp != null ? String(xp) : '')
-    .replace(/\{streak\}/g, streak != null ? String(streak) : '');
+    .replace(/\{streak\}/g, hasStreak ? String(streak) : '');
   return {
     msg: { title: replace(tpl.title), body: replace(tpl.body) },
     hash: variantHash(tpl),
