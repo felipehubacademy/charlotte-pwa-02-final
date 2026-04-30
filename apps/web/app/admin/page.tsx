@@ -46,6 +46,31 @@ const timeAgo = (s: string | null) => {
   return `${Math.floor(d / 30)}mês`;
 };
 
+// ── DateTip — mostra data completa ao hover ───────────────────────────────────
+function DateTip({ iso, children }: { iso: string | null; children: React.ReactNode }) {
+  const [show, setShow] = useState(false);
+  const label = iso ? new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  }) : null;
+  if (!label) return <>{children}</>;
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}
+      onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      {children}
+      {show && (
+        <span style={{
+          position: 'absolute', bottom: 'calc(100% + 5px)', left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'rgba(18,18,28,0.97)', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 6, padding: '5px 9px', fontSize: 11, lineHeight: 1.4,
+          color: 'rgba(255,255,255,0.75)', whiteSpace: 'nowrap', zIndex: 100,
+          pointerEvents: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+        }}>{label}</span>
+      )}
+    </span>
+  );
+}
+
 const STATUS_META: Record<string, { label: string; cls: string }> = {
   institutional: { label: 'Institucional', cls: 'badge-inst'   },
   active:    { label: 'Ativo',      cls: 'badge-ok'     },
@@ -400,10 +425,11 @@ export default function AdminUsersPage() {
                           <span className="num">{u.streak > 0 ? u.streak : '—'}</span>
                         </td>
                         <td>
-                          <span style={{ fontSize: 12, color: 'var(--t2)', cursor: u.engagement?.lastActive ? 'default' : undefined }}
-                            title={u.engagement?.lastActive ? new Date(u.engagement.lastActive).toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : undefined}>
-                            {timeAgo(u.engagement?.lastActive ?? null)}
-                          </span>
+                          <DateTip iso={u.engagement?.lastActive ?? null}>
+                            <span style={{ fontSize: 12, color: 'var(--t2)' }}>
+                              {timeAgo(u.engagement?.lastActive ?? null)}
+                            </span>
+                          </DateTip>
                         </td>
                         <td>
                           {u.trailProgress ? (
