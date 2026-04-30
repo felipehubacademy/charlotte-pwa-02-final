@@ -184,7 +184,7 @@ export default function AdminUsersPage() {
         filter === 'institutional' ? u.is_institutional :
         filter === 'subscriber' ? u.subscription_status === 'active' :
         filter === 'trial' ? u.subscription_status === 'trial' && !u.is_institutional :
-        filter === 'none' ? u.subscription_status === 'none' : true;
+        filter === 'none' ? u.subscription_status === 'none' && !u.is_institutional : true;
       return matchQ && matchF;
     });
     list = [...list].sort((a, b) => {
