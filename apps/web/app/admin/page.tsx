@@ -37,7 +37,7 @@ const fmtDate = (s: string | null) => {
   if (!s) return '—';
   return new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: '2-digit' });
 };
-const fmtXP = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n);
+const fmtXP = (n: number) => n.toLocaleString('pt-BR');
 const timeAgo = (s: string | null) => {
   if (!s) return '—';
   const d = Math.floor((Date.now() - new Date(s).getTime()) / 86400000);
