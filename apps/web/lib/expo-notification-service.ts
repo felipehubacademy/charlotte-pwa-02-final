@@ -375,8 +375,10 @@ async function filterFrequencyCap(
 ): Promise<string[]> {
   if (!userIds.length) return userIds;
   const cap = FREQUENCY_CAP[type];
-  const sinceMidnightUtc = new Date();
-  sinceMidnightUtc.setUTCHours(0, 0, 0, 0);
+  // Rolling 24h window instead of UTC midnight — avoids double-sends for users
+  // in negative-offset timezones (e.g., Americas) where UTC midnight falls in
+  // the middle of their local day.
+  const since24hAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const { data, error } = await supabase
     .from('notification_logs')
@@ -384,7 +386,7 @@ async function filterFrequencyCap(
     .in('user_id', userIds)
     .eq('notification_type', type)
     .eq('status', 'sent')
-    .gte('created_at', sinceMidnightUtc.toISOString());
+    .gte('created_at', since24hAgo.toISOString());
 
   if (error) {
     console.warn(`⚠️ [Expo] frequency-cap query error (${type}):`, error.message);
