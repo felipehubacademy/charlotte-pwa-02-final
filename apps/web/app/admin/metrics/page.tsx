@@ -446,8 +446,9 @@ const ENDPOINT_LABELS: Record<string, string> = {
 };
 const endpointLabel = (e: string) => ENDPOINT_LABELS[e] ?? e;
 
-function CostModal({ userId, userName, userEmail, days, onClose }: {
-  userId: string; userName: string | null; userEmail: string | null; days: number; onClose: () => void;
+function CostModal({ userId, userName, userEmail, rangeFrom, rangeTo, days, onClose }: {
+  userId: string; userName: string | null; userEmail: string | null;
+  rangeFrom: string; rangeTo: string; days: number; onClose: () => void;
 }) {
   const [costData, setCostData] = useState<UserCostData | null>(null);
   const [loading, setLoading]   = useState(true);
@@ -455,13 +456,15 @@ function CostModal({ userId, userName, userEmail, days, onClose }: {
 
   useEffect(() => {
     const secret = sessionStorage.getItem('adminSecret') ?? '';
-    fetch(`/api/admin/user-cost?userId=${encodeURIComponent(userId)}&days=${days}`, {
+    // Usa o from/to exato dos dados carregados na página para garantir consistência
+    const params = new URLSearchParams({ userId, from: rangeFrom, to: rangeTo });
+    fetch(`/api/admin/user-cost?${params}`, {
       headers: { 'x-admin-secret': secret },
     })
       .then(r => r.json())
       .then(d => { setCostData(d); setLoading(false); })
       .catch(e => { setErr(String(e)); setLoading(false); });
-  }, [userId, days]);
+  }, [userId, rangeFrom, rangeTo]);
 
   return (
     <div
@@ -1050,12 +1053,14 @@ export default function MetricsPage() {
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
 
-      {selectedUser && (
+      {selectedUser && data && (
         <CostModal
           userId={selectedUser.userId}
           userName={selectedUser.name}
           userEmail={selectedUser.email}
-          days={preset === '7d' ? 7 : preset === '30d' ? 30 : 90}
+          rangeFrom={data.range.from}
+          rangeTo={data.range.to}
+          days={data.range.days}
           onClose={() => setSelectedUser(null)}
         />
       )}
