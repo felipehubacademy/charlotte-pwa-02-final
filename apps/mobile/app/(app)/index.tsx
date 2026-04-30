@@ -658,7 +658,7 @@ export default function HomeScreen() {
     // 🔊 Som de streak — toca UMA VEZ POR DIA quando há streak ativo.
     // Se o WelcomeModal estiver aberto (isFreshLogin=true), adia o som até ele fechar.
     if (!_streakSoundPlayedThisSession && newData.streakDays > 0) {
-      const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const today = localTodayStr(); // YYYY-MM-DD no fuso do device
       const streakKey = `streak_sound_played_${userId}`;
       SecureStore.getItemAsync(streakKey).then(lastPlayed => {
         if (lastPlayed !== today) {
