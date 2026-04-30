@@ -50,8 +50,10 @@ const CAT_META: { key: keyof ByCategory; label: string; color: string }[] = [
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-const fmtDate = (s: string) =>
-  new Date(s).toLocaleString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+const fmtDate = (s: string | null) => {
+  if (!s) return '—';
+  return new Date(s).toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
 const fmtType = (t: string) => t.replace(/_/g, ' ');
 
 // ── Status badge ─────────────────────────────────────────────────────────────

@@ -85,7 +85,8 @@ export async function GET(req: NextRequest) {
       let q = supabase
         .from('notification_logs')
         .select('id, user_id, notification_type, status, message_title, message_body, error_message, created_at')
-        .order('created_at', { ascending: false })
+        .not('created_at', 'is', null)
+        .order('created_at', { ascending: false, nullsFirst: false })
         .range((page - 1) * PER_PAGE, page * PER_PAGE - 1);
       if (type)   q = q.eq('notification_type', type);
       if (status) q = q.eq('status', status);
