@@ -592,7 +592,7 @@ export default function HomeScreen() {
     // Correto para qualquer país — não assume UTC=local.
     const todayISO = localMidnightUTC().toISOString();
     const [prog, prac, achToday] = await Promise.all([
-      supabase.from('charlotte_progress').select('streak_days,total_xp').eq('user_id', userId).maybeSingle(),
+      supabase.from('charlotte_progress').select('streak_days,total_xp,last_practice_date').eq('user_id', userId).maybeSingle(),
       supabase.from('charlotte_practices').select('practice_type,xp_earned').eq('user_id', userId).gte('created_at', todayISO),
       // Achievement bonuses earned today (go via direct UPDATE, not in charlotte_practices)
       supabase.from('user_achievements').select('xp_bonus').eq('user_id', userId).gte('earned_at', todayISO),
@@ -619,8 +619,20 @@ export default function HomeScreen() {
       .gt('total_xp', userTotalXP);
     const computedRank = (higherCount ?? 0) + 1;
 
+    // Streak só é válido se praticou hoje ou ontem no fuso do device.
+    // Se last_practice_date for mais antigo, o streak já quebrou mas o DB ainda não sabe.
+    const lastPracticeDate = prog.data?.last_practice_date ?? null; // 'YYYY-MM-DD'
+    const todayStr = localTodayStr();
+    const yesterdayStr = (() => {
+      const d = new Date(); d.setDate(d.getDate() - 1);
+      const y = d.getFullYear(), m = String(d.getMonth() + 1).padStart(2, '0'), dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    })();
+    const streakAlive = lastPracticeDate === todayStr || lastPracticeDate === yesterdayStr;
+    const streakDays = streakAlive ? (prog.data?.streak_days ?? 0) : 0;
+
     const newData: HomeData = {
-      streakDays:    prog.data?.streak_days ?? 0,
+      streakDays,
       totalXP:       userTotalXP,
       todayXP,
       rank:          userTotalXP > 0 ? computedRank : null,

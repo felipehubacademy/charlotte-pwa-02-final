@@ -564,26 +564,19 @@ const WEEKLY_DAY_OF_WEEK   = 1; // Monday
 export async function sendStreakReminders(supabase: any): Promise<void> {
   console.log('🔥 [Expo] Checking streak reminders...');
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    const todayUTC     = now.toISOString().split('T')[0];
+    const yesterdayUTC = new Date(now.getTime() - 86400000).toISOString().split('T')[0];
 
-    // 1) Fetch user_ids who practiced today (raw list — PostgREST does not
-    //    support inline SQL subqueries, so we do it in two queries).
-    const { data: practicedRows, error: practicedErr } = await supabase
-      .from('charlotte_practices')
-      .select('user_id')
-      .gte('created_at', `${today}T00:00:00Z`);
-    if (practicedErr) { console.error('❌ [Expo] practices query error:', practicedErr.message); return; }
-    const practicedIds = [...new Set((practicedRows ?? []).map((r: any) => r.user_id))] as string[];
-
-    // 2) Users with streak > 0 who haven't practiced today.
-    let q = supabase
+    // Streak "em risco" = praticou ontem (last_practice_date = yesterday) mas ainda não hoje.
+    // Se last_practice_date < ontem, o streak já quebrou — não enviar reminder.
+    // Usamos UTC como aproximação server-side; a filtragem por hora local (usersAtLocalHour) garante
+    // que a notificação chega no horário certo para cada fuso.
+    const { data: atRisk, error: atRiskErr } = await supabase
       .from('charlotte_progress')
-      .select('user_id, streak_days')
-      .gt('streak_days', 0);
-    if (practicedIds.length) {
-      q = q.not('user_id', 'in', `(${practicedIds.map(id => `"${id}"`).join(',')})`);
-    }
-    const { data: atRisk, error: atRiskErr } = await q;
+      .select('user_id, streak_days, last_practice_date')
+      .gt('streak_days', 0)
+      .eq('last_practice_date', yesterdayUTC); // praticou ontem = streak vivo mas em risco hoje
     if (atRiskErr) { console.error('❌ [Expo] at-risk query error:', atRiskErr.message); return; }
 
     if (!atRisk?.length) { console.log('✅ [Expo] No streak risks today'); return; }

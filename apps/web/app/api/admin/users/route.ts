@@ -29,7 +29,7 @@ interface LearnProgress {
 }
 type TrailLevelKey = 'novice' | 'inter' | 'advanced';
 interface UserProgress {
-  user_id: string; streak_days: number | null;
+  user_id: string; streak_days: number | null; total_xp: number | null; last_practice_date: string | null;
 }
 
 function checkAuth(req: NextRequest) {
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     supabase.from('charlotte_users').select('*').order('created_at', { ascending: false }) as unknown as Promise<{ data: CharlotteUser[] | null; error: { message: string } | null }>,
     supabase.from('charlotte_practices').select('user_id, xp_earned, practice_type, created_at') as unknown as Promise<{ data: Practice[] | null; error: unknown }>,
     supabase.from('learn_progress').select('user_id, completed, module_index, topic_index, level') as unknown as Promise<{ data: LearnProgress[] | null; error: unknown }>,
-    supabase.from('charlotte_progress').select('user_id, streak_days') as unknown as Promise<{ data: UserProgress[] | null; error: unknown }>,
+    supabase.from('charlotte_progress').select('user_id, streak_days, total_xp, last_practice_date') as unknown as Promise<{ data: UserProgress[] | null; error: unknown }>,
   ]);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -95,30 +95,40 @@ export async function GET(req: NextRequest) {
     progMap[uid][key] = completed.length;
   }
 
-  // ── Streak map ────────────────────────────────────────────────────────────
-  type StreakMap = Record<string, number>;
-  const streakMap: StreakMap = {};
+  // ── Progress map (streak + total_xp + last_practice_date) ───────────────
+  type ProgressEntry = { streak: number; totalXP: number; lastPracticeDate: string | null };
+  const progressMap: Record<string, ProgressEntry> = {};
+  const todayUTC = new Date().toISOString().slice(0, 10);
+  const yesterdayUTC = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
   for (const up of (userProgress ?? [])) {
-    streakMap[String(up.user_id).toLowerCase()] = up.streak_days ?? 0;
+    const uid = String(up.user_id).toLowerCase();
+    const lpd = up.last_practice_date ?? null;
+    // Streak está ativo apenas se praticou hoje ou ontem (UTC como aproximação para admin)
+    const activeStreak = lpd === todayUTC || lpd === yesterdayUTC;
+    progressMap[uid] = {
+      streak:           activeStreak ? (up.streak_days ?? 0) : 0,
+      totalXP:          up.total_xp ?? 0,
+      lastPracticeDate: lpd,
+    };
   }
 
   // ── Attach engagement to each user ───────────────────────────────────────
   const usersWithEng = (users ?? []).map(u => {
-    const uid = String(u.id).toLowerCase();
-    const e   = engMap[uid];
-    const p   = progMap[uid];
-    const s   = streakMap[uid];
+    const uid  = String(u.id).toLowerCase();
+    const e    = engMap[uid];
+    const p    = progMap[uid];
+    const prog = progressMap[uid];
     return {
       ...u,
       engagement: e ? {
-        totalXP:      e.totalXP,
+        totalXP:      prog?.totalXP ?? e.totalXP, // charlotte_progress.total_xp tem achievements inclusos
         lastActive:   e.lastActive,
         sessionDays:  e.sessionDays.size,
         lessonCount:  e.lessonCount,
         messageCount: e.messageCount,
-      } : null,
+      } : (prog ? { totalXP: prog.totalXP, lastActive: prog.lastPracticeDate, sessionDays: 0, lessonCount: 0, messageCount: 0 } : null),
       trailProgress: p ?? null,
-      streak:        streakMap[uid] ?? 0,
+      streak:        prog?.streak ?? 0,
       longestStreak: 0,
     };
   });
