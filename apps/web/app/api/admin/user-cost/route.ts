@@ -1,5 +1,5 @@
 /**
- * GET /api/admin/user-cost?userId=X&from=YYYY-MM-DD&to=YYYY-MM-DD
+ * GET /api/admin/user-cost?userId=X&from=ISO&to=ISO
  * Retorna breakdown de custo por endpoint/serviço para um usuário específico.
  * Protegido pelo ADMIN_SECRET.
  */
@@ -23,32 +23,38 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get('userId');
   if (!userId) return NextResponse.json({ error: 'userId é obrigatório' }, { status: 400 });
 
-  const to   = searchParams.get('to');
-  const from = searchParams.get('from');
-  const days = searchParams.get('days') ? Math.max(1, parseInt(searchParams.get('days')!, 10)) : 30;
+  const toParam   = searchParams.get('to');
+  const fromParam = searchParams.get('from');
+  const days      = searchParams.get('days') ? Math.max(1, parseInt(searchParams.get('days')!, 10)) : 30;
 
-  const now   = new Date();
-  const toDate   = to   ? new Date(to)   : now;
-  const fromDate = from ? new Date(from) : new Date(now.getTime() - days * 86400000);
-  if (!to) toDate.setHours(23, 59, 59, 999);
+  const now       = new Date();
+  const toDate    = toParam   ? new Date(toParam)   : now;
+  const fromDate  = fromParam ? new Date(fromParam) : new Date(now.getTime() - days * 86400000);
 
   const supabase = getSupabaseAdmin();
 
-  type UsageRow = { endpoint: string; model: string; total_tokens: number | null; cost_usd: number | string | null };
-  const { data: rows, error } = await supabase
+  // Sem cast — usa o padrão correto do projeto
+  const result = await supabase
     .from('openai_usage')
-    .select('endpoint, model, total_tokens, cost_usd')
+    .select('endpoint, model, total_tokens, cost_usd, user_id')
     .eq('user_id', userId)
     .gte('created_at', fromDate.toISOString())
-    .lte('created_at', toDate.toISOString()) as unknown as Promise<{ data: UsageRow[] | null; error: { message: string } | null }>;
+    .lte('created_at', toDate.toISOString())
+    .limit(5000);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const rows = (result.data ?? []) as Array<{
+    endpoint: string; model: string;
+    total_tokens: number | null; cost_usd: number | string | null;
+    user_id: string | null;
+  }>;
 
-  const usageRows: UsageRow[] = rows ?? [];
+  if (result.error) {
+    return NextResponse.json({ error: result.error.message }, { status: 500 });
+  }
 
   // Breakdown por endpoint
   const byEndpoint: Record<string, { cost: number; calls: number; tokens: number }> = {};
-  for (const r of usageRows) {
+  for (const r of rows) {
     const key = r.endpoint || 'unknown';
     if (!byEndpoint[key]) byEndpoint[key] = { cost: 0, calls: 0, tokens: 0 };
     byEndpoint[key].cost   += Number(r.cost_usd || 0);
@@ -61,7 +67,7 @@ export async function GET(req: NextRequest) {
 
   // Breakdown por modelo
   const byModel: Record<string, { cost: number; calls: number }> = {};
-  for (const r of usageRows) {
+  for (const r of rows) {
     const key = r.model || 'unknown';
     if (!byModel[key]) byModel[key] = { cost: 0, calls: 0 };
     byModel[key].cost  += Number(r.cost_usd || 0);
@@ -71,8 +77,19 @@ export async function GET(req: NextRequest) {
     .map(([model, v]) => ({ model, cost: round6(v.cost), calls: v.calls }))
     .sort((a, b) => b.cost - a.cost);
 
-  const totalCost  = round6(usageRows.reduce((s, r) => s + Number(r.cost_usd || 0), 0));
-  const totalCalls = usageRows.length;
+  const totalCost  = round6(rows.reduce((s, r) => s + Number(r.cost_usd || 0), 0));
+  const totalCalls = rows.length;
 
-  return NextResponse.json({ userId, totalCost, totalCalls, breakdown, byModel: byModelArr });
+  // Debug: mostra o range exato usado e amostra dos user_ids encontrados
+  const sampleUserIds = [...new Set(rows.slice(0, 5).map(r => r.user_id))];
+
+  return NextResponse.json({
+    userId, totalCost, totalCalls, breakdown, byModel: byModelArr,
+    _debug: {
+      from: fromDate.toISOString(),
+      to:   toDate.toISOString(),
+      rowCount: rows.length,
+      sampleUserIds,
+    },
+  });
 }
