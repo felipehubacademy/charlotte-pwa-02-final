@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
     supabase.from('charlotte_practices').select('user_id, created_at').gte('created_at', d90.toISOString()),
     supabase.from('charlotte_progress').select('user_id, streak_days, total_xp'),
     // openai_usage pode nao existir ainda — catch silencioso
-    supabase.from('openai_usage').select('user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, audio_seconds, audio_input_min, audio_output_min, cost_usd, created_at').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
+    supabase.from('openai_usage').select('user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, audio_seconds, audio_input_min, audio_output_min, cost_usd, created_at').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()).limit(10000),
     // notification_logs tambem pode nao existir
     supabase.from('notification_logs').select('user_id, notification_type, status, created_at').gte('created_at', from.toISOString()).lte('created_at', to.toISOString()),
     // users.placement_test_done ja veio no users select acima; placementRes fica vazio por ora

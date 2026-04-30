@@ -433,14 +433,16 @@ interface CostBreakdown { endpoint: string; cost: number; calls: number; tokens:
 interface UserCostData  { totalCost: number; totalCalls: number; breakdown: CostBreakdown[]; byModel: { model: string; cost: number; calls: number }[] }
 
 const ENDPOINT_LABELS: Record<string, string> = {
-  chat:              'Conversa (chat)',
-  pronunciation:     'Pronúncia (Azure)',
-  'tts-cached':      'TTS cache (ElevenLabs)',
-  tts:               'TTS on-demand (ElevenLabs)',
-  grammar:           'Feedback gramatical',
-  'learn-exercise':  'Exercício (Learn)',
-  scheduler:         'Scheduler (sistema)',
-  unknown:           'Desconhecido',
+  '/api/assistant':                 'Conversa (chat)',
+  '/api/tts':                       'TTS voz (ElevenLabs)',
+  '/api/tts-cached':                'TTS cache (ElevenLabs)',
+  '/api/pronunciation':             'Pronúncia (Azure)',
+  '/api/pronunciation-semantic':    'Pronúncia semântica',
+  '/api/transcribe':                'Transcrição (Whisper)',
+  '/api/greeting':                  'Saudação inicial',
+  '/api/enrich-term':               'Enriquecimento de termo',
+  '/api/notifications/scheduler':   'Scheduler de notificações',
+  '/api/chat':                      'Conversa (chat)',
 };
 const endpointLabel = (e: string) => ENDPOINT_LABELS[e] ?? e;
 
