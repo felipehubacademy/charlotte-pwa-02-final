@@ -66,11 +66,12 @@ export async function POST(request: NextRequest) {
     const body: GreetingRequest = await request.json();
     const { firstName, level } = body;
 
-    if (!firstName || !level) {
+    if (!level) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+    const safeName = firstName?.trim() || 'there';
 
-    const { system, user } = buildPrompt(body);
+    const { system, user } = buildPrompt({ ...body, firstName: safeName });
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',

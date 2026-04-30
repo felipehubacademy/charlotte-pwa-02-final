@@ -44,7 +44,7 @@ export function prefetchGreeting(profile: PrefetchProfile): void {
   greetingCache.level   = profile.charlotte_level;
   greetingCache.pending = true;
 
-  const firstName = profile.name?.split(' ')[0] ?? profile.name ?? '';
+  const firstName = profile.name?.split(' ')[0] || profile.name || 'there';
   const level     = profile.charlotte_level as 'Novice' | 'Inter' | 'Advanced';
   // first_welcome_done is set to true by charlotte-intro.tsx before the user
   // ever reaches HomeScreen, so isNewUser is effectively always false here.
