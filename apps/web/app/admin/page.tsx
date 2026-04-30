@@ -397,9 +397,14 @@ export default function AdminUsersPage() {
                         <td><span className={`badge ${sm.cls}`}>{sm.label}</span></td>
                         <td><span className="num" style={{ color: (u.engagement?.totalXP ?? 0) > 500 ? 'var(--ok)' : 'var(--t2)' }}>{fmtXP(u.engagement?.totalXP ?? 0)}</span></td>
                         <td>
-                          <span className="num">{u.streak > 0 ? `🔥 ${u.streak}` : '—'}</span>
+                          <span className="num">{u.streak > 0 ? u.streak : '—'}</span>
                         </td>
-                        <td><span style={{ fontSize: 12, color: 'var(--t2)' }}>{timeAgo(u.engagement?.lastActive ?? null)}</span></td>
+                        <td>
+                          <span style={{ fontSize: 12, color: 'var(--t2)', cursor: u.engagement?.lastActive ? 'default' : undefined }}
+                            title={u.engagement?.lastActive ? new Date(u.engagement.lastActive).toLocaleString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : undefined}>
+                            {timeAgo(u.engagement?.lastActive ?? null)}
+                          </span>
+                        </td>
                         <td>
                           {u.trailProgress ? (
                             <span className="num" style={{ fontSize: 11.5, letterSpacing: 0 }}>
