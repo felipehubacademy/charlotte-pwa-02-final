@@ -714,6 +714,8 @@ export default function HomeScreen() {
     if (!userId) return;
     identifyUser(userId, level);
     track('app_open');
+    // Atualiza last_seen_at — rastreia abertura do app independente de prática concluída
+    supabase.from('charlotte_users').update({ last_seen_at: new Date().toISOString() }).eq('id', userId).then(() => {});
     setLoading(true);
     fetchData().finally(() => setLoading(false));
   }, [userId]); // eslint-disable-line

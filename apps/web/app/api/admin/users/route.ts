@@ -17,6 +17,7 @@ interface CharlotteUser {
   is_active: boolean; subscription_status: string;
   trial_ends_at: string | null; must_change_password: boolean;
   placement_test_done: boolean; created_at: string;
+  last_seen_at: string | null;
   [key: string]: unknown;
 }
 interface Practice {
@@ -122,11 +123,12 @@ export async function GET(req: NextRequest) {
       ...u,
       engagement: e ? {
         totalXP:      prog?.totalXP ?? e.totalXP, // charlotte_progress.total_xp tem achievements inclusos
-        lastActive:   e.lastActive,
+        // last_seen_at = abertura do app; lastActive = última prática. Usa o mais recente.
+        lastActive:   [e.lastActive, u.last_seen_at].filter(Boolean).sort().at(-1) ?? null,
         sessionDays:  e.sessionDays.size,
         lessonCount:  e.lessonCount,
         messageCount: e.messageCount,
-      } : (prog ? { totalXP: prog.totalXP, lastActive: prog.lastPracticeDate, sessionDays: 0, lessonCount: 0, messageCount: 0 } : null),
+      } : (prog ? { totalXP: prog.totalXP, lastActive: [prog.lastPracticeDate, u.last_seen_at].filter(Boolean).sort().at(-1) ?? null, sessionDays: 0, lessonCount: 0, messageCount: 0 } : null),
       trailProgress: p ?? null,
       streak:        prog?.streak ?? 0,
       longestStreak: 0,
