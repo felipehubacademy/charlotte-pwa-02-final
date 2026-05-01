@@ -20,7 +20,7 @@
  * param (same CRON_SECRET).
  */
 
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import {
   sendDailyReminders,
   sendCharlotteMessages,
@@ -87,8 +87,9 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const forceTask = url.searchParams.get('force_task') as TaskType | null;
 
-  try {
-    if (forceTask) {
+  // force_task: synchronous — caller waits for result
+  if (forceTask) {
+    try {
       const result = await runTask(forceTask);
       return NextResponse.json({
         success: true,
@@ -96,28 +97,30 @@ export async function GET(request: NextRequest) {
         timestamp: new Date().toISOString(),
         ...result,
       });
+    } catch (error) {
+      console.error('[SCHEDULER] Error:', error);
+      return NextResponse.json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString(),
+      }, { status: 500 });
     }
-
-    const now = new Date();
-    const results = await Promise.allSettled(HOURLY_TASKS.map(runTask));
-    return NextResponse.json({
-      success: true,
-      hourUTC: now.getUTCHours(),
-      results: results.map((r, i) => ({
-        task: HOURLY_TASKS[i],
-        status: r.status,
-        error: r.status === 'rejected' ? String(r.reason) : undefined,
-      })),
-      timestamp: now.toISOString(),
-    });
-  } catch (error) {
-    console.error('❌ [SCHEDULER] Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      timestamp: new Date().toISOString(),
-    }, { status: 500 });
   }
+
+  // Hourly run: respond 200 immediately so cron-job.org does not time out,
+  // then continue processing all tasks inside the Vercel function lifetime
+  // (maxDuration: 120s in vercel.json) via after().
+  const now = new Date();
+  after(async () => {
+    await Promise.allSettled(HOURLY_TASKS.map(runTask));
+  });
+
+  return NextResponse.json({
+    success: true,
+    scheduled: true,
+    hourUTC: now.getUTCHours(),
+    timestamp: now.toISOString(),
+  });
 }
 
 export async function POST(request: NextRequest) {
