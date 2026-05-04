@@ -473,7 +473,7 @@ export default function LearnSessionScreen() {
           }
         }
       }
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false }).catch(() => {});
     } catch {}
 
     // Always transition to listening — record button must always appear
@@ -620,7 +620,7 @@ export default function LearnSessionScreen() {
         ExpoSpeechRecognitionModule.abort();
       } else {
         try { await recorder.stop(); } catch {}
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
       }
       setPronStatus('listening');
       return;
@@ -661,7 +661,7 @@ export default function LearnSessionScreen() {
       } else if (isRepeat && !ASR_AVAILABLE) {
         // ── REPEAT fallback: Whisper transcription (no native ASR) ──
         await recorder.stop();
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
         const audioUri = recorder.uri;
         if (!audioUri) { setPronStatus('error'); return; }
 
@@ -698,7 +698,7 @@ export default function LearnSessionScreen() {
       } else {
         // ── SHADOWING: Azure, only pronunciationScore ─────────────
         await recorder.stop();
-        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
         const audioUri = recorder.uri;
         if (!audioUri) { setPronStatus('error'); return; }
 
