@@ -211,7 +211,7 @@ export default function VocabReview() {
       const res = await fetch(`${API_BASE}/api/tts-cached?term=${encodeURIComponent(current.term)}`);
       if (!res.ok) throw new Error('TTS failed');
       const { url } = await res.json();
-      await setAudioModeAsync({ playsInSilentMode: true });
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false });
       try { playerRef.current?.remove(); } catch { /* ignore */ }
       const player = createAudioPlayer({ uri: url });
       playerRef.current = player;

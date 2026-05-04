@@ -340,7 +340,7 @@ export default function KaraokeExerciseScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     if (videoUri) {
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false }).catch(() => {});
 
       try {
         videoPlayer.replace({ uri: videoUri });
@@ -367,7 +367,7 @@ export default function KaraokeExerciseScreen() {
     if (!audioUri || !playerRef.current) { openMic(idx); return; }
 
     try {
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false }).catch(() => {});
       playerRef.current.replace({ uri: audioUri });
       pendingPlay.current = true;
 

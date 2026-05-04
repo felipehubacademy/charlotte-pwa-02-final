@@ -54,7 +54,7 @@ export function useMessageAudioPlayer() {
     subRef.current = null;
 
     // Ensure speaker output (resets after recording or live voice call)
-    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => {});
+    setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true, shouldRouteThroughEarpiece: false }).catch(() => {});
 
     try { player.pause(); } catch {}
 
