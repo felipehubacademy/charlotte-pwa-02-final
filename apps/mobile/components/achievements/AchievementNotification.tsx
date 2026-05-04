@@ -379,7 +379,7 @@ export default function AchievementNotification({ achievements, onDismiss, isPt 
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
                     <AppText style={{ color: C.navy, fontSize: 15, fontWeight: '800' }}>
-                      {isPt ? 'Incrivel!' : 'Awesome!'}
+                      {isPt ? 'Incrível!' : 'Awesome!'}
                     </AppText>
                     <Confetti size={16} color={C.navy} weight="fill" />
                   </View>
