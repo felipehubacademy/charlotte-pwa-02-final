@@ -1,4 +1,5 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
+import { withAndroidManifest } from '@expo/config-plugins';
 
 // EAS cloud builds: google-services.json is gitignored.
 // GOOGLE_SERVICES_JSON is a file-type EAS secret — EAS writes the file
@@ -64,6 +65,18 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   runtimeVersion: '1.0.0',
   plugins: [
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((config: ExpoConfig) => withAndroidManifest(config, (c) => {
+      const manifest = c.modResults.manifest;
+      if (!manifest['uses-feature']) manifest['uses-feature'] = [];
+      const hasEntry = manifest['uses-feature'].some(
+        (f: { $?: { 'android:name'?: string } }) => f.$?.['android:name'] === 'android.hardware.telephony'
+      );
+      if (!hasEntry) {
+        manifest['uses-feature'].push({ $: { 'android:name': 'android.hardware.telephony', 'android:required': 'true' } });
+      }
+      return c;
+    })) as unknown as string,
     'expo-router',
     'expo-secure-store',
     'expo-updates',

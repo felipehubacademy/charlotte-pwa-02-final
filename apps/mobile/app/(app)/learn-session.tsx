@@ -1,4 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useAchievementsContext } from '@/components/achievements/AchievementsProvider';
 import {
   View, ScrollView, TouchableOpacity, TextInput,
   KeyboardAvoidingView, Platform, Animated,
@@ -172,6 +174,14 @@ export default function LearnSessionScreen() {
   const baseTotalXP = useTotalXP(userId);
   const insets      = useSafeAreaInsets();
   const { saveTopicComplete, saveExercise } = useLearnProgress(userId, level);
+  const { pauseNotifications } = useAchievementsContext();
+
+  useFocusEffect(
+    useCallback(() => {
+      pauseNotifications(true);
+      return () => pauseNotifications(false);
+    }, [pauseNotifications])
+  );
 
   const topic = getTopic(level, moduleIndex, topicIndex);
 

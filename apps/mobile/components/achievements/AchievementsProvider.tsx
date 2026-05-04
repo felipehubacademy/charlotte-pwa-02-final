@@ -8,17 +8,19 @@
  * (e.g. useChat, useLearnProgress) can trigger a poll after saving XP.
  * No Realtime dependency — polls charlotte.user_achievements on demand.
  */
-import React, { createContext, useContext, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAchievements } from '@/hooks/useAchievements';
 import AchievementNotification from './AchievementNotification';
 
 interface AchievementsContextValue {
   checkForNewAchievements: () => Promise<void>;
+  pauseNotifications: (paused: boolean) => void;
 }
 
 const AchievementsContext = createContext<AchievementsContextValue>({
   checkForNewAchievements: async () => {},
+  pauseNotifications: () => {},
 });
 
 export function useAchievementsContext() {
@@ -34,15 +36,22 @@ export function AchievementsProvider({ children }: AchievementsProviderProps) {
   const userId = profile?.id;
   const isPt = (profile?.charlotte_level ?? 'Novice') === 'Novice';
   const { pendingAchievements, dismissAchievement, checkForNewAchievements } = useAchievements(userId);
+  const [paused, setPaused] = useState(false);
+
+  const pauseNotifications = useCallback((value: boolean) => {
+    setPaused(value);
+  }, []);
 
   return (
-    <AchievementsContext.Provider value={{ checkForNewAchievements }}>
+    <AchievementsContext.Provider value={{ checkForNewAchievements, pauseNotifications }}>
       {children}
-      <AchievementNotification
-        achievements={pendingAchievements}
-        onDismiss={dismissAchievement}
-        isPt={isPt}
-      />
+      {!paused && (
+        <AchievementNotification
+          achievements={pendingAchievements}
+          onDismiss={dismissAchievement}
+          isPt={isPt}
+        />
+      )}
     </AchievementsContext.Provider>
   );
 }
