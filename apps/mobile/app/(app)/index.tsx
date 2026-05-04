@@ -13,7 +13,7 @@ import {
   unstable_batchedUpdates,
 } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, Redirect } from 'expo-router';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Fire,
@@ -524,6 +524,11 @@ export default function HomeScreen() {
   const { triggerToast } = useXPToast();
   const levelAccent: string = level === 'Novice' ? '#D97706' : level === 'Inter' ? '#7C3AED' : '#0F766E';
   const levelAccentBg: string = level === 'Novice' ? '#FFFBEB' : level === 'Inter' ? '#F5F3FF' : '#F0FDFA';
+
+  // Beta: new tab-based layout
+  if (profile?.beta_features?.includes('new_layout')) {
+    return <Redirect href="/(app)/(tabs)" />;
+  }
 
   // Trial badge — days remaining for non-institutional users on trial
   const trialDaysLeft = useMemo(() => {

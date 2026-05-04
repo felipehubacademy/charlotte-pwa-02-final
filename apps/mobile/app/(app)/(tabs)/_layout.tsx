@@ -1,6 +1,81 @@
-// Legacy (tabs) routes redirected — navigation now uses the Hub & Spoke Stack
-// under (app)/. This file stays to avoid 404s from any stale deep links.
-import { Redirect } from 'expo-router';
-export default function TabsRedirect() {
-  return <Redirect href="/(app)" />;
+// app/(app)/(tabs)/_layout.tsx
+// New bottom tab navigator — beta users only (beta_features includes 'new_layout').
+// Stack screens (grammar, chat, pronunciation, learn-session, etc.) are defined
+// in (app)/_layout.tsx and push on top of these tabs without the tab bar.
+
+import { Tabs } from 'expo-router';
+import { Platform } from 'react-native';
+import { House, Lightning, Notepad, Target, Compass } from 'phosphor-react-native';
+import { useAuth } from '@/hooks/useAuth';
+import { UserLevel } from '@/lib/levelConfig';
+
+const LEVEL_ACCENT: Record<UserLevel, string> = {
+  Novice:   '#D97706',
+  Inter:    '#7C3AED',
+  Advanced: '#0F766E',
+};
+
+export default function TabLayout() {
+  const { profile } = useAuth();
+  const level  = (profile?.charlotte_level ?? 'Inter') as UserLevel;
+  const accent = LEVEL_ACCENT[level];
+
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarActiveTintColor: accent,
+        tabBarInactiveTintColor: '#9896B8',
+        tabBarStyle: {
+          backgroundColor: '#FFFFFF',
+          borderTopColor: 'rgba(22,21,58,0.08)',
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 80 : 60,
+          paddingTop: 8,
+        },
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <House size={size ?? 24} color={color} weight="fill" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="practice"
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Lightning size={size ?? 24} color={color} weight="fill" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="vocabulary"
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Notepad size={size ?? 24} color={color} weight="fill" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="goals"
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Target size={size ?? 24} color={color} weight="fill" />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="discover"
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Compass size={size ?? 24} color={color} weight="fill" />
+          ),
+        }}
+      />
+    </Tabs>
+  );
 }
