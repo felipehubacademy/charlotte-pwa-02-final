@@ -506,7 +506,7 @@ export default function LearnSessionScreen() {
         exerciseData: { question: ex.prompt, correctAnswer: ex.answer, userAnswer: userAnswer.trim() } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       soundEngine.play('answer_correct').catch(() => {});
-      Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+      Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, friction: 8, tension: 60 }).start();
       return;
     }
 
@@ -522,8 +522,8 @@ export default function LearnSessionScreen() {
       saveExercise({ level, moduleIndex, topicIndex, exerciseType: ex.type, isCorrect: correct, xpEarned: xp,
         exerciseData: { question: ex.prompt, correctAnswer: ex.answer, userAnswer: answerText } });
       if (correct) { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); soundEngine.play('answer_correct').catch(() => {}); }
-      else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); soundEngine.play('answer_wrong').catch(() => {}); setSessionErrors(prev => prev + 1); }
-      Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+      else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);   soundEngine.play('answer_wrong').catch(() => {}); setSessionErrors(prev => prev + 1); }
+      Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, friction: 8, tension: 60 }).start();
       return;
     }
 
@@ -546,11 +546,11 @@ export default function LearnSessionScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       soundEngine.play('answer_correct').catch(() => {});
     } else {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       soundEngine.play('answer_wrong').catch(() => {});
       setSessionErrors(prev => prev + 1);
     }
-    Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+    Animated.spring(feedbackAnim, { toValue: 1, useNativeDriver: true, friction: 8, tension: 60 }).start();
   };
 
   // ── Pronunciation: play ────────────────────────────────────
@@ -944,7 +944,7 @@ export default function LearnSessionScreen() {
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1, backgroundColor: C.bg }}
-          contentContainerStyle={{ padding: 20, paddingBottom: 24, flexGrow: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: currentStep.kind === 'grammar' && gStatus === 'submitted' ? 300 : 24, flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -1102,28 +1102,40 @@ export default function LearnSessionScreen() {
               )}
 
               {/* Multiple choice */}
-              {currentStep.exercise.type === 'multiple_choice' && gStatus === 'answering' && (
+              {currentStep.exercise.type === 'multiple_choice' && (
                 <View style={{ gap: 10 }}>
                   {shuffledOptions.map((opt, i) => {
                     const selected = userAnswer === opt;
+                    const isCorrectOpt = opt === currentStep.exercise.answer;
+                    // locked state colours (after submit)
+                    let borderColor = selected ? accent : C.border;
+                    let bgColor     = selected ? accentBg : C.card;
+                    let dotBg       = selected ? accent : C.ghost;
+                    let dotText     = selected ? '#FFF' : C.navyMid;
+                    let trailIcon   = selected ? <CheckCircle size={18} color={accent} weight="fill" /> : null;
+                    if (gStatus === 'submitted') {
+                      if (isCorrectOpt)                        { borderColor = C.green; bgColor = 'rgba(61,136,0,0.08)';    dotBg = C.green;  dotText = '#FFF'; trailIcon = <CheckCircle size={18} color={C.green} weight="fill" />; }
+                      else if (selected && !isCorrectOpt)      { borderColor = C.red;   bgColor = 'rgba(220,38,38,0.06)';  dotBg = C.red;    dotText = '#FFF'; trailIcon = <XCircle    size={18} color={C.red}   weight="fill" />; }
+                      else                                     { borderColor = C.border; bgColor = C.card; dotBg = C.ghost; dotText = C.navyMid; trailIcon = null; }
+                    }
                     return (
                       <TouchableOpacity
                         key={i}
-                        onPress={() => setUserAnswer(selected ? '' : opt)}
+                        onPress={() => gStatus === 'answering' && setUserAnswer(selected ? '' : opt)}
+                        activeOpacity={gStatus === 'submitted' ? 1 : 0.7}
                         style={{
                           flexDirection: 'row', alignItems: 'center', gap: 14,
                           borderRadius: 14, borderWidth: 2,
-                          borderColor: selected ? accent : C.border,
-                          backgroundColor: selected ? accentBg : C.card,
+                          borderColor, backgroundColor: bgColor,
                           paddingHorizontal: 16, paddingVertical: 16,
                         }}
                       >
                         <View style={{
                           width: 30, height: 30, borderRadius: 15,
-                          backgroundColor: selected ? accent : C.ghost,
+                          backgroundColor: dotBg,
                           alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                         }}>
-                          <AppText style={{ fontSize: 13, fontWeight: '800', color: selected ? '#FFF' : C.navyMid }}>
+                          <AppText style={{ fontSize: 13, fontWeight: '800', color: dotText }}>
                             {['A', 'B', 'C'][i]}
                           </AppText>
                         </View>
@@ -1131,7 +1143,7 @@ export default function LearnSessionScreen() {
                           ? <TranslatableText text={opt} style={{ fontSize: 15, fontWeight: '600', color: C.navy }} />
                           : <AppText style={{ fontSize: 15, fontWeight: '600', color: C.navy, flex: 1 }}>{opt}</AppText>
                         }
-                        {selected && <CheckCircle size={18} color={accent} weight="fill" />}
+                        {trailIcon}
                       </TouchableOpacity>
                     );
                   })}
@@ -1316,55 +1328,6 @@ export default function LearnSessionScreen() {
                 </>
               )}
 
-              {/* Grammar feedback */}
-              {gStatus === 'submitted' && isCorrect !== null && (
-                <Animated.View style={{
-                  opacity: feedbackAnim,
-                  transform: [{ translateY: feedbackAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-                  marginTop: 8,
-                }}>
-                  <View style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 10,
-                    padding: 14, borderRadius: 14, marginBottom: 12,
-                    backgroundColor: isCorrect ? C.greenBg : C.redBg,
-                    borderWidth: 1,
-                    borderColor: isCorrect ? 'rgba(61,136,0,0.2)' : 'rgba(220,38,38,0.18)',
-                  }}>
-                    {isCorrect ? <CheckCircle size={20} color={C.green} weight="fill" /> : <XCircle size={20} color={C.red} weight="fill" />}
-                    <AppText style={{ fontSize: 15, fontWeight: '700', color: isCorrect ? C.green : C.red, flex: 1 }}>
-                      {isCorrect ? (isPortuguese ? 'Correto!' : 'Correct!') : (isPortuguese ? 'Quase lá…' : 'Almost there…')}
-                    </AppText>
-                    <View style={{ backgroundColor: isCorrect ? 'rgba(61,136,0,0.12)' : 'rgba(220,38,38,0.10)', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
-                      <AppText style={{ fontSize: 11, fontWeight: '800', color: isCorrect ? C.green : C.red }}>
-                        +{currentStep.kind === 'grammar' && currentStep.exercise.type === 'short_write' ? 8 : isCorrect ? 10 : 2} XP
-                      </AppText>
-                    </View>
-                  </View>
-                  {!isCorrect && (
-                    <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12, marginBottom: 10 }}>
-                      <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>{isPortuguese ? 'Resposta correta' : 'Correct answer'}</AppText>
-                      {isPortuguese
-                        ? <TranslatableText text={currentStep.exercise.answer ?? ''} style={{ fontSize: 15, color: C.navy, fontWeight: '600' }} />
-                        : <AppText style={{ fontSize: 15, color: C.navy, fontWeight: '600' }}>{currentStep.exercise.answer}</AppText>
-                      }
-                    </View>
-                  )}
-                  {currentStep.exercise.type === 'short_write' && currentStep.exercise.example_answer && (
-                    <View style={{ backgroundColor: C.greenBg, borderRadius: 12, padding: 14, marginBottom: 8 }}>
-                      <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>
-                        {isPortuguese ? 'Exemplo de resposta' : 'Model answer'}
-                      </AppText>
-                      <AppText style={{ fontSize: 15, color: C.navy, fontStyle: 'italic', lineHeight: 22 }}>
-                        "{currentStep.exercise.example_answer}"
-                      </AppText>
-                    </View>
-                  )}
-                  <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12 }}>
-                    <AppText style={{ fontSize: 11, fontWeight: '700', color: C.navyLight, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>{isPortuguese ? 'Por quê' : 'Why'}</AppText>
-                    <AppText style={{ fontSize: 14, color: C.navyMid, lineHeight: 21 }}>{currentStep.exercise.explanation}</AppText>
-                  </View>
-                </Animated.View>
-              )}
             </View>
           )}
 
@@ -1678,13 +1641,6 @@ export default function LearnSessionScreen() {
               </TouchableOpacity>
             );
           })()}
-          {currentStep.kind === 'grammar' && gStatus === 'submitted' && (
-            <TouchableOpacity onPress={handleNext}
-              style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
-              {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
-            </TouchableOpacity>
-          )}
 
           {/* ── Pronunciation: Repeat ── */}
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && (
@@ -1791,6 +1747,87 @@ export default function LearnSessionScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Grammar feedback panel — slides up from bottom (placement-test style) ── */}
+      {currentStep.kind === 'grammar' && gStatus === 'submitted' && isCorrect !== null && (
+        <Animated.View style={{
+          position: 'absolute', bottom: 0, left: 0, right: 0,
+          backgroundColor: isCorrect ? '#EDFFD0' : '#FFF0F0',
+          borderTopLeftRadius: 24, borderTopRightRadius: 24,
+          borderTopWidth: 1,
+          borderColor: isCorrect ? 'rgba(163,255,60,0.4)' : 'rgba(220,38,38,0.25)',
+          paddingHorizontal: 24, paddingTop: 20,
+          paddingBottom: insets.bottom + 20,
+          transform: [{ translateY: feedbackAnim.interpolate({ inputRange: [0, 1], outputRange: [300, 0] }) }],
+        }}>
+          {/* Header row: icon + title + XP badge */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            {isCorrect
+              ? <CheckCircle size={24} color={C.green}  weight="fill" />
+              : <XCircle     size={24} color={C.red}    weight="fill" />}
+            <AppText style={{ fontSize: 17, fontWeight: '800', color: isCorrect ? C.green : C.red, flex: 1 }}>
+              {isCorrect
+                ? (isPortuguese ? 'Correto!' : 'Correct!')
+                : (isPortuguese ? 'Quase lá…' : 'Almost there…')}
+            </AppText>
+            <View style={{ backgroundColor: isCorrect ? 'rgba(61,136,0,0.12)' : 'rgba(220,38,38,0.10)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <AppText style={{ fontSize: 12, fontWeight: '800', color: isCorrect ? C.green : C.red }}>
+                +{currentStep.exercise.type === 'short_write' ? 8 : isCorrect ? 10 : 2} XP
+              </AppText>
+            </View>
+          </View>
+
+          {/* Correct answer (wrong only) */}
+          {!isCorrect && (
+            <View style={{ padding: 12, backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 12, marginBottom: 10 }}>
+              <AppText style={{ fontSize: 11, fontWeight: '700', color: C.red, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>
+                {isPortuguese ? 'Resposta correta' : 'Correct answer'}
+              </AppText>
+              {isPortuguese
+                ? <TranslatableText text={currentStep.exercise.answer ?? ''} style={{ fontSize: 15, color: C.navy, fontWeight: '600' }} />
+                : <AppText style={{ fontSize: 15, color: C.navy, fontWeight: '600' }}>{currentStep.exercise.answer}</AppText>}
+            </View>
+          )}
+
+          {/* Model answer for short_write */}
+          {currentStep.exercise.type === 'short_write' && currentStep.exercise.example_answer && (
+            <View style={{ padding: 12, backgroundColor: 'rgba(61,136,0,0.07)', borderRadius: 12, marginBottom: 10 }}>
+              <AppText style={{ fontSize: 11, fontWeight: '700', color: C.green, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>
+                {isPortuguese ? 'Exemplo de resposta' : 'Model answer'}
+              </AppText>
+              <AppText style={{ fontSize: 14, color: C.navy, fontStyle: 'italic', lineHeight: 20 }}>
+                "{currentStep.exercise.example_answer}"
+              </AppText>
+            </View>
+          )}
+
+          {/* Why / Por quê */}
+          <View style={{ padding: 12, backgroundColor: 'rgba(22,21,58,0.06)', borderRadius: 12, marginBottom: 16 }}>
+            <AppText style={{ fontSize: 11, fontWeight: '700', color: isCorrect ? C.green : C.red, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>
+              {isPortuguese ? 'Por quê' : 'Why'}
+            </AppText>
+            <AppText style={{ fontSize: 13, color: isCorrect ? '#1a3a00' : '#7B2020', lineHeight: 19 }}>
+              {currentStep.exercise.explanation}
+            </AppText>
+          </View>
+
+          {/* Next button */}
+          <TouchableOpacity
+            onPress={handleNext}
+            activeOpacity={0.85}
+            style={{
+              backgroundColor: isCorrect ? C.green : C.red,
+              borderRadius: 16, paddingVertical: 15,
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
+              {stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}
+            </AppText>
+            {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
+          </TouchableOpacity>
+        </Animated.View>
+      )}
 
     </SafeAreaView>
   );
