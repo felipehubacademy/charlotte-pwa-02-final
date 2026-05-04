@@ -19,6 +19,10 @@ import { scheduleReviews, markReviewDone, rescheduleReview } from '@/lib/spacedR
 import { track } from '@/lib/analytics';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAudioRecorder, setAudioModeAsync, RecordingPresets } from 'expo-audio';
+import {
+  ExpoSpeechRecognitionModule,
+  useSpeechRecognitionEvent,
+} from 'expo-speech-recognition';
 import Constants from 'expo-constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useTotalXP } from '@/hooks/useTotalXP';
@@ -141,34 +145,13 @@ function checkGrammar(ex: GrammarEx, answer: string): boolean {
   return false;
 }
 
-// ── Score helpers ──────────────────────────────────────────────
-function scoreColor(s: number) {
-  if (s >= 85) return '#22C55E';
-  if (s >= 70) return C.gold;
-  if (s >= 55) return '#FB923C';
-  return C.red;
-}
-function scoreLabel(s: number, isPt: boolean) {
-  if (s >= 90) return isPt ? 'Excelente!'      : 'Excellent!';
-  if (s >= 80) return isPt ? 'Muito bom!'      : 'Great job!';
-  if (s >= 70) return isPt ? 'Bom trabalho!'   : 'Good work!';
-  if (s >= 55) return isPt ? 'Continue assim!' : 'Keep it up!';
-  return isPt ? 'Continue praticando' : 'Keep practising';
-}
-
-function ScoreBar({ label, score }: { label: string; score: number }) {
-  const color = scoreColor(score);
-  return (
-    <View style={{ marginBottom: 8 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
-        <AppText style={{ fontSize: 11, color: C.navyLight, fontWeight: '600' }}>{label}</AppText>
-        <AppText style={{ fontSize: 11, color, fontWeight: '800' }}>{Math.round(score)}</AppText>
-      </View>
-      <View style={{ height: 5, backgroundColor: C.ghost, borderRadius: 3, overflow: 'hidden' }}>
-        <View style={{ height: '100%', width: `${Math.min(score, 100)}%` as `${number}%`, backgroundColor: color, borderRadius: 3 }} />
-      </View>
-    </View>
-  );
+// ── Pronunciation helpers ──────────────────────────────────────
+function wordMatchPercent(spoken: string, reference: string): number {
+  const ref = reference.trim().toLowerCase().replace(/[.,!?;:]/g, '').split(' ').filter(w => w.length > 0);
+  const sp  = spoken.trim().toLowerCase().replace(/[.,!?;:]/g, '');
+  if (ref.length === 0) return 0;
+  const matched = ref.filter(w => sp.includes(w)).length;
+  return (matched / ref.length) * 100;
 }
 
 // ── Main screen ────────────────────────────────────────────────
@@ -309,19 +292,31 @@ export default function LearnSessionScreen() {
 
   // ── Pronunciation state ────────────────────────────────────
   type PronStatus = 'loading_audio' | 'listening' | 'recording' | 'assessing' | 'result' | 'error' | 'retry';
+  type PronFeedbackState = 'correct' | 'close' | 'error';
+  type PronFeedback = { state: PronFeedbackState; message: string; xp: number } | null;
   const [pronStatus, setPronStatus]           = useState<PronStatus>('loading_audio');
   const [charlotteAudioUri, setCharlotteAudioUri] = useState<string | null>(null);
   const [listenWriteAnswer, setListenWriteAnswer] = useState('');
   const [listenWriteCorrect, setListenWriteCorrect] = useState<boolean | null>(null);
-  const [assessmentResult, setAssessmentResult]   = useState<any>(null);
-  const [sessionScores, setSessionScores]         = useState<number[]>([]);
+  const [pronFeedback, setPronFeedback]       = useState<PronFeedback>(null);
   // minimal_pairs state
   const [mpChosen, setMpChosen]       = useState<'word1' | 'word2' | null>(null);
   const [mpCorrect, setMpCorrect]     = useState<boolean | null>(null);
   // sentence_stress state
   const [stressTapped, setStressTapped]   = useState<string | null>(null);
   const [stressCorrect, setStressCorrect] = useState<boolean | null>(null);
-  const resultAnim   = useRef(new Animated.Value(0)).current;
+  const pronFeedbackAnim = useRef(new Animated.Value(0)).current;
+  // on-device ASR transcript (repeat)
+  const speechTranscriptRef = useRef('');
+
+  // ── Speech recognition events ──────────────────────────────
+  useSpeechRecognitionEvent('result', (event) => {
+    const transcript = event.results[0]?.transcript;
+    if (transcript) speechTranscriptRef.current = transcript;
+  });
+  useSpeechRecognitionEvent('error', () => {
+    // keep whatever transcript we have so far
+  });
 
   const { playingMessageId, toggle: toggleAudio, stop: stopAudio } = useMessageAudioPlayer();
   const charlottePlayId = 'learn-session-phrase';
@@ -431,14 +426,15 @@ export default function LearnSessionScreen() {
 
   const loadPronStep = useCallback(async (ph: PronStep) => {
     setPronStatus('loading_audio');
-    setAssessmentResult(null);
+    setPronFeedback(null);
+    pronFeedbackAnim.setValue(0);
     setListenWriteAnswer('');
     setListenWriteCorrect(null);
     setMpChosen(null);
     setMpCorrect(null);
     setStressTapped(null);
     setStressCorrect(null);
-    resultAnim.setValue(0);
+    speechTranscriptRef.current = '';
     stopAudio();
 
     try {
@@ -477,7 +473,7 @@ export default function LearnSessionScreen() {
 
     // Always transition to listening — record button must always appear
     setPronStatus('listening');
-  }, [fetchTTS, stopAudio, resultAnim]);
+  }, [fetchTTS, stopAudio, pronFeedbackAnim]);
 
   // ── Initialise & step transitions ──────────────────────────
   useEffect(() => {
@@ -558,16 +554,47 @@ export default function LearnSessionScreen() {
     if (charlotteAudioUri) toggleAudio(charlottePlayId, charlotteAudioUri);
   };
 
-  // ── Pronunciation: record ──────────────────────────────────
+  // ── Pronunciation: show result panel ──────────────────────
+  const showPronResult = (feedback: NonNullable<PronFeedback>) => {
+    setPronFeedback(feedback);
+    setSessionXP(prev => prev + feedback.xp);
+    Animated.spring(pronFeedbackAnim, { toValue: 1, useNativeDriver: true, friction: 8, tension: 60 }).start();
+    setPronStatus('result');
+  };
+
+  const handleRetryPron = () => {
+    setPronFeedback(null);
+    pronFeedbackAnim.setValue(0);
+    speechTranscriptRef.current = '';
+    setPronStatus('listening');
+  };
+
+  // ── Pronunciation: record (repeat = on-device ASR, shadowing = Azure) ──
   const startRecording = async () => {
     if (recordingRef.current) return;
+    if (!currentStep || currentStep.kind !== 'pronunciation') return;
+
     recordingRef.current = true;
     recordingStartRef.current = Date.now();
+    speechTranscriptRef.current = '';
     setPronStatus('recording');
+
     try {
-      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-      await recorder.prepareToRecordAsync();
-      recorder.record();
+      if (currentStep.phrase.type === 'repeat') {
+        // On-device ASR — no audio file needed
+        const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+        if (!perm.granted) {
+          recordingRef.current = false;
+          setPronStatus('listening');
+          return;
+        }
+        ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true, continuous: true });
+      } else {
+        // Recorder for Azure (shadowing)
+        await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+      }
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     } catch {
       recordingRef.current = false;
@@ -578,12 +605,18 @@ export default function LearnSessionScreen() {
   const stopRecording = async () => {
     if (!recordingRef.current || !currentStep || currentStep.kind !== 'pronunciation') return;
 
-    // Ignore accidental releases shorter than 300ms on both platforms
     const elapsed = Date.now() - recordingStartRef.current;
+    const isRepeat = currentStep.phrase.type === 'repeat';
+
+    // Ignore accidental releases shorter than 300ms
     if (elapsed < 300) {
       recordingRef.current = false;
-      try { await recorder.stop(); } catch {}
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      if (isRepeat) {
+        ExpoSpeechRecognitionModule.abort();
+      } else {
+        try { await recorder.stop(); } catch {}
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+      }
       setPronStatus('listening');
       return;
     }
@@ -593,73 +626,77 @@ export default function LearnSessionScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      await recorder.stop();
-      await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
-      const audioUri = recorder.uri;
-      if (!audioUri) { setPronStatus('error'); return; }
+      if (isRepeat) {
+        // ── REPEAT: on-device ASR + string similarity ────────────
+        ExpoSpeechRecognitionModule.stop();
+        // Give ~300ms for final result event to fire
+        await new Promise(r => setTimeout(r, 300));
 
-      const isWav = audioUri.toLowerCase().endsWith('.wav');
-      const formData = new FormData();
-      formData.append('audio', { uri: audioUri, name: isWav ? 'recording.wav' : 'recording.m4a', type: isWav ? 'audio/wav' : 'audio/x-m4a' } as unknown as Blob);
-      const referenceText = currentStep.phrase.text ?? '';
-      formData.append('referenceText', referenceText);
-      if (userId) formData.append('userId', userId);
+        const transcript = speechTranscriptRef.current;
+        const pct = transcript ? wordMatchPercent(transcript, currentStep.phrase.text ?? '') : 0;
 
-      const res = await fetch(`${API_BASE_URL}/api/pronunciation`, { method: 'POST', body: formData });
-      if (!res.ok) throw new Error('Assessment failed');
-      const data = await res.json();
-
-      if (!data.success && data.shouldRetry) {
-        // No speech detected — show retry prompt
-        setPronStatus('retry');
-        return;
-      }
-
-      if (data.result) {
-        const score        = data.result.pronunciationScore  ?? 0;
-        const completeness = data.result.completenessScore   ?? 0;
-        const fluency      = data.result.fluencyScore        ?? 0;
-
-        const allZero = score === 0
-          && (data.result.accuracyScore ?? 0) === 0
-          && fluency === 0
-          && completeness === 0;
-
-        if (allZero) {
-          // Assessment returned zeros — likely silence or very short audio
-          setPronStatus('retry');
-          return;
-        }
-
-        // All pronunciation exercises require the user to actually speak.
-        // Azure returns low but non-zero scores for near-silence.
-        // Enforce a minimum completeness threshold so staying silent
-        // or muttering a single word can't pass the exercise.
-        if (completeness < 35) {
-          setPronStatus('retry');
-          return;
-        }
-
-        const isShadowing = currentStep.phrase.type === 'shadowing';
-        const isRepeat    = currentStep.phrase.type === 'repeat';
-
-        setAssessmentResult(data.result);
-        setSessionScores(prev => [...prev, score]);
-        const xp = score >= 85 ? 15 : score >= 70 ? 10 : 5;
-        setSessionXP(prev => prev + xp);
-        const exType = isShadowing ? 'shadowing' : 'repeat';
-        saveExercise({ level, moduleIndex, topicIndex, exerciseType: exType, isCorrect: score >= 70, xpEarned: xp,
-          exerciseData: { question: currentStep.phrase.text, score, userAnswer: 'audio' } });
-        if (score >= 80) {
+        let feedback: NonNullable<PronFeedback>;
+        if (pct >= 85) {
+          feedback = { state: 'correct', xp: 15, message: isPortuguese ? 'Perfeito! Otima pronuncia.' : 'Perfect! Great pronunciation.' };
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           soundEngine.play('answer_correct').catch(() => {});
+        } else if (pct >= 50) {
+          feedback = { state: 'close', xp: 8, message: isPortuguese ? `Quase! Entendemos: "${transcript}". Tente de novo.` : `Close! We heard: "${transcript}". Try again.` };
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         } else {
+          feedback = { state: 'error', xp: 2, message: isPortuguese ? 'Nao conseguimos entender. Fale mais perto do microfone.' : "We didn't catch that. Speak closer to the mic." };
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
           soundEngine.play('answer_wrong').catch(() => {});
           setSessionErrors(prev => prev + 1);
         }
-        Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
+        saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'repeat', isCorrect: feedback.state === 'correct', xpEarned: feedback.xp,
+          exerciseData: { question: currentStep.phrase.text, score: pct, userAnswer: transcript } });
+        showPronResult(feedback);
+
+      } else {
+        // ── SHADOWING: Azure, only pronunciationScore ─────────────
+        await recorder.stop();
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        const audioUri = recorder.uri;
+        if (!audioUri) { setPronStatus('error'); return; }
+
+        const isWav = audioUri.toLowerCase().endsWith('.wav');
+        const formData = new FormData();
+        formData.append('audio', { uri: audioUri, name: isWav ? 'recording.wav' : 'recording.m4a', type: isWav ? 'audio/wav' : 'audio/x-m4a' } as unknown as Blob);
+        formData.append('referenceText', currentStep.phrase.text ?? '');
+        if (userId) formData.append('userId', userId);
+
+        const res = await fetch(`${API_BASE_URL}/api/pronunciation`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Assessment failed');
+        const data = await res.json();
+
+        if (!data.success && data.shouldRetry) { setPronStatus('retry'); return; }
+
+        if (data.result) {
+          const score        = data.result.pronunciationScore ?? 0;
+          const completeness = data.result.completenessScore  ?? 0;
+          const allZero      = score === 0 && (data.result.accuracyScore ?? 0) === 0 && completeness === 0;
+          if (allZero || completeness < 35) { setPronStatus('retry'); return; }
+
+          let feedback: NonNullable<PronFeedback>;
+          if (score >= 70) {
+            feedback = { state: 'correct', xp: 15, message: isPortuguese ? 'Otimo ritmo! Entonacao natural.' : 'Great rhythm! Natural intonation.' };
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            soundEngine.play('answer_correct').catch(() => {});
+          } else if (score >= 45) {
+            feedback = { state: 'close', xp: 8, message: isPortuguese ? 'Bom esforco! Tente acompanhar o ritmo da Charlotte mais de perto.' : "Good effort! Try to follow Charlotte's rhythm more closely." };
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+          } else {
+            feedback = { state: 'error', xp: 2, message: isPortuguese ? 'Tente de novo, acompanhando a velocidade e entonacao dela.' : 'Try again, matching her speed and intonation.' };
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+            soundEngine.play('answer_wrong').catch(() => {});
+            setSessionErrors(prev => prev + 1);
+          }
+          saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'shadowing', isCorrect: feedback.state === 'correct', xpEarned: feedback.xp,
+            exerciseData: { question: currentStep.phrase.text, score, userAnswer: 'audio' } });
+          showPronResult(feedback);
+        }
       }
-      setPronStatus('result');
     } catch { setPronStatus('error'); }
   };
 
@@ -674,13 +711,20 @@ export default function LearnSessionScreen() {
     const correct = matched >= Math.ceil(words.length * 0.7);
     setListenWriteCorrect(correct);
     const xp = correct ? 8 : 2;
-    setSessionXP(prev => prev + xp);
     saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'listen_write', isCorrect: correct, xpEarned: xp,
       exerciseData: { question: currentStep.phrase.text, correctAnswer: currentStep.phrase.text, userAnswer: listenWriteAnswer.trim() } });
-    if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    else         { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); setSessionErrors(prev => prev + 1); }
-    Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
-    setPronStatus('result');
+    if (correct) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      soundEngine.play('answer_correct').catch(() => {});
+    } else {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      soundEngine.play('answer_wrong').catch(() => {});
+      setSessionErrors(prev => prev + 1);
+    }
+    const message = correct
+      ? (isPortuguese ? 'Correto! Boa escuta.' : 'Correct! Great listening.')
+      : (isPortuguese ? 'Quase la — ouça novamente.' : 'Almost there — listen again.');
+    showPronResult({ state: correct ? 'correct' : 'error', message, xp });
   };
 
   // ── Advance step ───────────────────────────────────────────
@@ -755,8 +799,6 @@ export default function LearnSessionScreen() {
   };
 
   const progress = totalSteps > 0 ? (stepIdx + 1) / totalSteps : 0;
-  const avgScore = sessionScores.length > 0
-    ? Math.round(sessionScores.reduce((a, b) => a + b, 0) / sessionScores.length) : null;
 
   const modTitle   = CURRICULUM[level]?.[moduleIndex]?.title ?? '';
   const topicTitle = topic?.title ?? '';
@@ -802,7 +844,6 @@ export default function LearnSessionScreen() {
             </AppText>
             <AppText style={{ fontSize: 13, color: C.navyLight, textAlign: 'center', lineHeight: 20, marginBottom: 12 }}>
               {sessionXP} {isPortuguese ? 'XP ganhos' : 'XP earned'}
-              {avgScore !== null ? (isPortuguese ? ` · Pronúncia média ${avgScore}` : ` · Avg pronunciation ${avgScore}`) : ''}
             </AppText>
 
             {/* Feedback de erros / reagendamento */}
@@ -871,7 +912,6 @@ export default function LearnSessionScreen() {
           </AppText>
           <AppText style={{ fontSize: 13, color: C.navyLight, textAlign: 'center', lineHeight: 20, marginBottom: 32 }}>
             {sessionXP} {isPortuguese ? 'XP ganhos' : 'XP earned'}
-            {avgScore !== null ? (isPortuguese ? ` · Pronuncia media ${avgScore}` : ` · Avg pronunciation ${avgScore}`) : ''}
           </AppText>
           <TouchableOpacity
             onPress={() => {
@@ -944,7 +984,7 @@ export default function LearnSessionScreen() {
         <ScrollView
           ref={scrollRef}
           style={{ flex: 1, backgroundColor: C.bg }}
-          contentContainerStyle={{ padding: 20, paddingBottom: currentStep.kind === 'grammar' && gStatus === 'submitted' ? 300 : 24, flexGrow: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: (currentStep.kind === 'grammar' && gStatus === 'submitted') || (currentStep.kind === 'pronunciation' && pronStatus === 'result') ? 300 : 24, flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -1385,12 +1425,20 @@ export default function LearnSessionScreen() {
                           setStressTapped(word);
                           setStressCorrect(correct);
                           const xp = correct ? 8 : 2;
-                          setSessionXP(prev => prev + xp);
                           saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'sentence_stress', isCorrect: correct, xpEarned: xp });
-                          if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                          else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                          Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
-                          setPronStatus('result');
+                          if (correct) {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            soundEngine.play('answer_correct').catch(() => {});
+                          } else {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                            soundEngine.play('answer_wrong').catch(() => {});
+                            setSessionErrors(prev => prev + 1);
+                          }
+                          const stressedWord = currentStep.phrase.stressed_word ?? '';
+                          const message = correct
+                            ? (isPortuguese ? 'Exato! Essa e a palavra tonica.' : "Exactly! That's the stressed word.")
+                            : (isPortuguese ? `Quase! A palavra tonica e "${stressedWord}".` : `Almost! The stressed word is "${stressedWord}".`);
+                          showPronResult({ state: correct ? 'correct' : 'error', message, xp });
                         }}
                         style={{
                           paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10,
@@ -1456,12 +1504,20 @@ export default function LearnSessionScreen() {
                           setMpChosen(key);
                           setMpCorrect(correct);
                           const xp = correct ? 8 : 2;
-                          setSessionXP(prev => prev + xp);
                           saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'minimal_pairs', isCorrect: correct, xpEarned: xp });
-                          if (correct) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                          else         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-                          Animated.spring(resultAnim, { toValue: 1, useNativeDriver: true, tension: 120, friction: 8 }).start();
-                          setPronStatus('result');
+                          if (correct) {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                            soundEngine.play('answer_correct').catch(() => {});
+                          } else {
+                            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                            soundEngine.play('answer_wrong').catch(() => {});
+                            setSessionErrors(prev => prev + 1);
+                          }
+                          const correctWord = currentStep.phrase.target === 'word2' ? currentStep.phrase.word2 : currentStep.phrase.word1;
+                          const message = correct
+                            ? (isPortuguese ? 'Correto! Voce ouviu a diferenca.' : 'Correct! You heard the difference.')
+                            : (isPortuguese ? `Quase la — Charlotte disse "${correctWord}".` : `Not quite — Charlotte said "${correctWord}".`);
+                          showPronResult({ state: correct ? 'correct' : 'error', message, xp });
                         }}
                         style={{
                           flex: 1, paddingVertical: 18, borderRadius: 14,
@@ -1476,50 +1532,13 @@ export default function LearnSessionScreen() {
                 </View>
               )}
 
-              {/* minimal_pairs: result */}
-              {currentStep.phrase.type === 'minimal_pairs' && pronStatus === 'result' && mpCorrect !== null && (
-                <Animated.View style={{
-                  opacity: resultAnim,
-                  transform: [{ translateY: resultAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-                }}>
-                  <View style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 10,
-                    padding: 14, borderRadius: 14, marginBottom: 12,
-                    backgroundColor: mpCorrect ? C.greenBg : C.redBg,
-                    borderWidth: 1,
-                    borderColor: mpCorrect ? 'rgba(61,136,0,0.2)' : 'rgba(220,38,38,0.18)',
-                  }}>
-                    {mpCorrect ? <CheckCircle size={20} color={C.green} weight="fill" /> : <XCircle size={20} color={C.red} weight="fill" />}
-                    <AppText style={{ fontSize: 15, fontWeight: '700', color: mpCorrect ? C.green : C.red, flex: 1 }}>
-                      {mpCorrect
-                        ? (isPortuguese ? 'Correto!' : 'Correct!')
-                        : (isPortuguese ? 'Quase lá — Charlotte disse: ' : 'Not quite — Charlotte said: ') + (currentStep.phrase.target === 'word2' ? currentStep.phrase.word2 : currentStep.phrase.word1)}
-                    </AppText>
-                  </View>
-                </Animated.View>
-              )}
-
-              {/* sentence_stress: result */}
-              {currentStep.phrase.type === 'sentence_stress' && pronStatus === 'result' && stressCorrect !== null && (
-                <Animated.View style={{
-                  opacity: resultAnim,
-                  transform: [{ translateY: resultAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-                }}>
-                  <View style={{ padding: 14, backgroundColor: C.ghost, borderRadius: 12 }}>
-                    <AppText style={{ fontSize: 13, color: C.navyMid, lineHeight: 20 }}>
-                      {currentStep.phrase.focus}
-                    </AppText>
-                  </View>
-                </Animated.View>
-              )}
-
               {/* Listen & Write: text input */}
               {currentStep.phrase.type === 'listen_write' && (pronStatus === 'listening' || pronStatus === 'result') && (
                 <>
                   <TextInput
                     value={listenWriteAnswer}
                     onChangeText={setListenWriteAnswer}
-                    placeholder={isPortuguese ? 'Digite o que você ouviu…' : 'Type what you heard…'}
+                    placeholder={isPortuguese ? 'Digite o que voce ouviu…' : 'Type what you heard…'}
                     placeholderTextColor={C.navyLight}
                     editable={pronStatus === 'listening'}
                     style={{
@@ -1546,43 +1565,6 @@ export default function LearnSessionScreen() {
                     </TouchableOpacity>
                   )}
                 </>
-              )}
-
-              {/* Pronunciation result */}
-              {pronStatus === 'result' && (
-                <Animated.View style={{
-                  opacity: resultAnim,
-                  transform: [{ translateY: resultAnim.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-                  marginTop: 8,
-                }}>
-                  {/* Repeat / Shadowing result */}
-                  {assessmentResult && (currentStep.phrase.type === 'repeat' || currentStep.phrase.type === 'shadowing') && (
-                    <View style={{ backgroundColor: C.ghost, borderRadius: 14, padding: 16, marginBottom: 12 }}>
-                      <AppText style={{ fontSize: 16, fontWeight: '800', color: scoreColor(assessmentResult.pronunciationScore ?? 0), marginBottom: 12 }}>
-                        {scoreLabel(assessmentResult.pronunciationScore ?? 0, isPortuguese)}
-                      </AppText>
-                      <ScoreBar label={isPortuguese ? 'Geral'      : 'Overall'}      score={assessmentResult.pronunciationScore ?? 0} />
-                      <ScoreBar label={isPortuguese ? 'Precisão'   : 'Accuracy'}     score={assessmentResult.accuracyScore     ?? 0} />
-                      <ScoreBar label={isPortuguese ? 'Fluência'   : 'Fluency'}      score={assessmentResult.fluencyScore       ?? 0} />
-                      <ScoreBar label={isPortuguese ? 'Completude' : 'Completeness'} score={assessmentResult.completenessScore  ?? 0} />
-                    </View>
-                  )}
-                  {/* Listen & Write result */}
-                  {currentStep.phrase.type === 'listen_write' && listenWriteCorrect !== null && (
-                    <View style={{
-                      flexDirection: 'row', alignItems: 'center', gap: 10,
-                      padding: 14, borderRadius: 14, marginBottom: 12,
-                      backgroundColor: listenWriteCorrect ? C.greenBg : C.redBg,
-                      borderWidth: 1,
-                      borderColor: listenWriteCorrect ? 'rgba(61,136,0,0.2)' : 'rgba(220,38,38,0.18)',
-                    }}>
-                      {listenWriteCorrect ? <CheckCircle size={20} color={C.green} weight="fill" /> : <XCircle size={20} color={C.red} weight="fill" />}
-                      <AppText style={{ fontSize: 15, fontWeight: '700', color: listenWriteCorrect ? C.green : C.red }}>
-                        {listenWriteCorrect ? (isPortuguese ? 'Correto!' : 'Correct!') : (isPortuguese ? 'Quase lá — ouça novamente.' : 'Almost there — listen again.')}
-                      </AppText>
-                    </View>
-                  )}
-                </Animated.View>
               )}
 
               {/* Error fallback — shown when assessment failed */}
@@ -1644,10 +1626,10 @@ export default function LearnSessionScreen() {
 
           {/* ── Pronunciation: Repeat ── */}
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'repeat' && (
-            (pronStatus === 'result' || pronStatus === 'retry' || pronStatus === 'error') ? (
+            pronStatus === 'error' ? (
               <TouchableOpacity onPress={handleNext}
                 style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Proximo' : 'Next')}</AppText>
                 {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
               </TouchableOpacity>
             ) : pronStatus === 'loading_audio' ? (
@@ -1659,7 +1641,7 @@ export default function LearnSessionScreen() {
                 <ActivityIndicator color={accent} />
                 <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 6 }}>{isPortuguese ? 'Analisando…' : 'Assessing…'}</AppText>
               </View>
-            ) : (
+            ) : pronStatus !== 'result' ? (
               <Pressable
                 ref={tourMicBtnRef}
                 onPressIn={startRecording}
@@ -1678,24 +1660,24 @@ export default function LearnSessionScreen() {
                     : (isPortuguese ? 'Segure para falar' : 'Hold to speak')}
                 </AppText>
               </Pressable>
-            )
+            ) : null
           )}
 
           {/* ── Pronunciation: Listen & Write ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'listen_write' && (pronStatus === 'result' || pronStatus === 'error') && (
+          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'listen_write' && pronStatus === 'error' && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Proximo' : 'Next')}</AppText>
               {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
             </TouchableOpacity>
           )}
 
-          {/* ── Pronunciation: Shadowing (same hold-to-record as repeat) ── */}
+          {/* ── Pronunciation: Shadowing ── */}
           {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'shadowing' && (
-            (pronStatus === 'result' || pronStatus === 'retry' || pronStatus === 'error') ? (
+            (pronStatus === 'retry' || pronStatus === 'error') ? (
               <TouchableOpacity onPress={handleNext}
                 style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
+                <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Proximo' : 'Next')}</AppText>
                 {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
               </TouchableOpacity>
             ) : pronStatus === 'loading_audio' ? (
@@ -1707,7 +1689,7 @@ export default function LearnSessionScreen() {
                 <ActivityIndicator color={accent} />
                 <AppText style={{ color: C.navyLight, fontSize: 13, marginTop: 6 }}>{isPortuguese ? 'Analisando…' : 'Assessing…'}</AppText>
               </View>
-            ) : (
+            ) : pronStatus !== 'result' ? (
               <Pressable
                 onPressIn={startRecording}
                 onPressOut={stopRecording}
@@ -1725,23 +1707,14 @@ export default function LearnSessionScreen() {
                     : (isPortuguese ? 'Segure e siga junto' : 'Hold and follow along')}
                 </AppText>
               </Pressable>
-            )
+            ) : null
           )}
 
-          {/* ── Pronunciation: Minimal Pairs — Next after result ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'minimal_pairs' && (pronStatus === 'result' || pronStatus === 'error') && (
+          {/* ── Pronunciation: Minimal Pairs / Sentence Stress — error fallback only ── */}
+          {currentStep.kind === 'pronunciation' && (currentStep.phrase.type === 'minimal_pairs' || currentStep.phrase.type === 'sentence_stress') && pronStatus === 'error' && (
             <TouchableOpacity onPress={handleNext}
               style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
-              {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
-            </TouchableOpacity>
-          )}
-
-          {/* ── Pronunciation: Sentence Stress — Next after result ── */}
-          {currentStep.kind === 'pronunciation' && currentStep.phrase.type === 'sentence_stress' && (pronStatus === 'result' || pronStatus === 'error') && (
-            <TouchableOpacity onPress={handleNext}
-              style={{ backgroundColor: C.navy, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Próximo' : 'Next')}</AppText>
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>{stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Proximo' : 'Next')}</AppText>
               {stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
             </TouchableOpacity>
           )}
@@ -1828,6 +1801,88 @@ export default function LearnSessionScreen() {
           </TouchableOpacity>
         </Animated.View>
       )}
+
+      {/* ── Pronunciation feedback panel — slides up from bottom ── */}
+      {currentStep.kind === 'pronunciation' && pronStatus === 'result' && pronFeedback !== null && (() => {
+        const fb = pronFeedback;
+        const isCorrectState = fb.state === 'correct';
+        const isCloseState   = fb.state === 'close';
+        const panelBg    = isCorrectState ? '#EDFFD0' : isCloseState ? '#FFFBE6' : '#FFF0F0';
+        const panelBorder = isCorrectState ? 'rgba(163,255,60,0.4)' : isCloseState ? 'rgba(245,158,11,0.4)' : 'rgba(220,38,38,0.25)';
+        const textColor   = isCorrectState ? C.green : isCloseState ? '#92400E' : C.red;
+        const btnColor    = isCorrectState ? C.green : isCloseState ? '#D97706' : C.red;
+        const xpBg        = isCorrectState ? 'rgba(61,136,0,0.12)' : isCloseState ? 'rgba(217,119,6,0.12)' : 'rgba(220,38,38,0.10)';
+        const title       = isCorrectState
+          ? (isPortuguese ? 'Correto!' : 'Correct!')
+          : isCloseState
+          ? (isPortuguese ? 'Quase la!' : 'Almost!')
+          : (isPortuguese ? 'Tente de novo' : 'Try again');
+        const canRetry = (currentStep.phrase.type === 'repeat' || currentStep.phrase.type === 'shadowing') && !isCorrectState;
+        return (
+          <Animated.View style={{
+            position: 'absolute', bottom: 0, left: 0, right: 0,
+            backgroundColor: panelBg,
+            borderTopLeftRadius: 24, borderTopRightRadius: 24,
+            borderTopWidth: 1, borderColor: panelBorder,
+            paddingHorizontal: 24, paddingTop: 20,
+            paddingBottom: insets.bottom + 20,
+            transform: [{ translateY: pronFeedbackAnim.interpolate({ inputRange: [0, 1], outputRange: [300, 0] }) }],
+          }}>
+            {/* Header: icon + title + XP badge */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+              {isCorrectState
+                ? <CheckCircle size={24} color={C.green} weight="fill" />
+                : isCloseState
+                ? <Play size={24} color="#D97706" weight="fill" />
+                : <XCircle size={24} color={C.red} weight="fill" />}
+              <AppText style={{ fontSize: 17, fontWeight: '800', color: textColor, flex: 1 }}>{title}</AppText>
+              <View style={{ backgroundColor: xpBg, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 }}>
+                <AppText style={{ fontSize: 12, fontWeight: '800', color: textColor }}>+{fb.xp} XP</AppText>
+              </View>
+            </View>
+
+            {/* Feedback message */}
+            <View style={{ padding: 12, backgroundColor: 'rgba(22,21,58,0.06)', borderRadius: 12, marginBottom: 14 }}>
+              <AppText style={{ fontSize: 13, color: isCorrectState ? '#1a3a00' : isCloseState ? '#78350F' : '#7B2020', lineHeight: 19 }}>
+                {fb.message}
+              </AppText>
+            </View>
+
+            {/* listen_write: show correct answer when wrong */}
+            {currentStep.phrase.type === 'listen_write' && !isCorrectState && (
+              <View style={{ padding: 12, backgroundColor: 'rgba(220,38,38,0.07)', borderRadius: 12, marginBottom: 14 }}>
+                <AppText style={{ fontSize: 11, fontWeight: '700', color: C.red, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 }}>
+                  {isPortuguese ? 'Resposta correta' : 'Correct answer'}
+                </AppText>
+                <AppText style={{ fontSize: 15, color: C.navy, fontWeight: '600' }}>{currentStep.phrase.text}</AppText>
+              </View>
+            )}
+
+            {/* Primary button */}
+            <TouchableOpacity
+              onPress={canRetry && !isCorrectState ? handleRetryPron : handleNext}
+              activeOpacity={0.85}
+              style={{ backgroundColor: btnColor, borderRadius: 16, paddingVertical: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+            >
+              <AppText style={{ fontSize: 15, fontWeight: '800', color: '#FFF' }}>
+                {canRetry && !isCorrectState
+                  ? (isPortuguese ? 'Tentar de novo' : 'Try again')
+                  : stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir' : 'Finish') : (isPortuguese ? 'Proximo' : 'Next')}
+              </AppText>
+              {(!canRetry || isCorrectState) && stepIdx + 1 < totalSteps && <ArrowRight size={18} color="#FFF" weight="bold" />}
+            </TouchableOpacity>
+
+            {/* Skip link for close/error on audio types */}
+            {canRetry && (
+              <TouchableOpacity onPress={handleNext} style={{ alignItems: 'center', marginTop: 12 }}>
+                <AppText style={{ fontSize: 13, color: textColor, fontWeight: '600', opacity: 0.7 }}>
+                  {stepIdx + 1 >= totalSteps ? (isPortuguese ? 'Concluir mesmo assim' : 'Finish anyway') : (isPortuguese ? 'Pular' : 'Skip')}
+                </AppText>
+              </TouchableOpacity>
+            )}
+          </Animated.View>
+        );
+      })()}
 
     </SafeAreaView>
   );

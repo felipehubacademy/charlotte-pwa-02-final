@@ -85,6 +85,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         color: '#A3FF3C',
       },
     ],
+    'expo-speech-recognition',
   ],
   experiments: {
     typedRoutes: true,
