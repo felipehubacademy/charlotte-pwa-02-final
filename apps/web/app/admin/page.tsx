@@ -29,7 +29,7 @@ interface Form {
 }
 
 type SortKey = 'name' | 'level' | 'created_at' | 'xp' | 'lastActive' | 'topics' | 'streak';
-type FilterKey = 'all' | 'institutional' | 'subscriber' | 'trial' | 'none';
+type FilterKey = 'all' | 'institutional' | 'subscriber' | 'trial' | 'expired' | 'none';
 type ModalMode = 'create' | 'edit' | 'delete' | null;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -184,6 +184,7 @@ export default function AdminUsersPage() {
         filter === 'institutional' ? u.is_institutional :
         filter === 'subscriber' ? u.subscription_status === 'active' :
         filter === 'trial' ? u.subscription_status === 'trial' && !u.is_institutional :
+        filter === 'expired' ? u.subscription_status === 'expired' && !u.is_institutional :
         filter === 'none' ? u.subscription_status === 'none' && !u.is_institutional : true;
       return matchQ && matchF;
     });
@@ -208,6 +209,8 @@ export default function AdminUsersPage() {
     });
     return list;
   }, [users, search, filter, sortKey, sortDir]);
+
+  const expiredCount = useMemo(() => users.filter(u => u.subscription_status === 'expired' && !u.is_institutional).length, [users]);
 
   const totalPages = Math.ceil(displayed.length / PER_PAGE);
   const pageUsers  = displayed.slice((page - 1) * PER_PAGE, page * PER_PAGE);
@@ -360,10 +363,16 @@ export default function AdminUsersPage() {
             { id: 'all',           label: `Todos (${users.length})` },
             { id: 'subscriber',    label: 'Assinantes' },
             { id: 'trial',         label: 'Trial' },
+            { id: 'expired',       label: `Expirado${expiredCount > 0 ? ` (${expiredCount})` : ''}` },
             { id: 'institutional', label: 'Institucional' },
             { id: 'none',          label: 'Sem plano' },
           ] as { id: FilterKey; label: string }[]).map(f => (
-            <button key={f.id} className={`adm-chip${filter === f.id ? ' active' : ''}`} onClick={() => setFilter(f.id)}>
+            <button
+              key={f.id}
+              className={`adm-chip${filter === f.id ? ' active' : ''}`}
+              style={f.id === 'expired' && expiredCount > 0 && filter !== 'expired' ? { color: 'var(--warn)', borderColor: 'var(--warn)' } : undefined}
+              onClick={() => setFilter(f.id)}
+            >
               {f.label}
             </button>
           ))}
