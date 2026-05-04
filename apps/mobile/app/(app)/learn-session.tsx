@@ -23,6 +23,10 @@ import {
   ExpoSpeechRecognitionModule,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
+
+// Guard: module is only available after a native build that includes expo-speech-recognition.
+// On older builds the native module is absent — disable ASR to prevent render crash.
+const ASR_AVAILABLE = !!ExpoSpeechRecognitionModule?.start;
 import Constants from 'expo-constants';
 import { useAuth } from '@/hooks/useAuth';
 import { useTotalXP } from '@/hooks/useTotalXP';
@@ -309,8 +313,9 @@ export default function LearnSessionScreen() {
   // on-device ASR transcript (repeat)
   const speechTranscriptRef = useRef('');
 
-  // ── Speech recognition events ──────────────────────────────
+  // ── Speech recognition events (no-op on builds without native module) ──
   useSpeechRecognitionEvent('result', (event) => {
+    if (!ASR_AVAILABLE) return;
     const transcript = event.results[0]?.transcript;
     if (transcript) speechTranscriptRef.current = transcript;
   });
@@ -580,7 +585,7 @@ export default function LearnSessionScreen() {
     setPronStatus('recording');
 
     try {
-      if (currentStep.phrase.type === 'repeat') {
+      if (currentStep.phrase.type === 'repeat' && ASR_AVAILABLE) {
         // On-device ASR — no audio file needed
         const perm = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
         if (!perm.granted) {
@@ -590,7 +595,7 @@ export default function LearnSessionScreen() {
         }
         ExpoSpeechRecognitionModule.start({ lang: 'en-US', interimResults: true, continuous: true });
       } else {
-        // Recorder for Azure (shadowing)
+        // Recorder — for Azure (shadowing) or Whisper fallback (repeat without ASR)
         await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
         await recorder.prepareToRecordAsync();
         recorder.record();
@@ -611,7 +616,7 @@ export default function LearnSessionScreen() {
     // Ignore accidental releases shorter than 300ms
     if (elapsed < 300) {
       recordingRef.current = false;
-      if (isRepeat) {
+      if (isRepeat && ASR_AVAILABLE) {
         ExpoSpeechRecognitionModule.abort();
       } else {
         try { await recorder.stop(); } catch {}
@@ -626,13 +631,50 @@ export default function LearnSessionScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     try {
-      if (isRepeat) {
+      if (isRepeat && ASR_AVAILABLE) {
         // ── REPEAT: on-device ASR + string similarity ────────────
         ExpoSpeechRecognitionModule.stop();
         // Give ~300ms for final result event to fire
         await new Promise(r => setTimeout(r, 300));
 
         const transcript = speechTranscriptRef.current;
+        const pct = transcript ? wordMatchPercent(transcript, currentStep.phrase.text ?? '') : 0;
+
+        let feedback: NonNullable<PronFeedback>;
+        if (pct >= 85) {
+          feedback = { state: 'correct', xp: 15, message: isPortuguese ? 'Perfeito! Otima pronuncia.' : 'Perfect! Great pronunciation.' };
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          soundEngine.play('answer_correct').catch(() => {});
+        } else if (pct >= 50) {
+          feedback = { state: 'close', xp: 8, message: isPortuguese ? `Quase! Entendemos: "${transcript}". Tente de novo.` : `Close! We heard: "${transcript}". Try again.` };
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        } else {
+          feedback = { state: 'error', xp: 2, message: isPortuguese ? 'Nao conseguimos entender. Fale mais perto do microfone.' : "We didn't catch that. Speak closer to the mic." };
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          soundEngine.play('answer_wrong').catch(() => {});
+          setSessionErrors(prev => prev + 1);
+        }
+        saveExercise({ level, moduleIndex, topicIndex, exerciseType: 'repeat', isCorrect: feedback.state === 'correct', xpEarned: feedback.xp,
+          exerciseData: { question: currentStep.phrase.text, score: pct, userAnswer: transcript } });
+        showPronResult(feedback);
+
+      } else if (isRepeat && !ASR_AVAILABLE) {
+        // ── REPEAT fallback: Whisper transcription (no native ASR) ──
+        await recorder.stop();
+        await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true });
+        const audioUri = recorder.uri;
+        if (!audioUri) { setPronStatus('error'); return; }
+
+        const isWav = audioUri.toLowerCase().endsWith('.wav');
+        const formData = new FormData();
+        formData.append('audio', { uri: audioUri, name: isWav ? 'recording.wav' : 'recording.m4a', type: isWav ? 'audio/wav' : 'audio/x-m4a' } as unknown as Blob);
+        if (userId) formData.append('userId', userId);
+
+        const res = await fetch(`${API_BASE_URL}/api/transcribe`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Transcription failed');
+        const data = await res.json();
+
+        const transcript = (data.transcription as string) ?? '';
         const pct = transcript ? wordMatchPercent(transcript, currentStep.phrase.text ?? '') : 0;
 
         let feedback: NonNullable<PronFeedback>;
