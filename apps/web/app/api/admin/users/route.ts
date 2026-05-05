@@ -123,8 +123,10 @@ export async function GET(req: NextRequest) {
       ...u,
       engagement: e ? {
         totalXP:      prog?.totalXP ?? e.totalXP, // charlotte_progress.total_xp tem achievements inclusos
-        // last_seen_at = abertura do app; lastActive = última prática. Usa o mais recente.
-        lastActive:   [e.lastActive, u.last_seen_at].filter(Boolean).sort().at(-1) ?? null,
+        // Usa o mais recente entre: última prática (engMap), last_practice_date
+        // do charlotte_progress (fonte confiável, não sofre truncamento de 1000 rows),
+        // e last_seen_at (abertura do app).
+        lastActive:   [e.lastActive, prog?.lastPracticeDate, u.last_seen_at].filter(Boolean).sort().at(-1) ?? null,
         sessionDays:  e.sessionDays.size,
         lessonCount:  e.lessonCount,
         messageCount: e.messageCount,
