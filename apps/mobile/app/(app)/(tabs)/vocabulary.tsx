@@ -1,10 +1,10 @@
 // app/(app)/(tabs)/vocabulary.tsx
-// Vocabulary tab — review prompt modal + searchable word list with collapsed/expanded cards.
+// Vocabulary tab — Tip of the Day + review prompt modal + searchable word list.
 // On focus: if words are due → modal "X words to review. Review now?"
 //   "Revisar" → /(app)/vocab-review  |  "Ver lista" → dismiss modal, show list
 // Word card: collapsed = term + /phonetic/ + speaker icon, tap → expand full details.
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View, ScrollView, TouchableOpacity, TextInput,
   ActivityIndicator, Alert, Platform, Modal,
@@ -21,6 +21,7 @@ import Constants from 'expo-constants';
 import { AppText } from '@/components/ui/Text';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { getTip, TIP_STYLE, Tip } from '@/lib/tips';
 
 const API_BASE = (Constants.expoConfig?.extra?.apiBaseUrl as string) ?? 'https://charlotte.hubacademybr.com';
 
@@ -95,13 +96,77 @@ export default function VocabularyTab() {
   const [search,       setSearch]       = useState('');
   const [expanded,     setExpanded]     = useState<string | null>(null);
   const [showModal,    setShowModal]    = useState(false);
-  const [ttsLoading,   setTtsLoading]   = useState<string | null>(null); // item id being loaded
+  const [ttsLoading,   setTtsLoading]   = useState<string | null>(null);
+  const [tipAdded,     setTipAdded]     = useState(false);
+  const [addingTip,    setAddingTip]    = useState(false);
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
+
+  // Today's tip, seeded by calendar day
+  const dateSeed = useMemo(() => Math.floor(Date.now() / 86400000), []);
+  const tip: Tip  = useMemo(() => getTip(level, dateSeed), [level, dateSeed]);
+  const tipStyle  = TIP_STYLE[tip.type] ?? { bg: '#F4F3FA', color: '#16153A' };
+
+  const TIP_CATEGORY_MAP: Record<string, string> = {
+    'word':         'word',
+    'expression':   'idiom',
+    'phrasal verb': 'phrasal_verb',
+    'grammar':      'grammar',
+    'idiom':        'idiom',
+  };
 
   const openAdd = () => router.push({ pathname: '/(app)/add-word', params: { source: 'manual' } });
 
+  const handleAddTip = useCallback(async () => {
+    if (!userId || addingTip) return;
+    setAddingTip(true);
+    try {
+      // Check if term already exists
+      const { data: existing } = await supabase
+        .from('user_vocabulary')
+        .select('id')
+        .eq('user_id', userId)
+        .ilike('term', tip.term.trim())
+        .maybeSingle();
+
+      if (existing) {
+        setTipAdded(true);
+        Alert.alert(
+          isPt ? 'Já no vocabulário' : 'Already in vocabulary',
+          isPt ? `"${tip.term}" já está na sua lista.` : `"${tip.term}" is already in your list.`,
+        );
+        return;
+      }
+
+      const { error } = await supabase.from('user_vocabulary').insert({
+        user_id:   userId,
+        term:      tip.term.trim(),
+        definition: isPt && tip.meaningPt ? tip.meaningPt : tip.meaning,
+        example:   tip.example,
+        example_translation: isPt && tip.examplePt ? tip.examplePt : null,
+        category:  TIP_CATEGORY_MAP[tip.type] ?? 'word',
+        source:    'tip_of_day',
+      });
+
+      if (error) throw error;
+      setTipAdded(true);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Refresh list
+      const { data } = await supabase
+        .from('user_vocabulary')
+        .select('id, term, definition, example, example_translation, phonetic, category, source, next_review_at, repetitions, created_at')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      if (data) setItems(data);
+    } catch {
+      Alert.alert(isPt ? 'Erro' : 'Error', isPt ? 'Não foi possível adicionar.' : 'Could not add word.');
+    } finally {
+      setAddingTip(false);
+    }
+  }, [userId, tip, addingTip, isPt]);
+
   const load = useCallback(async () => {
     if (!userId) { setLoading(false); return; }
+    setTipAdded(false); // reset tip state on each focus
     setLoading(true);
     const [vocabRes, srRes] = await Promise.all([
       supabase
@@ -115,12 +180,18 @@ export default function VocabularyTab() {
         .eq('user_id', userId)
         .lte('next_review_at', new Date().toISOString()),
     ]);
-    if (!vocabRes.error) setItems(vocabRes.data ?? []);
+    const loadedItems = vocabRes.data ?? [];
+    if (!vocabRes.error) setItems(loadedItems);
+    // Check if today's tip term already exists in vocab
+    const alreadyAdded = loadedItems.some(
+      i => i.term.toLowerCase() === tip.term.toLowerCase(),
+    );
+    setTipAdded(alreadyAdded);
     const due = srRes.count ?? 0;
     setDueCount(due);
     if (due > 0) setShowModal(true);
     setLoading(false);
-  }, [userId]);
+  }, [userId, tip]);
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -243,6 +314,71 @@ export default function VocabularyTab() {
           )}
         </View>
       </SafeAreaView>
+
+      {/* Tip of the Day */}
+      <View style={{
+        marginHorizontal: 16, marginTop: 14, marginBottom: 2,
+        backgroundColor: tipStyle.bg,
+        borderRadius: 18, padding: 16,
+        borderWidth: 1, borderColor: `${tipStyle.color}25`,
+        ...cardShadow,
+      }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={{
+              backgroundColor: `${tipStyle.color}18`, borderRadius: 8,
+              paddingHorizontal: 8, paddingVertical: 3,
+            }}>
+              <AppText style={{ fontSize: 10, fontWeight: '800', color: tipStyle.color, textTransform: 'capitalize', letterSpacing: 0.5 }}>
+                {tip.type}
+              </AppText>
+            </View>
+            <AppText style={{ fontSize: 10, fontWeight: '700', color: tipStyle.color, letterSpacing: 0.6, textTransform: 'uppercase' }}>
+              {isPt ? 'Dica do dia' : 'Tip of the day'}
+            </AppText>
+          </View>
+          <TouchableOpacity
+            onPress={tipAdded ? undefined : handleAddTip}
+            activeOpacity={tipAdded ? 1 : 0.75}
+            style={{
+              flexDirection: 'row', alignItems: 'center', gap: 5,
+              backgroundColor: tipAdded ? `${tipStyle.color}15` : tipStyle.color,
+              borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
+            }}
+          >
+            {addingTip ? (
+              <ActivityIndicator size={12} color={tipAdded ? tipStyle.color : '#FFF'} />
+            ) : tipAdded ? (
+              <CheckCircle size={13} color={tipStyle.color} weight="fill" />
+            ) : (
+              <Plus size={13} color="#FFF" weight="bold" />
+            )}
+            <AppText style={{
+              fontSize: 12, fontWeight: '700',
+              color: tipAdded ? tipStyle.color : '#FFF',
+            }}>
+              {tipAdded
+                ? (isPt ? 'Adicionada' : 'Added')
+                : (isPt ? 'Add vocab' : 'Add vocab')}
+            </AppText>
+          </TouchableOpacity>
+        </View>
+
+        <AppText style={{ fontSize: 20, fontWeight: '900', color: '#16153A', marginBottom: 2 }}>
+          {tip.term}
+        </AppText>
+        <AppText style={{ fontSize: 13, color: '#4B4A72', lineHeight: 19, marginBottom: 6 }}>
+          {isPt && tip.meaningPt ? tip.meaningPt : tip.meaning}
+        </AppText>
+        <AppText style={{ fontSize: 12, color: tipStyle.color, fontStyle: 'italic', lineHeight: 18 }}>
+          "{tip.example}"
+        </AppText>
+        {isPt && tip.examplePt && (
+          <AppText style={{ fontSize: 11, color: '#9896B8', marginTop: 2, lineHeight: 16 }}>
+            {tip.examplePt}
+          </AppText>
+        )}
+      </View>
 
       {/* Search bar */}
       <View style={{ paddingHorizontal: 16, marginTop: 14, marginBottom: 10, flexDirection: 'row', alignItems: 'center', gap: 10 }}>

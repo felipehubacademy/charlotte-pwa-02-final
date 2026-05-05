@@ -5,7 +5,7 @@
 
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
-import { House, Lightning, Notepad, Rocket, Compass } from 'phosphor-react-native';
+import { House, Lightning, Notepad, Rocket, UserCircle } from 'phosphor-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { UserLevel } from '@/lib/levelConfig';
 
@@ -69,10 +69,10 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="discover"
+        name="profile"
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Compass size={size ?? 24} color={color} weight="fill" />
+            <UserCircle size={size ?? 24} color={color} weight="fill" />
           ),
         }}
       />
