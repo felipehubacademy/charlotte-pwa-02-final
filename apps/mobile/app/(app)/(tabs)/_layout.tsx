@@ -5,7 +5,7 @@
 
 import { Tabs } from 'expo-router';
 import { Platform } from 'react-native';
-import { House, Lightning, Notepad, Target, Compass } from 'phosphor-react-native';
+import { House, Lightning, Notepad, Rocket, Compass } from 'phosphor-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { UserLevel } from '@/lib/levelConfig';
 
@@ -64,7 +64,7 @@ export default function TabLayout() {
         name="goals"
         options={{
           tabBarIcon: ({ color, size }) => (
-            <Target size={size ?? 24} color={color} weight="fill" />
+            <Rocket size={size ?? 24} color={color} weight="fill" />
           ),
         }}
       />
