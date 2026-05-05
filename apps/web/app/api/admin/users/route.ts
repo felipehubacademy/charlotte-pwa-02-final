@@ -141,8 +141,11 @@ export async function GET(req: NextRequest) {
   const subscribers   = usersWithEng.filter(u => u.subscription_status === 'active').length;
   const onTrial       = usersWithEng.filter(u => u.subscription_status === 'trial').length;
   const trialExpired  = usersWithEng.filter(u => {
-    if (u.subscription_status !== 'trial') return false;
-    return !u.trial_ends_at || new Date(u.trial_ends_at) < now;
+    if (u.is_institutional) return false;
+    // Conta status='expired' OU status='trial' com data já vencida (cron atrasado)
+    if (u.subscription_status === 'expired') return true;
+    if (u.subscription_status === 'trial' && u.trial_ends_at && new Date(u.trial_ends_at) < now) return true;
+    return false;
   }).length;
 
   const d30   = new Date(now); d30.setDate(d30.getDate() - 30);

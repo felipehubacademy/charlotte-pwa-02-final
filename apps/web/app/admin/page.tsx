@@ -184,7 +184,10 @@ export default function AdminUsersPage() {
         filter === 'institutional' ? u.is_institutional :
         filter === 'subscriber' ? u.subscription_status === 'active' :
         filter === 'trial' ? u.subscription_status === 'trial' && !u.is_institutional :
-        filter === 'expired' ? u.subscription_status === 'expired' && !u.is_institutional :
+        filter === 'expired' ? !u.is_institutional && (
+          u.subscription_status === 'expired' ||
+          (u.subscription_status === 'trial' && !!u.trial_ends_at && new Date(u.trial_ends_at) < new Date())
+        ) :
         filter === 'none' ? u.subscription_status === 'none' && !u.is_institutional : true;
       return matchQ && matchF;
     });
@@ -210,7 +213,12 @@ export default function AdminUsersPage() {
     return list;
   }, [users, search, filter, sortKey, sortDir]);
 
-  const expiredCount = useMemo(() => users.filter(u => u.subscription_status === 'expired' && !u.is_institutional).length, [users]);
+  const expiredCount = useMemo(() => users.filter(u => {
+    if (u.is_institutional) return false;
+    if (u.subscription_status === 'expired') return true;
+    if (u.subscription_status === 'trial' && u.trial_ends_at && new Date(u.trial_ends_at) < new Date()) return true;
+    return false;
+  }).length, [users]);
 
   const totalPages = Math.ceil(displayed.length / PER_PAGE);
   const pageUsers  = displayed.slice((page - 1) * PER_PAGE, page * PER_PAGE);
